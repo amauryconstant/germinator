@@ -125,15 +125,17 @@ cmd/
 - Easy to add new test cases
 - Clear test data organization
 
-### 6. Script Organization
+### 6. mise Task Runner Organization
 
-**Decision**: Utility scripts directory at project root.
+**Decision**: mise task runner configuration and scripts directory at project root.
 
 **Rationale**:
-- Scripts/ provides location for utility scripts (validation, smoke tests, etc.)
-- Easy to run from project root
-- Version-controlled validation procedures
+- .mise/ provides unified task system for validation, formatting, etc.
+- mise handles automatic tool installation
+- Easy to run from project root with `mise run <task>`
+- Version-controlled task definitions and scripts
 - Automation-friendly (CI/CD integration)
+- File-based tasks get proper editor support
 
 ### 7. Go Module Naming Convention
 

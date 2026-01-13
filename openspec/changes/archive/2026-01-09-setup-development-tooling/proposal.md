@@ -24,7 +24,7 @@ Minimal development tooling provides immediate value while keeping the project l
 - Exclude generated code from linting
 
 **mise Task Runner Configuration**:
-- Create `mise.toml` with task definitions
+- Create `.mise/config.toml` with task definitions
 - Configure golangci-lint as tool (mise auto-installs)
 - Define validation task that runs: go build, go mod tidy, go vet, golangci-lint
 - Define smoke-test task for quick build check
@@ -33,6 +33,7 @@ Minimal development tooling provides immediate value while keeping the project l
 **File-Based Tasks**:
 - Create `.mise/tasks/validate.sh` (executable bash script)
 - Create `.mise/tasks/smoke-test.sh` (executable bash script)
+- Create `.mise/tasks/format.sh` (executable bash script)
 - Store scripts with proper shebangs for editor support
 
 **Workflow Documentation**:
@@ -85,8 +86,9 @@ Depends on `initialize-project-structure` change (project structure and Go modul
 2. `mise run validate` executes all validation checks successfully
 3. `mise run smoke-test` executes quick build check successfully
 4. `mise run --help` lists all available tasks
-5. golangci-lint is automatically installed by mise when needed
+5. golangci-lint is configured in mise for automatic installation
 6. Documentation explains tooling usage and workflow
+7. golangci-lint is installed in the development environment
 
 ## Validation Plan
 
@@ -95,6 +97,7 @@ Depends on `initialize-project-structure` change (project structure and Go modul
 - Run `mise run smoke-test` to verify smoke test works
 - Run `mise run --help` to verify tasks are discoverable
 - Verify mise auto-installs golangci-lint: `mise use golangci-lint@latest`
+- Install golangci-lint: `mise install golangci-lint`
 
 ## Decisions Made
 

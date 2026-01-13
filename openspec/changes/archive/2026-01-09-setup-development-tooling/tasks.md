@@ -27,43 +27,43 @@
 
 ---
 
-### - [x] 2. Create mise.toml Configuration
+### - [x] 2. Create .mise/config.toml Configuration
 
 **Objective**: Set up mise task runner configuration.
 
 **Steps**:
-1. Create `mise.toml` in project root
+1. Create `.mise/config.toml` in .mise directory
 2. Configure tools section:
-   ```toml
-   [tools]
-   golangci-lint = "latest"
-   ```
+    ```toml
+    [tools]
+    golangci-lint = "latest"
+    ```
 3. Configure tasks section:
-   ```toml
-   [tasks.validate]
-   description = "Run all validation checks"
-   run = [
-     "go build ./...",
-     "go mod tidy",
-     "go vet ./...",
-     "golangci-lint run",
-   ]
+    ```toml
+    [tasks.validate]
+    description = "Run all validation checks"
+    run = [
+      "go build ./...",
+      "go mod tidy",
+      "go vet ./...",
+      "golangci-lint run",
+    ]
 
-   [tasks.smoke-test]
-   description = "Quick build check"
-   run = ["go build ./cmd"]
-   sources = ["cmd/**/*.go"]
-   outputs = ["germinator"]
+    [tasks.smoke-test]
+    description = "Quick build check"
+    run = ["go build -o germinator ./cmd"]
+    sources = ["cmd/**/*.go"]
+    outputs = ["germinator"]
 
-   [tasks.format]
-   description = "Format Go code"
-   run = ["gofmt -w ./..."]
-   sources = ["**/*.go"]
-   ```
+    [tasks.format]
+    description = "Format Go code"
+    run = ["gofmt -w ."]
+    sources = ["**/*.go"]
+    ```
 4. Configure task dependencies (if needed)
 
 **Verification**:
-- `test -f mise.toml` succeeds
+- `test -f .mise/config.toml` succeeds
 - `mise run --help` lists all tasks
 - `mise run validate` executes all checks
 
@@ -136,13 +136,13 @@
 2. Run `mise run validate` to verify validation task works
 3. Run `mise run smoke-test` to verify smoke test works
 4. Run `mise run --help` to verify task discovery works
-5. Verify golangci-lint auto-installs: `mise use golangci-lint@latest`
+5. Verify golangci-lint is available: `mise install golangci-lint`
 6. Verify file-based tasks execute correctly
 
 **Verification**:
 - All commands run without errors
 - mise lists all tasks
-- Tools are installed automatically
+- Tools are available and installed
 
 **Dependencies**: All previous tasks
 

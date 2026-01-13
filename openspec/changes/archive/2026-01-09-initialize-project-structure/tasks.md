@@ -20,7 +20,6 @@
 11. Create test/ directory for test artifacts
 12. Create test/fixtures/ for test input documents
 13. Create test/golden/ for expected output files
-14. Create scripts/ directory for utility scripts
 
 **Verification**:
 - Run `tree -L 2 -d` (or `ls -R` if tree not available) to verify all directories exist
@@ -134,16 +133,17 @@
 
 ---
 
-### 8. [x] Create Scripts Directory Placeholder
+### 8. [x] Create mise Directory Structure
 
-**Objective**: Set up minimal scripts structure.
+**Objective**: Set up mise task runner directory structure.
 
 **Steps**:
-1. Create scripts/.gitkeep to preserve empty scripts/ directory if needed
+1. Create .mise/ directory for task runner configuration
+2. Create .mise/tasks/ directory for file-based task scripts
 
 **Verification**:
-- Directory exists from Task 1
-- If .gitkeep created, it exists
+- .mise/ directory exists
+- .mise/tasks/ directory exists
 
 **Dependencies**: Task 1 (directories must exist)
 
@@ -193,7 +193,7 @@ The following tasks can be executed in parallel after Task 1:
 - Task 5 (Create Package Placeholder Files)
 - Task 6 (Config Directory Placeholders)
 - Task 7 (Test Directory Placeholders)
-- Task 8 (Scripts Directory Placeholder)
+- Task 8 (mise Directory Structure)
 - Task 9 (Project Documentation)
 
 ## Dependencies Graph
@@ -204,7 +204,7 @@ Task 1 (Directory Structure)
 ├── Task 5 (Package Placeholders)
 ├── Task 6 (Config Placeholders)
 ├── Task 7 (Test Placeholders)
-├── Task 8 (Script Placeholders)
+├── Task 8 (mise Directory Structure)
 └── Task 9 (Project Documentation)
 
 All tasks → Task 10 (Final Validation)

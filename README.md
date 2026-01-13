@@ -9,74 +9,17 @@ Germinator enables users who test different AI coding assistants regularly to:
 - Quickly **switch platforms** without rewriting their configuration
 - **Adapt** their setup to new projects easily
 
-## Directory Structure
+## Installation
 
-```
-germinator/
-├── cmd/                    # CLI entry point
-│   └── root.go            # Main entry point using Cobra
-├── internal/              # Private application code
-│   ├── core/             # Core interfaces and implementations
-│   └── services/         # Business logic services
-├── pkg/                   # Public library code
-│   └── models/           # Domain models (Document, Agent, Command, etc.)
-├── config/               # Configuration files
-│   ├── schemas/          # JSON Schema files for validation
-│   ├── templates/        # Template files for rendering output
-│   └── adapters/         # Platform adapter configurations
-├── test/                 # Test artifacts
-│   ├── fixtures/         # Test input documents
-│   └── golden/           # Expected output files for comparison
-└── scripts/              # Utility scripts
-```
+### From Source
 
-## Build
+```bash
+go build -o germinator ./cmd
+```
 
 ### Prerequisites
 
 - Go 1.25.5 or later
-
-### Build Commands
-
-```bash
-# Build the CLI
-go build -o germinator ./cmd
-
-# Build all packages
-go build ./...
-
-# Run tests
-go test ./...
-
-# Verify with go vet
-go vet ./...
-```
-
-## Development Tooling
-
-This project uses mise as a task runner for unified development workflow.
-
-### Available Tasks
-
-```bash
-mise run validate          # Run all validation checks (build, mod tidy, vet, lint)
-mise run smoke-test        # Quick build check
-mise run format            # Format Go code
-mise run --help            # Discover all available tasks
-```
-
-### Tool Installation
-
-mise automatically installs required tools:
-
-```bash
-# Install golangci-lint (runs automatically when needed)
-mise use golangci-lint@latest
-```
-
-### Workflow
-
-Run `mise run validate` before committing to ensure all checks pass. Run `go mod tidy` after any dependency changes.
 
 ## Usage
 
@@ -84,12 +27,35 @@ Run `mise run validate` before committing to ensure all checks pass. Run `go mod
 ./germinator --help
 ```
 
-## Key Constraints
+### Commands
 
-- **No predefined directory structure** - works with any input/output paths
-- **Platform differences handled** - tool names, permissions, conventions mapped appropriately
-- **Source content preserved** - only adapted/enriched for target platform
-- **If platform doesn't support a feature** → it's not supported (no forced compatibility)
+Germinator provides three main commands:
+
+- **validate** - Validate documents against schemas
+- **adapt** - Transform documents for a target platform
+- **schema** - Display JSON Schema for document types
+
+### Examples
+
+```bash
+# Validate a document
+./germinator validate path/to/document.md
+
+# Adapt a document for Claude Code
+./germinator adapt path/to/document.md --platform claude-code --output output/
+
+# Display schema for agents
+./germinator schema agent
+```
+
+## Document Types
+
+Germinator supports four types of AI coding assistant documents:
+
+- **Agents** - Specialized AI agents with capabilities and selection criteria
+- **Commands** - CLI commands with tool references and templates
+- **Memory** - Context and guidelines for AI assistants
+- **Skills** - Specialized skills and techniques
 
 ## License
 

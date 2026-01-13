@@ -44,7 +44,7 @@ This design establishes minimal development tooling configuration for germinator
 **Decision**: Use mise as task runner and tool installer.
 
 **Rationale**:
-- **Unified Task System**: All tasks defined in `mise.toml`, one command: `mise run <task>`
+- **Unified Task System**: All tasks defined in `.mise/config.toml`, one command: `mise run <task>`
 - **Auto-Installation**: mise automatically installs tools like golangci-lint when needed
 - **Parallel Execution**: Tasks run in parallel by default with dependency management
 - **Incremental Builds**: Can skip tasks if source files haven't changed (via `sources`/outputs`)
@@ -154,11 +154,11 @@ golangci-lint = "latest"
 **Task Structure**:
 ```
 .mise/
-├── tasks/
-│   ├── validate.sh
-│   ├── smoke-test.sh
-│   └── format.sh
-└── mise.toml
+├── config.toml
+└── tasks/
+    ├── validate.sh
+    ├── smoke-test.sh
+    └── format.sh
 ```
 
 **Why Not Inline Tasks**:
@@ -216,7 +216,7 @@ golangci-lint = "latest"
 - Tooling operates on existing Go module
 - No module changes required
 
-**mise.toml**:
+**.mise/config.toml**:
 - Already exists with golangci-lint configured
 - Tasks section added to existing config
 

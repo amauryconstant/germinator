@@ -13,7 +13,7 @@ The germinator CLI tool requires a proper Go project structure as the foundation
 - Reusable library packages (pkg/)
 - Configuration files (config/ schemas, templates, adapters)
 - Test fixtures and golden files (test/)
-- Build and validation scripts (scripts/)
+- Task runner configuration (.mise/ for validation and tool management)
 
 ## Proposed Change
 
@@ -35,7 +35,9 @@ germinator/
 ├── test/
 │   ├── fixtures/        # Test input documents
 │   └── golden/          # Expected output files for comparison
-└── scripts/             # Utility scripts
+└── .mise/               # mise task runner configuration
+    ├── config.toml       # Task definitions and tools
+    └── tasks/           # File-based task scripts
 ```
 
 Initialize Go modules with:
@@ -97,11 +99,12 @@ None. This is the foundational milestone with no dependencies on other work.
 
 ## Validation Plan
 
-- Verify all directories exist: `ls -la cmd/ internal/ pkg/ config/ test/ scripts/`
+- Verify all directories exist: `ls -la cmd/ internal/ pkg/ config/ test/ .mise/`
 - Verify Go module: `test -f go.mod && cat go.mod`
 - Verify Cobra dependency: `grep cobra go.mod`
 - Verify build: `go build ./...`
 - Verify package structure: `find . -name "*.go" -path "*/pkg/*" -o -path "*/internal/*"`
+- Verify mise configuration: `test -f .mise/config.toml`
 
 ## Open Questions
 
