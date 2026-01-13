@@ -1,0 +1,29 @@
+---
+name: {{.Name}}
+description: {{.Description}}
+{{- if .Tools}}
+tools:
+{{- range .Tools}}
+  - {{.}}
+{{- end}}
+{{- end}}
+{{- if .DisallowedTools}}
+disallowedTools:
+{{- range .DisallowedTools}}
+  - {{.}}
+{{- end}}
+{{- end}}
+{{- if .Model}}
+model: {{.Model}}
+{{- end}}
+{{- if .PermissionMode}}
+permissionMode: {{.PermissionMode}}
+{{- end}}
+{{- if .Skills}}
+skills:
+{{- range .Skills}}
+  - {{.}}
+{{- end}}
+{{- end}}
+---
+{{.Content}}

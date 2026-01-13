@@ -1,0 +1,9 @@
+---
+{{- if .Paths}}
+paths:
+{{- range .Paths}}
+  - {{.}}
+{{- end}}
+{{- end}}
+---
+{{.Content}}{{- end -}}

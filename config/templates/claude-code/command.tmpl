@@ -1,0 +1,27 @@
+---
+{{- if .AllowedTools}}
+allowed-tools:
+{{- range .AllowedTools}}
+  - {{.}}
+{{- end}}
+{{- end}}
+{{- if .ArgumentHint}}
+argument-hint: {{.ArgumentHint}}
+{{- end}}
+{{- if .Context}}
+context: {{.Context}}
+{{- end}}
+{{- if .Agent}}
+agent: {{.Agent}}
+{{- end}}
+{{- if .Description}}
+description: {{.Description}}
+{{- end}}
+{{- if .Model}}
+model: {{.Model}}
+{{- end}}
+{{- if .DisableModelInvocation}}
+disable-model-invocation: {{.DisableModelInvocation}}
+{{- end}}
+---
+{{.Content}}{{- end -}}

@@ -382,9 +382,9 @@ func TestDetectType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			docType := detectType(tt.filepath)
+			docType := DetectType(tt.filepath)
 			if docType != tt.expectedType {
-				t.Errorf("detectType() = %v, want %v", docType, tt.expectedType)
+				t.Errorf("DetectType() = %v, want %v", docType, tt.expectedType)
 			}
 		})
 	}

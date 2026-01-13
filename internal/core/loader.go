@@ -8,7 +8,7 @@ import (
 )
 
 func LoadDocument(filepath string) (interface{}, error) {
-	docType := detectType(filepath)
+	docType := DetectType(filepath)
 	if docType == "" {
 		return nil, fmt.Errorf("unrecognizable filename: %s (expected: agent-*.md, *-agent.md, etc.)", filepath)
 	}
@@ -37,7 +37,7 @@ func LoadDocument(filepath string) (interface{}, error) {
 	return doc, nil
 }
 
-func detectType(filepath string) string {
+func DetectType(filepath string) string {
 	base := filepath
 
 	if matched, _ := regexp.MatchString(`agent-.*\.md$`, base); matched {

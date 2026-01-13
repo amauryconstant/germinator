@@ -29,11 +29,10 @@ go build -o germinator ./cmd
 
 ### Commands
 
-Germinator provides three main commands:
+Germinator provides two main commands:
 
-- **validate** - Validate documents against schemas
-- **adapt** - Transform documents for a target platform
-- **schema** - Display JSON Schema for document types
+- **validate** - Validate a document file
+- **adapt** - Transform a document to another platform
 
 ### Examples
 
@@ -42,10 +41,7 @@ Germinator provides three main commands:
 ./germinator validate path/to/document.md
 
 # Adapt a document for Claude Code
-./germinator adapt path/to/document.md --platform claude-code --output output/
-
-# Display schema for agents
-./germinator schema agent
+./germinator adapt path/to/document.md output.md --platform claude-code
 ```
 
 ## Document Types

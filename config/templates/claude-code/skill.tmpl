@@ -1,0 +1,23 @@
+---
+name: {{.Name}}
+description: {{.Description}}
+{{- if .AllowedTools}}
+allowed-tools:
+{{- range .AllowedTools}}
+  - {{.}}
+{{- end}}
+{{- end}}
+{{- if .Model}}
+model: {{.Model}}
+{{- end}}
+{{- if .Context}}
+context: {{.Context}}
+{{- end}}
+{{- if .Agent}}
+agent: {{.Agent}}
+{{- end}}
+{{- if .UserInvocable}}
+user-invocable: {{.UserInvocable}}
+{{- end}}
+---
+{{.Content}}

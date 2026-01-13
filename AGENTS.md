@@ -81,23 +81,34 @@ For tools installed via mise, use `mise exec -- <command>` (e.g., `mise exec -- 
 
 ```
 germinator/
-├── cmd/                    # CLI entry point (Cobra framework)
-│   └── root.go
-├── internal/              # Private application code
-│   ├── core/             # Core interfaces: DocumentParser, SchemaValidator, TemplateEngine
-│   └── services/         # Business logic: ValidationService, TransformationService
-├── pkg/                   # Public library code
-│   └── models/           # Domain models: Document, Agent, Command, Memory, Skill
-├── config/               # Configuration files
-│   ├── schemas/          # JSON Schema files for document validation
-│   ├── templates/        # Go template files for output rendering
-│   └── adapters/         # Platform adapter configurations
-├── test/                 # Test artifacts
-│   ├── fixtures/         # Test input documents (valid/invalid examples)
-│   └── golden/           # Expected outputs for snapshot testing
-└── .mise/                # Task runner configuration
-    ├── config.toml       # Task definitions and tool configurations
-    └── tasks/            # File-based bash scripts for tasks
+ ├── cmd/                    # CLI entry point (Cobra framework)
+ │   ├── root.go          # Main command registration
+ │   ├── validate.go       # Validate document subcommand
+ │   └── adapt.go          # Transform document subcommand
+ ├── internal/              # Private application code
+ │   ├── core/             # Core interfaces and implementations: DocumentParser, DocumentSerializer
+ │   │   ├── parser.go       # Parse documents from files
+ │   │   ├── loader.go       # Load and validate documents
+ │   │   └── serializer.go  # Serialize documents to templates
+ │   └── services/         # Business logic: ValidationService, TransformationService
+ │       └── transformer.go   # Orchestrate document transformation pipeline
+ ├── pkg/                   # Public library code
+ │   └── models/           # Domain models: Document, Agent, Command, Memory, Skill
+ ├── config/               # Configuration files
+ │   ├── schemas/          # JSON Schema files for document validation
+ │   ├── templates/        # Go template files for output rendering
+ │   │   └── claude-code/ # Claude Code platform templates
+ │   │       ├── agent.tmpl
+ │   │       ├── command.tmpl
+ │   │       ├── skill.tmpl
+ │   │       └── memory.tmpl
+ │   └── adapters/         # Platform adapter configurations
+ ├── test/                 # Test artifacts
+ │   ├── fixtures/         # Test input documents (valid/invalid examples)
+ │   └── golden/           # Expected outputs for snapshot testing
+ └── .mise/                # Task runner configuration
+     ├── config.toml       # Task definitions and tool configurations
+     └── tasks/            # File-based bash scripts for tasks
 ```
 
 ---
