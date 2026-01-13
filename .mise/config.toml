@@ -3,20 +3,25 @@ golangci-lint = "latest"
 
 [tasks.validate]
 description = "Run all validation checks"
-run = [
-  "go build ./...",
-  "go mod tidy",
-  "go vet ./...",
-  "golangci-lint run",
-]
+run = "go build ./... && go mod tidy && go vet ./... && golangci-lint run"
 
 [tasks.smoke-test]
 description = "Quick build check"
-run = ["go build -o germinator ./cmd"]
+run = "go build -o germinator ./cmd"
 sources = ["cmd/**/*.go"]
 outputs = ["germinator"]
 
 [tasks.format]
 description = "Format Go code"
-run = ["gofmt -w ."]
+run = "gofmt -w ."
+sources = ["**/*.go"]
+
+[tasks.test]
+description = "Run all tests"
+run = ["go test ./... -v"]
+sources = ["**/*.go"]
+
+[tasks.coverage]
+description = "Run tests with coverage"
+run = ["go test ./... -cover"]
 sources = ["**/*.go"]
