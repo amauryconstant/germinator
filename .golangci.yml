@@ -1,7 +1,9 @@
 version: "2"
 
 run:
-  go: "1.23"
+  go: "1.25.5"
+  timeout: 5m
+  tests: true
 
 output:
   formats:
@@ -12,13 +14,42 @@ output:
 linters:
   default: none
   enable:
-    - govet
+    # Essential
     - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    
+    # Style
+    - misspell
+    - whitespace
+    - revive
+    
+    # Security
+    - gosec
+
+  settings:
+    gosec:
+      excludes:
+        - G104  # unchecked errors (defer/test)
+        - G301  # dir perms
+        - G304  # file inclusion
+        - G306  # file perms
+        - G307  # defers in loops
+        - G204  # subprocess input
+        - G401  # weak crypto for compat
+        - G501  # blocklisted import
+
   exclusions:
     rules:
-      - path: _gen\.go$
-        linters:
-          - errcheck
+      # Generated files
+      - path: ".*_gen\\.go"
+        linters: [all]
+
+      # Main file
+      - path: "main\\.go"
+        linters: [gosec]
 
 formatters:
   enable:

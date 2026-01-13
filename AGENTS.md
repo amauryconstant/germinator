@@ -55,23 +55,40 @@ go vet ./...
 This project uses mise for unified development workflow:
 
 ```bash
-# Install golangci-lint
-mise install golangci-lint
+# Build CLI to bin/germinator
+mise run build
 
 # Run all validation checks
-mise run validate
+mise run check
 
-# Quick build check
-mise run smoke-test
+# Run linting
+mise run lint
+
+# Auto-fix linting issues
+mise run lint:fix
 
 # Format Go code
 mise run format
 
+# Run tests
+mise run test
+
+# Run tests with coverage
+mise run test:coverage
+
+# Clean build artifacts
+mise run clean
+
+# Version management
+mise run version:patch   # Bump patch version
+mise run version:minor   # Bump minor version
+mise run version:major   # Bump major version
+
 # Discover all tasks
-mise run --help
+mise tasks
 ```
 
-**Important**: Run `mise run validate` before committing. Run `go mod tidy` after any dependency changes.
+**Important**: Run `mise run check` before committing. Run `go mod tidy` after any dependency changes.
 
 For tools installed via mise, use `mise exec -- <command>` (e.g., `mise exec -- golangci-lint run`).
 
@@ -149,7 +166,46 @@ For implementation milestones, follow the IMPLEMENTATION_PLAN.md for specific co
 - **CLI Framework**: Cobra
 - **Validation**: JSON Schema (xeipuuv/gojsonschema)
 - **Task Runner**: mise
-- **Linting**: golangci-lint (gofmt, govet, errcheck)
+- **Linting**: golangci-lint (gofmt, govet, errcheck, staticcheck, misspell, revive, gosec)
+
+---
+
+# Pre-commit Hooks
+
+The project uses pre-commit hooks to ensure code quality before commits. Install them after cloning:
+
+```bash
+pre-commit install
+```
+
+Hooks run automatically on commit and include:
+- Go formatting (gofmt)
+- Go vet
+- golangci-lint checks
+- YAML/TOML/JSON validation
+- File hygiene checks (trailing whitespace, end-of-file, merge conflicts)
+
+**Note**: All hooks are blocking - commits will fail if any hook fails.
+
+---
+
+# CI/CD Pipeline
+
+The project uses GitLab CI/CD for automated testing and deployment. The pipeline runs on:
+
+- Merge requests
+- Pushes to the main branch
+
+**Pipeline stages:**
+1. **setup** - Download Go module dependencies
+2. **lint** - Run golangci-lint
+3. **test** - Run all tests
+4. **tag** - Auto-create Git tags for versions (main branch only)
+5. **mirror** - Push to GitHub mirror (main branch only, requires GITHUB_ACCESS_TOKEN and GITHUB_REPO_URL)
+
+**GitLab CI variables:**
+- `GITHUB_ACCESS_TOKEN` - GitHub personal access token for mirroring
+- `GITHUB_REPO_URL` - GitHub repository URL (e.g., `username/repo`)
 
 ---
 

@@ -1,0 +1,124 @@
+stages:
+  - setup
+  - lint
+  - test
+  - tag
+  - mirror
+
+# --------------------------------
+# Pipeline rules
+# --------------------------------
+workflow:
+  rules:
+    # Merge request pipelines
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    # Main branch pushes
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
+    # Everything else disabled
+    - when: never
+
+# --------------------------------
+# Defaults
+# --------------------------------
+default:
+  image: golang:1.25.5
+  cache:
+    key:
+      files:
+        - go.mod
+        - go.sum
+    paths:
+      - .cache/go-mod/
+    policy: pull-push
+
+# --------------------------------
+# Setup (dependency resolution)
+# --------------------------------
+setup:
+  stage: setup
+  script:
+    - go mod download
+  variables:
+    GOMODCACHE: "$CI_PROJECT_DIR/.cache/go-mod"
+  artifacts:
+    paths:
+      - .cache/go-mod/
+    expire_in: 2 hours
+
+# --------------------------------
+# Linting
+# --------------------------------
+lint:
+  stage: lint
+  needs: [setup]
+  script:
+    - go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+    - golangci-lint run
+
+# --------------------------------
+# Tests
+# --------------------------------
+test:
+  stage: test
+  needs: [setup]
+  script:
+    - go test ./... -v
+
+# --------------------------------
+# Version Tag Creation
+# --------------------------------
+create-version-tag:
+  stage: tag
+  image: golang:1.25.5-slim
+  before_script:
+    - apt-get update && apt-get install -y git
+    - git config --global user.email "$GITLAB_USER_EMAIL"
+    - git config --global user.name "$GITLAB_USER_NAME"
+    - git remote set-url origin "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/amoconst/germinator"
+  script:
+    - |
+      bash <<'EOF'
+      # Get current version from go.mod (extract from module path if versioned, otherwise use git tags)
+      CURRENT_VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+
+      # Check if current tag exists for this commit
+      CURRENT_TAG=$(git tag --points-at HEAD | head -n 1)
+
+      if [ -n "$CURRENT_TAG" ]; then
+        echo "Current commit already tagged: $CURRENT_TAG"
+        exit 0
+      fi
+
+      # Check if the current version tag exists
+      if git rev-parse "$CURRENT_VERSION" >/dev/null 2>&1; then
+        echo "Version $CURRENT_VERSION already exists in repository"
+        exit 0
+      fi
+
+      # Create and push the tag
+      git tag "$CURRENT_VERSION" HEAD
+      git push origin "$CURRENT_VERSION"
+      echo "Created tag: $CURRENT_VERSION"
+      EOF
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
+
+# --------------------------------
+# Mirror to GitHub
+# --------------------------------
+mirror-to-github:
+  stage: mirror
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache git
+    - |
+      if [ -z "$GITHUB_ACCESS_TOKEN" ]; then
+        echo "WARNING: GITHUB_ACCESS_TOKEN is not set, skipping GitHub mirror"
+        exit 0
+      fi
+  script:
+    - git remote add github "https://${GITHUB_ACCESS_TOKEN}@github.com/${GITHUB_REPO_URL}.git"
+    - git fetch github
+    - git push github HEAD:$CI_COMMIT_BRANCH --force-with-lease --tags
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'

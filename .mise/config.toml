@@ -1,27 +1,65 @@
 [tools]
+go = "1.25.5"
 golangci-lint = "latest"
 
-[tasks.validate]
+# ========================
+# Build Tasks
+# ========================
+
+[tasks.build]
+description = "Build CLI to bin/germinator"
+run = "mkdir -p bin && go build -o bin/germinator ./cmd"
+sources = ["cmd/**/*.go", "internal/**/*.go", "pkg/**/*.go"]
+outputs = ["bin/germinator"]
+
+[tasks.clean]
+description = "Clean build artifacts"
+run = "rm -rf bin/ coverage.out coverage.html"
+
+# ========================
+# Code Quality Tasks
+# ========================
+
+[tasks.check]
 description = "Run all validation checks"
 run = "go build ./... && go mod tidy && go vet ./... && golangci-lint run"
 
-[tasks.smoke-test]
-description = "Quick build check"
-run = "go build -o germinator ./cmd"
-sources = ["cmd/**/*.go"]
-outputs = ["germinator"]
+[tasks.lint]
+description = "Run linting checks"
+run = "golangci-lint run"
+
+[tasks."lint:fix"]
+description = "Auto-fix linting issues"
+run = "golangci-lint run --fix"
 
 [tasks.format]
 description = "Format Go code"
 run = "gofmt -w ."
-sources = ["**/*.go"]
+
+# ========================
+# Test Tasks
+# ========================
 
 [tasks.test]
 description = "Run all tests"
-run = ["go test ./... -v"]
-sources = ["**/*.go"]
+run = "go test ./... -v"
 
-[tasks.coverage]
+[tasks."test:coverage"]
 description = "Run tests with coverage"
-run = ["go test ./... -cover"]
-sources = ["**/*.go"]
+run = "go test ./... -cover"
+
+# ========================
+# Version Management
+# ========================
+
+[tasks."version:patch"]
+description = "Bump patch version"
+run = ".mise/tasks/version.sh patch"
+
+[tasks."version:minor"]
+description = "Bump minor version"
+run = ".mise/tasks/version.sh minor"
+
+[tasks."version:major"]
+description = "Bump major version"
+run = ".mise/tasks/version.sh major"
