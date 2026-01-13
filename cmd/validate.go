@@ -13,7 +13,7 @@ var validateCmd = &cobra.Command{
 	Short: "Validate a document file",
 	Long:  "Validate a document file and display any errors found.",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, args []string) {
 		filePath := args[0]
 
 		errs, err := services.ValidateDocument(filePath)

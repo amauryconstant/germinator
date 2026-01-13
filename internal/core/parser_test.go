@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"gitlab.com/amoconst/germinator/pkg/models"
+	"gitlab.com/amoconst/germinator/internal/models"
 )
 
 func TestParseMemoryWithPaths(t *testing.T) {

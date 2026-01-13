@@ -6,6 +6,7 @@ import (
 	"regexp"
 )
 
+// Agent represents an AI agent configuration.
 type Agent struct {
 	Name            string   `yaml:"name"`
 	Description     string   `yaml:"description"`
@@ -18,6 +19,7 @@ type Agent struct {
 	Content         string   `yaml:"-"`
 }
 
+// Validate checks if the agent configuration is valid.
 func (a *Agent) Validate() []error {
 	var errs []error
 
@@ -62,6 +64,7 @@ func (a *Agent) Validate() []error {
 	return errs
 }
 
+// Command represents an AI command configuration.
 type Command struct {
 	Name                   string   `yaml:"-"`
 	AllowedTools           []string `yaml:"allowed-tools"`
@@ -75,6 +78,7 @@ type Command struct {
 	Content                string   `yaml:"-"`
 }
 
+// Validate checks if the command configuration is valid.
 func (c *Command) Validate() []error {
 	var errs []error
 
@@ -85,16 +89,19 @@ func (c *Command) Validate() []error {
 	return errs
 }
 
+// Memory represents an AI memory configuration.
 type Memory struct {
 	Paths    []string `yaml:"paths"`
 	FilePath string   `yaml:"-"`
 	Content  string   `yaml:"-"`
 }
 
+// Validate checks if the memory configuration is valid.
 func (m *Memory) Validate() []error {
 	return nil
 }
 
+// Skill represents an AI skill configuration.
 type Skill struct {
 	Name          string   `yaml:"name"`
 	Description   string   `yaml:"description"`
@@ -107,6 +114,7 @@ type Skill struct {
 	Content       string   `yaml:"-"`
 }
 
+// Validate checks if the skill configuration is valid.
 func (s *Skill) Validate() []error {
 	var errs []error
 

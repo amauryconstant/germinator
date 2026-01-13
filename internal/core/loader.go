@@ -1,12 +1,14 @@
+// Package core provides document parsing and serialization functionality.
 package core
 
 import (
 	"fmt"
 	"regexp"
 
-	"gitlab.com/amoconst/germinator/pkg/models"
+	"gitlab.com/amoconst/germinator/internal/models"
 )
 
+// LoadDocument loads and validates a document from the given filepath.
 func LoadDocument(filepath string) (interface{}, error) {
 	docType := DetectType(filepath)
 	if docType == "" {
@@ -37,6 +39,7 @@ func LoadDocument(filepath string) (interface{}, error) {
 	return doc, nil
 }
 
+// DetectType detects the document type from the filename.
 func DetectType(filepath string) string {
 	base := filepath
 

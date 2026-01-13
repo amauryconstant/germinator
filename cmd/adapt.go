@@ -1,3 +1,4 @@
+// Package main provides CLI for germinator tool.
 package main
 
 import (
@@ -15,7 +16,7 @@ var adaptCmd = &cobra.Command{
 	Short: "Transform a document to another platform",
 	Long:  "Transform a document from source format to another platform's format.",
 	Args:  cobra.ExactArgs(2),
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, args []string) {
 		inputPath := args[0]
 		outputPath := args[1]
 

@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"gitlab.com/amoconst/germinator/internal/core"
-	"gitlab.com/amoconst/germinator/pkg/models"
+	"gitlab.com/amoconst/germinator/internal/models"
 )
 
 func TestTransformDocumentSuccess(t *testing.T) {

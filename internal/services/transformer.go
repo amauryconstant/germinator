@@ -1,3 +1,4 @@
+// Package services provides business logic for document transformation and validation.
 package services
 
 import (
@@ -5,9 +6,10 @@ import (
 	"os"
 
 	"gitlab.com/amoconst/germinator/internal/core"
-	"gitlab.com/amoconst/germinator/pkg/models"
+	"gitlab.com/amoconst/germinator/internal/models"
 )
 
+// TransformDocument transforms a document to the target platform format.
 func TransformDocument(inputPath, outputPath, platform string) error {
 	doc, err := core.LoadDocument(inputPath)
 	if err != nil {
@@ -26,6 +28,7 @@ func TransformDocument(inputPath, outputPath, platform string) error {
 	return nil
 }
 
+// ValidateDocument validates a document and returns any validation errors.
 func ValidateDocument(inputPath string) ([]error, error) {
 	docType := core.DetectType(inputPath)
 	if docType == "" {

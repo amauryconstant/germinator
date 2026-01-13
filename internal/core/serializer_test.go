@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"gitlab.com/amoconst/germinator/pkg/models"
+	"gitlab.com/amoconst/germinator/internal/models"
 )
 
 func TestRenderDocumentAgent(t *testing.T) {

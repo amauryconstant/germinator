@@ -1,3 +1,4 @@
+// Package core provides document parsing and serialization functionality.
 package core
 
 import (
@@ -7,9 +8,10 @@ import (
 	"strings"
 	"text/template"
 
-	"gitlab.com/amoconst/germinator/pkg/models"
+	"gitlab.com/amoconst/germinator/internal/models"
 )
 
+// RenderDocument renders a document using the platform-specific template.
 func RenderDocument(doc interface{}, platform string) (string, error) {
 	docType, err := getDocType(doc)
 	if err != nil {

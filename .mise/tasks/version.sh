@@ -9,16 +9,13 @@ if [ -z "$PART" ]; then
   exit 1
 fi
 
-if [ ! -f "go.mod" ]; then
-  echo "Error: go.mod not found in current directory"
+if [ ! -f "internal/version/version.go" ]; then
+  echo "Error: internal/version/version.go not found in current directory"
   exit 1
 fi
 
-# Get the latest git tag as current version
-CURRENT_VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-
-# Remove 'v' prefix if present
-CURRENT_VERSION=${CURRENT_VERSION#v}
+# Get current version from internal/version/version.go
+CURRENT_VERSION=$(sed -n 's/.*const Version = "\(.*\)".*/\1/p' internal/version/version.go)
 
 # Parse semver
 IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
@@ -49,15 +46,14 @@ case $PART in
     ;;
 esac
 
-# Create git tag
-NEW_TAG="v${NEW_VERSION}"
-
 echo "Bumping version: ${CURRENT_VERSION} -> ${NEW_VERSION}"
-git tag "$NEW_TAG"
-echo "Created git tag: $NEW_TAG"
+
+# Update internal/version/version.go
+sed -i "s/const Version = \".*\"/const Version = \"${NEW_VERSION}\"/" internal/version/version.go
+echo "Updated internal/version/version.go to ${NEW_VERSION}"
 
 echo ""
 echo "Next steps:"
 echo "  1. Review changes: git status"
 echo "  2. Commit changes: git commit -am 'Bump version to ${NEW_VERSION}'"
-echo "  3. Push tag: git push origin $NEW_TAG"
+echo "  3. Push changes: git push origin"

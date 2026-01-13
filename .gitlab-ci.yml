@@ -78,8 +78,9 @@ create-version-tag:
   script:
     - |
       bash <<'EOF'
-      # Get current version from go.mod (extract from module path if versioned, otherwise use git tags)
-      CURRENT_VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+      # Get current version from internal/version/version.go
+      CURRENT_VERSION=$(sed -n 's/.*const Version = "\(.*\)".*/\1/p' internal/version/version.go)
+      CURRENT_VERSION="v${CURRENT_VERSION}"
 
       # Check if current tag exists for this commit
       CURRENT_TAG=$(git tag --points-at HEAD | head -n 1)

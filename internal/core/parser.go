@@ -1,3 +1,4 @@
+// Package core provides document parsing and serialization functionality.
 package core
 
 import (
@@ -6,10 +7,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"gitlab.com/amoconst/germinator/pkg/models"
+	"gitlab.com/amoconst/germinator/internal/models"
 	"gopkg.in/yaml.v3"
 )
 
+// ParseDocument parses a document file and returns the appropriate struct.
 func ParseDocument(filePath string, docType string) (interface{}, error) {
 	content, err := os.ReadFile(filePath)
 	if err != nil {
