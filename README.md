@@ -52,6 +52,32 @@ go test ./...
 go vet ./...
 ```
 
+## Development Tooling
+
+This project uses mise as a task runner for unified development workflow.
+
+### Available Tasks
+
+```bash
+mise run validate          # Run all validation checks (build, mod tidy, vet, lint)
+mise run smoke-test        # Quick build check
+mise run format            # Format Go code
+mise run --help            # Discover all available tasks
+```
+
+### Tool Installation
+
+mise automatically installs required tools:
+
+```bash
+# Install golangci-lint (runs automatically when needed)
+mise use golangci-lint@latest
+```
+
+### Workflow
+
+Run `mise run validate` before committing to ensure all checks pass. Run `go mod tidy` after any dependency changes.
+
 ## Usage
 
 ```bash

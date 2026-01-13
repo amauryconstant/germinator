@@ -1,0 +1,25 @@
+version: "2"
+
+run:
+  go: "1.23"
+
+output:
+  formats:
+    text:
+      path: stdout
+      colors: true
+
+linters:
+  default: none
+  enable:
+    - govet
+    - errcheck
+  exclusions:
+    rules:
+      - path: _gen\.go$
+        linters:
+          - errcheck
+
+formatters:
+  enable:
+    - gofmt

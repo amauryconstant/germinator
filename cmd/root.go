@@ -14,7 +14,7 @@ func main() {
 documents (commands, memory, skills, agents) between platforms. It uses Claude Code's 
 document standard as the source format and adapts it for other platforms.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			cmd.Help()
+			_ = cmd.Help()
 		},
 	}
 

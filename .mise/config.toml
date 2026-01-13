@@ -1,0 +1,22 @@
+[tools]
+golangci-lint = "latest"
+
+[tasks.validate]
+description = "Run all validation checks"
+run = [
+  "go build ./...",
+  "go mod tidy",
+  "go vet ./...",
+  "golangci-lint run",
+]
+
+[tasks.smoke-test]
+description = "Quick build check"
+run = ["go build -o germinator ./cmd"]
+sources = ["cmd/**/*.go"]
+outputs = ["germinator"]
+
+[tasks.format]
+description = "Format Go code"
+run = ["gofmt -w ."]
+sources = ["**/*.go"]
