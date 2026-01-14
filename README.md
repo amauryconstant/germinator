@@ -11,11 +11,23 @@ Germinator enables users who test different AI coding assistants regularly to:
 
 ## Installation
 
+### Quick Install
+
+The easiest way to install germinator:
+
+```bash
+curl -sSL https://gitlab.com/amoconst/germinator/-/raw/main/install.sh | bash
+```
+
 ### From Source
 
 ```bash
 go build -o germinator ./cmd
 ```
+
+### Manual Installation
+
+See [INSTALL.md](INSTALL.md) for detailed installation instructions for Linux, macOS, and Windows, including checksum verification and GPG signature verification.
 
 ### Prerequisites
 

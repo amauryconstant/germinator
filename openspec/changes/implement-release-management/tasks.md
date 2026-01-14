@@ -137,44 +137,44 @@ This document tracks all tasks for release management implementation, organized 
 ## Commit 4: Installation and documentation (0.3.1 → 0.3.2)
 
 ### Code Changes
-- [ ] 4.1 Create `install.sh` script at project root (for end users)
-- [ ] 4.2 Implement OS detection (Linux, macOS, Windows)
-- [ ] 4.3 Implement architecture detection (amd64, arm64)
-- [ ] 4.4 Implement version detection (latest vs specific)
-- [ ] 4.5 Implement binary download from GitLab releases
-- [ ] 4.6 Implement archive extraction (tar.gz vs zip)
-- [ ] 4.7 Implement installation to /usr/local/bin or ~/bin
-- [ ] 4.8 Add executable permission to binary
-- [ ] 4.9 Display installed version
-- [ ] 4.10 Make install.sh executable: `chmod +x install.sh`
+- [x] 4.1 Create `install.sh` script at project root (for end users)
+- [x] 4.2 Implement OS detection (Linux, macOS, Windows)
+- [x] 4.3 Implement architecture detection (amd64, arm64)
+- [x] 4.4 Implement version detection (latest vs specific)
+- [x] 4.5 Implement binary download from GitLab releases
+- [x] 4.6 Implement archive extraction (tar.gz vs zip)
+- [x] 4.7 Implement installation to /usr/local/bin or ~/bin
+- [x] 4.8 Add executable permission to binary
+- [x] 4.9 Display installed version
+- [x] 4.10 Make install.sh executable: `chmod +x install.sh`
 - [ ] 4.11 Bump version to 0.3.2 in `internal/version/version.go`
 
 ### Documentation Updates
-- [ ] 4.12 Create `INSTALL.md` with installation instructions
-- [ ] 4.13 Document quick install (curl | bash script)
-- [ ] 4.14 Document manual download for Linux (amd64, arm64)
-- [ ] 4.15 Document manual download for macOS (Intel, Apple Silicon)
-- [ ] 4.16 Document manual download for Windows
-- [ ] 4.17 Document checksum verification
-- [ ] 4.18 Document GPG signature verification (optional)
-- [ ] 4.19 Document version command for verification
-- [ ] 4.20 Update `README.md` with quick install section
-- [ ] 4.21 Add link to `INSTALL.md` in README
-- [ ] 4.22 Update `AGENTS.md` - add Release Management section
-- [ ] 4.23 Document tool update workflow in AGENTS.md
-- [ ] 4.24 Document CI image maintenance in AGENTS.md
-- [ ] 4.25 Document release process (version bump, tag, push) in AGENTS.md
-- [ ] 4.26 Update AGENTS.md technology stack section
-- [ ] 4.27 Update AGENTS.md CI/CD section
-- [ ] 4.28 Update this tasks.md file
+- [x] 4.12 Create `INSTALL.md` with installation instructions
+- [x] 4.13 Document quick install (curl | bash script)
+- [x] 4.14 Document manual download for Linux (amd64, arm64)
+- [x] 4.15 Document manual download for macOS (Intel, Apple Silicon)
+- [x] 4.16 Document manual download for Windows
+- [x] 4.17 Document checksum verification
+- [x] 4.18 Document GPG signature verification (optional)
+- [x] 4.19 Document version command for verification
+- [x] 4.20 Update `README.md` with quick install section
+- [x] 4.21 Add link to `INSTALL.md` in README
+- [x] 4.22 Update `AGENTS.md` - add Release Management section
+- [x] 4.23 Document tool update workflow in AGENTS.md
+- [x] 4.24 Document CI image maintenance in AGENTS.md
+- [x] 4.25 Document release process (version bump, tag, push) in AGENTS.md
+- [x] 4.26 Update AGENTS.md technology stack section
+- [x] 4.27 Update AGENTS.md CI/CD section
+- [x] 4.28 Update this tasks.md file
 
 ### Testing & Validation
-- [ ] 4.29 Test install script locally: `bash install.sh`
-- [ ] 4.30 Test version detection in install script
-- [ ] 4.31 Test installation to /usr/local/bin or ~/bin
-- [ ] 4.32 Verify code formatting: `mise run format`
-- [ ] 4.33 Review INSTALL.md for clarity and completeness
-- [ ] 4.34 Verify README.md mentions installation methods correctly
+- [x] 4.29 Test install script locally: `bash install.sh`
+- [x] 4.30 Test version detection in install script
+- [x] 4.31 Test installation to /usr/local/bin or ~/bin
+- [x] 4.32 Verify code formatting: `mise run format`
+- [x] 4.33 Review INSTALL.md for clarity and completeness
+- [x] 4.34 Verify README.md mentions installation methods correctly
 - [ ] 4.35 Run `mise run check` - verify all validation checks pass
 - [ ] 4.36 Create test release tag: `git tag v0.3.2-test`
 - [ ] 4.37 Push main branch and test tag

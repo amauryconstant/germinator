@@ -160,13 +160,84 @@ For implementation milestones, follow the IMPLEMENTATION_PLAN.md for specific co
 
 ---
 
+# Release Management
+
+## Creating a Release
+
+1. Bump version using mise tasks:
+   ```bash
+   mise run version:patch   # Bump patch version (0.2.0 → 0.2.1)
+   mise run version:minor   # Bump minor version (0.2.0 → 0.3.0)
+   mise run version:major   # Bump major version (0.2.0 → 1.0.0)
+   ```
+
+2. Commit the version bump:
+   ```bash
+   git add .
+   git commit -m "chore: bump version to 0.3.0"
+   git push origin main
+   ```
+
+3. Create and push tag:
+   ```bash
+   git tag v0.3.0
+   git push origin v0.3.0
+   ```
+
+4. GitLab CI will automatically create release with:
+   - Cross-platform binaries (Linux/macOS/Windows, amd64/arm64)
+   - Archives (.tar.gz for Unix, .zip for Windows)
+   - SHA256 checksums
+   - SBOMs (SPDX format)
+   - Auto-generated release notes
+
+## Release Artifacts
+
+Releases include:
+- **germinator_0.3.0_linux_amd64.tar.gz**
+- **germinator_0.3.0_linux_arm64.tar.gz**
+- **germinator_0.3.0_darwin_amd64.tar.gz**
+- **germinator_0.3.0_darwin_arm64.tar.gz**
+- **germinator_0.3.0_windows_amd64.zip**
+- **checksums.txt** (SHA256)
+- **germinator_0.3.0_sbom.spdx.json** (Software Bill of Materials)
+
+## Tool Management
+
+Check for tool updates:
+```bash
+mise run tools:check
+```
+
+Update tool versions:
+```bash
+mise run tools:update
+```
+
+After updating tools:
+1. Review changes: `git diff .mise/config.toml`
+2. Install updated tools: `mise install --yes`
+3. Commit and push
+
+## CI Image Maintenance
+
+Custom CI Docker image (`registry.gitlab.com/amoconst/germinator/ci:latest`) contains:
+- Go 1.25.5
+- mise (latest stable)
+- golangci-lint
+- GoReleaser
+
+---
+
 # Technology Stack
 
 - **Language**: Go 1.25.5
 - **CLI Framework**: Cobra
 - **Validation**: JSON Schema (xeipuuv/gojsonschema)
 - **Task Runner**: mise
-- **Linting**: golangci-lint (gofmt, govet, errcheck, staticcheck, misspell, revive, gosec)
+- **Release Management**: GoReleaser
+- **Linting**: golangci-lint (gofmt, govet, errcheck, typecheck, misspell, revive)
+- **CI/CD**: GitLab CI with custom Docker image
 
 ---
 
@@ -200,7 +271,7 @@ The project uses GitLab CI/CD for automated testing and deployment. The pipeline
 1. **setup** - Download Go module dependencies
 2. **lint** - Run golangci-lint
 3. **test** - Run all tests
-4. **tag** - Auto-create Git tags for versions (main branch only)
+4. **release** - Create GitLab releases on tag push
 5. **mirror** - Push to GitHub mirror (main branch only, requires GITHUB_ACCESS_TOKEN and GITHUB_REPO_URL)
 
 **GitLab CI variables:**
