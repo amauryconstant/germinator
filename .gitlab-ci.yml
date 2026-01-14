@@ -33,9 +33,13 @@ build-ci-image:
   services:
     - name: docker:24.0.5-dind
   rules:
-    - changes:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
         - Dockerfile.ci
         - .mise/config.toml
+    - when: manual
+      allow_failure: true
   variables:
     DOCKER_HOST: tcp://docker:2375
     DOCKER_TLS_CERTDIR: ""
