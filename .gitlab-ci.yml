@@ -17,14 +17,21 @@ workflow:
     - when: never
 
 # --------------------------------
+# Global variables
+# --------------------------------
+variables:
+  GOPATH: "$CI_PROJECT_DIR/.go"
+  GOMODCACHE: "$CI_PROJECT_DIR/.cache/go-mod"
+
+# --------------------------------
 # Build CI Docker Image
 # --------------------------------
 build-ci-image:
   stage: build-ci
-  image: docker:24.0.5-cli
+  image:
+    name: docker:24.0.5-cli
   services:
     - name: docker:24.0.5-dind
-  privileged: true
   rules:
     - changes:
         - Dockerfile.ci
@@ -33,29 +40,29 @@ build-ci-image:
     DOCKER_HOST: tcp://docker:2375
     DOCKER_TLS_CERTDIR: ""
     CI_REGISTRY: registry.gitlab.com
-    CI_REGISTRY_IMAGE: $CI_REGISTRY/amoconst/germinator/ci
+    CI_REGISTRY_IMAGE: "$CI_REGISTRY/amoconst/germinator/ci"
   before_script:
-    - echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
+    - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
   script:
-    - MISE_VERSION=$(curl -s https://api.github.com/repos/jdx/mise/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-    - echo "Latest mise version: $MISE_VERSION"
     - |
+      MISE_VERSION=$(curl -s https://api.github.com/repos/jdx/mise/releases/latest \
+        | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
       if docker pull "$CI_REGISTRY_IMAGE:$MISE_VERSION"; then
-        echo "CI image with mise $MISE_VERSION already exists, skipping build"
+        echo "CI image exists, skipping build"
         exit 0
       fi
-    - docker build -t "$CI_REGISTRY_IMAGE:latest" -t "$CI_REGISTRY_IMAGE:$MISE_VERSION" -f Dockerfile.ci .
-    - docker push "$CI_REGISTRY_IMAGE:latest"
-    - docker push "$CI_REGISTRY_IMAGE:$MISE_VERSION"
+      docker build \
+        -t "$CI_REGISTRY_IMAGE:latest" \
+        -t "$CI_REGISTRY_IMAGE:$MISE_VERSION" \
+        -f Dockerfile.ci .
+      docker push "$CI_REGISTRY_IMAGE:latest"
+      docker push "$CI_REGISTRY_IMAGE:$MISE_VERSION"
 
 # --------------------------------
-# Defaults
+# Default job configs
 # --------------------------------
 default:
   image: registry.gitlab.com/amoconst/germinator/ci:latest
-  variables:
-    GOPATH: "$CI_PROJECT_DIR/.go"
-    GOMODCACHE: "$CI_PROJECT_DIR/.cache/go-mod"
   cache:
     key:
       files:
@@ -67,7 +74,7 @@ default:
     policy: pull-push
 
 # --------------------------------
-# Setup
+# Setup (dependency resolution)
 # --------------------------------
 setup:
   stage: setup
@@ -79,18 +86,12 @@ setup:
       - .go/pkg/mod/
     expire_in: 2 hours
 
-# --------------------------------
-# Linting
-# --------------------------------
 lint:
   stage: lint
   needs: [setup]
   script:
     - golangci-lint run
 
-# --------------------------------
-# Tests
-# --------------------------------
 test:
   stage: test
   needs: [setup]
@@ -98,19 +99,17 @@ test:
     - go test ./... -v
 
 # --------------------------------
-# Release
+# Release with GoReleaser
 # --------------------------------
 release:
   stage: release
-  image: registry.gitlab.com/amoconst/germinator/ci:latest
   needs: [lint, test]
   services:
     - name: docker:24.0.5-dind
-  privileged: true
   variables:
     DOCKER_HOST: tcp://docker:2375
     DOCKER_TLS_CERTDIR: ""
-    GITLAB_TOKEN: $CI_JOB_TOKEN
+    GITLAB_TOKEN: "$CI_JOB_TOKEN"
   before_script:
     - echo "$CI_JOB_TOKEN" | docker login -u gitlab-ci-token --password-stdin registry.gitlab.com
   script:
@@ -130,7 +129,7 @@ mirror-to-github:
     - apk add --no-cache git
     - |
       if [ -z "$GITHUB_ACCESS_TOKEN" ]; then
-        echo "WARNING: GITHUB_ACCESS_TOKEN is not set, skipping GitHub mirror"
+        echo "Skipping GitHub mirror"
         exit 0
       fi
     - git fetch --all
