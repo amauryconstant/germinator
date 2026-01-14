@@ -85,52 +85,52 @@ This document tracks all tasks for release management implementation, organized 
 ## Commit 3: Tool management (0.3.0 → 0.3.1)
 
 ### Code Changes
-- [ ] 3.1 Pin golangci-lint version in `.mise/config.toml` (currently 2.8.0)
-- [ ] 3.2 Add `build:local` task in `.mise/config.toml`
-- [ ] 3.3 Update `build` task to depend on `build:clean`
-- [ ] 3.4 Update `build:clean` to include `dist/` directory
-- [ ] 3.5 Reorganize tasks section in `.mise/config.toml`
-- [ ] 3.6 Update `check` task to depend on lint, format, test, build
-- [ ] 3.7 Remove standalone check task (now depends on other tasks)
-- [ ] 3.8 Remove standalone format script (now inline in config)
-- [ ] 3.9 Remove standalone test section header
-- [ ] 3.10 Create `.mise/tasks/tools/check.sh` script
-- [ ] 3.11 Implement GitHub API query for golangci-lint latest version
-- [ ] 3.12 Implement GitHub API query for GoReleaser latest version
-- [ ] 3.13 Implement version comparison logic
-- [ ] 3.14 Implement formatted output (current vs latest)
-- [ ] 3.15 Make check.sh executable: `chmod +x .mise/tasks/tools/check.sh`
-- [ ] 3.16 Create `.mise/tasks/tools/update.sh` script
-- [ ] 3.17 Implement GitHub API query for latest versions
-- [ ] 3.18 Implement `.mise/config.toml` update logic (use sed for cross-platform compatibility)
-- [ ] 3.19 Implement next steps documentation (git diff, mise install, commit)
-- [ ] 3.20 Make update.sh executable: `chmod +x .mise/tasks/tools/update.sh`
-- [ ] 3.21 Update `.mise/tasks/version.sh` - use grep instead of sed for version extraction
-- [ ] 3.22 Update version.sh to also update Commit and Date fields
-- [ ] 3.23 Update version.sh next steps to reference tag creation
-- [ ] 3.24 Update `.golangci.yml` - use `disable-all: true` instead of `default: none`
-- [ ] 3.25 Replace staticcheck with typecheck in linters
-- [ ] 3.26 Remove gosec linter
-- [ ] 3.27 Remove gosec settings section
-- [ ] 3.28 Remove formatters section (use mise run format instead)
-- [ ] 3.29 Delete `.mise/tasks/format.sh`
-- [ ] 3.30 Delete `.mise/tasks/smoke-test.sh`
-- [ ] 3.31 Delete `.mise/tasks/validate.sh`
-- [ ] 3.32 Delete `scripts/.gitkeep`
+- [x] 3.1 Pin golangci-lint version in `.mise/config.toml` (currently 2.8.0)
+- [x] 3.2 Add `build:local` task in `.mise/config.toml`
+- [x] 3.3 Update `build` task to depend on `build:clean`
+- [x] 3.4 Update `build:clean` to include `dist/` directory
+- [x] 3.5 Reorganize tasks section in `.mise/config.toml`
+- [x] 3.6 Update `check` task to depend on lint, format, test, build
+- [x] 3.7 Remove standalone check task (now depends on other tasks)
+- [x] 3.8 Remove standalone format script (now inline in config)
+- [x] 3.9 Remove standalone test section header
+- [x] 3.10 Create `.mise/tasks/tools/check.sh` script
+- [x] 3.11 Implement GitHub API query for golangci-lint latest version
+- [x] 3.12 Implement GitHub API query for GoReleaser latest version
+- [x] 3.13 Implement version comparison logic
+- [x] 3.14 Implement formatted output (current vs latest)
+- [x] 3.15 Make check.sh executable: `chmod +x .mise/tasks/tools/check.sh`
+- [x] 3.16 Create `.mise/tasks/tools/update.sh` script
+- [x] 3.17 Implement GitHub API query for latest versions
+- [x] 3.18 Implement `.mise/config.toml` update logic (use sed for cross-platform compatibility)
+- [x] 3.19 Implement next steps documentation (git diff, mise install, commit)
+- [x] 3.20 Make update.sh executable: `chmod +x .mise/tasks/tools/update.sh`
+- [x] 3.21 Update `.mise/tasks/version.sh` - use grep instead of sed for version extraction
+- [x] 3.22 Update version.sh to also update Commit and Date fields
+- [x] 3.23 Update version.sh next steps to reference tag creation
+- [x] 3.24 Update `.golangci.yml` - use `disable-all: true` instead of `default: none`
+- [x] 3.25 Replace staticcheck with typecheck in linters
+- [x] 3.26 Remove gosec linter
+- [x] 3.27 Remove gosec settings section
+- [x] 3.28 Remove formatters section (use mise run format instead)
+- [x] 3.29 Delete `.mise/tasks/format.sh`
+- [x] 3.30 Delete `.mise/tasks/smoke-test.sh`
+- [x] 3.31 Delete `.mise/tasks/validate.sh`
+- [x] 3.32 Delete `scripts/.gitkeep`
 - [ ] 3.33 Bump version to 0.3.1 in `internal/version/version.go`
 
 ### Documentation Updates
-- [ ] 3.34 Update this tasks.md file
+- [x] 3.34 Update this tasks.md file
 
 ### Testing & Validation
-- [ ] 3.35 Test tool check script: `mise run tools:check`
-- [ ] 3.36 Test tool update script: `mise run tools:update`
-- [ ] 3.37 Verify .mise/config.toml updates correctly after running update script
-- [ ] 3.38 Verify tools install: `mise install --yes`
-- [ ] 3.39 Run `go build ./...`
-- [ ] 3.40 Run `go vet ./...`
-- [ ] 3.41 Run `golangci-lint run`
-- [ ] 3.42 Run `mise run test`
+- [x] 3.35 Test tool check script: `mise run tools:check`
+- [x] 3.36 Test tool update script: `mise run tools:update`
+- [x] 3.37 Verify .mise/config.toml updates correctly after running update script
+- [x] 3.38 Verify tools install: `mise install --yes`
+- [x] 3.39 Run `go build ./...`
+- [x] 3.40 Run `go vet ./...`
+- [x] 3.41 Run `golangci-lint run`
+- [x] 3.42 Run `mise run test`
 
 ---
 

@@ -1,33 +1,24 @@
-version: "2"
+ version: "2"
 
-run:
-  go: "1.25.5"
-  timeout: 5m
-  tests: true
-
-output:
-  formats:
-    text:
-      path: stdout
-      colors: true
+ run:
+   go: "1.25.5"
+   timeout: 5m
+   tests: true
 
 linters:
-  default: none
+  disable-all: true
   enable:
     # Essential
     - errcheck
     - govet
     - ineffassign
-    - staticcheck
+    - typecheck
     - unused
-    
+
     # Style
     - misspell
     - whitespace
     - revive
-    
-    # Security
-    - gosec
 
   settings:
     gosec:
@@ -50,7 +41,3 @@ linters:
       # Main file
       - path: "main\\.go"
         linters: [gosec]
-
-formatters:
-  enable:
-    - gofmt

@@ -15,7 +15,8 @@ if [ ! -f "internal/version/version.go" ]; then
 fi
 
 # Get current version from internal/version/version.go
-CURRENT_VERSION=$(sed -n 's/.*const Version = "\(.*\)".*/\1/p' internal/version/version.go)
+CURRENT_VERSION=$(grep 'Version = "' internal/version/version.go | sed 's/.*Version = "\(.*\)".*/\1/')
+CURRENT_VERSION=$(echo "$CURRENT_VERSION" | xargs)
 
 # Parse semver
 IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
@@ -48,12 +49,24 @@ esac
 
 echo "Bumping version: ${CURRENT_VERSION} -> ${NEW_VERSION}"
 
-# Update internal/version/version.go
-sed -i "s/const Version = \".*\"/const Version = \"${NEW_VERSION}\"/" internal/version/version.go
-echo "Updated internal/version/version.go to ${NEW_VERSION}"
+# Get git commit SHA and date
+COMMIT_SHA=$(git rev-parse HEAD)
+COMMIT_DATE=$(date +%Y-%m-%d)
+
+# Update all version variables in internal/version/version.go
+sed -i "s/Version = \".*\"/Version = \"${NEW_VERSION}\"/" internal/version/version.go
+sed -i "s/Commit  = \".*\"/Commit  = \"${COMMIT_SHA}\"/" internal/version/version.go
+sed -i "s/Date    = \".*\"/Date    = \"${COMMIT_DATE}\"/" internal/version/version.go
+
+echo "Updated internal/version/version.go:"
+echo "  Version: ${NEW_VERSION}"
+echo "  Commit:  ${COMMIT_SHA}"
+echo "  Date:    ${COMMIT_DATE}"
 
 echo ""
 echo "Next steps:"
 echo "  1. Review changes: git status"
 echo "  2. Commit changes: git commit -am 'Bump version to ${NEW_VERSION}'"
-echo "  3. Push changes: git push origin"
+echo "  3. Create and push tag: git tag v${NEW_VERSION} && git push origin v${NEW_VERSION}"
+echo ""
+echo "Note: Commit and Date will be automatically updated during GoReleaser release"
