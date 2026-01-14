@@ -7,21 +7,21 @@ This document tracks all tasks for release management implementation, organized 
 ## Commit 1: Version command enhancements (0.2.0 → 0.2.1)
 
 ### Code Changes
-- [ ] 1.1 Update `internal/version/version.go` - change Version from `const` to `var`
-- [ ] 1.2 Add `Commit` variable to `internal/version/version.go` (default "dev")
-- [ ] 1.3 Add `Date` variable to `internal/version/version.go` (default "unknown")
-- [ ] 1.4 Export all variables (Version, Commit, Date) in version package
-- [ ] 1.5 Update `cmd/version.go` - import version package
-- [ ] 1.6 Modify version command to display: `germinator {version} ({commit}) {date}`
+- [x] 1.1 Update `internal/version/version.go` - change Version from `const` to `var`
+- [x] 1.2 Add `Commit` variable to `internal/version/version.go` (default "dev")
+- [x] 1.3 Add `Date` variable to `internal/version/version.go` (default "unknown")
+- [x] 1.4 Export all variables (Version, Commit, Date) in version package
+- [x] 1.5 Update `cmd/version.go` - import version package
+- [x] 1.6 Modify version command to display: `germinator {version} ({commit}) {date}`
 - [ ] 1.7 Bump version to 0.2.1 in `internal/version/version.go`
 
 ### Documentation Updates
-- [ ] 1.8 Update this tasks.md file
+- [x] 1.8 Update this tasks.md file
 
 ### Testing & Validation
-- [ ] 1.9 Verify compilation: `go build ./internal/version/...`
-- [ ] 1.10 Verify version command output format
-- [ ] 1.11 Test version command locally: `./bin/germinator version`
+- [x] 1.9 Verify compilation: `go build ./internal/version/...`
+- [x] 1.10 Verify version command output format
+- [x] 1.11 Test version command locally: `./bin/germinator version`
 
 ---
 
