@@ -38,7 +38,10 @@ build-ci-image:
   before_script:
     - echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
   script:
-    - MISE_VERSION=$(grep "mise" .mise/config.toml | grep -oP 'mise = "\K[^"]+')
+    - MISE_VERSION=$(curl -s https://api.github.com/repos/jdx/mise/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+    - echo "Latest mise version: $MISE_VERSION"
+    - docker pull $CI_REGISTRY_IMAGE:$MISE_VERSION && echo "CI image with mise $MISE_VERSION already exists, skipping build" && exit 0
+    - echo "CI image with mise $MISE_VERSION does not exist, building..."
     - docker build -t $CI_REGISTRY_IMAGE:latest -t $CI_REGISTRY_IMAGE:$MISE_VERSION -f Dockerfile.ci .
     - docker push $CI_REGISTRY_IMAGE:latest
     - docker push $CI_REGISTRY_IMAGE:$MISE_VERSION
