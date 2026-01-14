@@ -64,10 +64,6 @@ The version package SHALL use variables instead of constants for build-time inje
 **And** `Commit` variable SHALL be exported
 **And** `Date` variable SHALL be exported
 
----
-
-## MODIFIED Requirements
-
 ### Requirement: Version Command
 
 The version command SHALL display version information for debugging and release tracking.
@@ -83,3 +79,7 @@ The version command SHALL display version information for debugging and release 
 **Given** a user runs `germinator version --help`
 **Then** it SHALL display command help
 **And** it SHALL show description: "Show version of germinator"
+
+---
+
+## MODIFIED Requirements
