@@ -1,6 +1,7 @@
 [tools]
 go = "1.25.5"
-golangci-lint = "latest"
+golangci-lint = "2.8.0"
+goreleaser = "2.13.3"
 
 # ========================
 # Build Tasks
@@ -8,21 +9,22 @@ golangci-lint = "latest"
 
 [tasks.build]
 description = "Build CLI to bin/germinator"
+depends = ["build:clean"]
 run = "mkdir -p bin && go build -o bin/germinator ./cmd"
 sources = ["cmd/**/*.go", "internal/**/*.go", "pkg/**/*.go"]
 outputs = ["bin/germinator"]
 
-[tasks.clean]
+[tasks."build:local"]
+description = "Build and install germinator locally for testing"
+run = "mkdir -p $HOME/.local/bin && go build -o $HOME/.local/bin/germinator ./cmd"
+
+[tasks."build:clean"]
 description = "Clean build artifacts"
-run = "rm -rf bin/ coverage.out coverage.html"
+run = "rm -rf bin/* dist/* coverage.out coverage.html"
 
 # ========================
-# Code Quality Tasks
+# Code Quality & Test Tasks
 # ========================
-
-[tasks.check]
-description = "Run all validation checks"
-run = "go build ./... && go mod tidy && go vet ./... && golangci-lint run"
 
 [tasks.lint]
 description = "Run linting checks"
@@ -36,10 +38,6 @@ run = "golangci-lint run --fix"
 description = "Format Go code"
 run = "gofmt -w ."
 
-# ========================
-# Test Tasks
-# ========================
-
 [tasks.test]
 description = "Run all tests"
 run = "go test ./... -v"
@@ -47,6 +45,10 @@ run = "go test ./... -v"
 [tasks."test:coverage"]
 description = "Run tests with coverage"
 run = "go test ./... -cover"
+
+[tasks.check]
+description = "Run all validation checks"
+depends = ["lint", "format", "test", "build"]
 
 # ========================
 # Version Management
@@ -63,3 +65,17 @@ run = ".mise/tasks/version.sh minor"
 [tasks."version:major"]
 description = "Bump major version"
 run = ".mise/tasks/version.sh major"
+
+# ========================
+# Release Management Tasks
+# ========================
+
+[tasks."release:check"]
+description = "Validate GoReleaser configuration"
+run = "goreleaser check"
+
+[tasks."release:dry-run"]
+description = "Run GoReleaser in dry-run mode"
+run = "goreleaser release --skip=publish --clean"
+
+# Note: CI Docker image is built automatically by GitLab CI when Dockerfile.ci or .mise/config.toml changes

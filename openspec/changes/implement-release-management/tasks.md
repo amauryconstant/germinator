@@ -28,57 +28,57 @@ This document tracks all tasks for release management implementation, organized 
 ## Commit 2: Release infrastructure (0.2.1 → 0.3.0)
 
 ### Code Changes
-- [ ] 2.1 Create `.goreleaser.yml` configuration file
-- [ ] 2.2 Configure builds section with 5 platforms (linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64)
-- [ ] 2.3 Configure ldflags for version, commit, date injection
-- [ ] 2.4 Configure archives (.tar.gz for Unix, .zip for Windows)
-- [ ] 2.5 Configure checksum generation (SHA256)
-- [ ] 2.6 Configure SBOM generation (Syft, SPDX)
-- [ ] 2.7 Configure changelog with filters (exclude docs, test, ci, chore, build, merges)
-- [ ] 2.8 Configure GitLab URLs for releases
-- [ ] 2.9 Create `Dockerfile.ci` base stage
-- [ ] 2.10 Install prerequisites (curl, git, ca-certificates, sudo) in Dockerfile
-- [ ] 2.11 Install mise (latest stable) via curl from mise.run
-- [ ] 2.12 Configure mise environment variables (MISE_DATA_DIR, MISE_CACHE_DIR, etc.)
-- [ ] 2.13 Create `Dockerfile.ci` tools stage
-- [ ] 2.14 Copy `.mise/config.toml` into tools stage
-- [ ] 2.15 Run `mise install --yes` in tools stage
-- [ ] 2.16 Create `Dockerfile.ci` final stage
-- [ ] 2.17 Set workspace directory and GOMODCACHE
-- [ ] 2.18 Update `.gitlab-ci.yml` - add `build-ci` stage
-- [ ] 2.19 Add `build-ci-image` job to `.gitlab-ci.yml`
-- [ ] 2.20 Configure job to run on Dockerfile.ci or .mise/config.toml changes
-- [ ] 2.21 Use docker:dind service for building
-- [ ] 2.22 Tag image with mise version from `.mise/config.toml`
-- [ ] 2.23 Push to GitLab Container Registry
-- [ ] 2.24 Update `.gitlab-ci.yml` default image to `registry.gitlab.com/amoconst/germinator/ci:latest`
-- [ ] 2.25 Remove `create-version-tag` job from pipeline
-- [ ] 2.26 Add `release` stage to stages list
-- [ ] 2.27 Create `release` job with GoReleaser Docker-in-Docker
-- [ ] 2.28 Configure release job to run only on tags (`if: '$CI_COMMIT_TAG'`)
-- [ ] 2.29 Configure release job with Docker service (`docker:dind`)
-- [ ] 2.30 Configure release job to use GITLAB_TOKEN (CI_JOB_TOKEN)
-- [ ] 2.31 Update pipeline rules to include tag pushes
-- [ ] 2.32 Add GoReleaser to `.mise/config.toml` [tools] section
-- [ ] 2.33 Create `release:dry-run` task in `.mise/config.toml`
-- [ ] 2.34 Create `release:check` task in `.mise/config.toml`
+- [x] 2.1 Create `.goreleaser.yml` configuration file
+- [x] 2.2 Configure builds section with 5 platforms (linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64)
+- [x] 2.3 Configure ldflags for version, commit, date injection
+- [x] 2.4 Configure archives (.tar.gz for Unix, .zip for Windows)
+- [x] 2.5 Configure checksum generation (SHA256)
+- [x] 2.6 Configure SBOM generation (Syft, SPDX)
+- [x] 2.7 Configure changelog with filters (exclude docs, test, ci, chore, build, merges)
+- [x] 2.8 Configure GitLab URLs for releases
+- [x] 2.9 Create `Dockerfile.ci` base stage
+- [x] 2.10 Install prerequisites (curl, git, ca-certificates, sudo) in Dockerfile
+- [x] 2.11 Install mise (latest stable) via curl from mise.run
+- [x] 2.12 Configure mise environment variables (MISE_DATA_DIR, MISE_CACHE_DIR, etc.)
+- [x] 2.13 Create `Dockerfile.ci` tools stage
+- [x] 2.14 Copy `.mise/config.toml` into tools stage
+- [x] 2.15 Run `mise install --yes` in tools stage
+- [x] 2.16 Create `Dockerfile.ci` final stage
+- [x] 2.17 Set workspace directory and GOMODCACHE
+- [x] 2.18 Update `.gitlab-ci.yml` - add `build-ci` stage
+- [x] 2.19 Add `build-ci-image` job to `.gitlab-ci.yml`
+- [x] 2.20 Configure job to run on Dockerfile.ci or .mise/config.toml changes
+- [x] 2.21 Use docker:dind service for building
+- [x] 2.22 Tag image with mise version from `.mise/config.toml`
+- [x] 2.23 Push to GitLab Container Registry
+- [x] 2.24 Update `.gitlab-ci.yml` default image to `registry.gitlab.com/amoconst/germinator/ci:latest`
+- [x] 2.25 Remove `create-version-tag` job from pipeline
+- [x] 2.26 Add `release` stage to stages list
+- [x] 2.27 Create `release` job with GoReleaser Docker-in-Docker
+- [x] 2.28 Configure release job to run only on tags (`if: '$CI_COMMIT_TAG'`)
+- [x] 2.29 Configure release job with Docker service (`docker:dind`)
+- [x] 2.30 Configure release job to use GITLAB_TOKEN (CI_JOB_TOKEN)
+- [x] 2.31 Update pipeline rules to include tag pushes
+- [x] 2.32 Add GoReleaser to `.mise/config.toml` [tools] section
+- [x] 2.33 Create `release:dry-run` task in `.mise/config.toml`
+- [x] 2.34 Create `release:check` task in `.mise/config.toml`
 - [ ] 2.35 Bump version to 0.3.0 in `internal/version/version.go`
-- [ ] 2.36 Update `internal/core/parser.go` - change yaml import to alias
-- [ ] 2.37 Update `.gitignore` - add `dist/`, `artifacts.json`, `metadata.json`
+- [x] 2.36 Update `internal/core/parser.go` - change yaml import to alias
+- [x] 2.37 Update `.gitignore` - add `dist/`, `artifacts.json`, `metadata.json`
 
 ### Documentation Updates
-- [ ] 2.38 Update this tasks.md file
+- [x] 2.38 Update this tasks.md file
 
 ### Testing & Validation
-- [ ] 2.39 Validate GoReleaser config: `goreleaser check`
-- [ ] 2.40 Verify tools work in Docker image (mise ls, go version, goreleaser --version, golangci-lint version)
-- [ ] 2.41 Test local Docker build: `docker build -t test -f Dockerfile.ci .`
-- [ ] 2.42 Verify YAML syntax: `cat .gitlab-ci.yml | mise exec -- yamllint`
-- [ ] 2.43 Verify TOML syntax: `cat .mise/config.toml | mise exec -- toml2json`
-- [ ] 2.44 Run `go mod tidy`
-- [ ] 2.45 Run `go vet ./...`
-- [ ] 2.46 Run `golangci-lint run`
-- [ ] 2.47 Run `mise run format`
+- [x] 2.39 Validate GoReleaser config: `goreleaser check`
+- [x] 2.40 Verify tools work in Docker image (mise ls, go version, goreleaser --version, golangci-lint version)
+- [x] 2.41 Test local Docker build: `docker build -t test -f Dockerfile.ci .`
+- [x] 2.42 Verify YAML syntax: `cat .gitlab-ci.yml | mise exec -- yamllint`
+- [x] 2.43 Verify TOML syntax: `cat .mise/config.toml | mise exec -- toml2json`
+- [x] 2.44 Run `go mod tidy`
+- [x] 2.45 Run `go vet ./...`
+- [x] 2.46 Run `golangci-lint run`
+- [x] 2.47 Run `mise run format`
 
 ---
 

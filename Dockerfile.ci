@@ -1,0 +1,41 @@
+FROM golang:1.25.5-bookworm AS base
+
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    ca-certificates \
+    sudo \
+    && rm -rf /var/lib/apt/lists/*
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+ENV MISE_DATA_DIR=/mise
+ENV MISE_CONFIG_DIR=/mise
+ENV MISE_CACHE_DIR=/mise/cache
+ENV PATH="/root/.local/bin:/mise/shims:$PATH"
+
+RUN curl https://mise.run | sh
+
+FROM base AS tools
+
+COPY .mise/config.toml ${MISE_CONFIG_DIR}/config.toml
+
+RUN mise install --yes && \
+    rm -rf ${MISE_CACHE_DIR}
+
+FROM tools AS final
+
+WORKDIR /workspace
+
+ENV GO111MODULE=on
+ENV GOMODCACHE=/workspace/.gomodcache
+ENV GOPATH=/workspace/go
+
+RUN mkdir -p ${GOMODCACHE}
+
+ENV PATH="${GOPATH}/bin:/root/.local/bin/mise:/mise/shims:$PATH"
+
+RUN mise ls && \
+    go version && \
+    goreleaser --version && \
+    golangci-lint version

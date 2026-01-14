@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"gitlab.com/amoconst/germinator/internal/models"
-	"gopkg.in/yaml.v3"
+	yaml "gopkg.in/yaml.v3"
 )
 
 // ParseDocument parses a document file and returns the appropriate struct.

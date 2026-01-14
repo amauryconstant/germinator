@@ -19,9 +19,14 @@ profile.cov
 
 # Build output
 bin/
+dist/
 germinator
 
-# Dependency directories (remove the comment below to include it)
+# GoReleaser output
+artifacts.json
+metadata.json
+
+# Dependency directories (remove_t comment below to include it)
 # vendor/
 
 # Go workspace file

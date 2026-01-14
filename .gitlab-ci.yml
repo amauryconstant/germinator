@@ -1,8 +1,9 @@
 stages:
+  - build-ci
   - setup
   - lint
   - test
-  - tag
+  - release
   - mirror
 
 # --------------------------------
@@ -14,14 +15,39 @@ workflow:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     # Main branch pushes
     - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
+    # Tag pushes (for releases)
+    - if: '$CI_COMMIT_TAG'
     # Everything else disabled
     - when: never
+
+# --------------------------------
+# Build CI Docker Image
+# --------------------------------
+build-ci-image:
+  stage: build-ci
+  image: docker:24.0.5-cli
+  services:
+    - docker:24.0.5-dind
+  rules:
+    - changes:
+        - Dockerfile.ci
+        - .mise/config.toml
+  variables:
+    CI_REGISTRY: registry.gitlab.com
+    CI_REGISTRY_IMAGE: $CI_REGISTRY/amoconst/germinator/ci
+  before_script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
+  script:
+    - MISE_VERSION=$(grep "mise" .mise/config.toml | grep -oP 'mise = "\K[^"]+')
+    - docker build -t $CI_REGISTRY_IMAGE:latest -t $CI_REGISTRY_IMAGE:$MISE_VERSION -f Dockerfile.ci .
+    - docker push $CI_REGISTRY_IMAGE:latest
+    - docker push $CI_REGISTRY_IMAGE:$MISE_VERSION
 
 # --------------------------------
 # Defaults
 # --------------------------------
 default:
-  image: golang:1.25.5
+  image: registry.gitlab.com/amoconst/germinator/ci:latest
   cache:
     key:
       files:
@@ -52,7 +78,6 @@ lint:
   stage: lint
   needs: [setup]
   script:
-    - go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
     - golangci-lint run
 
 # --------------------------------
@@ -65,44 +90,22 @@ test:
     - go test ./... -v
 
 # --------------------------------
-# Version Tag Creation
+# Release with GoReleaser
 # --------------------------------
-create-version-tag:
-  stage: tag
-  image: golang:1.25.5-slim
+release:
+  stage: release
+  image: registry.gitlab.com/amoconst/germinator/ci:latest
+  needs: [lint, test]
+  services:
+    - docker:dind
+  variables:
+    GITLAB_TOKEN: $CI_JOB_TOKEN
   before_script:
-    - apt-get update && apt-get install -y git
-    - git config --global user.email "$GITLAB_USER_EMAIL"
-    - git config --global user.name "$GITLAB_USER_NAME"
-    - git remote set-url origin "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/amoconst/germinator"
+    - echo $CI_JOB_TOKEN | docker login -u gitlab-ci-token --password-stdin registry.gitlab.com
   script:
-    - |
-      bash <<'EOF'
-      # Get current version from internal/version/version.go
-      CURRENT_VERSION=$(sed -n 's/.*const Version = "\(.*\)".*/\1/p' internal/version/version.go)
-      CURRENT_VERSION="v${CURRENT_VERSION}"
-
-      # Check if current tag exists for this commit
-      CURRENT_TAG=$(git tag --points-at HEAD | head -n 1)
-
-      if [ -n "$CURRENT_TAG" ]; then
-        echo "Current commit already tagged: $CURRENT_TAG"
-        exit 0
-      fi
-
-      # Check if the current version tag exists
-      if git rev-parse "$CURRENT_VERSION" >/dev/null 2>&1; then
-        echo "Version $CURRENT_VERSION already exists in repository"
-        exit 0
-      fi
-
-      # Create and push the tag
-      git tag "$CURRENT_VERSION" HEAD
-      git push origin "$CURRENT_VERSION"
-      echo "Created tag: $CURRENT_VERSION"
-      EOF
+    - goreleaser release --clean
   rules:
-    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
+    - if: '$CI_COMMIT_TAG'
 
 # --------------------------------
 # Mirror to GitHub
