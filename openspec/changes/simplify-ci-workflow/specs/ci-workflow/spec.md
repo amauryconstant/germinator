@@ -677,3 +677,124 @@ When file exists
 Then file SHALL be deleted
 And .mise/config.toml SHALL NOT have release:validate task
 And release validation SHALL be handled inline in CI job
+
+---
+
+### Requirement: Version Bump Enforcement on Code Changes
+
+The CI pipeline SHALL enforce version bumps when cmd/ directory files change on merge requests.
+
+#### Scenario: Version bump check runs on MRs
+Given merge request is created
+When pipeline runs
+Then check-version-bump job SHALL run
+And job SHALL fetch origin/main
+And job SHALL check for cmd/ directory changes
+
+#### Scenario: Version bump required for cmd/ changes
+Given MR includes cmd/ file changes
+And MR does NOT include internal/version/version.go changes
+When check-version-bump job runs
+Then job SHALL fail
+And job SHALL display error "Code changed but version not bumped"
+And MR SHALL NOT be mergeable
+
+#### Scenario: Version bump check passes with version change
+Given MR includes cmd/ file changes
+And MR includes internal/version/version.go changes
+When check-version-bump job runs
+Then job SHALL succeed
+And MR SHALL be mergeable
+
+#### Scenario: Version bump check passes without cmd/ changes
+Given MR does NOT include cmd/ file changes
+When check-version-bump job runs
+Then job SHALL succeed
+And version bump SHALL NOT be required
+
+#### Scenario: Version bump job rules
+Given .gitlab-ci.yml is inspected
+When check-version-bump job rules are reviewed
+Then job SHALL run on merge_request_event
+And job SHALL NOT run on main pushes
+And job SHALL NOT run on tags
+
+---
+
+### Requirement: GoReleaser Dry-Run Validation on MRs
+
+The CI pipeline SHALL validate GoReleaser configuration on merge requests before release.
+
+#### Scenario: GoReleaser dry-run runs on MRs with relevant changes
+Given MR is created
+And MR changes .goreleaser.yml
+Or MR changes go.mod or go.sum
+Or MR changes cmd/**/* or internal/**/*
+When pipeline runs
+Then goreleaser-dry-run job SHALL run
+And job SHALL validate GoReleaser configuration
+And job SHALL NOT publish artifacts
+
+#### Scenario: GoReleaser dry-run uses snapshot mode
+Given goreleaser-dry-run job is running
+When goreleaser release command executes
+Then command SHALL use --snapshot flag
+And command SHALL use --skip-publish flag
+And command SHALL use --clean flag
+And no artifacts SHALL be published
+And no GitLab release SHALL be created
+
+#### Scenario: GoReleaser dry-run uses official image
+Given goreleaser-dry-run job is defined
+When job configuration is reviewed
+Then job SHALL use goreleaser/goreleaser image
+And job SHALL have entrypoint set to [""]
+And job SHALL enable full git history with GIT_DEPTH: 0
+
+#### Scenario: GoReleaser dry-run catches configuration errors
+Given .goreleaser.yml has syntax error
+Or .goreleaser.yml has invalid configuration
+When goreleaser-dry-run job runs
+Then job SHALL fail
+And job SHALL display GoReleaser error message
+And MR SHALL NOT be mergeable
+And developer SHALL fix configuration before merging
+
+#### Scenario: GoReleaser dry-run validates on code changes
+Given MR includes changes to cmd/**/* or internal/**/*
+When goreleaser-dry-run job runs
+Then job SHALL validate GoReleaser configuration
+And job SHALL ensure builds configuration is valid
+And job SHALL ensure release configuration is valid
+
+---
+
+### Requirement: Tag Job Resource Group Serialization
+
+The tag job SHALL use a resource group to serialize concurrent tag creation attempts.
+
+#### Scenario: Tag job uses resource group
+Given create-version-tag job is defined
+When job configuration is reviewed
+Then job SHALL have resource_group set to version_tagging
+And only one tag job SHALL run at a time
+And concurrent pipelines SHALL serialize tag creation
+
+#### Scenario: Resource group prevents duplicate tags
+Given two pipelines trigger simultaneously
+And both pipelines have version.go changes
+When tag stage runs
+Then first pipeline SHALL create tag
+Then second pipeline SHALL wait for resource group
+Then second pipeline SHALL detect existing tag
+Then second pipeline SHALL skip tag creation
+And only one tag SHALL exist
+
+#### Scenario: Resource group prevents race conditions
+Given multiple pipelines run concurrently
+And all pipelines attempt to create same tag
+When tag jobs execute
+Then only one tag job SHALL acquire resource_group
+And other tag jobs SHALL wait or skip
+And no duplicate tags SHALL be created
+And git remote SHALL NOT reject pushes due to duplicate tags

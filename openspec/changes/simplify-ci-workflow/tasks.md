@@ -333,3 +333,70 @@
 ## Dependencies
 
 - Task 28: No dependencies
+
+## Task 29: Add Version Bump Enforcement
+- [x] Create check-version-bump job in .gitlab-ci.yml
+- [x] Configure check-version-bump job to fetch origin/main
+- [x] Add logic to detect cmd/ directory changes
+- [x] Add logic to check for internal/version/version.go changes
+- [x] Fail job if cmd/ changed but version.go did not
+- [x] Add job rules to run on merge_request_event
+- [x] Update openspec proposal to document version bump enforcement
+- [x] Update spec with version bump enforcement requirements
+- [ ] Test version bump enforcement with MR (cmd/ change without version.go)
+- [ ] Test version bump enforcement with MR (cmd/ change with version.go)
+- [ ] Test version bump enforcement with MR (no cmd/ changes)
+
+## Dependencies
+
+- Task 29: No dependencies
+
+## Task 30: Add GoReleaser Dry-Run Validation
+- [x] Create goreleaser-dry-run job in .gitlab-ci.yml
+- [x] Configure goreleaser-dry-run job to use goreleaser/goreleaser image
+- [x] Add entrypoint: [""] to goreleaser-dry-run job
+- [x] Add GIT_DEPTH: 0 variable to goreleaser-dry-run job
+- [x] Configure goreleaser-dry-run to run with --snapshot --skip-publish --clean
+- [x] Add job rules to run on MRs with .goreleaser.yml, go.mod, go.sum, cmd/**/*, internal/**/* changes
+- [x] Update openspec proposal to document GoReleaser dry-run validation
+- [x] Update spec with GoReleaser dry-run requirements
+- [ ] Test GoReleaser dry-run with valid configuration on MR
+- [ ] Test GoReleaser dry-run with invalid configuration on MR (should fail)
+
+## Dependencies
+
+- Task 30: No dependencies
+
+## Task 31: Add Tag Job Resource Group
+- [x] Add resource_group: version_tagging to create-version-tag job
+- [x] Update openspec proposal to document resource group serialization
+- [x] Update spec with resource group requirements
+- [ ] Test concurrent pipelines with version.go changes (verify no duplicate tags)
+- [ ] Verify resource group prevents race conditions
+
+## Dependencies
+
+- Task 31: No dependencies
+
+## Task 32: Simplify Release Job Rules
+- [x] Remove MR/openspec skip rules from release job
+- [x] Simplify release job rules to only run on tags (if: "$CI_COMMIT_TAG")
+- [x] Update openspec proposal to document simplified release rules
+- [ ] Verify release job only runs on tag push
+- [ ] Verify release job does not run on MRs
+
+## Dependencies
+
+- Task 32: No dependencies
+
+## Task 33: Simplify Mirror Job Push Command
+- [x] Re-add git fetch github to mirror job script
+- [x] Change git push command to use HEAD:$CI_COMMIT_BRANCH --tags --force
+- [x] Combine branch and tags push into single command
+- [x] Update openspec proposal to document mirror job fetch and push changes
+- [ ] Verify mirror job pushes branch and tags together
+- [ ] Verify mirror job force-pushes successfully
+
+## Dependencies
+
+- Task 33: No dependencies

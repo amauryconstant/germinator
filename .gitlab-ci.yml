@@ -23,7 +23,7 @@ workflow:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
-    - if: '$CI_COMMIT_TAG'
+    - if: "$CI_COMMIT_TAG"
 
 # --------------------------------
 # Global variables
@@ -190,12 +190,31 @@ test:
         - openspec/**/*
       when: never
     - when: on_success
- 
+
+goreleaser-dry-run:
+  stage: validate
+  image:
+    name: goreleaser/goreleaser
+    entrypoint: [""]
+  variables:
+    GIT_DEPTH: 0
+  script:
+    - goreleaser release --snapshot --skip-publish --clean
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - .goreleaser.yml
+        - go.mod
+        - go.sum
+        - cmd/**/*
+        - internal/**/*
+
 # --------------------------------
 # Automatic Tag Creation
 # --------------------------------
 create-version-tag:
   stage: tag
+  resource_group: version_tagging
   variables:
     GIT_STRATEGY: clone
   before_script:
@@ -204,30 +223,44 @@ create-version-tag:
     - git remote set-url origin "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/amoconst/germinator"
   script:
     - |
-      echo "🏷️  Determining version..."
       VERSION=$(grep 'Version = "' internal/version/version.go | sed 's/.*Version = "\(.*\)".*/\1/' | xargs)
       if [ -z "$VERSION" ]; then
-        echo "ERROR: Could not extract version from internal/version/version.go"
+        echo "ERROR: Could not extract version"
         exit 1
       fi
-      export TAG="v$VERSION"
-      echo "Current version: $VERSION"
-      echo "Creating tag: $TAG"
-    - git fetch --tags --prune
-    - |
+
+      TAG="v$VERSION"
+      echo "Version: $VERSION"
+      echo "Tag: $TAG"
+
+      git fetch --tags
       if git tag -l "$TAG" | grep -q "$TAG"; then
-        echo "✅ Tag $TAG already exists, skipping creation"
-      else
-        echo "🏷️  Creating new tag $TAG..."
-        git tag -a "$TAG" -m "Release $TAG"
-        git push origin "$TAG"
-        echo "✅ Tag $TAG created and pushed successfully"
+        echo "✅ Tag $TAG already exists — skipping"
+        exit 0
       fi
+
+      git tag -a "$TAG" -m "Release $TAG"
+      git push origin "$TAG"
+      echo "✅ Tag $TAG created"
   rules:
     - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
       changes:
         - internal/version/version.go
-    - when: never
+
+check-version-bump:
+  stage: validate
+  script:
+    - |
+      git fetch origin main
+      if git diff --name-only origin/main...HEAD | grep -q '^cmd/'; then
+        if ! git diff --name-only origin/main...HEAD | grep -q 'internal/version/version.go'; then
+          echo "ERROR: Code changed but version not bumped"
+          exit 1
+        fi
+      fi
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+
 
 # --------------------------------
 # Release with GoReleaser
@@ -252,7 +285,7 @@ release:
   script:
     - goreleaser release --clean
   rules:
-    - if: '$CI_COMMIT_TAG'
+    - if: "$CI_COMMIT_TAG"
 
 # --------------------------------
 # Mirror to GitHub
@@ -269,5 +302,4 @@ mirror-to-github:
   interruptible: true
   rules:
     - if: '$CI_COMMIT_BRANCH == "main" && $GITHUB_ACCESS_TOKEN && $GITHUB_REPO_URL'
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - when: on_success

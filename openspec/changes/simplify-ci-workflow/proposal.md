@@ -5,6 +5,7 @@
 The current CI workflow has disconnected validation, silent failures, poor cache management, manual release tagging, and unreliable CI image rebuilding:
 
 - **Silent failures** when GitHub mirror is misconfigured (GITHUB_ACCESS_TOKEN missing) - confusing behavior
+- **No version bump enforcement** - Code can be merged without version bump, leading to version drift
 - **No validation** that Git tags match version.go or that git state is clean
 - **Poor cache keys** don't invalidate when .mise/config.toml changes (tool version updates)
 - **Potential cache corruption** from concurrent writes across multiple pipelines
@@ -26,6 +27,8 @@ This change simplifies CI workflow with better validation, error handling, autom
 - **Improve cache policies** - Serialize writes to prevent corruption
 - **Consolidate validation tasks** - Single release:validate task
 - **Add git state validation** - Ensure clean working directory and main branch, ignore untracked files in CI context
+- **Enforce version bump on code changes** - Require version.go update when cmd/ files change (prevents version drift)
+- **Add GoReleaser dry-run validation** - Validate GoReleaser configuration on MRs before release
 - **Add tag validation** - Validate Git tags against version.go (simple grep/sed approach)
 - **Add CI integration** - Run validation in release job's before_script, accept detached HEAD when tag is found via git describe
 - **Fix tag detection** - Use git describe as fallback when CI_COMMIT_TAG is not set, ensure detached HEAD is only accepted with valid tag
@@ -37,6 +40,7 @@ This change simplifies CI workflow with better validation, error handling, autom
 - **Add hash-based CI image tagging** - Tag CI images with mise version + content hash (format: 2026.1.2-abc123def456) to ensure CI image rebuilds when Dockerfile.ci or .mise/config.toml changes
 - **Add docker CLI to CI image** - Include docker-cli package to enable docker commands in release job
 - **Upgrade DIND service version** - Update docker:dind service from 24.0.5 to latest (29.1.4) to support newer docker CLI API version
+- **Add tag job resource group** - Serialize tag creation to prevent race conditions from concurrent pipelines
 - **Improve CI code quality** with YAML anchors for shared cache configuration, interruptible flags for long-running jobs, and dead code removal
 - **Consolidate pipeline stages** - Reduce from 7 stages to 5 stages by merging lint/test into "validate" stage and release/mirror into "distribute" stage
 - **Parallelize validation jobs** - Lint and test run in parallel in same stage to reduce pipeline duration
@@ -45,11 +49,14 @@ This change simplifies CI workflow with better validation, error handling, autom
 - **Update mirror job dependencies** - Mirror job depends on tag, only running when version.go changes (GitHub mirror syncs on releases only)
 - **Rename stages for clarity** - "lint" → "validate", "release/mirror" → "distribute"
 - **Simplify release job** - Use goreleaser/goreleaser official image with inline validation for CI simplicity
+- **Add GoReleaser dry-run job** - Validate GoReleaser configuration on MRs to catch config issues early
+- **Add version bump enforcement job** - Require version.go update when cmd/ files change on MRs
 - **Override goreleaser/goreleaser entrypoint** - Add entrypoint: [""] to prevent image's default entrypoint from interfering with GitLab CI script execution
 - **Remove release:validate task** - Deprecate local validation script (.mise/tasks/release/validate.sh removed)
 - **Add GIT_DEPTH support** - Enable GoReleaser changelog generation with full git history
 - **Remove Docker service from release** - Remove unnecessary Docker-in-Docker service (no Docker images being pushed)
-- **Simplify mirror job** - Use force-push strategy (--force) since GitLab is source of truth
+- **Simplify mirror job** - Use force-push strategy (--force) since GitLab is source of truth, fetch github remote before pushing
+- **Simplify release job rules** - Release job only runs on tags (removed MR/openspec skip rules)
 
 ## Impact
 
@@ -58,7 +65,7 @@ This change simplifies CI workflow with better validation, error handling, autom
 - Delta changes to `release-management` spec for validation requirements
 
 **Affected Code:**
-- `.gitlab-ci.yml` - Add CI optimization rules to skip expensive jobs on openspec-only changes, improve cache configuration, standardize base images, add tag stage with automatic tag creation, implement hash-based CI image tagging, consolidate pipeline stages, simplify release job with goreleaser/goreleaser image and entrypoint override, simplify mirror job with force-push strategy
+- `.gitlab-ci.yml` - Add CI optimization rules to skip expensive jobs on openspec-only changes, improve cache configuration, standardize base images, add tag stage with automatic tag creation, implement hash-based CI image tagging, consolidate pipeline stages, simplify release job with goreleaser/goreleaser image and entrypoint override, simplify mirror job with force-push strategy, add version bump enforcement check, add GoReleaser dry-run validation, add tag job resource group, simplify release job rules to only run on tags
 - `.mise/tasks/release/validate.sh` - Remove (deprecated, replaced by inline validation)
 - `.mise/config.toml` - Remove release:validate task
 - `AGENTS.md` - Update release workflow documentation, remove manual tagging steps, document docker CLI in CI image
@@ -72,7 +79,10 @@ This change simplifies CI workflow with better validation, error handling, autom
 - Cache invalidates properly when .mise/config.toml changes (tool version updates)
 - All stages use consistent tooling environment (CI image everywhere)
 - Concurrent pipelines handle cache safely (serialized writes via resource_group)
+- Concurrent tag creation handled safely (serialized writes via resource_group: version_tagging)
 - Release validation catches uncommitted changes, wrong branch, tag mismatches
+- Version bump enforcement prevents merging code changes without version.go updates
+- GoReleaser dry-run validates configuration on MRs before release
 - Single validation task reduces confusion
 - Expensive CI jobs (lint, test, release, mirror) automatically skipped when only documentation changes, saving CI resources and time
 - Automatic tag creation when internal/version/version.go changes, eliminating manual tagging steps
@@ -84,6 +94,9 @@ This change simplifies CI workflow with better validation, error handling, autom
 - Improved code maintainability with YAML anchors reducing duplicate cache configuration
 - Better CI resource management with interruptible flags on lint and mirror jobs
 - Cleaner pipeline configuration with dead code (when: never) removed
+- Version bump enforced when cmd/ files change on MRs
+- GoReleaser configuration validated on MRs before release
+- Tag creation serialized to prevent duplicate tags from concurrent pipelines
 - Reduced pipeline stage count from 7 to 5 (build-ci, setup, validate, tag, distribute)
 - Lint and test jobs run in parallel in "validate" stage, reducing validation time
 - Release and mirror jobs run in parallel in "distribute" stage, reducing distribution time
@@ -96,8 +109,12 @@ This change simplifies CI workflow with better validation, error handling, autom
 - Release job validates version match inline (only check needed in CI)
 - Release job no longer has Docker service overhead (simpler, faster)
 - GoReleaser generates changelogs properly with GIT_DEPTH=0
-- Mirror job simplified without before_script fetch overhead
+- Mirror job fetches github remote and force-pushes with --tags --force
+- Mirror job uses HEAD:$CI_COMMIT_BRANCH reference for consistent branch pushing
+- Release job rules simplified to only run on tags
 - Deprecated release:validate task removed from configuration
+- GoReleaser dry-run job validates configuration on MRs
+- Version bump enforcement job checks for version.go updates on MRs
 
 ## Dependencies
 
@@ -108,6 +125,7 @@ None - this change is independent and can be implemented at any time.
 **Breaking Changes:**
 - GitHub mirror job behavior changes from mirroring on every main push to mirroring only when version.go changes (on releases)
 - GitHub mirror job uses force-push (--force) strategy (GitLab is source of truth, any GitHub changes will be overwritten)
+- MRs with cmd/ changes require version.go update (enforced by check-version-bump job)
 - `mise run release:validate` task is removed (deprecated, no longer maintained)
 - Developers can no longer run local validation via mise task (inline validation in CI only)
 
@@ -115,6 +133,8 @@ None - this change is independent and can be implemented at any time.
 - GitHub mirror will no longer sync code on normal main pushes (without version changes)
 - GitHub mirror will only run when a version tag is created
 - This may affect workflows that rely on continuous GitHub mirroring
+- MRs that change cmd/ files must also update internal/version/version.go (new enforcement)
+- GoReleaser dry-run job will run on MRs to validate configuration
 - Local release validation is removed (not used by developers)
 
 **No other breaking changes.** Existing workflows continue to work with better validation, error detection, and improved pipeline structure.
@@ -129,6 +149,8 @@ None - this change is independent and can be implemented at any time.
 - **Tag job independence** means version tags may be created for code with failing tests
 - **Parallel jobs in same stage** may race for shared resources (currently no shared resources between lint/test or release/mirror)
 - **Reduced stage visibility** may make it harder to track which specific job failed in pipeline UI
+- **Version bump enforcement** may cause friction if version updates are forgotten or inappropriate for minor changes
+- **GoReleaser dry-run** job may fail on MRs with configuration issues, blocking merging until fixed
 
 ## Success Criteria
 
@@ -159,6 +181,11 @@ None - this change is independent and can be implemented at any time.
 - Release job can successfully run docker login with docker CLI
 - Docker DIND service upgraded to version 29.1.4 (latest) to support docker CLI API version
 - No API version mismatch errors between docker CLI and DIND service
+- Version bump enforcement job prevents merging code changes without version.go updates
+- Version bump enforcement job checks for cmd/ file changes and requires version.go update
+- GoReleaser dry-run job validates configuration on MRs
+- GoReleaser dry-run job runs on MRs when .goreleaser.yml or Go files change
+- GoReleaser dry-run job uses snapshot mode and skips publish (no artifacts created)
 - Pipeline has exactly 5 stages: build-ci, setup, validate, tag, distribute
 - Lint and test jobs run in parallel in "validate" stage
 - Release and mirror jobs run in parallel in "distribute" stage
@@ -170,3 +197,7 @@ None - this change is independent and can be implemented at any time.
 - GitHub mirror only runs when version.go changes (on releases)
 - Release job uses goreleaser/goreleaser image with entrypoint override
 - Mirror job uses force-push strategy (--force)
+- Mirror job fetches github remote before pushing
+- Mirror job uses HEAD:$CI_COMMIT_BRANCH --tags --force to push branch and tags together
+- Tag job uses resource_group: version_tagging to serialize concurrent tag creation
+- Release job rules simplified to only run on tags (removed MR/openspec skip rules)
