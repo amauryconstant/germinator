@@ -188,16 +188,24 @@ The release:validate task SHALL handle CI-specific conditions when running in Gi
 **And** only tracked changes SHALL be detected
 
 #### Scenario: Branch validation accepts detached HEAD in CI
-**Given** release job is triggered by CI_COMMIT_TAG
+**Given** release job is triggered by tag
 **When** release:validate checks branch
 **Then** validation SHALL accept detached HEAD state
-**And** validation SHALL check if CI_COMMIT_TAG is set
-**And** validation SHALL NOT fail when on detached HEAD with tag
-**And** validation SHALL display "Running on detached HEAD with CI_COMMIT_TAG=<tag>"
+**And** validation SHALL use git describe to find tag when CI_COMMIT_TAG is not set
+**And** validation SHALL NOT fail when on detached HEAD with valid tag
+**And** validation SHALL display "Note: Running on detached HEAD (checking for tag in next step)"
 
-#### Scenario: Branch validation fails without tag
-**Given** release:validate is running locally
-**When** not on main branch
-**And** CI_COMMIT_TAG is not set
+#### Scenario: Tag detection fallback when CI_COMMIT_TAG not set
+**Given** release:validate is running in CI
+**When** CI_COMMIT_TAG environment variable is not set
+**Then** validation SHALL use git describe --tags --exact-match to find tag
+**And** validation SHALL set GIT_TAG variable from git describe
+**And** validation SHALL continue with tag detection process
+
+#### Scenario: Final validation requires tag when on detached HEAD
+**Given** release:validate checks branch and finds HEAD
+**When** validation reaches final check
+**And** no tag is found
 **Then** validation SHALL fail
-**And** validation SHALL display "Not on main branch" error
+**And** validation SHALL display "On detached HEAD but no tag found" error
+**And** validation SHALL require tag for release on detached HEAD

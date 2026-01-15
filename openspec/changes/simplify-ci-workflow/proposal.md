@@ -18,7 +18,7 @@ These issues lead to wasted CI time, undetected configuration problems, inconsis
 
 ## What Changes
 
-This change simplifies CI workflow with better validation, error handling, automated release tagging, and reliable CI image rebuilding:
+This change simplifies CI workflow with better validation, error handling, automated release tagging, reliable CI image rebuilding, and improved code quality:
 
 - **Add .mise/config.toml to cache key** - Invalidate cache when tool versions change
 - **Validate GitHub mirror variables** - Fail-fast with clear errors or skip gracefully
@@ -27,7 +27,8 @@ This change simplifies CI workflow with better validation, error handling, autom
 - **Consolidate validation tasks** - Single release:validate task
 - **Add git state validation** - Ensure clean working directory and main branch, ignore untracked files in CI context
 - **Add tag validation** - Validate Git tags against version.go (simple grep/sed approach)
-- **Add CI integration** - Run validation in release job's before_script, accept detached HEAD when CI_COMMIT_TAG is set
+- **Add CI integration** - Run validation in release job's before_script, accept detached HEAD when tag is found via git describe
+- **Fix tag detection** - Use git describe as fallback when CI_COMMIT_TAG is not set, ensure detached HEAD is only accepted with valid tag
 - **Set artifact lifetime** - 24 hours across all stages
 - **Scope out prerelease support** - Keep validation simple
 - **Add automatic tag creation** - Create Git tags when internal/version/version.go changes, replacing manual tagging workflow
@@ -36,6 +37,13 @@ This change simplifies CI workflow with better validation, error handling, autom
 - **Add hash-based CI image tagging** - Tag CI images with mise version + content hash (format: 2026.1.2-abc123def456) to ensure CI image rebuilds when Dockerfile.ci or .mise/config.toml changes
 - **Add docker CLI to CI image** - Include docker-cli package to enable docker commands in release job
 - **Upgrade DIND service version** - Update docker:dind service from 24.0.5 to latest (29.1.4) to support newer docker CLI API version
+- **Improve CI code quality** with YAML anchors for shared cache configuration, interruptible flags for long-running jobs, and dead code removal
+- **Consolidate pipeline stages** - Reduce from 7 stages to 5 stages by merging lint/test into "validate" stage and release/mirror into "distribute" stage
+- **Parallelize validation jobs** - Lint and test run in parallel in same stage to reduce pipeline duration
+- **Parallelize distribution jobs** - Release and mirror run in parallel in same stage
+- **Update tag job dependencies** - Tag job runs independently (no dependency on test), allowing version tracking regardless of test state
+- **Update mirror job dependencies** - Mirror job depends on tag, only running when version.go changes (GitHub mirror syncs on releases only)
+- **Rename stages for clarity** - "lint" → "validate", "release/mirror" → "distribute"
 
 ## Impact
 
@@ -65,6 +73,15 @@ This change simplifies CI workflow with better validation, error handling, autom
 - CI image tags use format mise-version-content-hash (e.g., 2026.1.2-abc123def456) for unique identification
 - CI image build is skipped when Dockerfile.ci and .mise/config.toml are unchanged, saving CI time
 - Docker CLI available in CI image, enabling docker login and docker commands in release job
+- Improved code maintainability with YAML anchors reducing duplicate cache configuration
+- Better CI resource management with interruptible flags on lint and mirror jobs
+- Cleaner pipeline configuration with dead code (when: never) removed
+- Reduced pipeline stage count from 7 to 5 (build-ci, setup, validate, tag, distribute)
+- Lint and test jobs run in parallel in "validate" stage, reducing validation time
+- Release and mirror jobs run in parallel in "distribute" stage, reducing distribution time
+- Tag job creates version tags independently of test state (allows version tracking even with failed tests)
+- GitHub mirror job only runs when version.go changes (on releases), not on every main push
+- Clearer stage semantics with renamed stages (validate, distribute)
 
 ## Dependencies
 
@@ -72,7 +89,14 @@ None - this change is independent and can be implemented at any time.
 
 ## Migration Path
 
-No breaking changes. Existing workflows continue to work, with better validation and error detection.
+**Breaking Change:** GitHub mirror job behavior changes from mirroring on every main push to mirroring only when version.go changes (on releases).
+
+**Migration Impact:**
+- GitHub mirror will no longer sync code on normal main pushes (without version changes)
+- GitHub mirror will only run when a version tag is created
+- This may affect workflows that rely on continuous GitHub mirroring
+
+**No other breaking changes.** Existing workflows continue to work with better validation, error detection, and improved pipeline structure.
 
 ## Risks
 
@@ -80,6 +104,10 @@ No breaking changes. Existing workflows continue to work, with better validation
 - **GitLab CI rules** must correctly identify when to skip mirror job
 - **Standardizing base images** requires ensuring all jobs work with CI image
 - **Validation logic** must correctly parse version strings using simple grep/sed
+- **Mirror job dependency on tag** means GitHub will no longer mirror on every main push, only on releases
+- **Tag job independence** means version tags may be created for code with failing tests
+- **Parallel jobs in same stage** may race for shared resources (currently no shared resources between lint/test or release/mirror)
+- **Reduced stage visibility** may make it harder to track which specific job failed in pipeline UI
 
 ## Success Criteria
 
@@ -97,7 +125,8 @@ No breaking changes. Existing workflows continue to work, with better validation
 - Tag stage runs when internal/version/version.go changes on main branch
 - Tag stage creates tags with format v<VERSION> (e.g., v0.3.0)
 - Tag stage is idempotent - skips creation if tag already exists
-- Tag stage runs after test stage completes successfully
+- Tag stage runs independently (no dependency on test) to allow version tracking regardless of test state
+- Tag stage creates tags even if tests fail
 - Tag stage uses $GITLAB_USER_EMAIL and $GITLAB_USER_NAME for git config
 - Release stage triggers automatically after tag stage creates tag
 - Manual tagging workflow removed from documentation
@@ -108,3 +137,12 @@ No breaking changes. Existing workflows continue to work, with better validation
 - Release job can successfully run docker login with docker CLI
 - Docker DIND service upgraded to version 29.1.4 (latest) to support docker CLI API version
 - No API version mismatch errors between docker CLI and DIND service
+- Pipeline has exactly 5 stages: build-ci, setup, validate, tag, distribute
+- Lint and test jobs run in parallel in "validate" stage
+- Release and mirror jobs run in parallel in "distribute" stage
+- Tag job has no dependencies (runs independently after setup)
+- Mirror job depends on tag (only runs when version.go changes)
+- Release job depends on lint and test (ensures validation passes before release)
+- Pipeline execution time reduced by ~50% for validation phase (lint + test parallel)
+- Pipeline execution time reduced by ~40% for distribution phase (release + mirror parallel)
+- GitHub mirror only runs when version.go changes (on releases)

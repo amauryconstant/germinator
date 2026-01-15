@@ -1,11 +1,20 @@
 stages:
   - build-ci
   - setup
-  - lint
-  - test
+  - validate
   - tag
-  - release
-  - mirror
+  - distribute
+
+# --------------------------------
+# Cache configuration
+# --------------------------------
+.cache_config: &cache_config
+  key:
+    files:
+      - .cache-key
+  paths:
+    - .cache/go-mod/
+    - .go/pkg/mod/
 
 # --------------------------------
 # Pipeline rules
@@ -15,7 +24,6 @@ workflow:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
     - if: '$CI_COMMIT_TAG'
-    - when: never
 
 # --------------------------------
 # Global variables
@@ -125,6 +133,9 @@ default:
 setup:
   stage: setup
   resource_group: cache_updates
+  cache:
+    <<: *cache_config
+    policy: pull-push
   before_script:
     - |
       generate_cache_key() {
@@ -150,16 +161,12 @@ setup:
     expire_in: 24 hours
 
 lint:
-  stage: lint
+  stage: validate
   needs: [setup]
   cache:
-    key:
-      files:
-        - .cache-key
-    paths:
-      - .cache/go-mod/
-      - .go/pkg/mod/
+    <<: *cache_config
     policy: pull
+  interruptible: true
   script:
     - golangci-lint run
   rules:
@@ -170,15 +177,10 @@ lint:
     - when: on_success
 
 test:
-  stage: test
+  stage: validate
   needs: [setup]
   cache:
-    key:
-      files:
-        - .cache-key
-    paths:
-      - .cache/go-mod/
-      - .go/pkg/mod/
+    <<: *cache_config
     policy: pull
   script:
     - go test ./... -v
@@ -194,7 +196,6 @@ test:
 # --------------------------------
 create-version-tag:
   stage: tag
-  needs: [test]
   variables:
     GIT_STRATEGY: clone
   before_script:
@@ -232,7 +233,7 @@ create-version-tag:
 # Release with GoReleaser
 # --------------------------------
 release:
-  stage: release
+  stage: distribute
   needs: [lint, test]
   services:
     - name: docker:29.1.4-dind
@@ -257,7 +258,8 @@ release:
 # Mirror to GitHub
 # --------------------------------
 mirror-to-github:
-  stage: mirror
+  stage: distribute
+  needs: [create-version-tag]
   variables:
     GIT_STRATEGY: fetch
   before_script:
@@ -267,6 +269,7 @@ mirror-to-github:
     - git remote add github "https://${GITHUB_ACCESS_TOKEN}@github.com/${GITHUB_REPO_URL}.git" || true
     - git push github "$CI_COMMIT_BRANCH" --force-with-lease
     - git push github --tags
+  interruptible: true
   rules:
     - if: '$CI_COMMIT_BRANCH == "main" && $GITHUB_ACCESS_TOKEN && $GITHUB_REPO_URL'
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'

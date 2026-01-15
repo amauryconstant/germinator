@@ -95,10 +95,12 @@
 
 ## Task 11: Fix release:validate for CI Context
 - [x] Update git status check to use --untracked-files=no flag
-- [x] Update branch check to accept detached HEAD when CI_COMMIT_TAG is set
-- [x] Add conditional logic to skip branch validation when CI_COMMIT_TAG is present
-- [x] Display informative message when running on detached HEAD with tag
-- [x] Update openspec proposal to document CI context handling
+- [x] Update branch check to accept detached HEAD state
+- [x] Add tag detection fallback using git describe when CI_COMMIT_TAG is not set
+- [x] Add final validation to require tag when on detached HEAD
+- [x] Display informative message when running on detached HEAD (checking for tag)
+- [x] Update openspec proposal to document tag detection fallback
+- [x] Update spec requirements for tag detection and final validation
 - [ ] Verify release job passes validation in CI
 
 ## Dependencies
@@ -217,6 +219,15 @@
 - [x] Update openspec proposal to document DIND service upgrade
 - [ ] Verify release job succeeds without API version mismatch errors
 
+## Task 25: Improve CI Code Quality
+- [x] Remove dead code (when: never) from workflow rules
+- [x] Implement YAML anchors for shared cache configuration
+- [x] Apply cache anchors to setup, lint, and test jobs
+- [x] Add interruptible: true to lint job
+- [x] Add interruptible: true to mirror-to-github job
+- [x] Document decision to keep custom cache key generation (exceeds native 2-file limit)
+- [x] Document decision NOT to implement other CI fixes (GitHub API auth, DIND TLS, race condition, build optimization)
+
 ## Dependencies
 
 - Task 1: No dependencies
@@ -243,3 +254,50 @@
 - Task 22: No dependencies
 - Task 23: No dependencies
 - Task 24: No dependencies
+- Task 25: No dependencies
+
+## Task 26: Consolidate Pipeline Stages
+- [x] Update stages list to: build-ci, setup, validate, tag, distribute
+- [x] Rename lint job stage to "validate"
+- [x] Rename test job stage to "validate"
+- [x] Rename release job stage to "distribute"
+- [x] Rename mirror-to-github job stage to "distribute"
+- [x] Remove needs: [test] dependency from create-version-tag job
+- [x] Add needs: [tag] dependency to mirror-to-github job
+- [x] Update openspec proposal to document stage consolidation
+- [x] Update openspec proposal to document behavioral change (mirror only runs on releases)
+- [x] Update openspec proposal risks with mirror dependency issues
+- [x] Update openspec success criteria for new stage structure
+- [x] Verify lint and test run in parallel in validate stage
+- [x] Verify release and mirror run in parallel in distribute stage
+- [x] Verify tag job runs independently (no dependencies)
+- [x] Verify mirror only runs when version.go changes (when tag runs)
+
+## Dependencies
+
+- Task 1: No dependencies
+- Task 2: Can run in parallel with Task 1
+- Task 3: Can run in parallel with Task 1
+- Task 4: Depends on Task 1, 14
+- Task 5: No dependencies
+- Task 6: Can run in parallel with Task 2, 3, 4
+- Task 7: Depends on Task 6
+- Task 8: Depends on Task 6
+- Task 9: Depends on Task 4, 5
+- Task 10: Depends on Task 4, 14
+- Task 11: No dependencies
+- Task 12: Depends on Task 1, 2, 3
+- Task 13: No dependencies
+- Task 14: Depends on Task 1, 4, 10, 13, 21
+- Task 15: Depends on Tasks 7, 10
+- Task 16: Depends on Tasks 7, 11, 14
+- Task 17: Depends on Tasks 14, 21
+- Task 18: Depends on Tasks 14, 21
+- Task 19: No dependencies
+- Task 20: Depends on Tasks 19
+- Task 21: Depends on Task 14, 20
+- Task 22: No dependencies
+- Task 23: No dependencies
+- Task 24: No dependencies
+- Task 25: No dependencies
+- Task 26: No dependencies

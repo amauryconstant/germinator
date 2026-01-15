@@ -21,23 +21,31 @@ fi
 echo ""
 echo "Checking branch..."
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-if [ -n "$CI_COMMIT_TAG" ]; then
-  # In CI, release jobs run on detached HEAD with CI_COMMIT_TAG set
-  echo "✓ Running on detached HEAD with CI_COMMIT_TAG=$CI_COMMIT_TAG"
-elif [ "$CURRENT_BRANCH" != "main" ]; then
+
+# We'll determine if we have a tag later, so for now just check the branch context
+# If running in CI with a tag, we'll be on detached HEAD and that's acceptable
+# The tag validation (Check 3) will confirm if a tag exists
+
+if [ "$CURRENT_BRANCH" != "main" ] && [ "$CURRENT_BRANCH" != "HEAD" ]; then
   echo "ERROR: Not on main branch (current: $CURRENT_BRANCH)"
   errors=$((errors + 1))
 else
-  echo "✓ On main branch"
+  if [ "$CURRENT_BRANCH" = "HEAD" ]; then
+    echo "Note: Running on detached HEAD (checking for tag in next step)"
+  else
+    echo "✓ On main branch"
+  fi
 fi
 
 # Check 3: Git tag validation
 echo ""
 echo "Checking Git tag..."
-if [ -z "$CI_COMMIT_TAG" ]; then
-  GIT_TAG=$(git describe --tags --exact-match 2>/dev/null || echo "")
-else
+if [ -n "$CI_COMMIT_TAG" ]; then
+  # In CI, CI_COMMIT_TAG is set by GitLab when pipeline is triggered by a tag
   GIT_TAG="$CI_COMMIT_TAG"
+else
+  # Locally or if CI_COMMIT_TAG is not set, use git describe to find the tag
+  GIT_TAG=$(git describe --tags --exact-match 2>/dev/null || echo "")
 fi
 
 if [ -z "$GIT_TAG" ]; then
@@ -47,10 +55,10 @@ if [ -z "$GIT_TAG" ]; then
   errors=$((errors + 1))
 else
   echo "✓ Found Git tag: $GIT_TAG"
-  
+
   # Extract version from tag (strip 'v' prefix)
   TAG_VERSION="${GIT_TAG#v}"
-  
+
   if [ "$TAG_VERSION" = "$GIT_TAG" ]; then
     echo "ERROR: Git tag must start with 'v' (format: vX.Y.Z)"
     errors=$((errors + 1))
@@ -104,6 +112,15 @@ else
   else
     echo "WARNING: goreleaser not found, skipping configuration check"
   fi
+fi
+
+# Final validation: if on detached HEAD, must have a tag
+echo ""
+echo "Final validation check..."
+if [ "$CURRENT_BRANCH" = "HEAD" ] && [ -z "$GIT_TAG" ]; then
+  echo "ERROR: On detached HEAD but no tag found"
+  echo "  Releases must be triggered by a tag"
+  errors=$((errors + 1))
 fi
 
 echo ""

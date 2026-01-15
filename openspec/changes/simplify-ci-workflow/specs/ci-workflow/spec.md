@@ -466,3 +466,169 @@ The CI pipeline SHALL use the latest stable version of the docker:dind service t
 **Then** service SHALL be latest stable version
 **And** docker build commands SHALL succeed
 **And** docker push commands SHALL succeed
+
+---
+
+### Requirement: YAML Anchors for Cache Configuration
+
+The CI pipeline SHALL use YAML anchors to eliminate duplicate cache configuration.
+
+#### Scenario: Shared cache configuration defined as anchor
+Given .gitlab-ci.yml is inspected
+When cache configuration is defined
+Then .cache_config anchor SHALL exist at top level
+And anchor SHALL contain key, files, and paths configuration
+And anchor SHALL not contain policy (policy is job-specific)
+
+#### Scenario: Setup job uses cache anchor with pull-push policy
+Given setup job is defined
+When cache configuration is reviewed
+Then job SHALL reference .cache_config anchor
+And policy SHALL be pull-push
+And cache SHALL be writable by setup job only
+
+#### Scenario: Lint job uses cache anchor with pull policy
+Given lint job is defined
+When cache configuration is reviewed
+Then job SHALL reference .cache_config anchor
+And policy SHALL be pull
+And cache SHALL be read-only
+
+#### Scenario: Test job uses cache anchor with pull policy
+Given test job is defined
+When cache configuration is reviewed
+Then job SHALL reference .cache_config anchor
+And policy SHALL be pull
+And cache SHALL be read-only
+
+---
+
+### Requirement: Interruptible Jobs for CI Efficiency
+
+Long-running CI jobs SHALL be marked as interruptible to allow cancellation when new pipelines start.
+
+#### Scenario: Lint job is interruptible
+Given lint job is running
+When a new pipeline is triggered on the same branch
+Then lint job SHALL be interruptible
+And job SHALL be cancelled if configured
+And CI resources SHALL be freed for new pipeline
+
+#### Scenario: Mirror job is interruptible
+Given mirror-to-github job is running
+When a new pipeline is triggered on the same branch
+Then mirror job SHALL be interruptible
+And job SHALL be cancelled if configured
+And CI resources SHALL be freed for new pipeline
+
+#### Scenario: Setup job is NOT interruptible
+Given setup job is running
+When a new pipeline is triggered on the same branch
+Then setup job SHALL NOT be interruptible
+And job SHALL run to completion
+And cache writes SHALL not be interrupted
+
+#### Scenario: Release job is NOT interruptible
+Given release job is running
+When a new pipeline is triggered
+Then release job SHALL NOT be interruptible
+And job SHALL run to completion
+And release artifacts SHALL be completed
+
+#### Scenario: Tag job is NOT interruptible
+Given create-version-tag job is running
+When a new pipeline is triggered
+Then tag job SHALL NOT be interruptible
+And job SHALL run to completion
+And tag creation SHALL complete successfully
+
+---
+
+### Requirement: Consolidated Pipeline Stages
+
+The CI pipeline SHALL use a minimal number of stages with parallel job execution to reduce pipeline duration.
+
+#### Scenario: Pipeline has exactly 5 stages
+Given .gitlab-ci.yml is inspected
+When stages are listed
+Then pipeline SHALL have exactly 5 stages: build-ci, setup, validate, tag, distribute
+And stages SHALL be in the following order
+And no additional stages SHALL exist
+
+#### Scenario: Validate stage runs lint and test in parallel
+Given pipeline is running in validate stage
+When jobs are executing
+Then lint job SHALL be running in validate stage
+And test job SHALL be running in validate stage
+And both jobs SHALL execute in parallel
+And both jobs SHALL depend on setup job
+And both jobs SHALL NOT depend on each other
+
+#### Scenario: Distribute stage runs release and mirror in parallel
+Given pipeline is running in distribute stage
+When jobs are executing
+Then release job SHALL be running in distribute stage
+And mirror-to-github job SHALL be running in distribute stage
+And both jobs SHALL execute in parallel
+And release job SHALL depend on lint and test jobs
+And mirror job SHALL depend on tag job
+
+---
+
+### Requirement: Independent Tag Job
+
+The tag job SHALL create version tags independently of test results to enable version tracking regardless of code state.
+
+#### Scenario: Tag job has no dependencies
+Given create-version-tag job is defined
+When job configuration is reviewed
+Then job SHALL have no needs dependencies
+And job SHALL NOT depend on test job
+And job SHALL NOT depend on lint job
+And job SHALL run in tag stage
+
+#### Scenario: Tag job creates version regardless of test state
+Given create-version-tag job is running
+When internal/version/version.go has changed
+And test job may be running or failed
+Then tag job SHALL execute
+And tag job SHALL create version tag v<VERSION>
+And tag job SHALL NOT be blocked by test job status
+And tag job SHALL NOT be blocked by lint job status
+
+---
+
+### Requirement: Mirror Job Depends on Tag
+
+The mirror job SHALL depend on the tag job, ensuring GitHub mirror only occurs when version changes.
+
+#### Scenario: Mirror job depends on tag
+Given mirror-to-github job is defined
+When job configuration is reviewed
+Then job SHALL have needs dependency on create-version-tag job
+And job SHALL NOT depend on test job
+And job SHALL run in distribute stage
+
+#### Scenario: Mirror only runs on version changes
+Given pipeline is triggered by main push
+And internal/version/version.go has NOT changed
+When pipeline reaches distribute stage
+Then create-version-tag job SHALL be skipped
+And mirror-to-github job SHALL be skipped (depends on tag)
+And code SHALL NOT be mirrored to GitHub
+
+#### Scenario: Mirror runs when version changes
+Given pipeline is triggered by main push
+And internal/version/version.go has changed
+When pipeline reaches distribute stage
+Then create-version-tag job SHALL create tag
+And mirror-to-github job SHALL run
+And code SHALL be mirrored to GitHub
+
+#### Scenario: Release depends on validation, not tag
+Given release job is defined
+When job configuration is reviewed
+Then job SHALL have needs dependency on lint job
+And job SHALL have needs dependency on test job
+And job SHALL NOT have needs dependency on tag job
+And release job SHALL wait for both lint and test to succeed
