@@ -237,6 +237,7 @@ Custom CI Docker image (`registry.gitlab.com/amoconst/germinator/ci:latest`) con
 - mise (latest stable)
 - golangci-lint
 - GoReleaser
+- Docker CLI
 
 ---
 
@@ -307,6 +308,8 @@ Hooks run automatically on commit and include:
 - Check that changes are pushed to main branch
 - Review tag stage logs for errors
 - Ensure $GITLAB_USER_EMAIL and $GITLAB_USER_NAME variables are set
+- Ensure $GITLAB_ACCESS_TOKEN is set with `write_repository` scope
+- If seeing 403 errors, verify token has correct permissions and is not expired
 
 **Tag already exists, but release failed:**
 - If tag exists but release failed, delete and re-push:
@@ -368,6 +371,7 @@ The project uses GitLab CI/CD for automated testing and deployment. The pipeline
 **GitLab CI variables:**
 - `GITHUB_ACCESS_TOKEN` - GitHub personal access token for mirroring (required for mirror job)
 - `GITHUB_REPO_URL` - GitHub repository URL (e.g., `username/repo`, required for mirror job)
+- `GITLAB_ACCESS_TOKEN` - GitLab personal or project access token with `write_repository` scope (required for tag stage)
 - `GITLAB_USER_EMAIL` - Email for git config in tag stage
 - `GITLAB_USER_NAME` - Name for git config in tag stage
 

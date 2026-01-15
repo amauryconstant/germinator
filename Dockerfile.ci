@@ -4,7 +4,8 @@ RUN apk add --no-cache \
     curl \
     git \
     ca-certificates \
-    bash
+    bash \
+    docker-cli
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
