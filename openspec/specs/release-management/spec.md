@@ -228,3 +228,181 @@ The system SHALL support testing release configuration without creating actual r
 **And** Windows testing is out of scope for initial implementation
 **And** documentation SHALL note that Windows testing is planned for future iteration
 
+### Requirement: Git State Validation
+
+The system SHALL validate git working directory state before allowing release.
+
+#### Scenario: Git state must be clean
+**Given** a developer attempts to create a release
+**When** validation runs
+**And** working directory has uncommitted changes
+**Then** validation SHALL fail
+**And** error SHALL list uncommitted files
+**And** release SHALL not proceed
+
+#### Scenario: Working directory is clean
+**Given** a developer attempts to create a release
+**When** validation runs
+**And** working directory has no uncommitted changes
+**Then** validation SHALL pass for git state check
+**And** release SHALL proceed if other validations pass
+
+---
+
+### Requirement: Branch Validation
+
+The system SHALL validate that releases only occur from main branch.
+
+#### Scenario: Must be on main branch
+**Given** a developer attempts to create a release
+**When** validation runs
+**And** current branch is not main
+**Then** validation SHALL fail
+**And** error SHALL indicate main branch is required
+**And** release SHALL not proceed
+
+#### Scenario: On main branch
+**Given** a developer attempts to create a release
+**When** validation runs
+**And** current branch is main
+**Then** validation SHALL pass for branch check
+**And** release SHALL proceed if other validations pass
+
+---
+
+### Requirement: Git Tag Validation
+
+The system SHALL validate Git tags before attempting release builds.
+
+#### Scenario: Tag matches version.go
+**Given** tag is properly formatted with 'v' prefix
+**When** tag version is compared to code
+**Then** tag version (without 'v') SHALL equal Version in internal/version/version.go
+**And** mismatch SHALL cause immediate failure
+**And** error message SHALL show both versions
+
+#### Scenario: Validation handles 'v' prefix
+**Given** Git tag is created with format vX.Y.Z
+**When** version is extracted for comparison
+**Then** validation SHALL strip 'v' prefix from tag
+**And** comparison SHALL use semantic version only
+**And** version.go Version SHALL be compared without 'v' prefix
+
+#### Scenario: Validation runs in CI
+**Given** release job runs
+**When** job starts (before_script)
+**Then** validation SHALL occur before GoReleaser
+**And** validation SHALL include git state check
+**And** validation SHALL include branch check
+**And** validation SHALL include tag match check
+**And** validation failure SHALL stop job
+**And** GoReleaser SHALL not run on invalid tags or states
+
+---
+
+### Requirement: Release Validation Task
+
+The system SHALL provide a single consolidated validation task for release operations (manual, not automatic).
+
+#### Scenario: release:validate task checks all conditions
+**Given** developer wants to check release readiness
+**When** developer runs mise run release:validate
+**Then** task SHALL check git state is clean
+**And** task SHALL check current branch is main
+**And** task SHALL validate Git tag format
+**And** task SHALL validate tag matches version.go
+**And** task SHALL validate .goreleaser.yml
+**And** task SHALL report all issues found with clear error messages
+
+#### Scenario: release:validate with uncommitted changes
+**Given** developer runs mise run release:validate
+**When** uncommitted changes exist
+**Then** task SHALL fail
+**And** error SHALL list uncommitted files
+**And** task SHALL suggest committing changes first
+
+#### Scenario: release:validate on wrong branch
+**Given** developer runs mise run release:validate
+**When** current branch is not main
+**Then** task SHALL fail
+**And** error SHALL indicate main branch is required
+**And** task SHALL suggest checking out main branch
+
+#### Scenario: release:validate with tag mismatch
+**Given** developer runs mise run release:validate
+**When** tag version doesn't match version.go
+**Then** task SHALL fail
+**And** error SHALL show both versions
+**And** task SHALL suggest creating correct tag
+
+#### Scenario: No automatic tag creation
+**Given** developer runs release:validate task
+**When** task executes
+**Then** task SHALL NOT automatically create Git tags
+**And** task SHALL NOT automatically push tags
+**And** developer SHALL manually create and push tags
+**And** AGENTS.md SHALL reinforce manual tag creation
+
+#### Scenario: Deprecated release:check task removed
+**Given** .mise/config.toml is inspected
+**When** tasks are reviewed
+**Then** release:check task SHALL NOT exist
+**And** all documentation SHALL reference release:validate
+
+---
+
+### Requirement: Automatic Tag Creation
+
+The system SHALL automatically create Git tags when the version file changes, eliminating manual tagging workflow.
+
+#### Scenario: Tag stage triggers on version change
+**Given** internal/version/version.go is modified
+**When** change is pushed to main branch
+**And** test stage completes successfully
+**Then** tag stage SHALL run automatically
+**And** tag SHALL be created with format v<VERSION>
+**And** tag SHALL be pushed to repository
+
+#### Scenario: Manual tagging workflow removed
+**Given** developer reads release documentation
+**When** release workflow instructions are reviewed
+**Then** manual git tag commands SHALL NOT be documented
+**And** automatic tag creation SHALL be clearly documented
+**And** developer SHALL only need to run `mise run version:*` tasks
+
+---
+
+### Requirement: Git State Validation in CI Context
+
+The release:validate task SHALL handle CI-specific conditions when running in GitLab CI environment.
+
+#### Scenario: Git state validation ignores untracked files
+**Given** release:validate task is running in CI
+**When** git state is checked
+**Then** validation SHALL use `git status --porcelain --untracked-files=no`
+**And** untracked files (e.g., .cache/) SHALL be ignored
+**And** only tracked changes SHALL be detected
+
+#### Scenario: Branch validation accepts detached HEAD in CI
+**Given** release job is triggered by tag
+**When** release:validate checks branch
+**Then** validation SHALL accept detached HEAD state
+**And** validation SHALL use git describe to find tag when CI_COMMIT_TAG is not set
+**And** validation SHALL NOT fail when on detached HEAD with valid tag
+**And** validation SHALL display "Note: Running on detached HEAD (checking for tag in next step)"
+
+#### Scenario: Tag detection fallback when CI_COMMIT_TAG not set
+**Given** release:validate is running in CI
+**When** CI_COMMIT_TAG environment variable is not set
+**Then** validation SHALL use git describe --tags --exact-match to find tag
+**And** validation SHALL set GIT_TAG variable from git describe
+**And** validation SHALL continue with tag detection process
+
+#### Scenario: Final validation requires tag when on detached HEAD
+**Given** release:validate checks branch and finds HEAD
+**When** validation reaches final check
+**And** no tag is found
+**Then** validation SHALL fail
+**And** validation SHALL display "On detached HEAD but no tag found" error
+**And** validation SHALL require tag for release on detached HEAD
+
