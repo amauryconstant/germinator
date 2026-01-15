@@ -301,3 +301,22 @@
 - Task 24: No dependencies
 - Task 25: No dependencies
 - Task 26: No dependencies
+
+## Task 27: Simplify Release Job
+- [x] Switch release job to goreleaser/goreleaser official image
+- [x] Add entrypoint: [""] to release job
+- [x] Add GIT_DEPTH: 0 variable to release job
+- [x] Remove Docker service from release job
+- [x] Remove docker login from release job before_script
+- [x] Add inline version match validation to release job before_script
+- [x] Delete .mise/tasks/release/validate.sh file
+- [x] Remove release:validate task from .mise/config.toml
+- [x] Update openspec proposal with release job simplification details
+- [ ] Verify goreleaser/goreleaser image builds successfully
+- [ ] Verify inline validation catches version mismatches
+- [ ] Verify GoReleaser changelog generation works with GIT_DEPTH=0
+- [ ] Verify release job creates GitLab releases successfully
+
+## Dependencies
+
+- Task 27: No dependencies

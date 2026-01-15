@@ -235,15 +235,19 @@ create-version-tag:
 release:
   stage: distribute
   needs: [lint, test]
-  services:
-    - name: docker:29.1.4-dind
+  image: goreleaser/goreleaser
   variables:
-    DOCKER_HOST: tcp://docker:2375
-    DOCKER_TLS_CERTDIR: ""
+    GIT_DEPTH: 0
     GITLAB_TOKEN: "$CI_JOB_TOKEN"
   before_script:
-    - echo "$CI_JOB_TOKEN" | docker login -u gitlab-ci-token --password-stdin registry.gitlab.com
-    - mise run release:validate
+    - |
+      # Validate tag matches code version (only check that matters in CI)
+      TAG_VERSION="${CI_COMMIT_TAG#v}"
+      CODE_VERSION=$(grep 'Version = "' internal/version/version.go | sed 's/.*Version = "\(.*\)".*/\1/' | xargs)
+      if [ "$TAG_VERSION" != "$CODE_VERSION" ]; then
+        echo "ERROR: Tag version $TAG_VERSION does not match code version $CODE_VERSION"
+        exit 1
+      fi
   script:
     - goreleaser release --clean
   rules:

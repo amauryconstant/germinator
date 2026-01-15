@@ -632,3 +632,48 @@ Then job SHALL have needs dependency on lint job
 And job SHALL have needs dependency on test job
 And job SHALL NOT have needs dependency on tag job
 And release job SHALL wait for both lint and test to succeed
+
+---
+
+### Requirement: Simplified Release Job
+
+The release job SHALL use goreleaser/goreleaser official image with inline validation for simplicity.
+
+#### Scenario: Release job uses official image
+Given release job is defined
+When job configuration is reviewed
+Then job SHALL use goreleaser/goreleaser image
+And job SHALL have entrypoint set to [""]
+And job SHALL NOT use Docker service
+And job SHALL NOT have Docker-related variables (DOCKER_HOST, DOCKER_TLS_CERTDIR)
+And job SHALL NOT have docker login commands
+
+#### Scenario: Release job enables changelog generation
+Given release job is defined
+When job variables are reviewed
+Then GIT_DEPTH SHALL be 0
+And GoReleaser SHALL be able to diff tags for changelog
+And GoReleaser SHALL generate release notes from git history
+
+#### Scenario: Release job validates version match inline
+Given release job is running
+When before_script executes
+Then job SHALL extract tag version from $CI_COMMIT_TAG
+And job SHALL extract code version from internal/version/version.go
+And job SHALL fail if versions do not match
+And job SHALL NOT use mise or external validation script
+And job SHALL NOT validate git state (redundant in CI)
+And job SHALL NOT validate branch (redundant in CI)
+
+#### Scenario: GoReleaser uses job token
+Given .goreleaser.yml is configured
+When release.gitlab section is reviewed
+Then GITLAB_TOKEN environment variable SHALL be set to $CI_JOB_TOKEN
+And GoReleaser SHALL use GitLab job token for API access
+
+#### Scenario: Release validation task removed
+Given .mise/tasks/release/validate.sh is inspected
+When file exists
+Then file SHALL be deleted
+And .mise/config.toml SHALL NOT have release:validate task
+And release validation SHALL be handled inline in CI job

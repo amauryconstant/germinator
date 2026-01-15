@@ -66,12 +66,4 @@ run = ".mise/tasks/version.sh minor"
 description = "Bump major version"
 run = ".mise/tasks/version.sh major"
 
-# ========================
-# Release Management Tasks
-# ========================
-
-[tasks."release:dry-run"]
-description = "Run GoReleaser in dry-run mode"
-run = "goreleaser release --skip=publish --clean"
-
 # Note: CI Docker image is built automatically by GitLab CI when Dockerfile.ci or .mise/config.toml changes

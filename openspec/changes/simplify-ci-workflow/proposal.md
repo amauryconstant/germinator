@@ -44,6 +44,10 @@ This change simplifies CI workflow with better validation, error handling, autom
 - **Update tag job dependencies** - Tag job runs independently (no dependency on test), allowing version tracking regardless of test state
 - **Update mirror job dependencies** - Mirror job depends on tag, only running when version.go changes (GitHub mirror syncs on releases only)
 - **Rename stages for clarity** - "lint" → "validate", "release/mirror" → "distribute"
+- **Simplify release job** - Use goreleaser/goreleaser official image with inline validation for CI simplicity
+- **Remove release:validate task** - Deprecate local validation script (.mise/tasks/release/validate.sh removed)
+- **Add GIT_DEPTH support** - Enable GoReleaser changelog generation with full git history
+- **Remove Docker service from release** - Remove unnecessary Docker-in-Docker service (no Docker images being pushed)
 
 ## Impact
 
@@ -52,10 +56,12 @@ This change simplifies CI workflow with better validation, error handling, autom
 - Delta changes to `release-management` spec for validation requirements
 
 **Affected Code:**
-- `.gitlab-ci.yml` - Add CI optimization rules to skip expensive jobs on openspec-only changes, improve cache configuration, standardize base images, add tag stage with automatic tag creation, implement hash-based CI image tagging
-- `.mise/tasks/` - Add release:validate task, remove release:check task
+- `.gitlab-ci.yml` - Add CI optimization rules to skip expensive jobs on openspec-only changes, improve cache configuration, standardize base images, add tag stage with automatic tag creation, implement hash-based CI image tagging, consolidate pipeline stages, simplify release job with goreleaser/goreleaser image
+- `.mise/tasks/release/validate.sh` - Remove (deprecated, replaced by inline validation)
+- `.mise/config.toml` - Remove release:validate task
 - `AGENTS.md` - Update release workflow documentation, remove manual tagging steps, document docker CLI in CI image
 - `Dockerfile.ci` - Add docker-cli package to enable docker commands in release job
+- `.goreleaser.yml` - Use GitLab job token for releases
 
 **Note**: Delta changes to `release-management` spec are included in `simplify-ci-workflow/specs/release-management/spec.md`. When this proposal is archived, these deltas will be applied to `openspec/specs/release-management/spec.md` as part of the archive process. This allows all spec changes to be visible in one location while maintaining clear proposal scope.
 
@@ -82,6 +88,11 @@ This change simplifies CI workflow with better validation, error handling, autom
 - Tag job creates version tags independently of test state (allows version tracking even with failed tests)
 - GitHub mirror job only runs when version.go changes (on releases), not on every main push
 - Clearer stage semantics with renamed stages (validate, distribute)
+- Release job uses goreleaser/goreleaser official image for simplicity
+- Release job validates version match inline (only check needed in CI)
+- Release job no longer has Docker service overhead (simpler, faster)
+- GoReleaser generates changelogs properly with GIT_DEPTH=0
+- Deprecated release:validate task removed from configuration
 
 ## Dependencies
 
@@ -89,12 +100,16 @@ None - this change is independent and can be implemented at any time.
 
 ## Migration Path
 
-**Breaking Change:** GitHub mirror job behavior changes from mirroring on every main push to mirroring only when version.go changes (on releases).
+**Breaking Changes:**
+- GitHub mirror job behavior changes from mirroring on every main push to mirroring only when version.go changes (on releases)
+- `mise run release:validate` task is removed (deprecated, no longer maintained)
+- Developers can no longer run local validation via mise task (inline validation in CI only)
 
 **Migration Impact:**
 - GitHub mirror will no longer sync code on normal main pushes (without version changes)
 - GitHub mirror will only run when a version tag is created
 - This may affect workflows that rely on continuous GitHub mirroring
+- Local release validation is removed (not used by developers)
 
 **No other breaking changes.** Existing workflows continue to work with better validation, error detection, and improved pipeline structure.
 
@@ -120,8 +135,9 @@ None - this change is independent and can be implemented at any time.
 - Invalid Git tags (mismatched with version.go) detected and rejected before release
 - Uncommitted changes detected and rejected before release
 - Releases only allowed from main branch
-- Release job validates with mise run release:validate in before_script
+- Release job validates tag version match with inline validation in before_script
 - AGENTS.md updated with validation checks and troubleshooting
+- Deprecated release:validate task removed (unused, replaced by inline validation)
 - Tag stage runs when internal/version/version.go changes on main branch
 - Tag stage creates tags with format v<VERSION> (e.g., v0.3.0)
 - Tag stage is idempotent - skips creation if tag already exists

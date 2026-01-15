@@ -26,9 +26,6 @@ germinator
 artifacts.json
 metadata.json
 
-# Dependency directories (remove_t comment below to include it)
-# vendor/
-
 # Go workspace file
 go.work
 go.work.sum
@@ -40,5 +37,5 @@ go.work.sum
 # .idea/
 .vscode/
 
-
-docs/*
+# Gitlab CI folder
+.cache
