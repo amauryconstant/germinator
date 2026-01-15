@@ -93,19 +93,31 @@
 
 - Task 10: Depends on Task 4, 13
 
-## Task 11: Test Cache Invalidation
+## Task 11: Fix release:validate for CI Context
+- [x] Update git status check to use --untracked-files=no flag
+- [x] Update branch check to accept detached HEAD when CI_COMMIT_TAG is set
+- [x] Add conditional logic to skip branch validation when CI_COMMIT_TAG is present
+- [x] Display informative message when running on detached HEAD with tag
+- [x] Update openspec proposal to document CI context handling
+- [ ] Verify release job passes validation in CI
+
+## Dependencies
+
+- Task 11: No dependencies
+
+## Task 12: Test Cache Invalidation
 - [ ] Modify .mise/config.toml to bump tool version
 - [ ] Verify cache key changes
 - [ ] Verify old cache is not used
 - [ ] Verify Go modules are re-downloaded with new tools
 
-## Task 12: Test Concurrent Pipeline Cache Safety
+## Task 13: Test Concurrent Pipeline Cache Safety
 - [ ] Trigger multiple pipelines simultaneously on main branch
 - [ ] Verify resource_group serializes setup job writes
 - [ ] Verify no cache corruption occurs
 - [ ] Verify all pipelines complete successfully
 
-## Task 13: Update Documentation
+## Task 14: Update Documentation
 - [x] Update AGENTS.md to reflect new CI configuration
 - [x] Document cache key composition (5 files)
 - [x] Document GitLab CI rules behavior for mirror job
@@ -117,7 +129,7 @@
 - [x] Document automatic tag creation workflow
 - [x] Add tag stage to pipeline documentation
 
-## Task 14: Create CI Workflow Spec
+## Task 15: Create CI Workflow Spec
 - [x] Define requirements for cache key composition (all 5 files)
 - [x] Define requirements for serialized cache writes
 - [x] Define requirements for GitLab CI rules variable validation
@@ -132,8 +144,11 @@
 - [x] Add requirements for tag stage behavior
 - [x] Add scenario for tag stage idempotency
 - [x] Add scenario for version.go change triggering tag creation
+- [x] Add requirements for git state validation in CI context
+- [x] Add scenario for git state validation ignoring untracked files
+- [x] Add scenario for branch validation accepting detached HEAD
 
-## Task 15: Test Complete Release Workflow
+## Task 16: Test Complete Release Workflow
 - [ ] Perform end-to-end release with new validation
 - [ ] Verify validation catches uncommitted changes
 - [ ] Verify validation catches wrong branch
@@ -143,34 +158,35 @@
 - [ ] Verify tag stage creates tag automatically
 - [ ] Verify release stage triggers after tag creation
 - [x] Verify AGENTS.md documentation is accurate
+- [ ] Verify release job passes validation in CI context
 
-## Task 16: Test CI Optimization
+## Task 17: Test CI Optimization
 - [ ] Trigger test MR with only openspec changes
 - [ ] Verify pipeline shows only setup job running
 - [ ] Verify lint, test, release, mirror jobs are skipped
 - [ ] Verify all jobs complete successfully
 - [x] Document expected behavior in AGENTS.md
 
-## Task 17: Test Mixed Changes
+## Task 18: Test Mixed Changes
 - [ ] Trigger test MR with both openspec and code changes
 - [ ] Verify pipeline runs all jobs normally
 - [ ] Verify no unexpected job skipping occurs
 - [x] Document full pipeline behavior in AGENTS.md
 
-## Task 18: Optimize CI for openspec-only Changes
+## Task 19: Optimize CI for openspec-only Changes
 - [x] Add rules to skip jobs when only openspec files change
 - [x] Apply rules to lint, test, release, mirror jobs
 - [ ] Test that code changes trigger full pipeline (all jobs run)
 - [ ] Test that openspec-only changes skip expensive jobs (lint, test, release)
 - [ ] Verify setup job still runs for both cases
 
-## Task 19: Create CI Workflow Optimization Spec
+## Task 20: Create CI Workflow Optimization Spec
 - [x] Define requirements for CI optimization using rules:changes
 - [x] Document openspec-only change detection and job skipping behavior
 - [x] Add scenarios for code changes triggering full pipeline
 - [x] Add scenarios for documentation-only changes skipping expensive jobs
 
-## Task 20: Test CI Optimization
+## Task 21: Test CI Optimization
 - [ ] Trigger test MR with only openspec changes
 - [ ] Verify pipeline shows only setup job running
 - [ ] Verify lint, test, release, mirror jobs are skipped
@@ -178,7 +194,7 @@
 - [ ] Verify all jobs run normally
 - [x] Document expected behavior in AGENTS.md
 
-## Task 21: Implement Hash-Based CI Image Tagging
+## Task 22: Implement Hash-Based CI Image Tagging
 - [x] Add calculate_image_hash() function to build-ci-image job script
 - [x] Hash SHALL be SHA256 hash of Dockerfile.ci + .mise/config.toml concatenated
 - [x] Hash SHALL be truncated to 12 characters
@@ -189,12 +205,12 @@
 - [x] Add logging to show mise version, image hash, and image tag
 - [x] Test hash calculation locally with cat Dockerfile.ci .mise/config.toml | sha256sum | cut -c1-12
 
-## Task 22: Add Docker CLI to CI Image
+## Task 23: Add Docker CLI to CI Image
 - [x] Add docker-cli to Dockerfile.ci apk add command
 - [x] Update AGENTS.md to document docker CLI in CI image
 - [ ] Verify docker CLI is available in CI image after build
 
-## Task 23: Upgrade DIND Service Version
+## Task 24: Upgrade DIND Service Version
 - [x] Update build-ci-image job to use docker:29.1.4-dind service (latest)
 - [x] Update release job to use docker:29.1.4-dind service (latest)
 - [x] Update build-ci-image job to use docker:29.1.4-cli image (latest)
@@ -206,23 +222,24 @@
 - Task 1: No dependencies
 - Task 2: Can run in parallel with Task 1
 - Task 3: Can run in parallel with Task 1
-- Task 4: Depends on Task 1, 13
+- Task 4: Depends on Task 1, 14
 - Task 5: No dependencies
 - Task 6: Can run in parallel with Task 2, 3, 4
 - Task 7: Depends on Task 6
 - Task 8: Depends on Task 6
 - Task 9: Depends on Task 4, 5
-- Task 10: Depends on Task 4, 13
-- Task 11: Depends on Task 1
+- Task 10: Depends on Task 4, 14
+- Task 11: No dependencies
 - Task 12: Depends on Task 1, 2, 3
 - Task 13: No dependencies
-- Task 14: Depends on Task 1, 4, 10, 12, 13, 20
+- Task 14: Depends on Task 1, 4, 10, 13, 21
 - Task 15: Depends on Tasks 7, 10
-- Task 16: Depends on Task 13, 20
-- Task 17: Depends on Tasks 13, 20
-- Task 18: No dependencies
-- Task 19: Depends on Tasks 18
-- Task 20: Depends on Task 13, 19
-- Task 21: No dependencies
+- Task 16: Depends on Tasks 7, 11, 14
+- Task 17: Depends on Tasks 14, 21
+- Task 18: Depends on Tasks 14, 21
+- Task 19: No dependencies
+- Task 20: Depends on Tasks 19
+- Task 21: Depends on Task 14, 20
 - Task 22: No dependencies
 - Task 23: No dependencies
+- Task 24: No dependencies

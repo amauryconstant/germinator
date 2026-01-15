@@ -173,3 +173,31 @@ The system SHALL automatically create Git tags when the version file changes, el
 **Then** manual git tag commands SHALL NOT be documented
 **And** automatic tag creation SHALL be clearly documented
 **And** developer SHALL only need to run `mise run version:*` tasks
+
+---
+
+### Requirement: Git State Validation in CI Context
+
+The release:validate task SHALL handle CI-specific conditions when running in GitLab CI environment.
+
+#### Scenario: Git state validation ignores untracked files
+**Given** release:validate task is running in CI
+**When** git state is checked
+**Then** validation SHALL use `git status --porcelain --untracked-files=no`
+**And** untracked files (e.g., .cache/) SHALL be ignored
+**And** only tracked changes SHALL be detected
+
+#### Scenario: Branch validation accepts detached HEAD in CI
+**Given** release job is triggered by CI_COMMIT_TAG
+**When** release:validate checks branch
+**Then** validation SHALL accept detached HEAD state
+**And** validation SHALL check if CI_COMMIT_TAG is set
+**And** validation SHALL NOT fail when on detached HEAD with tag
+**And** validation SHALL display "Running on detached HEAD with CI_COMMIT_TAG=<tag>"
+
+#### Scenario: Branch validation fails without tag
+**Given** release:validate is running locally
+**When** not on main branch
+**And** CI_COMMIT_TAG is not set
+**Then** validation SHALL fail
+**And** validation SHALL display "Not on main branch" error

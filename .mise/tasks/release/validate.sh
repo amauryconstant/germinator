@@ -9,7 +9,7 @@ echo "Validating release prerequisites..."
 # Check 1: Git state must be clean
 echo ""
 echo "Checking git state..."
-if [ -n "$(git status --porcelain)" ]; then
+if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
   echo "ERROR: Git working directory has uncommitted changes:"
   git status --short
   errors=$((errors + 1))
@@ -17,11 +17,14 @@ else
   echo "✓ Git working directory is clean"
 fi
 
-# Check 2: Must be on main branch
+# Check 2: Must be on main branch or detached HEAD with tag
 echo ""
 echo "Checking branch..."
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-if [ "$CURRENT_BRANCH" != "main" ]; then
+if [ -n "$CI_COMMIT_TAG" ]; then
+  # In CI, release jobs run on detached HEAD with CI_COMMIT_TAG set
+  echo "✓ Running on detached HEAD with CI_COMMIT_TAG=$CI_COMMIT_TAG"
+elif [ "$CURRENT_BRANCH" != "main" ]; then
   echo "ERROR: Not on main branch (current: $CURRENT_BRANCH)"
   errors=$((errors + 1))
 else

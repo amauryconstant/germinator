@@ -25,9 +25,9 @@ This change simplifies CI workflow with better validation, error handling, autom
 - **Standardize base images** - All jobs use CI image instead of alpine:latest
 - **Improve cache policies** - Serialize writes to prevent corruption
 - **Consolidate validation tasks** - Single release:validate task
-- **Add git state validation** - Ensure clean working directory and main branch
+- **Add git state validation** - Ensure clean working directory and main branch, ignore untracked files in CI context
 - **Add tag validation** - Validate Git tags against version.go (simple grep/sed approach)
-- **Add CI integration** - Run validation in release job's before_script
+- **Add CI integration** - Run validation in release job's before_script, accept detached HEAD when CI_COMMIT_TAG is set
 - **Set artifact lifetime** - 24 hours across all stages
 - **Scope out prerelease support** - Keep validation simple
 - **Add automatic tag creation** - Create Git tags when internal/version/version.go changes, replacing manual tagging workflow
