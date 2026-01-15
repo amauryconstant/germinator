@@ -1,11 +1,10 @@
-FROM golang:1.25.5-bookworm AS base
+FROM golang:1.25.5-alpine3.23 AS base
 
-RUN apt-get update && apt-get install -y \
+RUN apk add --no-cache \
     curl \
     git \
     ca-certificates \
-    sudo \
-    && rm -rf /var/lib/apt/lists/*
+    bash
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -21,19 +20,17 @@ FROM base AS tools
 COPY .mise/config.toml ${MISE_CONFIG_DIR}/config.toml
 
 RUN mise install --yes && \
-    rm -rf ${MISE_CACHE_DIR}
+    rm -rf ${MISE_CACHE_DIR} && \
+    mkdir -p /workspace/.gomodcache /workspace/go
 
 FROM tools AS final
 
+ENV GO111MODULE=on \
+    GOMODCACHE=/workspace/.gomodcache \
+    GOPATH=/workspace/go \
+    PATH="${GOPATH}/bin:/root/.local/bin:/mise/shims:$PATH"
+
 WORKDIR /workspace
-
-ENV GO111MODULE=on
-ENV GOMODCACHE=/workspace/.gomodcache
-ENV GOPATH=/workspace/go
-
-RUN mkdir -p ${GOMODCACHE}
-
-ENV PATH="${GOPATH}/bin:/root/.local/bin/mise:/mise/shims:$PATH"
 
 RUN mise ls && \
     go version && \

@@ -59,15 +59,15 @@ The CI image build process SHALL be reliable and handle concurrent builds safely
 
 The cache configuration SHALL prevent corruption and handle concurrent pipelines safely.
 
-#### Scenario: Cache key includes all configuration files
+#### Scenario: Cache key uses checksum file to track configuration changes
 **Given** .gitlab-ci.yml cache configuration is defined
 **When** cache key is computed
-**Then** key SHALL include .gitlab-ci.yml
-**And** key SHALL include Dockerfile.ci
-**And** key SHALL include .mise/config.toml
-**And** key SHALL include go.mod
-**And** key SHALL include go.sum
-**And** any change to these files SHALL invalidate cache
+**Then** key SHALL use .cache-key as single file reference
+**And** .cache-key SHALL contain SHA256 checksums of all critical files
+**And** .cache-key SHALL include checksums for .gitlab-ci.yml, Dockerfile.ci, .mise/config.toml, go.mod, go.sum
+**And** any change to critical files SHALL change .cache-key
+**And** cache SHALL be invalidated when .cache-key changes
+**And** implementation SHALL respect GitLab's 2-file limit for cache:key:files
 
 #### Scenario: Setup job writes cache exclusively
 **Given** setup job runs

@@ -50,12 +50,42 @@ build-ci-image:
     - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
   script:
     - |
-      MISE_VERSION=$(curl -s https://api.github.com/repos/jdx/mise/releases/latest \
-        | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-      if docker pull "$CI_REGISTRY_IMAGE:$MISE_VERSION"; then
-        echo "CI image exists, skipping build"
+      get_mise_version() {
+        local retries=3
+        local retry=0
+        local version=""
+        
+        while [ $retry -lt $retries ]; do
+          version=$(curl -s https://api.github.com/repos/jdx/mise/releases/latest \
+            | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+          
+          if [ -n "$version" ]; then
+            echo "$version"
+            return 0
+          fi
+          
+          retry=$((retry + 1))
+          if [ $retry -lt $retries ]; then
+            echo "Retry $retry/$retries: Failed to get mise version"
+            sleep 2
+          fi
+        done
+        
+        echo "Failed to get mise version from GitHub API after $retries attempts"
+        return 1
+      }
+      
+      MISE_VERSION=$(get_mise_version)
+      if [ $? -ne 0 ]; then
+        echo "Using cached mise version if available"
+        MISE_VERSION="2026.1.2"
+      fi
+      
+      if docker manifest inspect "$CI_REGISTRY_IMAGE:$MISE_VERSION" > /dev/null 2>&1; then
+        echo "CI image $CI_REGISTRY_IMAGE:$MISE_VERSION exists, skipping build"
         exit 0
       fi
+      
       docker build \
         -t "$CI_REGISTRY_IMAGE:latest" \
         -t "$CI_REGISTRY_IMAGE:$MISE_VERSION" \
@@ -71,8 +101,7 @@ default:
   cache:
     key:
       files:
-        - go.mod
-        - go.sum
+        - .cache-key
     paths:
       - .cache/go-mod/
       - .go/pkg/mod/
@@ -83,23 +112,56 @@ default:
 # --------------------------------
 setup:
   stage: setup
+  resource_group: cache_updates
+  before_script:
+    - |
+      generate_cache_key() {
+        local checksum=""
+        # Process files in deterministic order
+        for file in .gitlab-ci.yml Dockerfile.ci .mise/config.toml go.mod go.sum; do
+          if [ -f "$file" ]; then
+            local file_hash=$(sha256sum "$file" | awk '{print $1}')
+            checksum="${checksum}${file}:${file_hash}|"
+          fi
+        done
+        # Write to cache key file (remove trailing pipe)
+        echo "${checksum%|}" > .cache-key
+      }
+      generate_cache_key
   script:
     - go mod download
   artifacts:
     paths:
       - .cache/go-mod/
       - .go/pkg/mod/
-    expire_in: 2 hours
+      - .cache-key
+    expire_in: 24 hours
 
 lint:
   stage: lint
   needs: [setup]
+  cache:
+    key:
+      files:
+        - .cache-key
+    paths:
+      - .cache/go-mod/
+      - .go/pkg/mod/
+    policy: pull
   script:
     - golangci-lint run
 
 test:
   stage: test
   needs: [setup]
+  cache:
+    key:
+      files:
+        - .cache-key
+    paths:
+      - .cache/go-mod/
+      - .go/pkg/mod/
+    policy: pull
   script:
     - go test ./... -v
 
