@@ -320,3 +320,16 @@
 ## Dependencies
 
 - Task 27: No dependencies
+
+## Task 28: Fix CI Job Issues
+- [x] Add entrypoint: [""] to release job (override goreleaser/goreleaser entrypoint)
+- [x] Simplify mirror job to use force-push strategy (--force)
+- [x] Remove before_script from mirror job (no longer needed)
+- [x] Add --force to both git push commands in mirror job (branch and tags)
+- [x] Update openspec proposal to document these fixes
+- [ ] Verify release job executes without entrypoint errors
+- [ ] Verify mirror job force-pushes successfully to GitHub
+
+## Dependencies
+
+- Task 28: No dependencies

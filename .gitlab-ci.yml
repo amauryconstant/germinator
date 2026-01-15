@@ -235,7 +235,9 @@ create-version-tag:
 release:
   stage: distribute
   needs: [lint, test]
-  image: goreleaser/goreleaser
+  image:
+    name: goreleaser/goreleaser
+    entrypoint: [""]
   variables:
     GIT_DEPTH: 0
     GITLAB_TOKEN: "$CI_JOB_TOKEN"
@@ -266,13 +268,10 @@ mirror-to-github:
   needs: [create-version-tag]
   variables:
     GIT_STRATEGY: fetch
-  before_script:
-    - git fetch --all
-    - git checkout -B "$CI_COMMIT_BRANCH"
   script:
     - git remote add github "https://${GITHUB_ACCESS_TOKEN}@github.com/${GITHUB_REPO_URL}.git" || true
-    - git push github "$CI_COMMIT_BRANCH" --force-with-lease
-    - git push github --tags
+    - git push github "$CI_COMMIT_BRANCH" --force
+    - git push github --tags --force
   interruptible: true
   rules:
     - if: '$CI_COMMIT_BRANCH == "main" && $GITHUB_ACCESS_TOKEN && $GITHUB_REPO_URL'
