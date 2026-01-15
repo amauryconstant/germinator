@@ -287,3 +287,79 @@ The system SHALL provide a single consolidated validation task for release opera
 **When** tasks are reviewed
 **Then** release:check task SHALL NOT exist
 **And** all documentation SHALL reference release:validate
+
+---
+
+### Requirement: Automatic Tag Creation
+
+The CI pipeline SHALL automatically create Git tags when the version file changes, eliminating manual tagging.
+
+#### Scenario: Tag stage creates version tag
+**Given** commit includes changes to internal/version/version.go
+**When** pipeline runs on main branch
+**And** test stage completes successfully
+**Then** tag stage SHALL run
+**And** tag stage SHALL extract version from internal/version/version.go
+**And** tag stage SHALL create Git tag with format v<VERSION>
+**And** tag stage SHALL push tag to origin
+**And** release stage SHALL trigger with new tag
+
+#### Scenario: Tag stage idempotent behavior
+**Given** tag vX.Y.Z already exists
+**When** pipeline runs again with same version.go
+**Then** tag stage SHALL detect existing tag
+**And** tag stage SHALL skip tag creation
+**And** tag stage SHALL report "Tag already exists, skipping"
+**And** pipeline SHALL continue normally
+
+#### Scenario: Tag stage skips when version unchanged
+**Given** commit does NOT change internal/version/version.go
+**When** pipeline runs
+**Then** tag stage SHALL be skipped
+**And** no tag SHALL be created
+**And** other stages SHALL run normally
+
+#### Scenario: Tag format validation
+**Given** version in internal/version/version.go is "0.3.0"
+**When** tag is created
+**Then** tag SHALL be "v0.3.0"
+**And** tag SHALL include 'v' prefix
+**And** tag SHALL match semantic version format
+
+#### Scenario: Git configuration for tagging
+**Given** tag stage is running
+**When** git config is set
+**Then** git user.email SHALL be set from $GITLAB_USER_EMAIL
+**And** git user.name SHALL be set from $GITLAB_USER_NAME
+**And** git remote SHALL be configured for push with CI_JOB_TOKEN
+**And** tag SHALL be pushed successfully
+
+#### Scenario: Release stage integration
+**Given** tag stage creates tag v0.3.0
+**When** tag push completes
+**Then** release stage SHALL trigger automatically
+**And** release stage SHALL use tag vX.Y.Z for version
+**And** release:validate SHALL find the tag
+**And** GoReleaser SHALL create release artifacts
+
+---
+
+### Requirement: Manual Tagging Workflow Removal
+
+The release documentation SHALL remove manual tagging instructions, as tagging is now automatic.
+
+#### Scenario: Documentation reflects automatic tagging
+**Given** developer reads AGENTS.md release workflow
+**When** documentation is reviewed
+**Then** manual `git tag` and `git push origin` steps SHALL NOT be documented
+**And** automatic tag creation SHALL be documented
+**And** version bump workflow SHALL be clearly explained
+**And** tag stage SHALL be included in pipeline stages
+
+#### Scenario: Release workflow simplification
+**Given** developer wants to create a release
+**When** developer bumps version using mise tasks
+**And** commits and pushes to main
+**Then** CI SHALL automatically create tag
+**And** CI SHALL automatically create release
+**And** no manual git commands SHALL be required

@@ -70,10 +70,6 @@ run = ".mise/tasks/version.sh major"
 # Release Management Tasks
 # ========================
 
-[tasks."release:check"]
-description = "Validate GoReleaser configuration"
-run = "goreleaser check"
-
 [tasks."release:dry-run"]
 description = "Run GoReleaser in dry-run mode"
 run = "goreleaser release --skip=publish --clean"

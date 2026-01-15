@@ -2,7 +2,7 @@
 
 ## Why
 
-The current CI workflow has disconnected validation, silent failures, and poor cache management:
+The current CI workflow has disconnected validation, silent failures, poor cache management, and manual release tagging:
 
 - **Silent failures** when GitHub mirror is misconfigured (GITHUB_ACCESS_TOKEN missing) - confusing behavior
 - **No validation** that Git tags match version.go or that git state is clean
@@ -11,12 +11,13 @@ The current CI workflow has disconnected validation, silent failures, and poor c
 - **No git state validation** - releases can be created with uncommitted changes
 - **No branch validation** - releases can be created from non-main branches
 - **Confusing validation tasks** - both release:check and release:validate exist
+- **Manual tagging** - Developers must remember to create and push tags manually after version bumps, leading to forgotten or mistagged releases
 
-These issues lead to wasted CI time, undetected configuration problems, and inconsistent build behavior.
+These issues lead to wasted CI time, undetected configuration problems, inconsistent build behavior, and release process friction.
 
 ## What Changes
 
-This change simplifies CI workflow with better validation and error handling:
+This change simplifies CI workflow with better validation, error handling, and automated release tagging:
 
 - **Add .mise/config.toml to cache key** - Invalidate cache when tool versions change
 - **Validate GitHub mirror variables** - Fail-fast with clear errors or skip gracefully
@@ -28,6 +29,9 @@ This change simplifies CI workflow with better validation and error handling:
 - **Add CI integration** - Run validation in release job's before_script
 - **Set artifact lifetime** - 24 hours across all stages
 - **Scope out prerelease support** - Keep validation simple
+- **Add automatic tag creation** - Create Git tags when internal/version/version.go changes, replacing manual tagging workflow
+- **Add tag stage** - New stage after test that creates tags idempotently
+- **Integrate with release workflow** - Tags trigger release stage automatically
 
 ## Impact
 
@@ -36,9 +40,9 @@ This change simplifies CI workflow with better validation and error handling:
 - Delta changes to `release-management` spec for validation requirements
 
 **Affected Code:**
-- `.gitlab-ci.yml` - Add CI optimization rules to skip expensive jobs on openspec-only changes, improve cache configuration, standardize base images
+- `.gitlab-ci.yml` - Add CI optimization rules to skip expensive jobs on openspec-only changes, improve cache configuration, standardize base images, add tag stage with automatic tag creation
 - `.mise/tasks/` - Add release:validate task, remove release:check task
-- `AGENTS.md` - Update release workflow documentation
+- `AGENTS.md` - Update release workflow documentation, remove manual tagging steps
 
 **Note**: Delta changes to `release-management` spec are included in `simplify-ci-workflow/specs/release-management/spec.md`. When this proposal is archived, these deltas will be applied to `openspec/specs/release-management/spec.md` as part of the archive process. This allows all spec changes to be visible in one location while maintaining clear proposal scope.
 
@@ -50,6 +54,8 @@ This change simplifies CI workflow with better validation and error handling:
 - Release validation catches uncommitted changes, wrong branch, tag mismatches
 - Single validation task reduces confusion
 - Expensive CI jobs (lint, test, release, mirror) automatically skipped when only documentation changes, saving CI resources and time
+- Automatic tag creation when internal/version/version.go changes, eliminating manual tagging steps
+- Developers only need to run `mise run version:*` to bump version, push to main, and watch CI create tag and release
 
 ## Dependencies
 
@@ -79,3 +85,10 @@ No breaking changes. Existing workflows continue to work, with better validation
 - Releases only allowed from main branch
 - Release job validates with mise run release:validate in before_script
 - AGENTS.md updated with validation checks and troubleshooting
+- Tag stage runs when internal/version/version.go changes on main branch
+- Tag stage creates tags with format v<VERSION> (e.g., v0.3.0)
+- Tag stage is idempotent - skips creation if tag already exists
+- Tag stage runs after test stage completes successfully
+- Tag stage uses $GITLAB_USER_EMAIL and $GITLAB_USER_NAME for git config
+- Release stage triggers automatically after tag stage creates tag
+- Manual tagging workflow removed from documentation

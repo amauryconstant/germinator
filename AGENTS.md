@@ -164,6 +164,8 @@ For implementation milestones, follow the IMPLEMENTATION_PLAN.md for specific co
 
 ## Creating a Release
 
+**Important**: Version bumping is manual. Git tags are created automatically by CI when `internal/version/version.go` changes.
+
 1. Bump version using mise tasks:
    ```bash
    mise run version:patch   # Bump patch version (0.2.0 → 0.2.1)
@@ -171,25 +173,34 @@ For implementation milestones, follow the IMPLEMENTATION_PLAN.md for specific co
    mise run version:major   # Bump major version (0.2.0 → 1.0.0)
    ```
 
-2. Commit the version bump:
+2. Validate release prerequisites:
+   ```bash
+   mise run release:validate
+   ```
+   This checks:
+   - Git working directory is clean (no uncommitted changes)
+   - Current branch is main
+   - GoReleaser configuration is valid
+
+3. Commit the version bump:
    ```bash
    git add .
    git commit -m "chore: bump version to 0.3.0"
    git push origin main
    ```
 
-3. Create and push tag:
-   ```bash
-   git tag v0.3.0
-   git push origin v0.3.0
-   ```
+4. **GitLab CI will automatically create a Git tag and release**:
+   - Tag stage detects the version change
+   - Creates Git tag with format `v<VERSION>` (e.g., `v0.3.0`)
+   - Tag triggers release stage automatically
+   - Release builds cross-platform binaries:
+     - Linux/macOS/Windows (amd64/arm64)
+     - Archives (.tar.gz for Unix, .zip for Windows)
+     - SHA256 checksums
+     - SBOMs (SPDX format)
+     - Auto-generated release notes
 
-4. GitLab CI will automatically create release with:
-   - Cross-platform binaries (Linux/macOS/Windows, amd64/arm64)
-   - Archives (.tar.gz for Unix, .zip for Windows)
-   - SHA256 checksums
-   - SBOMs (SPDX format)
-   - Auto-generated release notes
+**Note**: The release job automatically runs `mise run release:validate` in its before_script, so validation failures will cause the release to fail early with clear error messages. Tag creation is idempotent - if a tag already exists, the tag stage will skip creation and continue the pipeline.
 
 ## Release Artifacts
 
@@ -260,6 +271,64 @@ Hooks run automatically on commit and include:
 
 ---
 
+# Troubleshooting
+
+## CI/CD Issues
+
+**Cache not invalidating after tool update:**
+- Verify .mise/config.toml is included in cache key
+- Check that setup job ran after changing tool versions
+- Force cache rebuild by modifying any cache key file
+
+**Mirror job not running:**
+- Check that GITHUB_ACCESS_TOKEN and GITHUB_REPO_URL are set in GitLab CI variables
+- Verify current branch is main
+- Confirm job is skipped (not failed) when variables are missing - this is expected behavior
+
+**Expensive jobs (lint, test, release) skipping unexpectedly:**
+- Verify code changes are outside openspec/ directory
+- Check pipeline logs for "Skipped due to rules" message
+- This is expected behavior for documentation-only changes
+
+## Release Issues
+
+**release:validate failing:**
+- Check for uncommitted changes: `git status`
+- Verify you're on main branch: `git branch --show-current`
+- Validate GoReleaser config: `goreleaser check`
+
+**Release job failing in CI:**
+- Check CI job logs for `mise run release:validate` output
+- Look for specific validation failure messages
+- Fix the issue locally, push the fix, and try again
+
+**Tag not being created:**
+- Verify `internal/version/version.go` was modified
+- Check that changes are pushed to main branch
+- Review tag stage logs for errors
+- Ensure $GITLAB_USER_EMAIL and $GITLAB_USER_NAME variables are set
+
+**Tag already exists, but release failed:**
+- If tag exists but release failed, delete and re-push:
+  ```bash
+  git tag -d v0.3.0
+  git push origin :refs/tags/v0.3.0
+  ```
+  Then re-run pipeline or push a new version bump
+- Or manually create new tag with incremented version
+
+**Need to recreate tag after fixing issues:**
+- Delete existing tag locally: `git tag -d v0.3.0`
+- Delete remote tag: `git push origin :refs/tags/v0.3.0`
+- Re-run pipeline (tag stage will recreate tag)
+
+**Version tag mismatch errors:**
+- Ensure tag format is vX.Y.Z (with 'v' prefix)
+- Check that version in internal/version/version.go is correct
+- Tag stage automatically creates correct format, this should not happen
+
+---
+
 # CI/CD Pipeline
 
 The project uses GitLab CI/CD for automated testing and deployment. The pipeline runs on:
@@ -268,15 +337,44 @@ The project uses GitLab CI/CD for automated testing and deployment. The pipeline
 - Pushes to the main branch
 
 **Pipeline stages:**
-1. **setup** - Download Go module dependencies
-2. **lint** - Run golangci-lint
-3. **test** - Run all tests
-4. **release** - Create GitLab releases on tag push
-5. **mirror** - Push to GitHub mirror (main branch only, requires GITHUB_ACCESS_TOKEN and GITHUB_REPO_URL)
+1. **build-ci** - Build and push CI Docker image (when Dockerfile.ci or .mise/config.toml changes)
+2. **setup** - Download Go module dependencies
+3. **lint** - Run golangci-lint
+4. **test** - Run all tests
+5. **tag** - Create Git tag when internal/version/version.go changes (automatic, idempotent)
+6. **release** - Create GitLab releases on tag push (triggered by tag stage)
+7. **mirror** - Push to GitHub mirror (main branch only, requires GITHUB_ACCESS_TOKEN and GITHUB_REPO_URL)
+
+**Cache Configuration:**
+- Cache key includes: .gitlab-ci.yml, Dockerfile.ci, .mise/config.toml, go.mod, go.sum
+- Cache invalidates when any of these files change
+- Setup job writes cache (pull-push), other jobs read only (pull)
+- Resource group `cache_updates` serializes writes to prevent corruption
+- Artifacts expire after 24 hours
+
+**Tag Stage Behavior:**
+- Runs automatically when internal/version/version.go changes on main branch
+- Extracts version from internal/version/version.go using grep/sed
+- Creates Git tag with format v<VERSION> (e.g., `v0.3.0`)
+- Idempotent - skips tag creation if tag already exists
+- Uses $GITLAB_USER_EMAIL and $GITLAB_USER_NAME for git config
+- Pushes tag to origin, which triggers release stage
+
+**CI Optimization:**
+- Expensive jobs (lint, test, release, mirror) are automatically skipped when only openspec/ files change
+- This saves CI resources and speeds up documentation-only updates
+- Setup job always runs to ensure cache is available
 
 **GitLab CI variables:**
-- `GITHUB_ACCESS_TOKEN` - GitHub personal access token for mirroring
-- `GITHUB_REPO_URL` - GitHub repository URL (e.g., `username/repo`)
+- `GITHUB_ACCESS_TOKEN` - GitHub personal access token for mirroring (required for mirror job)
+- `GITHUB_REPO_URL` - GitHub repository URL (e.g., `username/repo`, required for mirror job)
+- `GITLAB_USER_EMAIL` - Email for git config in tag stage
+- `GITLAB_USER_NAME` - Name for git config in tag stage
+
+**Mirror Job Behavior:**
+- Only runs on main branch when both GITHUB_ACCESS_TOKEN and GITHUB_REPO_URL are set
+- Skipped gracefully (not failed) when variables are missing
+- Uses CI image (registry.gitlab.com/amoconst/germinator/ci:latest) instead of alpine
 
 ---
 

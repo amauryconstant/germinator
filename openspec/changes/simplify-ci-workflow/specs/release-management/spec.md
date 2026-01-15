@@ -152,3 +152,24 @@ The system SHALL provide a single consolidated validation task for release opera
 **When** tasks are reviewed
 **Then** release:check task SHALL NOT exist
 **And** all documentation SHALL reference release:validate
+
+---
+
+### Requirement: Automatic Tag Creation
+
+The system SHALL automatically create Git tags when the version file changes, eliminating manual tagging workflow.
+
+#### Scenario: Tag stage triggers on version change
+**Given** internal/version/version.go is modified
+**When** change is pushed to main branch
+**And** test stage completes successfully
+**Then** tag stage SHALL run automatically
+**And** tag SHALL be created with format v<VERSION>
+**And** tag SHALL be pushed to repository
+
+#### Scenario: Manual tagging workflow removed
+**Given** developer reads release documentation
+**When** release workflow instructions are reviewed
+**Then** manual git tag commands SHALL NOT be documented
+**And** automatic tag creation SHALL be clearly documented
+**And** developer SHALL only need to run `mise run version:*` tasks
