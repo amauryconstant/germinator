@@ -243,7 +243,6 @@ release:
     GITLAB_TOKEN: "$CI_JOB_TOKEN"
   before_script:
     - |
-      # Validate tag matches code version (only check that matters in CI)
       TAG_VERSION="${CI_COMMIT_TAG#v}"
       CODE_VERSION=$(grep 'Version = "' internal/version/version.go | sed 's/.*Version = "\(.*\)".*/\1/' | xargs)
       if [ "$TAG_VERSION" != "$CODE_VERSION" ]; then
@@ -254,11 +253,6 @@ release:
     - goreleaser release --clean
   rules:
     - if: '$CI_COMMIT_TAG'
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      changes:
-        - openspec/**/*
-      when: never
-    - when: on_success
 
 # --------------------------------
 # Mirror to GitHub
@@ -269,14 +263,11 @@ mirror-to-github:
   variables:
     GIT_STRATEGY: fetch
   script:
-    - git remote add github "https://${GITHUB_ACCESS_TOKEN}@github.com/${GITHUB_REPO_URL}.git" || true
-    - git push github "$CI_COMMIT_BRANCH" --force
-    - git push github --tags --force
+    - git remote add github "https://${GITHUB_ACCESS_TOKEN}@github.com/${GITHUB_REPO_URL}.git"
+    - git fetch github
+    - git push github HEAD:$CI_COMMIT_BRANCH --tags --force
   interruptible: true
   rules:
     - if: '$CI_COMMIT_BRANCH == "main" && $GITHUB_ACCESS_TOKEN && $GITHUB_REPO_URL'
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      changes:
-        - openspec/**/*
-      when: never
     - when: on_success
