@@ -439,3 +439,30 @@ The CI image SHALL include the docker-cli package to enable docker commands in r
 **Then** docker-cli package SHALL be installed via apk
 **And** docker command SHALL be available in PATH
 **And** docker --version SHALL execute successfully
+
+---
+
+### Requirement: Latest DIND Service Version
+
+The CI pipeline SHALL use the latest stable version of the docker:dind service to ensure API compatibility with the docker CLI in the CI image.
+
+#### Scenario: DIND service uses latest version
+**Given** build-ci-image or release job is configured
+**When** docker:dind service is defined
+**Then** service SHALL use latest stable version (e.g., 29.1.4)
+**And** docker CLI image SHALL match DIND service version
+**And** API version SHALL be compatible between CLI and DIND
+
+#### Scenario: No API version mismatch errors
+**Given** release job is running with docker:dind service
+**When** docker login command is executed
+**Then** no "client version is too new" errors SHALL occur
+**Then** docker commands SHALL succeed
+**And** API version SHALL be supported by DIND service
+
+#### Scenario: Build job uses latest DIND
+**Given** build-ci-image job is configured
+**When** job uses docker:dind service
+**Then** service SHALL be latest stable version
+**And** docker build commands SHALL succeed
+**And** docker push commands SHALL succeed

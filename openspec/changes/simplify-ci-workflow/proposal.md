@@ -35,6 +35,7 @@ This change simplifies CI workflow with better validation, error handling, autom
 - **Integrate with release workflow** - Tags trigger release stage automatically
 - **Add hash-based CI image tagging** - Tag CI images with mise version + content hash (format: 2026.1.2-abc123def456) to ensure CI image rebuilds when Dockerfile.ci or .mise/config.toml changes
 - **Add docker CLI to CI image** - Include docker-cli package to enable docker commands in release job
+- **Upgrade DIND service version** - Update docker:dind service from 24.0.5 to latest (29.1.4) to support newer docker CLI API version
 
 ## Impact
 
@@ -105,3 +106,5 @@ No breaking changes. Existing workflows continue to work, with better validation
 - CI image build skipped when Dockerfile.ci and .mise/config.toml are unchanged
 - Docker CLI available in CI image for docker commands
 - Release job can successfully run docker login with docker CLI
+- Docker DIND service upgraded to version 29.1.4 (latest) to support docker CLI API version
+- No API version mismatch errors between docker CLI and DIND service

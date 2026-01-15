@@ -194,6 +194,13 @@
 - [x] Update AGENTS.md to document docker CLI in CI image
 - [ ] Verify docker CLI is available in CI image after build
 
+## Task 23: Upgrade DIND Service Version
+- [x] Update build-ci-image job to use docker:29.1.4-dind service (latest)
+- [x] Update release job to use docker:29.1.4-dind service (latest)
+- [x] Update build-ci-image job to use docker:29.1.4-cli image (latest)
+- [x] Update openspec proposal to document DIND service upgrade
+- [ ] Verify release job succeeds without API version mismatch errors
+
 ## Dependencies
 
 - Task 1: No dependencies
@@ -218,3 +225,4 @@
 - Task 20: Depends on Task 13, 19
 - Task 21: No dependencies
 - Task 22: No dependencies
+- Task 23: No dependencies

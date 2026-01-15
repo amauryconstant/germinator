@@ -30,9 +30,9 @@ variables:
 build-ci-image:
   stage: build-ci
   image:
-    name: docker:24.0.5-cli
+    name: docker:29.1.4-cli
   services:
-    - name: docker:24.0.5-dind
+    - name: docker:29.1.4-dind
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
@@ -235,7 +235,7 @@ release:
   stage: release
   needs: [lint, test]
   services:
-    - name: docker:24.0.5-dind
+    - name: docker:29.1.4-dind
   variables:
     DOCKER_HOST: tcp://docker:2375
     DOCKER_TLS_CERTDIR: ""
