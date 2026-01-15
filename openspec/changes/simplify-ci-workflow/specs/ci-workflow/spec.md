@@ -363,3 +363,79 @@ The release documentation SHALL remove manual tagging instructions, as tagging i
 **Then** CI SHALL automatically create tag
 **And** CI SHALL automatically create release
 **And** no manual git commands SHALL be required
+
+---
+
+### Requirement: Hash-Based CI Image Tagging
+
+The CI image build process SHALL use content-based hashing to generate unique image tags that capture changes to Dockerfile.ci and .mise/config.toml.
+
+#### Scenario: Calculate content hash for CI image tag
+**Given** build-ci-image job is running
+**When** hash is calculated
+**Then** hash SHALL be SHA256 hash of Dockerfile.ci + .mise/config.toml
+**And** hash SHALL be truncated to 12 characters (first 48 bits)
+**And** hash SHALL be combined with mise version in format mise-version-hash
+**And** tag format SHALL be "2026.1.2-abc123def456"
+
+#### Scenario: CI image rebuilds on Dockerfile.ci changes
+**Given** Dockerfile.ci has been modified
+**When** build-ci-image job runs
+**Then** hash SHALL be different from previous build
+**Then** image tag SHALL be different (e.g., 2026.1.2-xyz789abc123)
+**And** CI image SHALL be rebuilt with new Dockerfile.ci
+**And** image SHALL be pushed with new tag
+**And** latest tag SHALL be updated
+
+#### Scenario: CI image rebuilds on config.toml changes
+**Given** .mise/config.toml has been modified
+**When** build-ci-image job runs
+**Then** hash SHALL be different from previous build
+**Then** image tag SHALL be different
+**And** CI image SHALL be rebuilt with new config
+**And** image SHALL be pushed with new tag
+**And** latest tag SHALL be updated
+
+#### Scenario: CI image build skipped on no changes
+**Given** Dockerfile.ci and .mise/config.toml are unchanged
+**When** build-ci-image job runs
+**Then** hash SHALL be identical to previous build
+**Then** image tag SHALL already exist in registry
+**And** build process SHALL be skipped
+**And** "CI image already exists, skipping build" message SHALL be displayed
+**And** no new image SHALL be built
+
+#### Scenario: Hash calculation is deterministic
+**Given** build-ci-image job runs twice with same files
+**When** hashes are calculated
+**Then** both hashes SHALL be identical
+**And** hash order SHALL be consistent (Dockerfile.ci before config.toml)
+**And** same files SHALL always generate same hash
+
+#### Scenario: CI image tag with new mise version
+**Given** mise version has updated to new release
+**When** build-ci-image job runs
+**Then** mise version in tag SHALL be new version (e.g., 2026.2.0)
+**And** hash SHALL be calculated based on current files
+**Then** image tag SHALL be "2026.2.0-abc123def456"
+**And** CI image SHALL be built with new mise version
+
+#### Scenario: Docker CLI available in CI image
+**Given** release job is running
+**When** docker login command is executed
+**Then** docker command SHALL be available
+**And** docker login SHALL succeed with CI_JOB_TOKEN
+**And** release job SHALL authenticate with registry.gitlab.com
+
+---
+
+### Requirement: Docker CLI in CI Image
+
+The CI image SHALL include the docker-cli package to enable docker commands in release jobs.
+
+#### Scenario: Docker CLI installed in CI image
+**Given** CI image is built from Dockerfile.ci
+**When** image is inspected
+**Then** docker-cli package SHALL be installed via apk
+**And** docker command SHALL be available in PATH
+**And** docker --version SHALL execute successfully

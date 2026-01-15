@@ -2,7 +2,7 @@
 
 ## Why
 
-The current CI workflow has disconnected validation, silent failures, poor cache management, and manual release tagging:
+The current CI workflow has disconnected validation, silent failures, poor cache management, manual release tagging, and unreliable CI image rebuilding:
 
 - **Silent failures** when GitHub mirror is misconfigured (GITHUB_ACCESS_TOKEN missing) - confusing behavior
 - **No validation** that Git tags match version.go or that git state is clean
@@ -12,12 +12,13 @@ The current CI workflow has disconnected validation, silent failures, poor cache
 - **No branch validation** - releases can be created from non-main branches
 - **Confusing validation tasks** - both release:check and release:validate exist
 - **Manual tagging** - Developers must remember to create and push tags manually after version bumps, leading to forgotten or mistagged releases
+- **CI image rebuild failures** - Current skip check uses mise version alone, which doesn't capture changes to Dockerfile.ci or .mise/config.toml, causing the CI image to not rebuild when it should
 
-These issues lead to wasted CI time, undetected configuration problems, inconsistent build behavior, and release process friction.
+These issues lead to wasted CI time, undetected configuration problems, inconsistent build behavior, release process friction, and CI job failures due to stale CI images.
 
 ## What Changes
 
-This change simplifies CI workflow with better validation, error handling, and automated release tagging:
+This change simplifies CI workflow with better validation, error handling, automated release tagging, and reliable CI image rebuilding:
 
 - **Add .mise/config.toml to cache key** - Invalidate cache when tool versions change
 - **Validate GitHub mirror variables** - Fail-fast with clear errors or skip gracefully
@@ -32,6 +33,8 @@ This change simplifies CI workflow with better validation, error handling, and a
 - **Add automatic tag creation** - Create Git tags when internal/version/version.go changes, replacing manual tagging workflow
 - **Add tag stage** - New stage after test that creates tags idempotently
 - **Integrate with release workflow** - Tags trigger release stage automatically
+- **Add hash-based CI image tagging** - Tag CI images with mise version + content hash (format: 2026.1.2-abc123def456) to ensure CI image rebuilds when Dockerfile.ci or .mise/config.toml changes
+- **Add docker CLI to CI image** - Include docker-cli package to enable docker commands in release job
 
 ## Impact
 
@@ -40,9 +43,10 @@ This change simplifies CI workflow with better validation, error handling, and a
 - Delta changes to `release-management` spec for validation requirements
 
 **Affected Code:**
-- `.gitlab-ci.yml` - Add CI optimization rules to skip expensive jobs on openspec-only changes, improve cache configuration, standardize base images, add tag stage with automatic tag creation
+- `.gitlab-ci.yml` - Add CI optimization rules to skip expensive jobs on openspec-only changes, improve cache configuration, standardize base images, add tag stage with automatic tag creation, implement hash-based CI image tagging
 - `.mise/tasks/` - Add release:validate task, remove release:check task
-- `AGENTS.md` - Update release workflow documentation, remove manual tagging steps
+- `AGENTS.md` - Update release workflow documentation, remove manual tagging steps, document docker CLI in CI image
+- `Dockerfile.ci` - Add docker-cli package to enable docker commands in release job
 
 **Note**: Delta changes to `release-management` spec are included in `simplify-ci-workflow/specs/release-management/spec.md`. When this proposal is archived, these deltas will be applied to `openspec/specs/release-management/spec.md` as part of the archive process. This allows all spec changes to be visible in one location while maintaining clear proposal scope.
 
@@ -56,6 +60,10 @@ This change simplifies CI workflow with better validation, error handling, and a
 - Expensive CI jobs (lint, test, release, mirror) automatically skipped when only documentation changes, saving CI resources and time
 - Automatic tag creation when internal/version/version.go changes, eliminating manual tagging steps
 - Developers only need to run `mise run version:*` to bump version, push to main, and watch CI create tag and release
+- CI image rebuilds automatically when Dockerfile.ci or .mise/config.toml changes via content-based hash tagging
+- CI image tags use format mise-version-content-hash (e.g., 2026.1.2-abc123def456) for unique identification
+- CI image build is skipped when Dockerfile.ci and .mise/config.toml are unchanged, saving CI time
+- Docker CLI available in CI image, enabling docker login and docker commands in release job
 
 ## Dependencies
 
@@ -92,3 +100,8 @@ No breaking changes. Existing workflows continue to work, with better validation
 - Tag stage uses $GITLAB_USER_EMAIL and $GITLAB_USER_NAME for git config
 - Release stage triggers automatically after tag stage creates tag
 - Manual tagging workflow removed from documentation
+- CI image tagged with format mise-version-content-hash (e.g., 2026.1.2-abc123def456)
+- CI image rebuilds when Dockerfile.ci or .mise/config.toml changes
+- CI image build skipped when Dockerfile.ci and .mise/config.toml are unchanged
+- Docker CLI available in CI image for docker commands
+- Release job can successfully run docker login with docker CLI

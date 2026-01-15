@@ -55,44 +55,55 @@ build-ci-image:
         local retries=3
         local retry=0
         local version=""
-        
+
         while [ $retry -lt $retries ]; do
           version=$(curl -s https://api.github.com/repos/jdx/mise/releases/latest \
             | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-          
+
           if [ -n "$version" ]; then
             echo "$version"
             return 0
           fi
-          
+
           retry=$((retry + 1))
           if [ $retry -lt $retries ]; then
             echo "Retry $retry/$retries: Failed to get mise version"
             sleep 2
           fi
         done
-        
+
         echo "Failed to get mise version from GitHub API after $retries attempts"
         return 1
       }
-      
+
+      calculate_image_hash() {
+        # Generate 12-character SHA256 hash from Dockerfile.ci and .mise/config.toml
+        cat Dockerfile.ci .mise/config.toml | sha256sum | cut -c1-12
+      }
+
       MISE_VERSION=$(get_mise_version)
       if [ $? -ne 0 ]; then
         echo "Using cached mise version if available"
         MISE_VERSION="2026.1.2"
       fi
-      
-      if docker manifest inspect "$CI_REGISTRY_IMAGE:$MISE_VERSION" > /dev/null 2>&1; then
-        echo "CI image $CI_REGISTRY_IMAGE:$MISE_VERSION exists, skipping build"
+
+      IMAGE_HASH=$(calculate_image_hash)
+      IMAGE_TAG="${MISE_VERSION}-${IMAGE_HASH}"
+      echo "Mise version: $MISE_VERSION"
+      echo "Image hash: $IMAGE_HASH"
+      echo "Image tag: $IMAGE_TAG"
+
+      if docker manifest inspect "$CI_REGISTRY_IMAGE:$IMAGE_TAG" > /dev/null 2>&1; then
+        echo "CI image $CI_REGISTRY_IMAGE:$IMAGE_TAG already exists, skipping build"
         exit 0
       fi
-      
+
       docker build \
         -t "$CI_REGISTRY_IMAGE:latest" \
-        -t "$CI_REGISTRY_IMAGE:$MISE_VERSION" \
+        -t "$CI_REGISTRY_IMAGE:$IMAGE_TAG" \
         -f Dockerfile.ci .
       docker push "$CI_REGISTRY_IMAGE:latest"
-      docker push "$CI_REGISTRY_IMAGE:$MISE_VERSION"
+      docker push "$CI_REGISTRY_IMAGE:$IMAGE_TAG"
 
 # --------------------------------
 # Default job configs

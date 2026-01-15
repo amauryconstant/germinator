@@ -178,6 +178,22 @@
 - [ ] Verify all jobs run normally
 - [x] Document expected behavior in AGENTS.md
 
+## Task 21: Implement Hash-Based CI Image Tagging
+- [x] Add calculate_image_hash() function to build-ci-image job script
+- [x] Hash SHALL be SHA256 hash of Dockerfile.ci + .mise/config.toml concatenated
+- [x] Hash SHALL be truncated to 12 characters
+- [x] Combine mise version and hash in format mise-version-hash (e.g., 2026.1.2-abc123def456)
+- [x] Update skip check to use IMAGE_TAG instead of MISE_VERSION
+- [x] Update docker build command to tag with latest and IMAGE_TAG
+- [x] Update docker push command to push latest and IMAGE_TAG
+- [x] Add logging to show mise version, image hash, and image tag
+- [x] Test hash calculation locally with cat Dockerfile.ci .mise/config.toml | sha256sum | cut -c1-12
+
+## Task 22: Add Docker CLI to CI Image
+- [x] Add docker-cli to Dockerfile.ci apk add command
+- [x] Update AGENTS.md to document docker CLI in CI image
+- [ ] Verify docker CLI is available in CI image after build
+
 ## Dependencies
 
 - Task 1: No dependencies
@@ -200,3 +216,5 @@
 - Task 18: No dependencies
 - Task 19: Depends on Tasks 18
 - Task 20: Depends on Task 13, 19
+- Task 21: No dependencies
+- Task 22: No dependencies
