@@ -48,7 +48,7 @@ The project SHALL have a GoReleaser configuration file for automated release man
 **When** configuration is inspected
 **Then** it SHALL configure SBOM generation using Syft
 **And** it SHALL use SPDX format
-**And** it SHALL name SBOM file as `germinator_{{.Version}}_sbom.spdx.json`
+**And** it SHALL name SBOM files as `germinator_{{.Version}}_{{.Os}}_{{.Arch}}_sbom.spdx.json` (one per archive)
 
 #### Scenario: Changelog generation configured
 **Given** `.goreleaser.yml` exists
@@ -84,23 +84,23 @@ The system SHALL build cross-platform release artifacts automatically when a Git
 **Given** GoReleaser creates release artifacts
 **When** checksums are generated
 **Then** it SHALL create `checksums.txt`
-**And** it SHALL contain SHA256 hashes for all 5 archives
-**And** checksums.txt SHALL include SBOM file
+**And** it SHALL contain SHA256 hashes for all archives
+**And** checksums.txt SHALL include all SBOM files
 
 #### Scenario: Generate SBOMs
 **Given** GoReleaser creates release artifacts
 **When** SBOMs are generated
-**Then** it SHALL create `germinator_0.3.0_sbom.spdx.json`
-**And** it SHALL list all Go dependencies
-**And** it SHALL include metadata (version, commit, date)
+**Then** it SHALL create one SBOM per archive (e.g., `germinator_0.3.0_linux_amd64_sbom.spdx.json`)
+**And** SBOMs SHALL list all Go dependencies
+**And** SBOMs SHALL include metadata (version, commit, date)
 
 #### Scenario: Create GitLab Release
 **Given** GoReleaser builds all artifacts
 **When** release job completes
 **Then** it SHALL create a GitLab release with tag name as release name
-**And** it SHALL attach all 5 binary archives
+**And** it SHALL attach all binary archives
 **And** it SHALL attach checksums file
-**And** it SHALL attach SBOM file
+**And** it SHALL attach all SBOM files
 **And** it SHALL include auto-generated release notes
 
 #### Scenario: Release notes from commits
