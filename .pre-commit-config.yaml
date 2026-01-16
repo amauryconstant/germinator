@@ -50,7 +50,7 @@ repos:
         types: [go]
 
 default_language_version:
-  go: "1.25.5"
+  golang: "1.25.5"
 
 fail_fast: true
 minimum_pre_commit_version: "3.0.0"
