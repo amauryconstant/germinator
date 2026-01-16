@@ -164,13 +164,11 @@ For implementation milestones, follow the IMPLEMENTATION_PLAN.md for specific co
 
 ## Creating a Release
 
-**Important**: Version bumping is manual. Git tags are created automatically by CI when `internal/version/version.go` changes.
+Git tags are the single source of truth for releases.
 
-1. Bump version using mise tasks:
+1. Ensure clean working directory:
    ```bash
-   mise run version:patch   # Bump patch version (0.2.0 → 0.2.1)
-   mise run version:minor   # Bump minor version (0.2.0 → 0.3.0)
-   mise run version:major   # Bump major version (0.2.0 → 1.0.0)
+   git status  # Should show nothing to commit
    ```
 
 2. Validate release prerequisites:
@@ -178,29 +176,31 @@ For implementation milestones, follow the IMPLEMENTATION_PLAN.md for specific co
    mise run release:validate
    ```
    This checks:
-   - Git working directory is clean (no uncommitted changes)
+   - Git working directory is clean
    - Current branch is main
    - GoReleaser configuration is valid
 
-3. Commit the version bump:
+3. Create and push git tag:
    ```bash
-   git add .
-   git commit -m "chore: bump version to 0.3.0"
-   git push origin main
+   mise run release:tag patch   # Bump patch version (v0.3.20 → v0.3.21)
+   mise run release:tag minor   # Bump minor version (v0.3.20 → v0.4.0)
+   mise run release:tag major   # Bump major version (v0.3.20 → v1.0.0)
    ```
 
-4. **GitLab CI will automatically create a Git tag and release**:
-   - Tag stage detects the version change
-   - Creates Git tag with format `v<VERSION>` (e.g., `v0.3.0`)
-   - Tag triggers release stage automatically
-   - Release builds cross-platform binaries:
-     - Linux/macOS/Windows (amd64/arm64)
-     - Archives (.tar.gz for Unix, .zip for Windows)
-     - SHA256 checksums
-     - SBOMs (SPDX format)
-     - Auto-generated release notes
+   Or manually:
+   ```bash
+   git tag v0.3.21
+   git push origin v0.3.21
+   ```
 
-**Note**: The release job automatically runs `mise run release:validate` in its before_script, so validation failures will cause the release to fail early with clear error messages. Tag creation is idempotent - if a tag already exists, the tag stage will skip creation and continue the pipeline.
+4. **GitLab CI automatically builds and creates release**:
+   - Detects tag push
+   - Validates tag format (vX.Y.Z)
+   - Runs lint and tests
+   - Builds cross-platform binaries with GoReleaser
+   - Creates GitLab release with artifacts
+
+**Note**: For testing, use `mise run release:dry-run` locally to verify GoReleaser configuration before creating a tag.
 
 ## Release Artifacts
 

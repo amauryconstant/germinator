@@ -10,13 +10,13 @@ goreleaser = "2.13.3"
 [tasks.build]
 description = "Build CLI to bin/germinator"
 depends = ["build:clean"]
-run = "mkdir -p bin && go build -o bin/germinator ./cmd"
+run = "mkdir -p bin && go build -ldflags=\"-X gitlab.com/amoconst/germinator/internal/version.Version=$(git describe --tags --always --dirty 2>/dev/null || echo dev) -X gitlab.com/amoconst/germinator/internal/version.Commit=$(git rev-parse HEAD 2>/dev/null || echo unknown) -X gitlab.com/amoconst/germinator/internal/version.Date=$(date +%Y-%m-%d)\" -o bin/germinator ./cmd"
 sources = ["cmd/**/*.go", "internal/**/*.go", "pkg/**/*.go"]
 outputs = ["bin/germinator"]
 
 [tasks."build:local"]
 description = "Build and install germinator locally for testing"
-run = "mkdir -p $HOME/.local/bin && go build -o $HOME/.local/bin/germinator ./cmd"
+run = "mkdir -p $HOME/.local/bin && go build -ldflags=\"-X gitlab.com/amoconst/germinator/internal/version.Version=$(git describe --tags --always --dirty 2>/dev/null || echo dev)\" -o $HOME/.local/bin/germinator ./cmd"
 
 [tasks."build:clean"]
 description = "Clean build artifacts"
@@ -51,19 +51,19 @@ description = "Run all validation checks"
 depends = ["lint", "format", "test", "build"]
 
 # ========================
-# Version Management
+# Release Management
 # ========================
 
-[tasks."version:patch"]
-description = "Bump patch version"
-run = ".mise/tasks/version.sh patch"
+[tasks."release:validate"]
+description = "Validate release prerequisites before tagging"
+run = ".mise/tasks/release/validate.sh"
 
-[tasks."version:minor"]
-description = "Bump minor version"
-run = ".mise/tasks/version.sh minor"
+[tasks."release:tag"]
+description = "Create and push git tag for release (patch|minor|major)"
+run = ".mise/tasks/release/tag.sh {{arg('bump')}}"
 
-[tasks."version:major"]
-description = "Bump major version"
-run = ".mise/tasks/version.sh major"
+[tasks."release:dry-run"]
+description = "Test GoReleaser without creating release"
+run = "goreleaser release --skip=publish --clean"
 
 # Note: CI Docker image is built automatically by GitLab CI when Dockerfile.ci or .mise/config.toml changes

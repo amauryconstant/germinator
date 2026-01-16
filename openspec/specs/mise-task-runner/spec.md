@@ -206,20 +206,35 @@ The project SHALL provide mise tasks for release-related operations.
 **And** it SHALL create artifacts in `dist/` directory
 **And** it SHALL display what would be released
 
-#### Scenario: Check release config task exists
+#### Scenario: Release validate task exists
 **Given** `.mise/config.toml` exists
 **When** [tasks] section is inspected
-**Then** `release:check` task SHALL exist
-**And** it SHALL run `goreleaser check`
-**And** it SHALL have description "Validate GoReleaser configuration"
+**Then** `release:validate` task SHALL exist
+**And** it SHALL check git state and branch
+**And** it SHALL have description "Validate release prerequisites before tagging"
 
-#### Scenario: Check task validates config
-**Given** a developer runs `mise run release:check`
+#### Scenario: Release validate task checks prerequisites
+**Given** a developer runs `mise run release:validate`
 **When** task executes
-**Then** GoReleaser SHALL validate `.goreleaser.yml`
-**And** it SHALL report syntax errors
-**And** it SHALL report configuration errors
-**And** it SHALL exit with 0 if valid
+**Then** task SHALL check git working directory is clean
+**And** task SHALL verify current branch is main
+**And** task SHALL validate GoReleaser configuration if installed
+**And** task SHALL report all issues found
+
+#### Scenario: Release tag task exists
+**Given** `.mise/config.toml` exists
+**When** [tasks] section is inspected
+**Then** `release:tag` task SHALL exist
+**And** it SHALL accept patch|minor|major argument
+**And** it SHALL create and push git tag
+**And** it SHALL enforce vX.Y.Z format
+
+#### Scenario: Release tag task creates version tag
+**Given** a developer runs `mise run release:tag patch`
+**When** latest tag is v0.3.20
+**Then** task SHALL create tag v0.3.21
+**And** task SHALL push tag to origin
+**And** task SHALL validate format before creating
 
 ---
 

@@ -208,169 +208,6 @@ The system SHALL validate that releases only occur from main branch.
 
 ---
 
-### Requirement: Git Tag Validation
-
-The system SHALL validate Git tags before attempting release builds.
-
-#### Scenario: Tag matches version.go
-**Given** tag is properly formatted with 'v' prefix
-**When** tag version is compared to code
-**Then** tag version (without 'v') SHALL equal Version in internal/version/version.go
-**And** mismatch SHALL cause immediate failure
-**And** error message SHALL show both versions
-
-#### Scenario: Validation handles 'v' prefix
-**Given** Git tag is created with format vX.Y.Z
-**When** version is extracted for comparison
-**Then** validation SHALL strip 'v' prefix from tag
-**And** comparison SHALL use semantic version only
-**And** version.go Version SHALL be compared without 'v' prefix
-
-#### Scenario: Validation runs in CI
-**Given** release job runs
-**When** job starts (before_script)
-**Then** validation SHALL occur before GoReleaser
-**And** validation SHALL include git state check
-**And** validation SHALL include branch check
-**And** validation SHALL include tag match check
-**And** validation failure SHALL stop job
-**And** GoReleaser SHALL not run on invalid tags or states
-
----
-
-### Requirement: Release Validation Task
-
-The system SHALL provide a single consolidated validation task for release operations (manual, not automatic).
-
-#### Scenario: release:validate task checks all conditions
-**Given** developer wants to check release readiness
-**When** developer runs mise run release:validate
-**Then** task SHALL check git state is clean
-**And** task SHALL check current branch is main
-**And** task SHALL validate Git tag format
-**And** task SHALL validate tag matches version.go
-**And** task SHALL validate .goreleaser.yml
-**And** task SHALL report all issues found with clear error messages
-
-#### Scenario: release:validate with uncommitted changes
-**Given** developer runs mise run release:validate
-**When** uncommitted changes exist
-**Then** task SHALL fail
-**And** error SHALL list uncommitted files
-**And** task SHALL suggest committing changes first
-
-#### Scenario: release:validate on wrong branch
-**Given** developer runs mise run release:validate
-**When** current branch is not main
-**Then** task SHALL fail
-**And** error SHALL indicate main branch is required
-**And** task SHALL suggest checking out main branch
-
-#### Scenario: release:validate with tag mismatch
-**Given** developer runs mise run release:validate
-**When** tag version doesn't match version.go
-**Then** task SHALL fail
-**And** error SHALL show both versions
-**And** task SHALL suggest creating correct tag
-
-#### Scenario: No automatic tag creation
-**Given** developer runs release:validate task
-**When** task executes
-**Then** task SHALL NOT automatically create Git tags
-**And** task SHALL NOT automatically push tags
-**And** developer SHALL manually create and push tags
-**And** AGENTS.md SHALL reinforce manual tag creation
-
-#### Scenario: Deprecated release:check task removed
-**Given** .mise/config.toml is inspected
-**When** tasks are reviewed
-**Then** release:check task SHALL NOT exist
-**And** all documentation SHALL reference release:validate
-
----
-
- ### Requirement: Automatic Tag Creation with Pipeline Triggering
- 
- The CI pipeline SHALL automatically create Git tags when the version file changes, eliminating manual tagging, and SHALL trigger a pipeline for the new tag to ensure the release stage executes.
- 
- #### Scenario: Tag stage creates version tag and triggers pipeline
- **Given** commit includes changes to internal/version/version.go
- **When** pipeline runs on main branch
- **And** test stage completes successfully
- **Then** tag stage SHALL run
- **And** tag stage SHALL extract version from internal/version/version.go
- **And** tag stage SHALL create Git tag with format v<VERSION>
- **And** tag stage SHALL push tag to origin
- **And** tag stage SHALL trigger a new pipeline using GitLab API
- **And** release stage SHALL execute with new tag due to trigger
- 
- #### Scenario: Tag stage idempotent behavior with pipeline trigger
- **Given** tag vX.Y.Z already exists
- **When** pipeline runs again with same version.go
- **Then** tag stage SHALL detect existing tag
- **And** tag stage SHALL skip tag creation
- **And** tag stage SHALL report "Tag already exists — skipping tag creation"
- **And** tag stage SHALL STILL trigger pipeline for existing tag (in case tag was deleted and recreated)
- **And** tag stage SHALL use $CI_JOB_TOKEN for GitLab API authentication
- **And** tag stage SHALL use /trigger/pipeline endpoint
- **And** triggered pipeline SHALL set $CI_PIPELINE_SOURCE to "trigger"
- **And** pipeline SHALL continue normally
- 
- #### Scenario: Tag stage skips when version unchanged
- **Given** commit does NOT change internal/version/version.go
- **When** pipeline runs
- **Then** tag stage SHALL be skipped
- **And** no tag SHALL be created
- **And** no pipeline SHALL be triggered
- **And** other stages SHALL run normally
- 
- #### Scenario: Tag format validation
- **Given** version in internal/version/version.go is "0.3.0"
- **When** tag is created
- **Then** tag SHALL be "v0.3.0"
- **And** tag SHALL include 'v' prefix
- **And** tag SHALL match semantic version format
- 
- #### Scenario: Git configuration for tagging
- **Given** tag stage is running
- **When** git config is set
- **Then** git user.email SHALL be set from $GITLAB_USER_EMAIL
- **And** git user.name SHALL be set from $GITLAB_USER_NAME
- **And** git remote SHALL be configured for push with CI_JOB_TOKEN
- **And** tag SHALL be pushed successfully
- 
- #### Scenario: Release stage integration with triggered pipeline
- **Given** tag stage creates tag v0.3.0 and triggers pipeline
- **When** tag push completes
- **Then** release stage SHALL trigger automatically (via $CI_COMMIT_TAG being set)
- **And** release stage SHALL use tag vX.Y.Z for version
- **And** release:validate SHALL find to tag
- **And** GoReleaser SHALL create release artifacts
-
----
-
-### Requirement: Manual Tagging Workflow Removal
-
-The release documentation SHALL remove manual tagging instructions, as tagging is now automatic.
-
-#### Scenario: Documentation reflects automatic tagging
-**Given** developer reads AGENTS.md release workflow
-**When** documentation is reviewed
-**Then** manual `git tag` and `git push origin` steps SHALL NOT be documented
-**And** automatic tag creation SHALL be documented
-**And** version bump workflow SHALL be clearly explained
-**And** tag stage SHALL be included in pipeline stages
-
-#### Scenario: Release workflow simplification
-**Given** developer wants to create a release
-**When** developer bumps version using mise tasks
-**And** commits and pushes to main
-**Then** CI SHALL automatically create tag
-**And** CI SHALL automatically create release
-**And** no manual git commands SHALL be required
-
----
-
 ### Requirement: Hash-Based CI Image Tagging
 
 The CI image build process SHALL use content-based hashing to generate unique image tags that capture changes to Dockerfile.ci and .mise/config.toml.
@@ -580,62 +417,34 @@ And mirror job SHALL depend on tag job
 
 ---
 
-### Requirement: Independent Tag Job
+### Requirement: Mirror Job Runs on Main Pushes
 
-The tag job SHALL create version tags independently of test results to enable version tracking regardless of code state.
+The mirror job SHALL run on main branch pushes to mirror code to GitHub, excluding tag pushes.
 
-#### Scenario: Tag job has no dependencies
-Given create-version-tag job is defined
-When job configuration is reviewed
-Then job SHALL have no needs dependencies
-And job SHALL NOT depend on test job
-And job SHALL NOT depend on lint job
-And job SHALL run in tag stage
-
-#### Scenario: Tag job creates version regardless of test state
-Given create-version-tag job is running
-When internal/version/version.go has changed
-And test job may be running or failed
-Then tag job SHALL execute
-And tag job SHALL create version tag v<VERSION>
-And tag job SHALL NOT be blocked by test job status
-And tag job SHALL NOT be blocked by lint job status
-
----
-
-### Requirement: Mirror Job Depends on Tag
-
-The mirror job SHALL depend on the tag job, ensuring GitHub mirror only occurs when version changes.
-
-#### Scenario: Mirror job depends on tag
+#### Scenario: Mirror job has no dependencies
 Given mirror-to-github job is defined
 When job configuration is reviewed
-Then job SHALL have needs dependency on create-version-tag job
-And job SHALL NOT depend on test job
+Then job SHALL have no needs dependencies
 And job SHALL run in distribute stage
 
-#### Scenario: Mirror only runs on version changes
-Given pipeline is triggered by main push
-And internal/version/version.go has NOT changed
+#### Scenario: Mirror runs on main pushes, not tags
+Given pipeline is triggered by main branch push
 When pipeline reaches distribute stage
-Then create-version-tag job SHALL be skipped
-And mirror-to-github job SHALL be skipped (depends on tag)
-And code SHALL NOT be mirrored to GitHub
-
-#### Scenario: Mirror runs when version changes
-Given pipeline is triggered by main push
-And internal/version/version.go has changed
-When pipeline reaches distribute stage
-Then create-version-tag job SHALL create tag
-And mirror-to-github job SHALL run
+Then mirror-to-github job SHALL run
 And code SHALL be mirrored to GitHub
 
-#### Scenario: Release depends on validation, not tag
+#### Scenario: Mirror job skipped on tag pushes
+Given pipeline is triggered by tag push
+When pipeline reaches distribute stage
+Then mirror-to-github job SHALL be skipped
+And code SHALL NOT be mirrored again (tags already included in mirror)
+
+#### Scenario: Release job has no tag dependency
 Given release job is defined
 When job configuration is reviewed
 Then job SHALL have needs dependency on lint job
 And job SHALL have needs dependency on test job
-And job SHALL NOT have needs dependency on tag job
+And job SHALL NOT have needs dependency on any tag job
 And release job SHALL wait for both lint and test to succeed
 
 ---
@@ -660,12 +469,11 @@ Then GIT_DEPTH SHALL be 0
 And GoReleaser SHALL be able to diff tags for changelog
 And GoReleaser SHALL generate release notes from git history
 
-#### Scenario: Release job validates version match inline
+#### Scenario: Release job validates tag format inline
 Given release job is running
 When before_script executes
-Then job SHALL extract tag version from $CI_COMMIT_TAG
-And job SHALL extract code version from internal/version/version.go
-And job SHALL fail if versions do not match
+Then job SHALL validate tag matches format vX.Y.Z using regex
+And invalid tags SHALL cause immediate failure
 And job SHALL NOT use mise or external validation script
 And job SHALL NOT validate git state (redundant in CI)
 And job SHALL NOT validate branch (redundant in CI)
@@ -679,54 +487,42 @@ And GoReleaser SHALL use GitLab project access token with api scope for API acce
 #### Scenario: Release validation task removed
 Given .mise/tasks/release/validate.sh is inspected
 When file exists
-Then file SHALL be deleted
-And .mise/config.toml SHALL NOT have release:validate task
-And release validation SHALL be handled inline in CI job
+Then file SHALL remain for manual validation
+And .mise/config.toml SHALL have release:validate task
+And release validation SHALL be available for pre-tag checks
 
 ---
 
-### Requirement: Version Bump Enforcement on Code Changes
+### Requirement: Tag Job Resource Group Serialization
 
-The CI pipeline SHALL enforce version bumps when cmd/ directory files change on merge requests.
+The tag job SHALL use a resource group to serialize concurrent tag creation attempts.
 
-#### Scenario: Version bump check runs on MRs
-Given merge request is created
-When pipeline runs
-Then check-version-bump job SHALL run
-And job SHALL fetch origin/main
-And job SHALL check for cmd/ directory changes
+#### Scenario: Tag job uses resource group
+Given create-version-tag job is defined
+When job configuration is reviewed
+Then job SHALL have resource_group set to version_tagging
+And only one tag job SHALL run at a time
+And concurrent pipelines SHALL serialize tag creation
 
-#### Scenario: Version bump required for cmd/ changes
-Given MR includes cmd/ file changes
-And MR does NOT include internal/version/version.go changes
-When check-version-bump job runs
-Then job SHALL fail
-And job SHALL display error "Code changed but version not bumped"
-And MR SHALL NOT be mergeable
+#### Scenario: Resource group prevents duplicate tags
+Given two pipelines trigger simultaneously
+And both pipelines have version.go changes
+When tag stage runs
+Then first pipeline SHALL create tag
+Then second pipeline SHALL wait for resource group
+Then second pipeline SHALL detect existing tag
+Then second pipeline SHALL skip tag creation
+And only one tag SHALL exist
 
-#### Scenario: Version bump check passes with version change
-Given MR includes cmd/ file changes
-And MR includes internal/version/version.go changes
-When check-version-bump job runs
-Then job SHALL succeed
-And MR SHALL be mergeable
+#### Scenario: Resource group prevents race conditions
+Given multiple pipelines run concurrently
+And all pipelines attempt to create same tag
+When tag jobs execute
+Then only one tag job SHALL acquire resource_group
+And other tag jobs SHALL wait or skip
+And no duplicate tags SHALL be created
+And git remote SHALL NOT reject pushes due to duplicate tags
 
-#### Scenario: Version bump check passes without cmd/ changes
-Given MR does NOT include cmd/ file changes
-When check-version-bump job runs
-Then job SHALL succeed
-And version bump SHALL NOT be required
-
-#### Scenario: Version bump job rules
-Given .gitlab-ci.yml is inspected
-When check-version-bump job rules are reviewed
-Then job SHALL run on merge_request_event
-And job SHALL NOT run on main pushes
-And job SHALL NOT run on tags
-
----
-
-### Requirement: GoReleaser Dry-Run Validation on MRs
 
 The CI pipeline SHALL validate GoReleaser configuration on merge requests before release.
 
