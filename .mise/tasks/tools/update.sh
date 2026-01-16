@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+#MISE description="Update tool versions in mise configuration"
+
 set -e
 
 CONFIG_FILE=".mise/config.toml"

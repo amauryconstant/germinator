@@ -54,14 +54,6 @@ depends = ["lint", "format", "test", "build"]
 # Release Management
 # ========================
 
-[tasks."release:validate"]
-description = "Validate release prerequisites before tagging"
-run = ".mise/tasks/release/validate.sh"
-
-[tasks."release:tag"]
-description = "Create and push git tag for release (patch|minor|major)"
-run = ".mise/tasks/release/tag.sh {{arg('bump')}}"
-
 [tasks."release:dry-run"]
 description = "Test GoReleaser without creating release"
 run = "goreleaser release --skip=publish --clean"

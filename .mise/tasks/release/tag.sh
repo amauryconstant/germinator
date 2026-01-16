@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+#MISE description="Create and push git tag for release (patch|minor|major)"
+#USAGE arg "<bump>" help="The type of bump to make"
+
 set -e
 
 BUMP_TYPE=$1

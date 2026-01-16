@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+#MISE description="Check for available tool updates"
+
 set -e
 
 CONFIG_FILE=".mise/config.toml"

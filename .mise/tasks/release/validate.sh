@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+#MISE description="Validate release prerequisites before tagging"
+
 set -e
 
 echo "Validating release prerequisites..."
