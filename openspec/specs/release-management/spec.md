@@ -351,17 +351,35 @@ The system SHALL provide a single consolidated validation task for release opera
 
 ---
 
-### Requirement: Automatic Tag Creation
+### Requirement: Automatic Tag Creation with Pipeline Triggering
 
-The system SHALL automatically create Git tags when the version file changes, eliminating manual tagging workflow.
+The system SHALL automatically create Git tags when version file changes, eliminating manual tagging workflow, and SHALL trigger a new pipeline to ensure release stage executes.
 
-#### Scenario: Tag stage triggers on version change
+#### Scenario: Tag stage creates version tag and triggers pipeline
 **Given** internal/version/version.go is modified
 **When** change is pushed to main branch
 **And** test stage completes successfully
 **Then** tag stage SHALL run automatically
 **And** tag SHALL be created with format v<VERSION>
 **And** tag SHALL be pushed to repository
+**And** tag stage SHALL trigger a new pipeline using GitLab API
+**And** tag stage SHALL use $CI_JOB_TOKEN for API authentication
+**And** tag stage SHALL use /trigger/pipeline endpoint
+**And** triggered pipeline SHALL set $CI_COMMIT_TAG
+**And** triggered pipeline SHALL set $CI_PIPELINE_SOURCE to "trigger"
+**And** release stage SHALL execute automatically with new tag
+
+#### Scenario: Tag stage idempotent behavior with pipeline trigger
+**Given** tag vX.Y.Z already exists
+**When** pipeline runs again with same version.go
+**Then** tag stage SHALL detect existing tag
+**And** tag stage SHALL skip tag creation
+**And** tag stage SHALL report "Tag already exists — skipping tag creation"
+**And** tag stage SHALL STILL trigger pipeline for existing tag (in case tag was deleted and recreated)
+**And** tag stage SHALL use $CI_JOB_TOKEN for API authentication
+**And** tag stage SHALL use /trigger/pipeline endpoint
+**And** triggered pipeline SHALL set $CI_PIPELINE_SOURCE to "trigger"
+**And** pipeline SHALL continue normally
 
 #### Scenario: Manual tagging workflow removed
 **Given** developer reads release documentation

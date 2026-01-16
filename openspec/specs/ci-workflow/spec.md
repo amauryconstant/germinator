@@ -289,57 +289,63 @@ The system SHALL provide a single consolidated validation task for release opera
 
 ---
 
-### Requirement: Automatic Tag Creation
-
-The CI pipeline SHALL automatically create Git tags when the version file changes, eliminating manual tagging.
-
-#### Scenario: Tag stage creates version tag
-**Given** commit includes changes to internal/version/version.go
-**When** pipeline runs on main branch
-**And** test stage completes successfully
-**Then** tag stage SHALL run
-**And** tag stage SHALL extract version from internal/version/version.go
-**And** tag stage SHALL create Git tag with format v<VERSION>
-**And** tag stage SHALL push tag to origin
-**And** release stage SHALL trigger with new tag
-
-#### Scenario: Tag stage idempotent behavior
-**Given** tag vX.Y.Z already exists
-**When** pipeline runs again with same version.go
-**Then** tag stage SHALL detect existing tag
-**And** tag stage SHALL skip tag creation
-**And** tag stage SHALL report "Tag already exists, skipping"
-**And** pipeline SHALL continue normally
-
-#### Scenario: Tag stage skips when version unchanged
-**Given** commit does NOT change internal/version/version.go
-**When** pipeline runs
-**Then** tag stage SHALL be skipped
-**And** no tag SHALL be created
-**And** other stages SHALL run normally
-
-#### Scenario: Tag format validation
-**Given** version in internal/version/version.go is "0.3.0"
-**When** tag is created
-**Then** tag SHALL be "v0.3.0"
-**And** tag SHALL include 'v' prefix
-**And** tag SHALL match semantic version format
-
-#### Scenario: Git configuration for tagging
-**Given** tag stage is running
-**When** git config is set
-**Then** git user.email SHALL be set from $GITLAB_USER_EMAIL
-**And** git user.name SHALL be set from $GITLAB_USER_NAME
-**And** git remote SHALL be configured for push with CI_JOB_TOKEN
-**And** tag SHALL be pushed successfully
-
-#### Scenario: Release stage integration
-**Given** tag stage creates tag v0.3.0
-**When** tag push completes
-**Then** release stage SHALL trigger automatically
-**And** release stage SHALL use tag vX.Y.Z for version
-**And** release:validate SHALL find the tag
-**And** GoReleaser SHALL create release artifacts
+ ### Requirement: Automatic Tag Creation with Pipeline Triggering
+ 
+ The CI pipeline SHALL automatically create Git tags when the version file changes, eliminating manual tagging, and SHALL trigger a pipeline for the new tag to ensure the release stage executes.
+ 
+ #### Scenario: Tag stage creates version tag and triggers pipeline
+ **Given** commit includes changes to internal/version/version.go
+ **When** pipeline runs on main branch
+ **And** test stage completes successfully
+ **Then** tag stage SHALL run
+ **And** tag stage SHALL extract version from internal/version/version.go
+ **And** tag stage SHALL create Git tag with format v<VERSION>
+ **And** tag stage SHALL push tag to origin
+ **And** tag stage SHALL trigger a new pipeline using GitLab API
+ **And** release stage SHALL execute with new tag due to trigger
+ 
+ #### Scenario: Tag stage idempotent behavior with pipeline trigger
+ **Given** tag vX.Y.Z already exists
+ **When** pipeline runs again with same version.go
+ **Then** tag stage SHALL detect existing tag
+ **And** tag stage SHALL skip tag creation
+ **And** tag stage SHALL report "Tag already exists — skipping tag creation"
+ **And** tag stage SHALL STILL trigger pipeline for existing tag (in case tag was deleted and recreated)
+ **And** tag stage SHALL use $CI_JOB_TOKEN for GitLab API authentication
+ **And** tag stage SHALL use /trigger/pipeline endpoint
+ **And** triggered pipeline SHALL set $CI_PIPELINE_SOURCE to "trigger"
+ **And** pipeline SHALL continue normally
+ 
+ #### Scenario: Tag stage skips when version unchanged
+ **Given** commit does NOT change internal/version/version.go
+ **When** pipeline runs
+ **Then** tag stage SHALL be skipped
+ **And** no tag SHALL be created
+ **And** no pipeline SHALL be triggered
+ **And** other stages SHALL run normally
+ 
+ #### Scenario: Tag format validation
+ **Given** version in internal/version/version.go is "0.3.0"
+ **When** tag is created
+ **Then** tag SHALL be "v0.3.0"
+ **And** tag SHALL include 'v' prefix
+ **And** tag SHALL match semantic version format
+ 
+ #### Scenario: Git configuration for tagging
+ **Given** tag stage is running
+ **When** git config is set
+ **Then** git user.email SHALL be set from $GITLAB_USER_EMAIL
+ **And** git user.name SHALL be set from $GITLAB_USER_NAME
+ **And** git remote SHALL be configured for push with CI_JOB_TOKEN
+ **And** tag SHALL be pushed successfully
+ 
+ #### Scenario: Release stage integration with triggered pipeline
+ **Given** tag stage creates tag v0.3.0 and triggers pipeline
+ **When** tag push completes
+ **Then** release stage SHALL trigger automatically (via $CI_COMMIT_TAG being set)
+ **And** release stage SHALL use tag vX.Y.Z for version
+ **And** release:validate SHALL find to tag
+ **And** GoReleaser SHALL create release artifacts
 
 ---
 
@@ -664,11 +670,11 @@ And job SHALL NOT use mise or external validation script
 And job SHALL NOT validate git state (redundant in CI)
 And job SHALL NOT validate branch (redundant in CI)
 
-#### Scenario: GoReleaser uses job token
+#### Scenario: GoReleaser uses project access token
 Given .goreleaser.yml is configured
 When release.gitlab section is reviewed
-Then GITLAB_TOKEN environment variable SHALL be set to $CI_JOB_TOKEN
-And GoReleaser SHALL use GitLab job token for API access
+Then GITLAB_TOKEN environment variable SHALL be set to $GITLAB_RELEASE_TOKEN
+And GoReleaser SHALL use GitLab project access token with api scope for API access
 
 #### Scenario: Release validation task removed
 Given .mise/tasks/release/validate.sh is inspected

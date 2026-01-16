@@ -217,6 +217,7 @@ create-version-tag:
   resource_group: version_tagging
   variables:
     GIT_STRATEGY: clone
+    TRIGGERED_FROM: create-version-tag-job
   before_script:
     - git config user.email "$GITLAB_USER_EMAIL"
     - git config user.name "$GITLAB_USER_NAME"
@@ -235,13 +236,43 @@ create-version-tag:
 
       git fetch --tags
       if git tag -l "$TAG" | grep -q "$TAG"; then
-        echo "✅ Tag $TAG already exists — skipping"
+        echo "✅ Tag $TAG already exists — skipping tag creation"
+        
+        # Still trigger pipeline in case tag was deleted and recreated
+        echo "🔄 Triggering pipeline for existing tag $TAG..."
+        RESPONSE=$(curl --silent --write-out "%{http_code}" --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
+          --request POST \
+          "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/trigger/pipeline?ref=${TAG}&variables[TRIGGERED_FROM]=create-version-tag-job")
+        
+        HTTP_CODE="${RESPONSE:0:3}"
+        
+        if [ "$HTTP_CODE" = "201" ]; then
+          echo "✅ Pipeline triggered successfully (HTTP $HTTP_CODE)"
+        else
+          echo "❌ Failed to trigger pipeline (HTTP $HTTP_CODE)"
+          exit 1
+        fi
         exit 0
       fi
 
       git tag -a "$TAG" -m "Release $TAG"
       git push origin "$TAG"
       echo "✅ Tag $TAG created"
+      
+      # Trigger pipeline for the newly created tag
+      echo "🔄 Triggering pipeline for tag $TAG..."
+      RESPONSE=$(curl --silent --write-out "%{http_code}" --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
+        --request POST \
+        "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/trigger/pipeline?ref=${TAG}&variables[TRIGGERED_FROM]=create-version-tag-job")
+      
+      HTTP_CODE="${RESPONSE:0:3}"
+      
+      if [ "$HTTP_CODE" = "201" ]; then
+        echo "✅ Pipeline triggered successfully (HTTP $HTTP_CODE)"
+      else
+        echo "❌ Failed to trigger pipeline (HTTP $HTTP_CODE)"
+        exit 1
+      fi
   rules:
     - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
       changes:
@@ -273,7 +304,7 @@ release:
     entrypoint: [""]
   variables:
     GIT_DEPTH: 0
-    GITLAB_TOKEN: "$CI_JOB_TOKEN"
+    GITLAB_TOKEN: "$GITLAB_RELEASE_TOKEN"
   before_script:
     - |
       TAG_VERSION="${CI_COMMIT_TAG#v}"
@@ -303,5 +334,7 @@ mirror-to-github:
     - git push github HEAD:$CI_COMMIT_BRANCH --tags --force
   interruptible: true
   rules:
+    - if: "$CI_COMMIT_TAG"
+      when: never
     - if: '$CI_COMMIT_BRANCH == "main" && $GITHUB_ACCESS_TOKEN && $GITHUB_REPO_URL'
-    - when: on_success
+      when: on_success
