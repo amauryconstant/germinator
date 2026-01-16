@@ -292,7 +292,9 @@ release:
 # --------------------------------
 mirror-to-github:
   stage: distribute
-  needs: [create-version-tag]
+  needs:
+    - job: create-version-tag
+      optional: true
   variables:
     GIT_STRATEGY: fetch
   script:
