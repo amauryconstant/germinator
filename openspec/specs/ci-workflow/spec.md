@@ -220,6 +220,24 @@ The CI image build process SHALL use content-based hashing to generate unique im
 **And** hash SHALL be combined with mise version in format mise-version-hash
 **And** tag format SHALL be "2026.1.2-abc123def456"
 
+#### Scenario: Job runs only when Dockerfile.ci or config.toml changes on main
+**Given** pipeline is running on main branch
+**When** Dockerfile.ci or .mise/config.toml has been modified
+**Then** build-ci-image job SHALL run
+**And** job SHALL rebuild the CI image with changes
+**When** neither Dockerfile.ci nor .mise/config.toml has been modified
+**Then** build-ci-image job SHALL be skipped
+**And** pipeline SHALL continue without rebuilding image
+
+#### Scenario: Job runs only when Dockerfile.ci or config.toml changes in MR
+**Given** pipeline is running on merge request
+**When** Dockerfile.ci or .mise/config.toml has been modified
+**Then** build-ci-image job SHALL run
+**And** job SHALL rebuild the CI image with changes
+**When** neither Dockerfile.ci nor .mise/config.toml has been modified
+**Then** build-ci-image job SHALL be skipped
+**And** pipeline SHALL continue without rebuilding image
+
 #### Scenario: CI image rebuilds on Dockerfile.ci changes
 **Given** Dockerfile.ci has been modified
 **When** build-ci-image job runs
