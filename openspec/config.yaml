@@ -1,0 +1,38 @@
+schema: spec-driven
+
+context: |
+  Domain: Configuration adapter transforming AI coding assistant documents (commands, memory, skills, agents) between platforms. Claude Code document standard as source format.``
+  
+  Tech stack: Go 1.25.5, Cobra CLI, JSON Schema (xeipuuv/gojsonschema), 
+  Tooling: mise, golangci-lint
+  
+  Code conventions:
+  - NO comments in code unless explicitly requested
+  - Use mise run <task> for all task operations
+  - Run mise run check before committing
+  
+  Architecture patterns:
+  - No predefined directory structure (CLI works with any input/output paths)
+  - Platform differences handled automatically via adapters
+  - Preserve source content, only adapt for target compatibility
+  - No forced compatibility - omit unsupported features gracefully
+  
+  Testing: Table-driven tests with fixtures
+
+rules:
+  proposal:
+    - Focus on "Why", "What Changes", "Capabilities", "Impact"
+    - List all files affected by change
+    - Document new/modified capabilities with clear descriptions
+  
+  specs:
+    - Use Given/When/Then/AND scenario format
+    - Each scenario should be testable
+  
+  design:
+    - Include technical decisions and rationale
+    - Document tradeoffs explicitly
+  
+  tasks:
+    - Break into small, clear, logically ordered steps
+    - Include verification steps (mise run check, lint, test)

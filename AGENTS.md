@@ -1,21 +1,3 @@
-<!-- OPENSPEC:START -->
-# OpenSpec Instructions
-
-These instructions are for AI assistants working in this project.
-
-Always open `@/openspec/AGENTS.md` when the request:
-- Mentions planning or proposals (words like proposal, spec, change, plan)
-- Introduces new capabilities, breaking changes, architecture shifts, or big performance/security work
-- Sounds ambiguous and you need the authoritative spec before coding
-
-Use `@/openspec/AGENTS.md` to learn:
-- How to create and apply change proposals
-- Spec format and conventions
-- Project structure and guidelines
-
-Keep this managed block so 'openspec update' can refresh the instructions.
-
-<!-- OPENSPEC:END -->
 
 ---
 
@@ -27,6 +9,36 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 1. Maintain **one source of truth** for their coding assistant setup
 2. Quickly **switch platforms** without rewriting their configuration
 3. **Adapt** their setup to new projects easily
+
+---
+
+# OpenSpec (OPSX) Workflow
+
+This project uses **OpenSpec** for spec-driven development. OPSX provides a flexible, artifact-based workflow for planning and implementing changes.
+
+## Quick Start
+
+Use these OPSX commands:
+
+| Command | Purpose |
+|---------|---------|
+| `/opsx:explore` | Think through ideas and problems |
+| `/opsx:new <name>` | Start a new change |
+| `/opsx:continue` | Create next artifact |
+| `/opsx:ff` | Fast-forward: create all artifacts at once |
+| `/opsx:apply` | Implement tasks |
+| `/opsx:verify` | Validate implementation |
+| `/opsx:sync` | Sync specs to main |
+| `/opsx:archive` | Archive completed change |
+
+## Configuration
+
+OpenSpec context and rules are in `openspec/config.yaml`. This file:
+- Injects project conventions into all planning requests
+- Defines artifact-specific rules (proposal, specs, design, tasks)
+- Sets the default workflow schema
+
+For details on available schemas and customization: `openspec schemas --json`
 
 ---
 
@@ -138,7 +150,7 @@ When making decisions, keep these constraints in mind:
 
 2. **Platform differences handled automatically** - Tool names, permissions, and conventions are mapped appropriately via adapters. Do not force platform-specific logic in core parsing.
 
-3. **Source content preserved** - Documents are only adapted/enriched for the target platform. Do not alter or discard original content unless it's truly incompatible.
+3. **Source content preserved** - Documents are only adapted/enriched for target platform. Do not alter or discard original content unless it's truly incompatible.
 
 4. **No forced compatibility** - If a target platform doesn't support a feature from the source, it's simply not supported. Do not try to make incompatible features work.
 
@@ -387,7 +399,5 @@ The project uses GitLab CI/CD for automated testing and deployment. The pipeline
 # Testing Strategy
 
 - **Table-driven tests** for parsing and validation with comprehensive edge cases
-- **Golden master files** in `test/golden/` for snapshot testing
 - **Integration tests** for complete workflows
 - **Validation checkpoints** after each milestone with verification scripts
-- Target >80% overall coverage (Core >90%, Services >85%, CLI >75%)
