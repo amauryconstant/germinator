@@ -1,403 +1,170 @@
 
 ---
 
-# Project Overview
+**Project**: Configuration adapter for AI coding assistant documents. Transforms between platforms using Claude Code as source format.
 
-**What this tool is**: A configuration adapter that transforms AI coding assistant documents (commands, memory, skills, agents) between platforms. It uses Claude Code's document standard as the source format and adapts it for other platforms.
-
-**Use case**: Users who test different AI coding assistants regularly. The tool enables them to:
-1. Maintain **one source of truth** for their coding assistant setup
-2. Quickly **switch platforms** without rewriting their configuration
-3. **Adapt** their setup to new projects easily
+**Use**: Maintain single source of truth, switch platforms, adapt to new projects.
 
 ---
 
-# OpenSpec (OPSX) Workflow
+# OpenSpec (OPSX)
 
-This project uses **OpenSpec** for spec-driven development. OPSX provides a flexible, artifact-based workflow for planning and implementing changes.
-
-## Quick Start
-
-Use these OPSX commands:
+Spec-driven development with artifact-based workflow.
 
 | Command | Purpose |
 |---------|---------|
-| `/opsx:explore` | Think through ideas and problems |
-| `/opsx:new <name>` | Start a new change |
-| `/opsx:continue` | Create next artifact |
-| `/opsx:ff` | Fast-forward: create all artifacts at once |
-| `/opsx:apply` | Implement tasks |
-| `/opsx:verify` | Validate implementation |
-| `/opsx:sync` | Sync specs to main |
-| `/opsx:archive` | Archive completed change |
+| `/opsx:explore` | Think through ideas |
+| `/opsx:new <name>` | Start change |
+| `/opsx:continue` | Next artifact |
+| `/opsx:ff` | Fast-forward all |
+| `/opsx:apply` | Implement |
+| `/opsx:verify` | Validate |
+| `/opsx:sync` | Sync specs |
+| `/opsx:archive` | Archive done |
 
-## Configuration
-
-OpenSpec context and rules are in `openspec/config.yaml`. This file:
-- Injects project conventions into all planning requests
-- Defines artifact-specific rules (proposal, specs, design, tasks)
-- Sets the default workflow schema
-
-For details on available schemas and customization: `openspec schemas --json`
+**Config**: `openspec/config.yaml` injects conventions, defines artifact rules, sets workflow schema.
+**Schemas**: `openspec schemas --json`
 
 ---
 
-# Development Workflow
+# Development
 
-## Prerequisites
-- Go 1.25.5 or later
-- mise task runner (for unified development commands)
+**Prerequisites**: Go 1.25.5+, mise task runner
 
-## Build Commands
-```bash
-# Build the CLI
-go build -o germinator ./cmd
-
-# Build all packages
-go build ./...
-
-# Run tests
-go test ./...
-
-# Verify with go vet
-go vet ./...
-```
-
-## mise Task Runner
-This project uses mise for unified development workflow:
+## mise Commands
 
 ```bash
-# Build CLI to bin/germinator
-mise run build
-
-# Run all validation checks
-mise run check
-
-# Run linting
-mise run lint
-
-# Auto-fix linting issues
-mise run lint:fix
-
-# Format Go code
-mise run format
-
-# Run tests
-mise run test
-
-# Run tests with coverage
-mise run test:coverage
-
-# Clean build artifacts
-mise run clean
-
-# Version management
-mise run version:patch   # Bump patch version
-mise run version:minor   # Bump minor version
-mise run version:major   # Bump major version
-
-# Discover all tasks
-mise tasks
+mise run build            # Build CLI
+mise run check            # All validation
+mise run lint             # Lint code
+mise run lint:fix         # Auto-fix
+mise run format           # Format Go
+mise run test             # Run tests
+mise run test:coverage    # With coverage
+mise run clean            # Clean artifacts
+mise run version:patch    # Bump patch
+mise run version:minor    # Bump minor
+mise run version:major    # Bump major
+mise tasks                # List all
 ```
 
-**Important**: Run `mise run check` before committing. Run `go mod tidy` after any dependency changes.
+**Rules**:
+- `mise run check` before committing
+- `go mod tidy` after dependency changes
+- Use `mise exec -- <command>` for mise-installed tools (e.g., `mise exec -- golangci-lint run`)
 
-For tools installed via mise, use `mise exec -- <command>` (e.g., `mise exec -- golangci-lint run`).
-
----
-
-# Directory Structure
+## Directory
 
 ```
 germinator/
- ├── cmd/                    # CLI entry point (Cobra framework)
- │   ├── root.go          # Main command registration
- │   ├── validate.go       # Validate document subcommand
- │   └── adapt.go          # Transform document subcommand
- ├── internal/              # Private application code
- │   ├── core/             # Core interfaces and implementations: DocumentParser, DocumentSerializer
- │   │   ├── parser.go       # Parse documents from files
- │   │   ├── loader.go       # Load and validate documents
- │   │   └── serializer.go  # Serialize documents to templates
- │   └── services/         # Business logic: ValidationService, TransformationService
- │       └── transformer.go   # Orchestrate document transformation pipeline
- ├── pkg/                   # Public library code
- │   └── models/           # Domain models: Document, Agent, Command, Memory, Skill
- ├── config/               # Configuration files
- │   ├── schemas/          # JSON Schema files for document validation
- │   ├── templates/        # Go template files for output rendering
- │   │   └── claude-code/ # Claude Code platform templates
- │   │       ├── agent.tmpl
- │   │       ├── command.tmpl
- │   │       ├── skill.tmpl
- │   │       └── memory.tmpl
- │   └── adapters/         # Platform adapter configurations
- ├── test/                 # Test artifacts
- │   ├── fixtures/         # Test input documents (valid/invalid examples)
- │   └── golden/           # Expected outputs for snapshot testing
- └── .mise/                # Task runner configuration
-     ├── config.toml       # Task definitions and tool configurations
-     └── tasks/            # File-based bash scripts for tasks
+ ├── cmd/              # CLI entry (Cobra)
+ ├── internal/         # Private code
+ │   ├── core/        # Parser, loader, serializer
+ │   └── services/    # Validation, transformation
+ ├── config/          # Schemas, templates, adapters
+ ├── test/            # Fixtures, golden
+ └── .mise/           # Task runner config
 ```
 
 ---
 
-# Key Constraints & Architectural Principles
+# Key Constraints
 
-When making decisions, keep these constraints in mind:
-
-1. **No predefined directory structure** - The CLI works with any input/output paths. Do not hardcode directory layouts.
-
-2. **Platform differences handled automatically** - Tool names, permissions, and conventions are mapped appropriately via adapters. Do not force platform-specific logic in core parsing.
-
-3. **Source content preserved** - Documents are only adapted/enriched for target platform. Do not alter or discard original content unless it's truly incompatible.
-
-4. **No forced compatibility** - If a target platform doesn't support a feature from the source, it's simply not supported. Do not try to make incompatible features work.
-
-5. **Follow Go standard layout** - The project uses `internal/` for private code and `pkg/` for public libraries. Respect these boundaries.
-
-6. **Use mise for all task operations** - Use `mise run <task>` instead of running scripts directly. Use `mise exec --` for tools installed via mise.
+1. **No predefined paths** - CLI works with any input/output
+2. **Platform mapping via adapters** - Defer to adapters, don't hardcode in core parsing
+3. **Preserve source content** - Only adapt/enrich, don't discard
+4. **No forced compatibility** - Skip unsupported features
+5. **Go standard layout** - `internal/` private, `pkg/` public
+6. **mise for all tasks** - Use `mise run <task>`, not direct scripts
 
 ---
 
-# CLI Usage Pattern
-
-Users interact with the tool via a simple CLI interface:
+# CLI Pattern
 
 ```bash
 cli action input_file target_platform [options]
 ```
 
-For implementation milestones, follow the IMPLEMENTATION_PLAN.md for specific command structures (validate, adapt, schema).
+See `IMPLEMENTATION_PLAN.md` for command structures.
 
 ---
 
-# Release Management
+# Release
 
-## Creating a Release
+Git tags are source of truth.
 
-Git tags are the single source of truth for releases.
+```bash
+# Prerequisites
+mise run release:validate    # Clean, main, valid config
 
-1. Ensure clean working directory:
-   ```bash
-   git status  # Should show nothing to commit
-   ```
+# Create tag (auto-bumps internal/version/version.go)
+mise run release:tag patch   # v0.3.20 → v0.3.21
+mise run release:tag minor   # v0.3.20 → v0.4.0
+mise run release:tag major   # v0.3.20 → v1.0.0
 
-2. Validate release prerequisites:
-   ```bash
-   mise run release:validate
-   ```
-   This checks:
-   - Git working directory is clean
-   - Current branch is main
-   - GoReleaser configuration is valid
+# Test before tagging
+mise run release:dry-run
+```
 
-3. Create and push git tag:
-   ```bash
-   mise run release:tag patch   # Bump patch version (v0.3.20 → v0.3.21)
-   mise run release:tag minor   # Bump minor version (v0.3.20 → v0.4.0)
-   mise run release:tag major   # Bump major version (v0.3.20 → v1.0.0)
-   ```
+**CI**: Tag push triggers GitLab CI → lint, test, GoReleaser, release artifacts.
 
-   Or manually:
-   ```bash
-   git tag v0.3.21
-   git push origin v0.3.21
-   ```
-
-4. **GitLab CI automatically builds and creates release**:
-   - Detects tag push
-   - Validates tag format (vX.Y.Z)
-   - Runs lint and tests
-   - Builds cross-platform binaries with GoReleaser
-   - Creates GitLab release with artifacts
-
-**Note**: For testing, use `mise run release:dry-run` locally to verify GoReleaser configuration before creating a tag.
-
-## Release Artifacts
-
-Releases include:
-- **germinator_0.3.0_linux_amd64.tar.gz**
-- **germinator_0.3.0_linux_arm64.tar.gz**
-- **germinator_0.3.0_darwin_amd64.tar.gz**
-- **germinator_0.3.0_darwin_arm64.tar.gz**
-- **germinator_0.3.0_windows_amd64.zip**
-- **checksums.txt** (SHA256)
-- **germinator_0.3.0_sbom.spdx.json** (Software Bill of Materials)
+**Artifacts**: Cross-platform binaries (linux/darwin/windows, amd64/arm64), checksums, SBOM.
 
 ## Tool Management
 
-Check for tool updates:
 ```bash
-mise run tools:check
+mise run tools:check     # Check updates
+mise run tools:update    # Update versions
+mise install --yes       # Install after update
+git diff .mise/config.toml  # Review changes
 ```
-
-Update tool versions:
-```bash
-mise run tools:update
-```
-
-After updating tools:
-1. Review changes: `git diff .mise/config.toml`
-2. Install updated tools: `mise install --yes`
-3. Commit and push
-
-## CI Image Maintenance
-
-Custom CI Docker image (`registry.gitlab.com/amoconst/germinator/ci:latest`) contains:
-- Go 1.25.5
-- mise (latest stable)
-- golangci-lint
-- GoReleaser
-- Docker CLI
-
----
-
-# Technology Stack
-
-- **Language**: Go 1.25.5
-- **CLI Framework**: Cobra
-- **Validation**: JSON Schema (xeipuuv/gojsonschema)
-- **Task Runner**: mise
-- **Release Management**: GoReleaser
-- **Linting**: golangci-lint (gofmt, govet, errcheck, typecheck, misspell, revive)
-- **CI/CD**: GitLab CI with custom Docker image
 
 ---
 
 # Pre-commit Hooks
 
-The project uses pre-commit hooks to ensure code quality before commits. Install them after cloning:
-
 ```bash
-pre-commit install
+pre-commit install  # One-time setup
 ```
 
-Hooks run automatically on commit and include:
-- Go formatting (gofmt)
-- Go vet
-- golangci-lint checks
-- YAML/TOML/JSON validation
-- File hygiene checks (trailing whitespace, end-of-file, merge conflicts)
+Hooks: gofmt, govet, golangci-lint, YAML/TOML/JSON validation, file hygiene.
 
-**Note**: All hooks are blocking - commits will fail if any hook fails.
+**CI image**: `registry.gitlab.com/amoconst/germinator/ci:latest` (Go 1.25.5, mise, golangci-lint, GoReleaser, Docker CLI).
 
 ---
 
 # Troubleshooting
 
-## CI/CD Issues
+**CI cache not invalidating**: Verify `.mise/config.toml` in cache key, check setup job ran.
 
-**Cache not invalidating after tool update:**
-- Verify .mise/config.toml is included in cache key
-- Check that setup job ran after changing tool versions
-- Force cache rebuild by modifying any cache key file
+**Mirror job skipped**: Expected when `GITHUB_ACCESS_TOKEN` or `GITHUB_REPO_URL` unset.
 
-**Mirror job not running:**
-- Check that GITHUB_ACCESS_TOKEN and GITHUB_REPO_URL are set in GitLab CI variables
-- Verify current branch is main
-- Confirm job is skipped (not failed) when variables are missing - this is expected behavior
+**release:validate fails**: Check `git status`, verify main branch, `goreleaser check`.
 
-**Expensive jobs (lint, test, release) skipping unexpectedly:**
-- Verify code changes are outside openspec/ directory
-- Check pipeline logs for "Skipped due to rules" message
-- This is expected behavior for documentation-only changes
+**Tag not created**: Verify `internal/version/version.go` changed, pushed to main, review logs. Required vars: `GITLAB_USER_EMAIL`, `GITLAB_USER_NAME`, `GITLAB_ACCESS_TOKEN` (write_repository), `GITLAB_RELEASE_TOKEN` (api).
 
-## Release Issues
-
-**release:validate failing:**
-- Check for uncommitted changes: `git status`
-- Verify you're on main branch: `git branch --show-current`
-- Validate GoReleaser config: `goreleaser check`
-
-**Release job failing in CI:**
-- Check CI job logs for `mise run release:validate` output
-- Look for specific validation failure messages
-- Fix the issue locally, push the fix, and try again
-
-**Tag not being created:**
-- Verify `internal/version/version.go` was modified
-- Check that changes are pushed to main branch
-- Review tag stage logs for errors
-- Ensure $GITLAB_USER_EMAIL and $GITLAB_USER_NAME variables are set
-- Ensure $GITLAB_ACCESS_TOKEN is set with `write_repository` scope (required for tag stage)
-- Ensure $GITLAB_RELEASE_TOKEN is set with `api` scope (required for release stage)
-- If seeing 403 errors, verify tokens have correct permissions and are not expired
-
-**Tag already exists, but release failed:**
-- If tag exists but release failed, delete and re-push:
-  ```bash
-  git tag -d v0.3.0
-  git push origin :refs/tags/v0.3.0
-  ```
-  Then re-run pipeline or push a new version bump
-- Or manually create new tag with incremented version
-
-**Need to recreate tag after fixing issues:**
-- Delete existing tag locally: `git tag -d v0.3.0`
-- Delete remote tag: `git push origin :refs/tags/v0.3.0`
-- Re-run pipeline (tag stage will recreate tag)
-
-**Version tag mismatch errors:**
-- Ensure tag format is vX.Y.Z (with 'v' prefix)
-- Check that version in internal/version/version.go is correct
-- Tag stage automatically creates correct format, this should not happen
+**Recreate tag**:
+```bash
+git tag -d v0.3.0 && git push origin :refs/tags/v0.3.0
+```
 
 ---
 
 # CI/CD Pipeline
 
-The project uses GitLab CI/CD for automated testing and deployment. The pipeline runs on:
+**Stages**: build-ci, setup, lint, test, tag, release, mirror.
+**Triggers**: MRs, main branch pushes.
 
-- Merge requests
-- Pushes to the main branch
+**Tag stage**: Auto-runs when `internal/version/version.go` changes on main. Idempotent, creates format `vX.Y.Z`.
 
-**Pipeline stages:**
-1. **build-ci** - Build and push CI Docker image (when Dockerfile.ci or .mise/config.toml changes)
-2. **setup** - Download Go module dependencies
-3. **lint** - Run golangci-lint
-4. **test** - Run all tests
-5. **tag** - Create Git tag when internal/version/version.go changes (automatic, idempotent)
-6. **release** - Create GitLab releases on tag push (triggered by tag stage)
-7. **mirror** - Push to GitHub mirror (main branch only, requires GITHUB_ACCESS_TOKEN and GITHUB_REPO_URL)
+**Optimization**: Expensive jobs skip when only `openspec/` files change.
 
-**Cache Configuration:**
-- Cache key includes: .gitlab-ci.yml, Dockerfile.ci, .mise/config.toml, go.mod, go.sum
-- Cache invalidates when any of these files change
-- Setup job writes cache (pull-push), other jobs read only (pull)
-- Resource group `cache_updates` serializes writes to prevent corruption
-- Artifacts expire after 24 hours
-
-**Tag Stage Behavior:**
-- Runs automatically when internal/version/version.go changes on main branch
-- Extracts version from internal/version/version.go using grep/sed
-- Creates Git tag with format v<VERSION> (e.g., `v0.3.0`)
-- Idempotent - skips tag creation if tag already exists
-- Uses $GITLAB_USER_EMAIL and $GITLAB_USER_NAME for git config
-- Pushes tag to origin, which triggers release stage
-
-**CI Optimization:**
-- Expensive jobs (lint, test, release, mirror) are automatically skipped when only openspec/ files change
-- This saves CI resources and speeds up documentation-only updates
-- Setup job always runs to ensure cache is available
-
-**GitLab CI variables:**
-- `GITHUB_ACCESS_TOKEN` - GitHub personal access token for mirroring (required for mirror job)
-- `GITHUB_REPO_URL` - GitHub repository URL (e.g., `username/repo`, required for mirror job)
-- `GITLAB_ACCESS_TOKEN` - GitLab personal or project access token with `write_repository` scope (required for tag stage)
-- `GITLAB_RELEASE_TOKEN` - GitLab project access token with `api` scope (required for release stage)
-- `GITLAB_USER_EMAIL` - Email for git config in tag stage
-- `GITLAB_USER_NAME` - Name for git config in tag stage
-
-**Mirror Job Behavior:**
-- Only runs on main branch when both GITHUB_ACCESS_TOKEN and GITHUB_REPO_URL are set
-- Skipped gracefully (not failed) when variables are missing
-- Uses CI image (registry.gitlab.com/amoconst/germinator/ci:latest) instead of alpine
+**Required vars**: `GITHUB_ACCESS_TOKEN`, `GITHUB_REPO_URL` (mirror), `GITLAB_ACCESS_TOKEN` (tag), `GITLAB_RELEASE_TOKEN` (release), `GITLAB_USER_EMAIL`, `GITLAB_USER_NAME`.
 
 ---
 
-# Testing Strategy
+# Testing
 
-- **Table-driven tests** for parsing and validation with comprehensive edge cases
-- **Integration tests** for complete workflows
-- **Validation checkpoints** after each milestone with verification scripts
+- Table-driven tests for parsing/validation (edge cases)
+- Integration tests for workflows
+- Validation checkpoints after milestones
