@@ -19,6 +19,15 @@ context: |
   
   Testing: Table-driven tests with fixtures
 
+  Spec organization:
+  - specs/models/ - Core data structures
+  - specs/documents/ - Document lifecycle
+  - specs/transformation/ - Platform conversion
+  - specs/quality/ - Code quality enforcement
+  - specs/infrastructure/ - Infrastructure support and meta-specifications
+
+  Delta specs use the same nested structure as main specs. When a change is synced, delta spec paths determine where main specs are updated.
+
 rules:
   proposal:
     - Focus on "Why", "What Changes", "Capabilities", "Impact"
