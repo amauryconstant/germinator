@@ -1,48 +1,51 @@
 # mise-task-runner Specification
 
 ## Purpose
-TBD - created by archiving change setup-development-tooling. Update Purpose after archive.
+Configure mise task runner for build, testing, and release operations with tool management.
+
 ## Requirements
 ### Requirement: mise Configuration File
 
-The project SHALL have a mise.toml configuration file for task definitions and tool installation.
+The project SHALL have a .mise/config.toml configuration file for task definitions and tool installation.
 
-#### Scenario: mise.toml exists
+#### Scenario: Configuration file exists
 **Given** development tooling is set up
 **When** a developer checks for mise configuration
-**Then** mise.toml SHALL exist in project root
+**Then** .mise/config.toml SHALL exist in project root
 **And** it SHALL be valid TOML syntax
 
 #### Scenario: Tools section exists
-**Given** mise.toml exists
+**Given** .mise/config.toml exists
 **When** the configuration is inspected
 **Then** [tools] section SHALL exist
-**And** golangci-lint SHALL be configured
-**And** version SHALL be specified (e.g., "latest")
+**And** golangci-lint SHALL be configured with specific version
+**And** goreleaser SHALL be configured with specific version
+**And** pre-commit SHALL be configured
 
 #### Scenario: Tasks section exists
-**Given** mise.toml exists
+**Given** .mise/config.toml exists
 **When** the configuration is inspected
 **Then** [tasks] section SHALL exist
-**And** at least 2 tasks SHALL be defined (validate, smoke-test)
+**And** multiple task categories SHALL be defined (build, lint, test, release)
 
 ---
 
 ### Requirement: Tool Auto-Installation
 
-The project SHALL leverage mise's automatic tool installation for golangci-lint.
+The project SHALL leverage mise's automatic tool installation for all configured tools.
 
-#### Scenario: golangci-lint installs automatically
-**Given** mise.toml exists with golangci-lint configured
-**When** a developer runs `mise use golangci-lint@latest`
-**Then** mise SHALL download and install golangci-lint
-**And** tool SHALL be available for use
+#### Scenario: Tools install automatically
+**Given** .mise/config.toml has tools configured
+**When** a developer runs `mise install --yes`
+**Then** mise SHALL download and install all configured tools
+**And** each tool SHALL be available for use
 
 #### Scenario: Tool is discoverable
 **Given** mise is installed
 **When** a developer runs `mise list`
 **Then** installed tools SHALL be listed
 **And** golangci-lint SHALL appear in list
+**And** goreleaser SHALL appear in list
 
 ---
 
@@ -51,7 +54,7 @@ The project SHALL leverage mise's automatic tool installation for golangci-lint.
 The project SHALL provide task discovery through mise help system.
 
 #### Scenario: Tasks are discoverable
-**Given** mise.toml exists with tasks defined
+**Given** .mise/config.toml exists with tasks defined
 **When** a developer runs `mise run --help`
 **Then** all defined tasks SHALL be listed
 **And** each task SHALL show its description
@@ -82,22 +85,24 @@ The project SHALL leverage mise's parallel task execution capabilities.
 The project SHALL leverage mise's incremental build capabilities for performance.
 
 #### Scenario: Task has sources defined
-**Given** mise.toml exists with smoke-test task
+**Given** .mise/config.toml exists with build task
 **When** a developer inspects task configuration
 **Then** sources field SHALL be defined
-**And** pattern SHALL match input files (e.g., "cmd/**/*.go")
+**And** pattern SHALL match input files (e.g., "cmd/**/*.go", "internal/**/*.go")
 
 #### Scenario: Task has outputs defined
-**Given** mise.toml exists with smoke-test task
+**Given** .mise/config.toml exists with build task
 **When** a developer inspects task configuration
 **Then** outputs field SHALL be defined
-**And** output path SHALL be specified (e.g., "germinator")
+**And** output path SHALL be specified (e.g., "bin/germinator")
 
 #### Scenario: Task skips unchanged files
 **Given** task has sources and outputs defined
 **When** task is run multiple times
 **Then** task SHALL skip re-execution if sources are unchanged
 **And** outputs remain valid
+
+---
 
 ### Requirement: GoReleaser Tool Management
 
@@ -107,7 +112,7 @@ The project SHALL manage GoReleaser via mise for release automation.
 **Given** `.mise/config.toml` exists
 **When** [tools] section is inspected
 **Then** goreleaser SHALL be configured
-**And** version SHALL be specified (e.g., "2.4.0")
+**And** version SHALL be specified (e.g., "2.13.3")
 
 #### Scenario: GoReleaser installs automatically
 **Given** `.mise/config.toml` has goreleaser configured
@@ -168,13 +173,11 @@ The project SHALL provide script to update tool versions in mise configuration.
 **And** GoReleaser version SHALL be updated
 **And** file SHALL remain valid TOML syntax
 
-#### Scenario: Update script uses Python for cross-platform compatibility
-**Given** `.mise/tasks/update-tools.sh` is executed
+#### Scenario: Update script uses sed for TOML manipulation
+**Given** `.mise/tasks/tools/update.sh` is executed
 **When** script modifies TOML files
-**Then** it SHALL use Python for cross-platform TOML manipulation
-**And** it SHALL work on Linux (sed/gsed differences)
-**And** it SHALL work on macOS (sed/gsed differences)
-**And** it SHALL handle Python installation failure gracefully
+**Then** it SHALL use sed for TOML manipulation
+**And** it SHALL handle version updates correctly
 
 #### Scenario: Update script documents next steps
 **Given** tool versions are updated
@@ -184,6 +187,84 @@ The project SHALL provide script to update tool versions in mise configuration.
 **And** it SHALL instruct to install updated tools with `mise install --yes`
 **And** it SHALL instruct to rebuild CI image
 **And** it SHALL instruct to commit and push changes
+
+---
+
+### Requirement: Code Quality & Test Tasks
+
+The project SHALL provide mise tasks for code quality and testing.
+
+#### Scenario: Lint task exists
+**Given** `.mise/config.toml` exists
+**When** [tasks] section is inspected
+**Then** `lint` task SHALL exist
+**And** it SHALL run `golangci-lint run`
+**And** it SHALL have description "Run linting checks"
+
+#### Scenario: Lint fix task exists
+**Given** `.mise/config.toml` exists
+**When** [tasks] section is inspected
+**Then** `lint:fix` task SHALL exist
+**And** it SHALL run `golangci-lint run --fix`
+**And** it SHALL have description "Auto-fix linting issues"
+
+#### Scenario: Format task exists
+**Given** `.mise/config.toml` exists
+**When** [tasks] section is inspected
+**Then** `format` task SHALL exist
+**And** it SHALL run `gofmt -w .`
+**And** it SHALL have description "Format Go code"
+
+#### Scenario: Test task exists
+**Given** `.mise/config.toml` exists
+**When** [tasks] section is inspected
+**Then** `test` task SHALL exist
+**And** it SHALL run `go test ./... -v`
+**And** it SHALL have description "Run all tests"
+
+#### Scenario: Test coverage task exists
+**Given** `.mise/config.toml` exists
+**When** [tasks] section is inspected
+**Then** `test:coverage` task SHALL exist
+**And** it SHALL run `go test ./... -cover`
+**And** it SHALL have description "Run tests with coverage"
+
+#### Scenario: Check task exists for validation
+**Given** `.mise/config.toml` exists
+**When** [tasks] section is inspected
+**Then** `check` task SHALL exist
+**And** it SHALL depend on lint, format, test, build tasks
+**And** it SHALL have description "Run all validation checks"
+
+---
+
+### Requirement: Build Tasks
+
+The project SHALL provide mise tasks for building the CLI.
+
+#### Scenario: Build task exists
+**Given** `.mise/config.toml` exists
+**When** [tasks] section is inspected
+**Then** `build` task SHALL exist
+**And** it SHALL create binary in `bin/germinator`
+**And** it SHALL inject version, commit, and date via ldflags
+**And** it SHALL depend on build:clean task
+**And** it SHALL have description "Build CLI to bin/germinator"
+
+#### Scenario: Build clean task exists
+**Given** `.mise/config.toml` exists
+**When** [tasks] section is inspected
+**Then** `build:clean` task SHALL exist
+**And** it SHALL remove build artifacts
+**And** it SHALL have description "Clean build artifacts"
+
+#### Scenario: Build local task exists
+**Given** `.mise/config.toml` exists
+**When** [tasks] section is inspected
+**Then** `build:local` task SHALL exist
+**And** it SHALL build and install to $HOME/.local/bin/
+**And** it SHALL inject version via ldflags
+**And** it SHALL have description "Build and install germinator locally for testing"
 
 ---
 
@@ -211,6 +292,7 @@ The project SHALL provide mise tasks for release-related operations.
 **When** [tasks] section is inspected
 **Then** `release:validate` task SHALL exist
 **And** it SHALL check git state and branch
+**And** it SHALL validate GoReleaser configuration
 **And** it SHALL have description "Validate release prerequisites before tagging"
 
 #### Scenario: Release validate task checks prerequisites
@@ -245,8 +327,8 @@ The project SHALL pin golangci-lint and GoReleaser to specific versions for repr
 #### Scenario: Pinned versions in config
 **Given** `.mise/config.toml` exists
 **When** [tools] section is inspected
-**Then** golangci-lint SHALL be pinned to specific version (e.g., "1.60.1")
-**And** GoReleaser SHALL be pinned to specific version (e.g., "2.4.0")
+**Then** golangci-lint SHALL be pinned to specific version (e.g., "2.8.0")
+**And** GoReleaser SHALL be pinned to specific version (e.g., "2.13.3")
 **And** versions SHALL not use "latest" for production
 
 #### Scenario: Reproducible builds
@@ -254,4 +336,3 @@ The project SHALL pin golangci-lint and GoReleaser to specific versions for repr
 **When** build runs multiple times
 **Then** same tool versions SHALL be used
 **And** build results SHALL be consistent
-

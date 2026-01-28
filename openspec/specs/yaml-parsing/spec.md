@@ -1,7 +1,8 @@
 # yaml-parsing Specification
 
 ## Purpose
-TBD - created by archiving change add-core-infrastructure. Update Purpose after archive.
+Parse YAML frontmatter from markdown files into Go structs based on document type.
+
 ## Requirements
 ### Requirement: YAML Frontmatter Extraction
 
@@ -32,25 +33,25 @@ The system SHALL extract YAML frontmatter from markdown files using standard del
 The ParseDocument function SHALL parse YAML into appropriate struct based on document type.
 
 #### Scenario: Parse into Agent struct
-**Given** frontmatter with Agent fields (id, model, specialization, etc.)
+**Given** frontmatter with Agent fields (name, description, tools, model, permissionMode, skills)
 **When** ParseDocument is called with docType "agent"
 **Then** it SHALL unmarshal YAML into Agent struct
 **And** it SHALL return an Agent pointer
 
 #### Scenario: Parse into Command struct
-**Given** frontmatter with Command fields (name, tools, files, etc.)
+**Given** frontmatter with Command fields (allowed-tools, context, agent, description, model, disable-model-invocation)
 **When** ParseDocument is called with docType "command"
 **Then** it SHALL unmarshal YAML into Command struct
 **And** it SHALL return a Command pointer
 
 #### Scenario: Parse into Memory struct
-**Given** frontmatter with Memory fields (title, applies_to, etc.)
+**Given** frontmatter with Memory paths array
 **When** ParseDocument is called with docType "memory"
 **Then** it SHALL unmarshal YAML into Memory struct
-**And** it SHALL return a Memory pointer
+**And** it SHALL return a Memory pointer with Paths field populated
 
 #### Scenario: Parse into Skill struct
-**Given** frontmatter with Skill fields (name, description, etc.)
+**Given** frontmatter with Skill fields (name, description, allowed-tools, model, context, agent, user-invocable)
 **When** ParseDocument is called with docType "skill"
 **Then** it SHALL unmarshal YAML into Skill struct
 **And** it SHALL return a Skill pointer
@@ -59,4 +60,3 @@ The ParseDocument function SHALL parse YAML into appropriate struct based on doc
 **Given** ParseDocument is called with docType "unknown"
 **Then** it SHALL return an error
 **And** it SHALL indicate unsupported document type
-

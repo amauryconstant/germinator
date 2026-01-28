@@ -1,11 +1,12 @@
 # project-layout Specification
 
 ## Purpose
-TBD - created by archiving change initialize-project-structure. Update Purpose after archive.
+Establish standard Go directory structure following conventions, with internal packages for private code.
+
 ## Requirements
 ### Requirement: Standard Go Directory Structure
 
-The project SHALL provide a standard Go directory layout following the [Standard Go Project Layout](https://github.com/golang-standards/project-layout) conventions.
+The project SHALL provide a standard Go directory layout following [Standard Go Project Layout](https://github.com/golang-standards/project-layout) conventions.
 
 #### Scenario: Developer navigates project structure
 **Given** the project has been initialized
@@ -15,16 +16,13 @@ The project SHALL provide a standard Go directory layout following the [Standard
 - internal/
 - internal/core/
 - internal/services/
-- pkg/
-- pkg/models/
+- internal/models/
+- internal/version/
 - config/
-- config/schemas/
 - config/templates/
-- config/adapters/
+- config/templates/claude-code/
 - test/
 - test/fixtures/
-- test/golden/
-- scripts/
 
 #### Scenario: Go packages compile successfully
 **Given** the project structure has been created
@@ -48,7 +46,7 @@ The project SHALL be initialized as a Go module with a valid module path.
 **Given** go.mod exists
 **When** a developer reads the go.mod file
 **Then** it SHALL specify a Go version
-**And** it SHALL use a valid module path format (e.g., github.com/username/germinator)
+**And** it SHALL use a valid module path format (e.g., gitlab.com/username/germinator)
 
 #### Scenario: Dependencies are managed
 **Given** the Go module is initialized
@@ -67,44 +65,44 @@ Each package SHALL have minimal documentation explaining its purpose.
 **When** a developer inspects package directories
 **Then** internal/core/doc.go SHALL exist
 **And** internal/services/doc.go SHALL exist
-**And** pkg/models/doc.go SHALL exist
+**And** internal/models/doc.go SHALL exist
 **And** each doc.go SHALL describe the package's purpose
 
 ---
 
 ### Requirement: Configuration Structure
 
-The project SHALL have a configuration structure for schemas, templates, and adapters.
+The project SHALL have a configuration structure for templates.
 
 #### Scenario: Configuration directories exist
 **Given** the project has been initialized
-**When** a developer inspects the config/ directory
-**Then** config/schemas/ SHALL exist
-**And** config/templates/ SHALL exist
-**And** config/adapters/ SHALL exist
+**When** a developer inspects config/ directory
+**Then** config/templates/ SHALL exist
+**And** config/templates/claude-code/ SHALL exist
 
 ---
 
 ### Requirement: Test Structure
 
-The project SHALL have a test structure for fixtures and golden files.
+The project SHALL have a test structure for fixtures.
 
 #### Scenario: Test directories exist
 **Given** the project has been initialized
-**When** a developer inspects the test/ directory
+**When** a developer inspects test/ directory
 **Then** test/fixtures/ SHALL exist
-**And** test/golden/ SHALL exist
 
 ---
 
-### Requirement: Scripts Directory
+### Requirement: Utility Scripts Location
 
-The project SHALL have a scripts/ directory for utility scripts.
+The project SHALL have utility scripts in .mise/tasks/ directory following mise conventions.
 
 #### Scenario: Scripts directory exists
 **Given** the project has been initialized
-**When** a developer checks for the scripts directory
-**Then** scripts/ SHALL exist
+**When** a developer checks for scripts directory
+**Then** .mise/tasks/ SHALL exist
+**And** .mise/tasks/release/ SHALL exist for release scripts
+**And** .mise/tasks/tools/ SHALL exist for tool management scripts
 
 ---
 
@@ -118,4 +116,3 @@ The project SHALL have documentation explaining its structure and how to build i
 **Then** it SHALL describe the project's purpose
 **And** it SHALL explain the directory structure
 **And** it SHALL provide build instructions
-

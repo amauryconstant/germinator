@@ -1,7 +1,8 @@
 # cli-framework Specification
 
 ## Purpose
-TBD - created by archiving change initialize-project-structure. Update Purpose after archive.
+Define Cobra CLI framework with validate, adapt, and version commands for document transformation.
+
 ## Requirements
 ### Requirement: Cobra CLI Framework
 
@@ -35,8 +36,7 @@ The project SHALL have a root command named "germinator" with basic functionalit
 #### Scenario: Root command has description
 **Given** the root command exists
 **When** a developer runs `./germinator --help`
-**Then** the output SHALL include a description from PURPOSE.md
-**And** the description SHALL explain the tool's purpose
+**Then** the output SHALL include a description explaining the tool's purpose
 
 ---
 
@@ -56,6 +56,8 @@ The project SHALL have a main entry point in cmd/root.go that initializes the CL
 **Then** a binary SHALL be produced
 **And** the binary SHALL be executable
 **And** running the binary SHALL execute the root command
+
+---
 
 ### Requirement: Validate Command
 
@@ -164,6 +166,8 @@ The CLI SHALL register all new subcommands with the root command.
 **And** it SHALL include "validate" in the commands list
 **And** it SHALL include "adapt" in the commands list
 
+---
+
 ### Requirement: Enhanced Version Display
 
 The version command SHALL display version, commit SHA, and build date for better debugging.
@@ -203,21 +207,21 @@ The version package SHALL use variables instead of constants for build-time inje
 **When** version variable is declared
 **Then** it SHALL use `var` instead of `const`
 **And** it SHALL allow ldflags injection
-**And** it SHALL have default value "0.2.0"
+**And** it SHALL have default value "dev"
 
 #### Scenario: Commit is variable
 **Given** `internal/version/version.go` is inspected
 **When** commit variable is declared
 **Then** it SHALL use `var` for commit SHA
 **And** it SHALL allow ldflags injection
-**And** it SHALL have default value "dev"
+**And** it SHALL have default value "" (empty string)
 
 #### Scenario: Date is variable
 **Given** `internal/version/version.go` is inspected
 **When** date variable is declared
 **Then** it SHALL use `var` for build date
 **And** it SHALL allow ldflags injection
-**And** it SHALL have default value "unknown"
+**And** it SHALL have default value "" (empty string)
 
 #### Scenario: Variables exported
 **Given** version package is inspected
@@ -225,6 +229,8 @@ The version package SHALL use variables instead of constants for build-time inje
 **Then** `Version` variable SHALL be exported
 **And** `Commit` variable SHALL be exported
 **And** `Date` variable SHALL be exported
+
+---
 
 ### Requirement: Version Command
 
@@ -241,6 +247,3 @@ The version command SHALL display version information for debugging and release 
 **Given** a user runs `germinator version --help`
 **Then** it SHALL display command help
 **And** it SHALL show description: "Show version of germinator"
-
----
-

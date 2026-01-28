@@ -1,7 +1,8 @@
 # ci-workflow Specification
 
 ## Purpose
-TBD - created by archiving change simplify-ci-workflow. Update Purpose after archive.
+Define GitLab CI pipeline with 4 stages (build-ci, setup, validate, distribute), efficient caching, and parallel job execution.
+
 ## Requirements
 ### Requirement: CI Pipeline Optimization for Documentation-Only Changes
 
@@ -20,6 +21,8 @@ The CI pipeline SHALL skip expensive jobs when only documentation changes occur 
 **And** lint, test, release jobs SHALL be skipped
 **And** setup job SHALL still run
 **And** pipeline SHALL complete quickly
+
+---
 
 ### Requirement: CI Variable Validation
 
@@ -87,12 +90,11 @@ The cache configuration SHALL invalidate when any configuration or dependency fi
 #### Scenario: Cache key includes all configuration files
 **Given** .gitlab-ci.yml cache configuration is defined
 **When** cache key is computed
-**Then** key SHALL include .gitlab-ci.yml
-**And** key SHALL include Dockerfile.ci
-**And** key SHALL include .mise/config.toml
-**And** key SHALL include go.mod
-**And** key SHALL include go.sum
-**And** any change to these files SHALL invalidate cache
+**Then** key SHALL use .cache-key as single file reference
+**And** .cache-key SHALL contain SHA256 checksums of all critical files
+**And** .cache-key SHALL include checksums for .gitlab-ci.yml, Dockerfile.ci, .mise/config.toml, go.mod, go.sum
+**And** any change to these files SHALL change .cache-key
+**And** cache SHALL be invalidated when .cache-key changes
 
 #### Scenario: Cache invalidates on tool version changes
 **Given** .mise/config.toml is modified
@@ -125,7 +127,7 @@ Cache policies SHALL prevent corruption from concurrent writes via serialization
 #### Scenario: Lint and test jobs read only
 **Given** lint or test job runs
 **When** job accesses cache
-**Then** cache policy SHALL be pull only
+**Then** cache policy SHALL be pull
 **And** job SHALL NOT write to cache
 **And** no concurrent writes SHALL occur
 
@@ -163,48 +165,6 @@ Artifacts SHALL have consistent lifetime across all proposals to support multi-s
 **Then** Go module cache SHALL be available
 **And** dependencies SHALL not be re-downloaded
 **And** pipeline SHALL complete successfully
-
----
-
-### Requirement: Git State Validation
-
-The system SHALL validate git working directory state before allowing release.
-
-#### Scenario: Git state must be clean
-**Given** a developer attempts to create a release
-**When** validation runs
-**And** working directory has uncommitted changes
-**Then** validation SHALL fail
-**And** error SHALL list uncommitted files
-**And** release SHALL not proceed
-
-#### Scenario: Working directory is clean
-**Given** a developer attempts to create a release
-**When** validation runs
-**And** working directory has no uncommitted changes
-**Then** validation SHALL pass for git state check
-**And** release SHALL proceed if other validations pass
-
----
-
-### Requirement: Branch Validation
-
-The system SHALL validate that releases only occur from main branch.
-
-#### Scenario: Must be on main branch
-**Given** a developer attempts to create a release
-**When** validation runs
-**And** current branch is not main
-**Then** validation SHALL fail
-**And** error SHALL indicate main branch is required
-**And** release SHALL not proceed
-
-#### Scenario: On main branch
-**Given** a developer attempts to create a release
-**When** validation runs
-**And** current branch is main
-**Then** validation SHALL pass for branch check
-**And** release SHALL proceed if other validations pass
 
 ---
 
@@ -334,32 +294,32 @@ The CI pipeline SHALL use the latest stable version of the docker:dind service t
 The CI pipeline SHALL use YAML anchors to eliminate duplicate cache configuration.
 
 #### Scenario: Shared cache configuration defined as anchor
-Given .gitlab-ci.yml is inspected
-When cache configuration is defined
-Then .cache_config anchor SHALL exist at top level
-And anchor SHALL contain key, files, and paths configuration
-And anchor SHALL not contain policy (policy is job-specific)
+**Given** .gitlab-ci.yml is inspected
+**When** cache configuration is defined
+**Then** .cache_config anchor SHALL exist at top level
+**And** anchor SHALL contain key, files, and paths configuration
+**And** anchor SHALL not contain policy (policy is job-specific)
 
 #### Scenario: Setup job uses cache anchor with pull-push policy
-Given setup job is defined
-When cache configuration is reviewed
-Then job SHALL reference .cache_config anchor
-And policy SHALL be pull-push
-And cache SHALL be writable by setup job only
+**Given** setup job is defined
+**When** cache configuration is reviewed
+**Then** job SHALL reference .cache_config anchor
+**And** policy SHALL be pull-push
+**And** cache SHALL be writable by setup job only
 
 #### Scenario: Lint job uses cache anchor with pull policy
-Given lint job is defined
-When cache configuration is reviewed
-Then job SHALL reference .cache_config anchor
-And policy SHALL be pull
-And cache SHALL be read-only
+**Given** lint job is defined
+**When** cache configuration is reviewed
+**Then** job SHALL reference .cache_config anchor
+**And** policy SHALL be pull
+**And** cache SHALL be read-only
 
 #### Scenario: Test job uses cache anchor with pull policy
-Given test job is defined
-When cache configuration is reviewed
-Then job SHALL reference .cache_config anchor
-And policy SHALL be pull
-And cache SHALL be read-only
+**Given** test job is defined
+**When** cache configuration is reviewed
+**Then** job SHALL reference .cache_config anchor
+**And** policy SHALL be pull
+**And** cache SHALL be read-only
 
 ---
 
@@ -368,39 +328,32 @@ And cache SHALL be read-only
 Long-running CI jobs SHALL be marked as interruptible to allow cancellation when new pipelines start.
 
 #### Scenario: Lint job is interruptible
-Given lint job is running
-When a new pipeline is triggered on the same branch
-Then lint job SHALL be interruptible
-And job SHALL be cancelled if configured
-And CI resources SHALL be freed for new pipeline
+**Given** lint job is running
+**When** a new pipeline is triggered on the same branch
+**Then** lint job SHALL be interruptible
+**And** job SHALL be cancelled if configured
+**And** CI resources SHALL be freed for new pipeline
 
 #### Scenario: Mirror job is interruptible
-Given mirror-to-github job is running
-When a new pipeline is triggered on the same branch
-Then mirror job SHALL be interruptible
-And job SHALL be cancelled if configured
-And CI resources SHALL be freed for new pipeline
+**Given** mirror-to-github job is running
+**When** a new pipeline is triggered on the same branch
+**Then** mirror job SHALL be interruptible
+**And** job SHALL be cancelled if configured
+**And** CI resources SHALL be freed for new pipeline
 
 #### Scenario: Setup job is NOT interruptible
-Given setup job is running
-When a new pipeline is triggered on the same branch
-Then setup job SHALL NOT be interruptible
-And job SHALL run to completion
-And cache writes SHALL not be interrupted
+**Given** setup job is running
+**When** a new pipeline is triggered on the same branch
+**Then** setup job SHALL NOT be interruptible
+**And** job SHALL run to completion
+**And** cache writes SHALL not be interrupted
 
 #### Scenario: Release job is NOT interruptible
-Given release job is running
-When a new pipeline is triggered
-Then release job SHALL NOT be interruptible
-And job SHALL run to completion
-And release artifacts SHALL be completed
-
-#### Scenario: Tag job is NOT interruptible
-Given create-version-tag job is running
-When a new pipeline is triggered
-Then tag job SHALL NOT be interruptible
-And job SHALL run to completion
-And tag creation SHALL complete successfully
+**Given** release job is running
+**When** a new pipeline is triggered
+**Then** release job SHALL NOT be interruptible
+**And** job SHALL run to completion
+**And** release artifacts SHALL be completed
 
 ---
 
@@ -408,30 +361,30 @@ And tag creation SHALL complete successfully
 
 The CI pipeline SHALL use a minimal number of stages with parallel job execution to reduce pipeline duration.
 
-#### Scenario: Pipeline has exactly 5 stages
-Given .gitlab-ci.yml is inspected
-When stages are listed
-Then pipeline SHALL have exactly 5 stages: build-ci, setup, validate, tag, distribute
-And stages SHALL be in the following order
-And no additional stages SHALL exist
+#### Scenario: Pipeline has exactly 4 stages
+**Given** .gitlab-ci.yml is inspected
+**When** stages are listed
+**Then** pipeline SHALL have exactly 4 stages: build-ci, setup, validate, distribute
+**And** stages SHALL be in the following order
+**And** no additional stages SHALL exist
 
 #### Scenario: Validate stage runs lint and test in parallel
-Given pipeline is running in validate stage
-When jobs are executing
-Then lint job SHALL be running in validate stage
-And test job SHALL be running in validate stage
-And both jobs SHALL execute in parallel
-And both jobs SHALL depend on setup job
-And both jobs SHALL NOT depend on each other
+**Given** pipeline is running in validate stage
+**When** jobs are executing
+**Then** lint job SHALL be running in validate stage
+**And** test job SHALL be running in validate stage
+**And** both jobs SHALL execute in parallel
+**And** both jobs SHALL depend on setup job
+**And** both jobs SHALL NOT depend on each other
 
 #### Scenario: Distribute stage runs release and mirror in parallel
-Given pipeline is running in distribute stage
-When jobs are executing
-Then release job SHALL be running in distribute stage
-And mirror-to-github job SHALL be running in distribute stage
-And both jobs SHALL execute in parallel
-And release job SHALL depend on lint and test jobs
-And mirror job SHALL depend on tag job
+**Given** pipeline is running in distribute stage
+**When** jobs are executing
+**Then** release job SHALL be running in distribute stage
+**And** mirror-to-github job SHALL be running in distribute stage
+**And** both jobs SHALL execute in parallel
+**And** release job SHALL depend on lint and test jobs
+**And** mirror job SHALL run in parallel without dependencies
 
 ---
 
@@ -440,30 +393,30 @@ And mirror job SHALL depend on tag job
 The mirror job SHALL run on main branch pushes to mirror code to GitHub, excluding tag pushes.
 
 #### Scenario: Mirror job has no dependencies
-Given mirror-to-github job is defined
-When job configuration is reviewed
-Then job SHALL have no needs dependencies
-And job SHALL run in distribute stage
+**Given** mirror-to-github job is defined
+**When** job configuration is reviewed
+**Then** job SHALL have no needs dependencies
+**And** job SHALL run in distribute stage
 
 #### Scenario: Mirror runs on main pushes, not tags
-Given pipeline is triggered by main branch push
-When pipeline reaches distribute stage
-Then mirror-to-github job SHALL run
-And code SHALL be mirrored to GitHub
+**Given** pipeline is triggered by main branch push
+**When** pipeline reaches distribute stage
+**Then** mirror-to-github job SHALL run
+**And** code SHALL be mirrored to GitHub
 
 #### Scenario: Mirror job skipped on tag pushes
-Given pipeline is triggered by tag push
-When pipeline reaches distribute stage
-Then mirror-to-github job SHALL be skipped
-And code SHALL NOT be mirrored again (tags already included in mirror)
+**Given** pipeline is triggered by tag push
+**When** pipeline reaches distribute stage
+**Then** mirror-to-github job SHALL be skipped
+**And** code SHALL NOT be mirrored again (tags already included in mirror)
 
 #### Scenario: Release job has no tag dependency
-Given release job is defined
-When job configuration is reviewed
-Then job SHALL have needs dependency on lint job
-And job SHALL have needs dependency on test job
-And job SHALL NOT have needs dependency on any tag job
-And release job SHALL wait for both lint and test to succeed
+**Given** release job is defined
+**When** job configuration is reviewed
+**Then** job SHALL have needs dependency on lint job
+**And** job SHALL have needs dependency on test job
+**And** job SHALL NOT have needs dependency on any tag job
+**And** release job SHALL wait for both lint and test to succeed
 
 ---
 
@@ -472,149 +425,85 @@ And release job SHALL wait for both lint and test to succeed
 The release job SHALL use goreleaser/goreleaser official image with inline validation for simplicity.
 
 #### Scenario: Release job uses official image
-Given release job is defined
-When job configuration is reviewed
-Then job SHALL use goreleaser/goreleaser image
-And job SHALL have entrypoint set to [""]
-And job SHALL NOT use Docker service
-And job SHALL NOT have Docker-related variables (DOCKER_HOST, DOCKER_TLS_CERTDIR)
-And job SHALL NOT have docker login commands
+**Given** release job is defined
+**When** job configuration is reviewed
+**Then** job SHALL use goreleaser/goreleaser image
+**And** job SHALL have entrypoint set to [""]
+**And** job SHALL NOT use Docker service
+**And** job SHALL NOT have Docker-related variables (DOCKER_HOST, DOCKER_TLS_CERTDIR)
+**And** job SHALL NOT have docker login commands
 
 #### Scenario: Release job enables changelog generation
-Given release job is defined
-When job variables are reviewed
-Then GIT_DEPTH SHALL be 0
-And GoReleaser SHALL be able to diff tags for changelog
-And GoReleaser SHALL generate release notes from git history
+**Given** release job is defined
+**When** job variables are reviewed
+**Then** GIT_DEPTH SHALL be 0
+**And** GoReleaser SHALL be able to diff tags for changelog
+**And** GoReleaser SHALL generate release notes from git history
 
 #### Scenario: Release job validates tag format inline
-Given release job is running
-When before_script executes
-Then job SHALL validate tag matches format vX.Y.Z using regex
-And invalid tags SHALL cause immediate failure
-And job SHALL NOT use mise or external validation script
-And job SHALL NOT validate git state (redundant in CI)
-And job SHALL NOT validate branch (redundant in CI)
+**Given** release job is running
+**When** before_script executes
+**Then** job SHALL validate tag matches format vX.Y.Z using regex
+**And** invalid tags SHALL cause immediate failure
+**And** job SHALL NOT use mise or external validation script
+**And** job SHALL NOT validate git state (redundant in CI)
+**And** job SHALL NOT validate branch (redundant in CI)
 
 #### Scenario: GoReleaser uses project access token
-Given .goreleaser.yml is configured
-When release.gitlab section is reviewed
-Then GITLAB_TOKEN environment variable SHALL be set to $GITLAB_RELEASE_TOKEN
-And GoReleaser SHALL use GitLab project access token with api scope for API access
+**Given** .goreleaser.yml is configured
+**When** release.gitlab section is reviewed
+**Then** GITLAB_TOKEN environment variable SHALL be set to $GITLAB_RELEASE_TOKEN
+**And** GoReleaser SHALL use GitLab project access token with api scope for API access
 
-#### Scenario: Release validation task removed
-Given .mise/tasks/release/validate.sh is inspected
-When file exists
-Then file SHALL remain for manual validation
-And .mise/config.toml SHALL have release:validate task
-And release validation SHALL be available for pre-tag checks
+#### Scenario: Release validation task removed from CI
+**Given** .mise/tasks/release/validate.sh is inspected
+**When** file exists
+**Then** file SHALL remain for manual validation
+**And** .mise/config.toml SHALL have release:validate task
+**And** release validation SHALL be available for pre-tag checks
 
 ---
-
-### Requirement: Tag Job Resource Group Serialization
-
-The tag job SHALL use a resource group to serialize concurrent tag creation attempts.
-
-#### Scenario: Tag job uses resource group
-Given create-version-tag job is defined
-When job configuration is reviewed
-Then job SHALL have resource_group set to version_tagging
-And only one tag job SHALL run at a time
-And concurrent pipelines SHALL serialize tag creation
-
-#### Scenario: Resource group prevents duplicate tags
-Given two pipelines trigger simultaneously
-And both pipelines have version.go changes
-When tag stage runs
-Then first pipeline SHALL create tag
-Then second pipeline SHALL wait for resource group
-Then second pipeline SHALL detect existing tag
-Then second pipeline SHALL skip tag creation
-And only one tag SHALL exist
-
-#### Scenario: Resource group prevents race conditions
-Given multiple pipelines run concurrently
-And all pipelines attempt to create same tag
-When tag jobs execute
-Then only one tag job SHALL acquire resource_group
-And other tag jobs SHALL wait or skip
-And no duplicate tags SHALL be created
-And git remote SHALL NOT reject pushes due to duplicate tags
-
 
 The CI pipeline SHALL validate GoReleaser configuration on merge requests before release.
 
 #### Scenario: GoReleaser dry-run runs on MRs with relevant changes
-Given MR is created
-And MR changes .goreleaser.yml
-Or MR changes go.mod or go.sum
-Or MR changes cmd/**/* or internal/**/*
-When pipeline runs
-Then goreleaser-dry-run job SHALL run
-And job SHALL validate GoReleaser configuration
-And job SHALL NOT publish artifacts
+**Given** MR is created
+**And** MR changes .goreleaser.yml
+**Or** MR changes go.mod or go.sum
+**Or** MR changes cmd/**/* or internal/**/*
+**When** pipeline runs
+**Then** goreleaser-dry-run job SHALL run
+**And** job SHALL validate GoReleaser configuration
+**And** job SHALL NOT publish artifacts
 
 #### Scenario: GoReleaser dry-run uses snapshot mode
-Given goreleaser-dry-run job is running
-When goreleaser release command executes
-Then command SHALL use --snapshot flag
-And command SHALL use --skip-publish flag
-And command SHALL use --clean flag
-And no artifacts SHALL be published
-And no GitLab release SHALL be created
+**Given** goreleaser-dry-run job is running
+**When** goreleaser release command executes
+**Then** command SHALL use --snapshot flag
+**And** command SHALL use --skip-publish flag
+**And** command SHALL use --clean flag
+**And** no artifacts SHALL be published
+**And** no GitLab release SHALL be created
 
 #### Scenario: GoReleaser dry-run uses official image
-Given goreleaser-dry-run job is defined
-When job configuration is reviewed
-Then job SHALL use goreleaser/goreleaser image
-And job SHALL have entrypoint set to [""]
-And job SHALL enable full git history with GIT_DEPTH: 0
+**Given** goreleaser-dry-run job is defined
+**When** job configuration is reviewed
+**Then** job SHALL use goreleaser/goreleaser image
+**And** job SHALL have entrypoint set to [""]
+**And** job SHALL enable full git history with GIT_DEPTH: 0
 
 #### Scenario: GoReleaser dry-run catches configuration errors
-Given .goreleaser.yml has syntax error
-Or .goreleaser.yml has invalid configuration
-When goreleaser-dry-run job runs
-Then job SHALL fail
-And job SHALL display GoReleaser error message
-And MR SHALL NOT be mergeable
-And developer SHALL fix configuration before merging
+**Given** .goreleaser.yml has syntax error
+**Or** .goreleaser.yml has invalid configuration
+**When** goreleaser-dry-run job runs
+**Then** job SHALL fail
+**And** job SHALL display GoReleaser error message
+**And** MR SHALL NOT be mergeable
+**And** developer SHALL fix configuration before merging
 
 #### Scenario: GoReleaser dry-run validates on code changes
-Given MR includes changes to cmd/**/* or internal/**/*
-When goreleaser-dry-run job runs
-Then job SHALL validate GoReleaser configuration
-And job SHALL ensure builds configuration is valid
-And job SHALL ensure release configuration is valid
-
----
-
-### Requirement: Tag Job Resource Group Serialization
-
-The tag job SHALL use a resource group to serialize concurrent tag creation attempts.
-
-#### Scenario: Tag job uses resource group
-Given create-version-tag job is defined
-When job configuration is reviewed
-Then job SHALL have resource_group set to version_tagging
-And only one tag job SHALL run at a time
-And concurrent pipelines SHALL serialize tag creation
-
-#### Scenario: Resource group prevents duplicate tags
-Given two pipelines trigger simultaneously
-And both pipelines have version.go changes
-When tag stage runs
-Then first pipeline SHALL create tag
-Then second pipeline SHALL wait for resource group
-Then second pipeline SHALL detect existing tag
-Then second pipeline SHALL skip tag creation
-And only one tag SHALL exist
-
-#### Scenario: Resource group prevents race conditions
-Given multiple pipelines run concurrently
-And all pipelines attempt to create same tag
-When tag jobs execute
-Then only one tag job SHALL acquire resource_group
-And other tag jobs SHALL wait or skip
-And no duplicate tags SHALL be created
-And git remote SHALL NOT reject pushes due to duplicate tags
-
+**Given** MR includes changes to cmd/**/* or internal/**/*
+**When** goreleaser-dry-run job runs
+**Then** job SHALL validate GoReleaser configuration
+**And** job SHALL ensure builds configuration is valid
+**And** job SHALL ensure release configuration is valid

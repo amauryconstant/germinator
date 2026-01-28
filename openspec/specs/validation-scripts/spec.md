@@ -1,28 +1,41 @@
 # validation-scripts Specification
 
 ## Purpose
-TBD - created by archiving change setup-development-tooling. Update Purpose after archive.
+Define validation scripts for checking git state and GoReleaser configuration.
+
 ## Requirements
-### Requirement: mise Validation Task
+### Requirement: Release Validation Script
 
-The project SHALL provide a mise task that runs comprehensive quality checks on codebase.
+The project SHALL provide a mise task that validates release prerequisites.
 
-#### Scenario: mise validation task exists
+#### Scenario: Release validate task exists
 **Given** development tooling is set up
 **When** a developer checks for mise tasks
-**Then** mise.toml SHALL exist with [tasks.validate]
+**Then** .mise/config.toml SHALL have [tasks."release:validate"]
 **And** task SHALL be discoverable via `mise run --help`
 
-#### Scenario: Validation task runs all checks
-**Given** mise.toml exists with [tasks.validate]
-**When** a developer runs `mise run validate`
-**Then** it SHALL run `go build ./...`
-**And** it SHALL run `go mod tidy`
-**And** it SHALL run `go vet ./...`
-**And** it SHALL run `golangci-lint run`
+#### Scenario: Release validation script exists
+**Given** tool management is set up
+**When** a developer inspects `.mise/tasks/` directory
+**Then** `.mise/tasks/release/validate.sh` SHALL exist
+**And** it SHALL be executable
 
-#### Scenario: Validation task reports failures
-**Given** mise validate task is running
+#### Scenario: Release validation checks git state
+**Given** .mise/tasks/release/validate.sh is inspected
+**When** script executes
+**Then** it SHALL check git working directory is clean
+**And** it SHALL verify current branch is main
+**And** it SHALL validate GoReleaser configuration if goreleaser is installed
+**And** it SHALL report all issues found with clear error messages
+
+#### Scenario: Release validation script is executable
+**Given** .mise/tasks/release/validate.sh exists
+**When** file permissions are inspected
+**Then** file SHALL be executable
+**And** script SHALL have shebang `#!/usr/bin/env bash`
+
+#### Scenario: Release validation task reports failures
+**Given** .mise/run release:validate is running
 **When** any check fails
 **Then** task SHALL exit with non-zero status
 **And** it SHALL report which check failed
@@ -30,45 +43,32 @@ The project SHALL provide a mise task that runs comprehensive quality checks on 
 
 ---
 
-### Requirement: mise Smoke Test Task
+### Requirement: Tool Management Scripts
 
-The project SHALL provide a mise task for quick validation of basic project health.
+The project SHALL provide scripts for checking and updating tool versions.
 
-#### Scenario: mise smoke-test task exists
-**Given** development tooling is set up
-**When** a developer checks for mise tasks
-**Then** mise.toml SHALL exist with [tasks.smoke-test]
-**And** task SHALL be discoverable via `mise run --help`
+#### Scenario: Tool check script exists
+**Given** tool management is set up
+**When** a developer inspects `.mise/tasks/tools/` directory
+**Then** `.mise/tasks/tools/check.sh` SHALL exist
+**And** it SHALL be executable
 
-#### Scenario: Smoke test runs basic checks
-**Given** mise.toml exists with [tasks.smoke-test]
-**When** a developer runs `mise run smoke-test`
-**Then** it SHALL verify the project builds
-**And** it SHALL complete quickly
+#### Scenario: Tool update script exists
+**Given** tool management is set up
+**When** a developer inspects `.mise/tasks/tools/` directory
+**Then** `.mise/tasks/tools/update.sh` SHALL exist
+**And** it SHALL be executable
 
-#### Scenario: Smoke test uses incremental builds
-**Given** mise.toml exists with [tasks.smoke-test]
-**When** a developer inspects task configuration
-**Then** sources field SHALL be defined (e.g., "cmd/**/*.go")
-**And** outputs field SHALL be defined (e.g., "germinator")
-**And** task SHALL skip unchanged files on subsequent runs
-
----
-
-### Requirement: File-Based Task Scripts
-
-The project SHALL provide file-based task scripts in `.mise/tasks/` directory.
-
-#### Scenario: .mise/tasks/ directory exists
-**Given** development tooling is set up
-**When** a developer inspects .mise directory
-**Then** .mise/tasks/ directory SHALL exist
+#### Scenario: Release tag script exists
+**Given** tool management is set up
+**When** a developer inspects `.mise/tasks/release/` directory
+**Then** `.mise/tasks/release/tag.sh` SHALL exist
+**And** it SHALL be executable
 
 #### Scenario: File-based scripts are executable
 **Given** .mise/tasks/ directory exists
 **When** a developer inspects task scripts
-**Then** .mise/tasks/validate.sh SHALL exist and be executable
-**And** .mise/tasks/smoke-test.sh SHALL exist and be executable
+**Then** all .sh scripts SHALL be executable
 **And** each script SHALL have shebang `#!/usr/bin/env bash`
 
 #### Scenario: File-based scripts execute correctly
@@ -76,3 +76,31 @@ The project SHALL provide file-based task scripts in `.mise/tasks/` directory.
 **When** a developer executes a script directly
 **Then** script SHALL run correctly with same behavior as mise task
 
+---
+
+### Requirement: Comprehensive Validation via Check Task
+
+The project SHALL provide a mise task that runs all validation checks (lint, format, test, build).
+
+#### Scenario: Check task exists
+**Given** .mise/config.toml exists with tasks defined
+**When** [tasks] section is inspected
+**Then** [tasks.check] SHALL exist
+**And** task SHALL be discoverable via `mise run --help`
+**And** task SHALL have description "Run all validation checks"
+
+#### Scenario: Check task runs all validations
+**Given** .mise/config.toml exists with [tasks.check]
+**When** a developer runs `mise run check`
+**Then** it SHALL run lint task
+**And** it SHALL run format task
+**And** it SHALL run test task
+**And** it SHALL run build task
+**And** tasks SHALL run in dependency order
+
+#### Scenario: Check task reports failures
+**Given** mise check task is running
+**When** any dependent task fails
+**Then** task SHALL exit with non-zero status
+**And** it SHALL report which task failed
+**And** it SHALL provide actionable error information

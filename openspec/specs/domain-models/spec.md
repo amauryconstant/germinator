@@ -1,58 +1,89 @@
 # domain-models Specification
 
 ## Purpose
-TBD - created by archiving change add-core-infrastructure. Update Purpose after archive.
+Define document models representing AI coding assistant documents (Agent, Command, Memory, Skill) following Claude Code format.
+
 ## Requirements
 ### Requirement: Document Models
 
-The project SHALL define Agent, Command, Memory, and Skill structs with all frontmatter fields.
+The project SHALL define Agent, Command, Memory, and Skill structs with all frontmatter fields matching Claude Code document format.
 
 #### Scenario: Agent struct has all required fields
 **Given** Agent struct is defined
 **When** a developer inspects the struct
-**Then** it SHALL have an ID string field with yaml tag "id"
-**And** it SHALL have a LastChanged string field with yaml tag "last_changed"
+**Then** it SHALL have a Name string field with yaml tag "name"
+**And** it SHALL have a Description string field with yaml tag "description"
+**And** it SHALL have a Tools []string field with yaml tag "tools"
+**And** it SHALL have a DisallowedTools []string field with yaml tag "disallowedTools"
 **And** it SHALL have a Model string field with yaml tag "model"
-**And** it SHALL have specialization fields (PrimaryCapability, ExpertiseDomain, ScopeBoundaries)
-**And** it SHALL have selection criteria fields (Triggers, UseWhen, AvoidWhen, ComplexityLevel)
-**And** it SHALL have compatibility fields (RequiredCapabilities, OptionalCapabilities, InputExpectations, OutputFormat)
-**And** it SHALL have FilePath and Content string fields
+**And** it SHALL have a PermissionMode string field with yaml tag "permissionMode"
+**And** it SHALL have a Skills []string field with yaml tag "skills"
+**And** it SHALL have FilePath and Content string fields (ignored from YAML with `yaml:"-"`)
 
 #### Scenario: Command struct has all required fields
 **Given** Command struct is defined
 **When** a developer inspects the struct
-**Then** it SHALL have Name, Description, Version, Category, LastChanged string fields with yaml tags
-**And** it SHALL have Tools, Files, Args []string fields with yaml tags
-**And** it SHALL have FilePath and Content string fields
+**Then** it SHALL have AllowedTools []string field with yaml tag "allowed-tools"
+**And** it SHALL have ArgumentHint string field with yaml tag "argument-hint"
+**And** it SHALL have Context string field with yaml tag "context"
+**And** it SHALL have Agent string field with yaml tag "agent"
+**And** it SHALL have Description string field with yaml tag "description"
+**And** it SHALL have Model string field with yaml tag "model"
+**And** it SHALL have DisableModelInvocation bool field with yaml tag "disable-model-invocation"
+**And** it SHALL have FilePath and Content string fields (ignored from YAML with `yaml:"-"`)
 
 #### Scenario: Memory struct has all required fields
 **Given** Memory struct is defined
 **When** a developer inspects the struct
-**Then** it SHALL have Title, Description, AppliesTo, LastChanged string fields with yaml tags
-**And** it SHALL have FilePath and Content string fields
+**Then** it SHALL have Paths []string field with yaml tag "paths"
+**And** it SHALL have FilePath and Content string fields (ignored from YAML with `yaml:"-"`)
 
 #### Scenario: Skill struct has all required fields
 **Given** Skill struct is defined
 **When** a developer inspects the struct
-**Then** it SHALL have Name, Description, LastChanged string fields with yaml tags
-**And** it SHALL have FilePath and Content string fields
+**Then** it SHALL have Name string field with yaml tag "name"
+**And** it SHALL have Description string field with yaml tag "description"
+**And** it SHALL have AllowedTools []string field with yaml tag "allowed-tools"
+**And** it SHALL have Model string field with yaml tag "model"
+**And** it SHALL have Context string field with yaml tag "context"
+**And** it SHALL have Agent string field with yaml tag "agent"
+**And** it SHALL have UserInvocable bool field with yaml tag "user-invocable"
+**And** it SHALL have FilePath and Content string fields (ignored from YAML with `yaml:"-"`)
 
 ---
 
 ### Requirement: Document Validation Methods
 
-Each document struct SHALL implement a Validate() method that checks struct fields.
+Each document struct SHALL implement a Validate() method that checks struct fields for validity.
 
 #### Scenario: Agent Validate checks required fields
 **Given** an Agent struct with some fields missing
 **When** Agent.Validate() is called
-**Then** it SHALL return errors for missing required fields (id, last_changed, model, etc.)
+**Then** it SHALL return error if name is missing
+**And** it SHALL return error if name does not match regex `^[a-z-]+$`
+**And** it SHALL return error if description is missing
+**And** it SHALL return error if model is not one of: sonnet, opus, haiku, inherit
+**And** it SHALL return error if permissionMode is not one of: default, acceptEdits, dontAsk, bypassPermissions, plan
 
-#### Scenario: Memory Validate checks enum values
-**Given** a Memory struct with applies_to set to "invalid"
+#### Scenario: Command Validate checks context field
+**Given** a Command struct
+**When** Command.Validate() is called
+**Then** it SHALL return error if context is specified and not "fork"
+
+#### Scenario: Memory Validate is no-op
+**Given** a Memory struct
 **When** Memory.Validate() is called
-**Then** it SHALL return an error
-**And** it SHALL include valid enum values in error message
+**Then** it SHALL always return nil (memory has no validation rules)
+
+#### Scenario: Skill Validate checks required fields
+**Given** a Skill struct
+**When** Skill.Validate() is called
+**Then** it SHALL return error if name is missing
+**And** it SHALL return error if name exceeds 64 characters
+**And** it SHALL return error if name does not match regex `^[a-z0-9-]+$`
+**And** it SHALL return error if description is missing
+**And** it SHALL return error if description exceeds 1024 characters
+**And** it SHALL return error if context is specified and not "fork"
 
 #### Scenario: Validate returns multiple errors
 **Given** a document with multiple validation failures
@@ -71,6 +102,7 @@ The document models SHALL support YAML frontmatter parsing with correct field ma
 **When** YAML is unmarshaled into a document struct
 **Then** all fields SHALL be populated with correct values
 **And** type conversions SHALL be handled appropriately
+**And** kebab-case YAML keys SHALL map to camelCase struct fields
 
 #### Scenario: Invalid YAML returns error
 **Given** a document with invalid YAML frontmatter
@@ -80,15 +112,20 @@ The document models SHALL support YAML frontmatter parsing with correct field ma
 
 ---
 
-### Requirement: Single Models File
+### Requirement: Models Location
 
-All document models SHALL be defined in a single `models.go` file.
+All document models SHALL be defined in the internal/models package.
 
 #### Scenario: Models file contains all document types
-**Given** `pkg/models/models.go` file exists
+**Given** `internal/models/models.go` file exists
 **When** the file is inspected
 **Then** it SHALL define Agent struct
 **And** it SHALL define Command struct
 **And** it SHALL define Memory struct
 **And** it SHALL define Skill struct
+**And** it SHALL have Validate() method for each struct
 
+#### Scenario: Models package has documentation
+**Given** `internal/models/doc.go` file exists
+**When** the file is inspected
+**Then** it SHALL describe the package's purpose as containing document model definitions
