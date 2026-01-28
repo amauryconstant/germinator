@@ -3,7 +3,7 @@ schema: spec-driven
 context: |
   Domain: Configuration adapter transforming AI coding assistant documents (commands, memory, skills, agents) between platforms. Claude Code document standard as source format.``
   
-  Tech stack: Go 1.25.5, Cobra CLI, JSON Schema (xeipuuv/gojsonschema), 
+  Tech stack: Go 1.25.5, Cobra CLI, JSON Schema (xeipuuv/gojsonschema)
   Tooling: mise, golangci-lint
   
   Code conventions:
@@ -18,6 +18,11 @@ context: |
   - No forced compatibility - omit unsupported features gracefully
   
   Testing: Table-driven tests with fixtures
+  
+  Research documentation (openspec/research/):
+  - Purpose: Factual reference for AI agents understanding platform-specific features
+  - Usage: Consult when building/adapting platform adapters or validating configurations
+  - Notes: Documents are concise overviews, not implementation guidance
 
   Spec organization:
   - specs/models/ - Core data structures
