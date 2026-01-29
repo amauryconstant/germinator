@@ -133,6 +133,58 @@ func TestAgentValidate(t *testing.T) {
 	}
 }
 
+func TestAgentValidatePlatformRequirement(t *testing.T) {
+	tests := []struct {
+		name        string
+		agent       Agent
+		platform    string
+		expectError bool
+		errorCount  int
+	}{
+		{
+			name:        "empty platform parameter",
+			agent:       Agent{Name: "test-agent", Description: "A description"},
+			platform:    "",
+			expectError: true,
+			errorCount:  1,
+		},
+		{
+			name:        "valid claude-code platform",
+			agent:       Agent{Name: "test-agent", Description: "A description"},
+			platform:    "claude-code",
+			expectError: false,
+		},
+		{
+			name:        "valid opencode platform",
+			agent:       Agent{Name: "test-agent", Description: "A description"},
+			platform:    "opencode",
+			expectError: false,
+		},
+		{
+			name:        "unknown platform",
+			agent:       Agent{Name: "test-agent", Description: "A description"},
+			platform:    "invalid-platform",
+			expectError: true,
+			errorCount:  1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := tt.agent.Validate(tt.platform)
+			hasError := len(errs) > 0
+
+			if hasError != tt.expectError {
+				t.Errorf("Agent.Validate() error = %v, expectError %v", errs, tt.expectError)
+			}
+
+			if tt.errorCount > 0 && len(errs) != tt.errorCount {
+				t.Errorf("Agent.Validate() expected %d errors, got %d: %v", tt.errorCount, len(errs), errs)
+			}
+		})
+	}
+}
+
 func TestCommandValidate(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -188,6 +240,58 @@ func TestCommandValidate(t *testing.T) {
 	}
 }
 
+func TestCommandValidatePlatformRequirement(t *testing.T) {
+	tests := []struct {
+		name        string
+		command     Command
+		platform    string
+		expectError bool
+		errorCount  int
+	}{
+		{
+			name:        "empty platform parameter",
+			command:     Command{Name: "test-command"},
+			platform:    "",
+			expectError: true,
+			errorCount:  1,
+		},
+		{
+			name:        "valid claude-code platform",
+			command:     Command{Name: "test-command"},
+			platform:    "claude-code",
+			expectError: false,
+		},
+		{
+			name:        "valid opencode platform",
+			command:     Command{Name: "test-command"},
+			platform:    "opencode",
+			expectError: false,
+		},
+		{
+			name:        "unknown platform",
+			command:     Command{Name: "test-command"},
+			platform:    "invalid-platform",
+			expectError: true,
+			errorCount:  1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := tt.command.Validate(tt.platform)
+			hasError := len(errs) > 0
+
+			if hasError != tt.expectError {
+				t.Errorf("Command.Validate() error = %v, expectError %v", errs, tt.expectError)
+			}
+
+			if tt.errorCount > 0 && len(errs) != tt.errorCount {
+				t.Errorf("Command.Validate() expected %d errors, got %d: %v", tt.errorCount, len(errs), errs)
+			}
+		})
+	}
+}
+
 func TestMemoryValidate(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -228,6 +332,58 @@ func TestMemoryValidate(t *testing.T) {
 
 			if tt.errorCount > 0 && len(errs) != tt.errorCount {
 				t.Errorf("Memory.Validate() expected %d errors, got %d", tt.errorCount, len(errs))
+			}
+		})
+	}
+}
+
+func TestMemoryValidatePlatformRequirement(t *testing.T) {
+	tests := []struct {
+		name        string
+		memory      Memory
+		platform    string
+		expectError bool
+		errorCount  int
+	}{
+		{
+			name:        "empty platform parameter",
+			memory:      Memory{Paths: []string{"*.go"}},
+			platform:    "",
+			expectError: true,
+			errorCount:  1,
+		},
+		{
+			name:        "valid claude-code platform",
+			memory:      Memory{Paths: []string{"*.go"}},
+			platform:    "claude-code",
+			expectError: false,
+		},
+		{
+			name:        "valid opencode platform",
+			memory:      Memory{Paths: []string{"*.go"}},
+			platform:    "opencode",
+			expectError: false,
+		},
+		{
+			name:        "unknown platform",
+			memory:      Memory{Paths: []string{"*.go"}},
+			platform:    "invalid-platform",
+			expectError: true,
+			errorCount:  1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := tt.memory.Validate(tt.platform)
+			hasError := len(errs) > 0
+
+			if hasError != tt.expectError {
+				t.Errorf("Memory.Validate() error = %v, expectError %v", errs, tt.expectError)
+			}
+
+			if tt.errorCount > 0 && len(errs) != tt.errorCount {
+				t.Errorf("Memory.Validate() expected %d errors, got %d: %v", tt.errorCount, len(errs), errs)
 			}
 		})
 	}
@@ -346,6 +502,58 @@ func TestSkillValidate(t *testing.T) {
 
 			if tt.errorCount > 0 && len(errs) != tt.errorCount {
 				t.Errorf("Skill.Validate() expected %d errors, got %d", tt.errorCount, len(errs))
+			}
+		})
+	}
+}
+
+func TestSkillValidatePlatformRequirement(t *testing.T) {
+	tests := []struct {
+		name        string
+		skill       Skill
+		platform    string
+		expectError bool
+		errorCount  int
+	}{
+		{
+			name:        "empty platform parameter",
+			skill:       Skill{Name: "test-skill", Description: "A description"},
+			platform:    "",
+			expectError: true,
+			errorCount:  1,
+		},
+		{
+			name:        "valid claude-code platform",
+			skill:       Skill{Name: "test-skill", Description: "A description"},
+			platform:    "claude-code",
+			expectError: false,
+		},
+		{
+			name:        "valid opencode platform",
+			skill:       Skill{Name: "test-skill", Description: "A description"},
+			platform:    "opencode",
+			expectError: false,
+		},
+		{
+			name:        "unknown platform",
+			skill:       Skill{Name: "test-skill", Description: "A description"},
+			platform:    "invalid-platform",
+			expectError: true,
+			errorCount:  1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := tt.skill.Validate(tt.platform)
+			hasError := len(errs) > 0
+
+			if hasError != tt.expectError {
+				t.Errorf("Skill.Validate() error = %v, expectError %v", errs, tt.expectError)
+			}
+
+			if tt.errorCount > 0 && len(errs) != tt.errorCount {
+				t.Errorf("Skill.Validate() expected %d errors, got %d: %v", tt.errorCount, len(errs), errs)
 			}
 		})
 	}

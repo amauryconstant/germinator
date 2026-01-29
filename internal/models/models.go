@@ -37,6 +37,10 @@ func (a *Agent) Validate(platform string) []error {
 		errs = append(errs, errors.New("platform is required (available: claude-code, opencode)"))
 	}
 
+	if platform != "" && platform != "claude-code" && platform != "opencode" {
+		errs = append(errs, fmt.Errorf("unknown platform: %s (available: claude-code, opencode)", platform))
+	}
+
 	if a.Name == "" {
 		errs = append(errs, errors.New("name is required"))
 	} else {
@@ -94,6 +98,10 @@ func (c *Command) Validate(platform string) []error {
 		errs = append(errs, errors.New("platform is required (available: claude-code, opencode)"))
 	}
 
+	if platform != "" && platform != "claude-code" && platform != "opencode" {
+		errs = append(errs, fmt.Errorf("unknown platform: %s (available: claude-code, opencode)", platform))
+	}
+
 	if c.Context != "" && c.Context != "fork" {
 		errs = append(errs, fmt.Errorf("context must be 'fork' if specified (got: %s)", c.Context))
 	}
@@ -114,6 +122,10 @@ func (m *Memory) Validate(platform string) []error {
 
 	if platform == "" {
 		errs = append(errs, errors.New("platform is required (available: claude-code, opencode)"))
+	}
+
+	if platform != "" && platform != "claude-code" && platform != "opencode" {
+		errs = append(errs, fmt.Errorf("unknown platform: %s (available: claude-code, opencode)", platform))
 	}
 
 	if len(m.Paths) == 0 && m.Content == "" {
@@ -150,6 +162,10 @@ func (s *Skill) Validate(platform string) []error {
 
 	if platform == "" {
 		errs = append(errs, errors.New("platform is required (available: claude-code, opencode)"))
+	}
+
+	if platform != "" && platform != "claude-code" && platform != "opencode" {
+		errs = append(errs, fmt.Errorf("unknown platform: %s (available: claude-code, opencode)", platform))
 	}
 
 	if s.Name == "" {

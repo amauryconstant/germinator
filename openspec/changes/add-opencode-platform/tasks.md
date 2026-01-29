@@ -76,16 +76,16 @@
       - Add unknown platform error handling
       - Return []error
 
-- [ ] 4.5 Add tests for multiple validation errors (all models)
+- [x] 4.5 Add tests for multiple validation errors (all models)
       - Verify []error contains all validation issues, not just first
       - Test Agent with missing name AND description
       - Test Command with missing name AND description
 
-- [ ] 4.6 Add tests for platform parameter requirement
+- [x] 4.6 Add tests for platform parameter requirement
       - Verify error returned when platform is empty string
       - Test all four models (Agent, Command, Skill, Memory)
 
-- [ ] 4.7 Add tests for unknown platform error
+- [x] 4.7 Add tests for unknown platform error
       - Verify error message when passing "invalid-platform"
       - Verify error lists available platforms: claude-code, opencode
       - Test all four models
@@ -516,12 +516,26 @@
 - Updated cmd tests in cmd/cmd_test.go
 - Updated CLI validate command to pass platform parameter
 
+### Validation Updates (Section 4 - Session 2)
+- Added unknown platform validation to all four Validate() methods (Agent, Command, Skill, Memory)
+- Updated validation to reject platforms other than "claude-code" or "opencode"
+- Added comprehensive platform requirement tests for all models:
+  - TestAgentValidatePlatformRequirement
+  - TestCommandValidatePlatformRequirement
+  - TestMemoryValidatePlatformRequirement
+  - TestSkillValidatePlatformRequirement
+- Tests cover:
+  - Empty platform parameter (error)
+  - Valid claude-code platform (no error)
+  - Valid opencode platform (no error)
+  - Unknown platform (error with available platforms listed)
+
 ### Files Modified
 - internal/models/models.go - All model structs and Validate methods
 - internal/core/loader.go - LoadDocument signature
 - internal/services/transformer.go - ValidateDocument signature and LoadDocument call
 - cmd/validate.go - ValidateDocument call
-- internal/models/models_test.go - All Validate() calls
+- internal/models/models_test.go - All Validate() calls + platform requirement tests
 - internal/core/integration_test.go - LoadDocument calls
 - internal/services/transformer_test.go - LoadDocument and ValidateDocument calls
 - cmd/cmd_test.go - ValidateDocument call
