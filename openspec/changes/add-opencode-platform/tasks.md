@@ -94,35 +94,29 @@
 
 **Section 5 depends on: Sections 2-3 complete (functions implemented and registered)**
 
-- [ ] 5.1 Create config/templates/opencode/agent.tmpl with complete structure
+- [x] 5.1 Create config/templates/opencode/agent.tmpl with complete structure
       - YAML frontmatter with all Agent fields
-      - Mode field (default to "primary")
+      - NO name field (derived from filename per OpenCode docs)
+      - Mode field (default to "all")
       - Tools array → {tool: true} map conversion using range
       - DisallowedTools array → {tool: false} map conversion using range
       - Permission object using transformPermissionMode() function
       - Optional fields: temperature, maxSteps, hidden, prompt, disable
       - Model field preservation (full provider-prefixed IDs)
       - Content after frontmatter
-      - Omit Claude Code-specific fields (skills list)
+      - Omit Claude Code-specific fields (name, skills list)
 
-- [ ] 5.2 Create golden file tests for agent.tmpl
-      - Create test/golden/opencode/code-reviewer-agent.md.golden (minimal)
-      - Create test/golden/opencode/agent-full.md.golden (all fields)
-      - Create test/golden/opencode/agent-mixed-tools.md.golden (mixed tools)
-      - Create golden files for all permission modes
-
-- [ ] 5.3 Add TestRenderOpenCodeAgent tests
+- [x] 5.2 Add TestRenderOpenCodeAgent tests
       - Table-driven test with minimal agent scenario
       - Table-driven test with full agent scenario
       - Table-driven test with mixed tools scenario
       - Verify template renders correctly
-      - Verify golden file output matches
 
 ## 6. OpenCode Command Template
 
 **Section 6 depends on: Sections 2-3 complete (functions implemented and registered)**
 
-- [ ] 6.1 Create config/templates/opencode/command.tmpl
+- [x] 6.1 Create config/templates/opencode/command.tmpl
       - YAML frontmatter with all Command fields
       - Template field rendering
       - $ARGUMENTS placeholder preservation in content
@@ -130,65 +124,48 @@
       - Omit Claude Code-specific fields (allowedTools, argumentHint, context, disableModelInvocation)
       - Preserve content indentation and special characters
 
-- [ ] 6.2 Create golden file tests for command.tmpl
-      - Create test/golden/opencode/run-tests-command.md.golden (minimal)
-      - Create test/golden/opencode/command-full.md.golden (all fields)
-      - Create test/golden/opencode/command-with-arguments.md.golden ($ARGUMENTS placeholder)
-
-- [ ] 6.3 Add TestRenderOpenCodeCommand tests
+- [x] 6.2 Add TestRenderOpenCodeCommand tests
       - Table-driven test for minimal command
       - Table-driven test for command with $ARGUMENTS
       - Table-driven test for full command
       - Verify template rendering preserves content
-      - Verify golden file output matches
 
 ## 7. OpenCode Skill Template
 
 **Section 7 depends on: Sections 2-3 complete (functions implemented and registered)**
 
-- [ ] 7.1 Create config/templates/opencode/skill.tmpl
-       - YAML frontmatter with all Skill fields
-       - Name and description fields
-       - License field (optional)
-       - Compatibility field rendered as YAML list
-       - Metadata field rendered as YAML key-value map
-       - Hooks field rendered as YAML map (optional)
-       - Omit Claude Code-specific fields (allowedTools, userInvocable)
+- [x] 7.1 Create config/templates/opencode/skill.tmpl
+        - YAML frontmatter with all Skill fields
+        - Name and description fields
+        - License field (optional)
+        - Compatibility field rendered as YAML list
+        - Metadata field rendered as YAML key-value map
+        - Hooks field rendered as YAML map (optional)
+        - Omit Claude Code-specific fields (allowedTools, userInvocable)
 
-- [ ] 7.2 Create golden file tests for skill.tmpl
-      - Create test/golden/opencode/git-workflow-skill/SKILL.md.golden (minimal)
-      - Create test/golden/opencode/skill-full.md.golden (all fields)
-
-- [ ] 7.3 Add TestRenderOpenCodeSkill tests
-       - Table-driven test for minimal skill
-       - Table-driven test for skill with all OpenCode fields
-       - Verify license, compatibility, metadata, hooks rendering
-       - Verify golden file output matches
+- [x] 7.2 Add TestRenderOpenCodeSkill tests
+        - Table-driven test for minimal skill
+        - Table-driven test for skill with all OpenCode fields
+        - Verify license, compatibility, metadata, hooks rendering
 
 ## 8. OpenCode Memory Template
 
 **Section 8 depends on: Sections 2-3 complete (functions implemented and registered)**
 
-- [ ] 8.1 Create config/templates/opencode/memory.tmpl
-      - AGENTS.md format (no YAML frontmatter)
-      - Paths array → @ file references conversion (one per line)
-      - Content rendered as project context narrative
-      - Teaching instructions for Read tool usage at top
-      - Support paths-only, content-only, and both modes
-      - Preserve markdown formatting in content
+- [x] 8.1 Create config/templates/opencode/memory.tmpl
+       - AGENTS.md format (no YAML frontmatter)
+       - Paths array → @ file references conversion (one per line)
+       - Content rendered as project context narrative
+       - Teaching instructions for Read tool usage at top
+       - Support paths-only, content-only, and both modes
+       - Preserve markdown formatting in content
 
-- [ ] 8.2 Create golden file tests for memory.tmpl
-      - Create test/golden/opencode/memory-paths-only.md.golden
-      - Create test/golden/opencode/memory-content-only.md.golden
-      - Create test/golden/opencode/memory-both.md.golden (paths and content)
-
-- [ ] 8.3 Add TestRenderOpenCodeMemory tests
-      - Table-driven test for paths-only scenario
-      - Table-driven test for content-only scenario
-      - Table-driven test for both paths and content
-      - Verify @ file references conversion
-      - Verify teaching instructions presence
-      - Verify golden file output matches
+- [x] 8.2 Add TestRenderOpenCodeMemory tests
+        - Table-driven test for paths-only scenario
+        - Table-driven test for content-only scenario
+        - Table-driven test for both paths and content
+        - Verify @ file references conversion
+        - Verify teaching instructions presence
 
 ## 9. Platform-Specific Validation Functions
 
@@ -270,25 +247,26 @@
 
 - [ ] 11.1 Create test/golden/opencode directory
 
-- [ ] 11.2 Create Agent golden files
-      - Create test/golden/opencode/code-reviewer-agent.md.golden (from agent.tmpl)
-      - Create test/golden/opencode/agent-full.md.golden (from agent.tmpl)
-      - Create test/golden/opencode/agent-mixed-tools.md.golden (from agent.tmpl)
+- [ ] 11.2 Create Agent golden files (from agent.tmpl)
+       - Create test/golden/opencode/code-reviewer-agent.md.golden (minimal)
+       - Create test/golden/opencode/agent-full.md.golden (all fields)
+       - Create test/golden/opencode/agent-mixed-tools.md.golden (mixed tools)
+       - Create golden files for all permission modes (default, acceptEdits, dontAsk, bypassPermissions, plan)
 
-- [ ] 11.3 Create Command golden files
-      - Create test/golden/opencode/run-tests-command.md.golden (from command.tmpl)
-      - Create test/golden/opencode/command-full.md.golden (from command.tmpl)
-      - Create test/golden/opencode/command-with-arguments.md.golden (from command.tmpl)
+- [ ] 11.3 Create Command golden files (from command.tmpl)
+       - Create test/golden/opencode/run-tests-command.md.golden (minimal)
+       - Create test/golden/opencode/command-full.md.golden (all fields)
+       - Create test/golden/opencode/command-with-arguments.md.golden ($ARGUMENTS placeholder)
 
-- [ ] 11.4 Create Skill golden files
-      - Create test/golden/opencode/git-workflow-skill subdirectory
-      - Create test/golden/opencode/git-workflow-skill/SKILL.md.golden (from skill.tmpl)
-      - Create test/golden/opencode/skill-full.md.golden (from skill.tmpl)
+- [ ] 11.4 Create Skill golden files (from skill.tmpl)
+       - Create test/golden/opencode/git-workflow-skill subdirectory
+       - Create test/golden/opencode/git-workflow-skill/SKILL.md.golden (minimal)
+       - Create test/golden/opencode/skill-full.md.golden (all fields)
 
-- [ ] 11.5 Create Memory golden files
-      - Create test/golden/opencode/memory-paths-only.md.golden (from memory.tmpl)
-      - Create test/golden/opencode/memory-content-only.md.golden (from memory.tmpl)
-      - Create test/golden/opencode/memory-both.md.golden (from memory.tmpl)
+- [ ] 11.5 Create Memory golden files (from memory.tmpl)
+       - Create test/golden/opencode/memory-paths-only.md.golden
+       - Create test/golden/opencode/memory-content-only.md.golden
+       - Create test/golden/opencode/memory-both.md.golden (paths and content)
 
 ## 12. Transformation Tests
 

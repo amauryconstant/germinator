@@ -1,0 +1,26 @@
+---
+name: {{.Name}}
+description: {{.Description}}
+{{- if ne .License ""}}
+license: {{.License}}
+{{- end}}
+{{- if .Compatibility}}
+compatibility:
+{{- range .Compatibility}}
+  - {{.}}
+{{- end}}
+{{- end}}
+{{- if .Metadata}}
+metadata:
+{{- range $key, $value := .Metadata}}
+  {{$key}}: {{$value}}
+{{- end}}
+{{- end}}
+{{- if .Hooks}}
+hooks:
+{{- range $key, $value := .Hooks}}
+  {{$key}}: {{$value}}
+{{- end}}
+{{- end}}
+---
+{{.Content}}

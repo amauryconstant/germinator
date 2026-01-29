@@ -1,0 +1,43 @@
+---
+description: {{.Description}}
+{{- if .Mode}}
+mode: {{.Mode}}
+{{- end}}
+{{- if not .Mode}}
+mode: all
+{{- end}}
+{{- if .Model}}
+model: {{.Model}}
+{{- end}}
+{{- if .Tools}}
+tools:
+{{- range .Tools}}
+  {{.}}: true
+{{- end}}
+{{- end}}
+{{- if .DisallowedTools}}
+{{- range .DisallowedTools}}
+  {{.}}: false
+{{- end}}
+{{- end}}
+{{- if .PermissionMode}}
+permission:
+{{transformPermissionMode .PermissionMode}}
+{{- end}}
+{{- if ne .Temperature 0.0}}
+temperature: {{.Temperature}}
+{{- end}}
+{{- if gt .MaxSteps 0}}
+maxSteps: {{.MaxSteps}}
+{{- end}}
+{{- if .Hidden}}
+hidden: {{.Hidden}}
+{{- end}}
+{{- if ne .Prompt ""}}
+prompt: {{.Prompt}}
+{{- end}}
+{{- if .Disable}}
+disable: {{.Disable}}
+{{- end}}
+---
+{{.Content}}

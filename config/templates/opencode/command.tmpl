@@ -1,0 +1,15 @@
+---
+{{- if ne .Description ""}}
+description: {{.Description}}
+{{- end}}
+{{- if ne .Agent ""}}
+agent: {{.Agent}}
+{{- end}}
+{{- if .Subtask}}
+subtask: {{.Subtask}}
+{{- end}}
+{{- if ne .Model ""}}
+model: {{.Model}}
+{{- end}}
+---
+{{.Content}}

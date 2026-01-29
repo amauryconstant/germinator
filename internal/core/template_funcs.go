@@ -1,5 +1,10 @@
 package core
 
+import (
+	"fmt"
+	"strings"
+)
+
 // transformPermissionMode transforms Claude Code's permissionMode enum to OpenCode's permission object format.
 //
 // This function provides a basic approximation because the two permission systems are fundamentally different:
@@ -17,36 +22,47 @@ package core
 //   - mode: Claude Code permissionMode enum value
 //
 // Returns:
-//   - map[string]interface{}: OpenCode permission object structure
-//   - nil: for unknown modes
-func transformPermissionMode(mode string) map[string]interface{} {
+//   - string: YAML-formatted permission object structure with proper indentation
+//   - empty string: for unknown modes
+func transformPermissionMode(mode string) string {
+	var perms map[string]map[string]string
+
 	switch mode {
 	case "default":
-		return map[string]interface{}{
-			"edit": map[string]string{"*": "ask"},
-			"bash": map[string]string{"*": "ask"},
+		perms = map[string]map[string]string{
+			"edit": {"*": "ask"},
+			"bash": {"*": "ask"},
 		}
 	case "acceptEdits":
-		return map[string]interface{}{
-			"edit": map[string]string{"*": "allow"},
-			"bash": map[string]string{"*": "ask"},
+		perms = map[string]map[string]string{
+			"edit": {"*": "allow"},
+			"bash": {"*": "ask"},
 		}
 	case "dontAsk":
-		return map[string]interface{}{
-			"edit": map[string]string{"*": "allow"},
-			"bash": map[string]string{"*": "allow"},
+		perms = map[string]map[string]string{
+			"edit": {"*": "allow"},
+			"bash": {"*": "allow"},
 		}
 	case "bypassPermissions":
-		return map[string]interface{}{
-			"edit": map[string]string{"*": "allow"},
-			"bash": map[string]string{"*": "allow"},
+		perms = map[string]map[string]string{
+			"edit": {"*": "allow"},
+			"bash": {"*": "allow"},
 		}
 	case "plan":
-		return map[string]interface{}{
-			"edit": map[string]string{"*": "deny"},
-			"bash": map[string]string{"*": "deny"},
+		perms = map[string]map[string]string{
+			"edit": {"*": "deny"},
+			"bash": {"*": "deny"},
 		}
 	default:
-		return nil
+		return ""
 	}
+
+	var builder strings.Builder
+	for tool, rules := range perms {
+		for pattern, permission := range rules {
+			builder.WriteString(fmt.Sprintf("  %s:\n", tool))
+			builder.WriteString(fmt.Sprintf("    %s: %s\n", pattern, permission))
+		}
+	}
+	return builder.String()
 }
