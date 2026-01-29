@@ -21,29 +21,29 @@
 
 **Section 2 depends on: Section 1 complete (model updates)**
 
-- [ ] 2.1 Implement all template functions in internal/core/template_funcs.go
+- [x] 2.1 Implement all template functions in internal/core/template_funcs.go
       - transformPermissionMode (Claude Code → OpenCode, single-direction)
       - Add Go doc comments to all functions
       - Handle all 5 Claude Code modes: default, acceptEdits, dontAsk, bypassPermissions, plan
       - Return nil for unknown modes
 
-- [ ] 2.2 Add unit tests for all template functions
+- [x] 2.2 Add unit tests for all template functions
       - transformPermissionMode: test all 5 modes + unknown
       - Verify correct permission objects returned
       - Verify nil returned for unknown modes
 
-- [ ] 2.3 Verify all template function tests pass
+- [x] 2.3 Verify all template function tests pass
 
 ## 3. Template Function Registration
 
 **Section 3 depends on: Section 2 complete (functions implemented)**
 
-- [ ] 3.1 Implement createTemplateFuncMap() in internal/core/serializer.go
+- [x] 3.1 Implement createTemplateFuncMap() in internal/core/serializer.go
       - Register transformPermissionMode function
       - Add documentation for FuncMap structure
       - Return map[string]interface{} for template usage
 
-- [ ] 3.2 Update RenderDocument to use custom func map
+- [x] 3.2 Update RenderDocument to use custom func map
       - Load templates with registered functions
       - Pass funcMap to template parsing
       - Add test verifying transformPermissionMode is available in templates

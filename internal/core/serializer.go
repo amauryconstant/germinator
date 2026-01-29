@@ -28,7 +28,7 @@ func RenderDocument(doc interface{}, platform string) (string, error) {
 		return "", fmt.Errorf("failed to read template file %s: %w", tmplPath, err)
 	}
 
-	tmpl, err := template.New(docType).Parse(string(tmplContent))
+	tmpl, err := template.New(docType).Funcs(createTemplateFuncMap()).Parse(string(tmplContent))
 	if err != nil {
 		return "", fmt.Errorf("failed to parse template: %w", err)
 	}
@@ -39,6 +39,20 @@ func RenderDocument(doc interface{}, platform string) (string, error) {
 	}
 
 	return sb.String(), nil
+}
+
+// createTemplateFuncMap creates and returns a FuncMap with all custom template functions.
+// This map is passed to template.Funcs() to make custom functions available in templates.
+//
+// Current registered functions:
+//   - transformPermissionMode: Converts Claude Code permissionMode enum to OpenCode permission object
+//
+// Returns:
+//   - map[string]interface{}: Template function map
+func createTemplateFuncMap() map[string]interface{} {
+	return map[string]interface{}{
+		"transformPermissionMode": transformPermissionMode,
+	}
 }
 
 func getTemplatePath(platform string, filename string) (string, error) {
