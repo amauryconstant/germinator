@@ -16,7 +16,7 @@ var validateCmd = &cobra.Command{
 	Run: func(_ *cobra.Command, args []string) {
 		filePath := args[0]
 
-		errs, err := services.ValidateDocument(filePath)
+		errs, err := services.ValidateDocument(filePath, "claude-code")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)

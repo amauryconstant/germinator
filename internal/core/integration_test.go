@@ -70,7 +70,7 @@ func TestLoadDocumentIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			doc, err := LoadDocument(tt.filepath)
+			doc, err := LoadDocument(tt.filepath, "claude-code")
 
 			if tt.expectError {
 				if err == nil {

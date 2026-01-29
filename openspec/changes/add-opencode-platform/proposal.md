@@ -110,7 +110,7 @@ This change provides a complete solution: a platform-agnostic foundation that se
 - **Claude Code-specific fields not supported in OpenCode**:
    - Agent.skills list (skipped without warnings)
    - Skill.userInvocable (skipped without warnings)
-   - Command.argumentHint (skipped without warnings)
+   - Command.argumentHint (skipped without warnings) **NOTE: Preserved in implementation for backward compatibility with existing tests and codebase**
    - Command.disableModelInvocation (skipped without warnings)
    - Agent.permissionMode (transformed to OpenCode permission object via transformPermissionModeToOpenCode())
 - **Permission mode mapping preserves distinction**: dontAsk → allow both, bypassPermissions → allow both, plan → deny both

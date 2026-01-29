@@ -8,44 +8,46 @@ import (
 
 // Agent represents an AI agent configuration.
 type Agent struct {
-	Name            string   `yaml:"name"`
-	Description     string   `yaml:"description"`
-	Tools           []string `yaml:"tools"`
-	DisallowedTools []string `yaml:"disallowedTools"`
-	Model           string   `yaml:"model"`
-	PermissionMode  string   `yaml:"permissionMode"`
-	Skills          []string `yaml:"skills"`
-	FilePath        string   `yaml:"-"`
-	Content         string   `yaml:"-"`
+	Name        string `yaml:"name" json:"name"`
+	Description string `yaml:"description" json:"description"`
+	Content     string `yaml:"-" json:"-"`
+	FilePath    string `yaml:"-" json:"-"`
+
+	Tools           []string `yaml:"tools,omitempty" json:"tools,omitempty"`
+	DisallowedTools []string `yaml:"disallowedTools,omitempty" json:"disallowedTools,omitempty"`
+
+	Mode        string  `yaml:"-" json:"mode,omitempty"`
+	Temperature float64 `yaml:"-" json:"temperature,omitempty"`
+	MaxSteps    int     `yaml:"-" json:"maxSteps,omitempty"`
+	Hidden      bool    `yaml:"-" json:"hidden,omitempty"`
+	Prompt      string  `yaml:"-" json:"prompt,omitempty"`
+	Disable     bool    `yaml:"-" json:"disable,omitempty"`
+
+	PermissionMode string   `yaml:"permissionMode,omitempty" json:"permissionMode,omitempty"`
+	Skills         []string `yaml:"skills,omitempty" json:"skills,omitempty"`
+
+	Model string `yaml:"model,omitempty" json:"model,omitempty"`
 }
 
 // Validate checks if the agent configuration is valid.
-func (a *Agent) Validate() []error {
+func (a *Agent) Validate(platform string) []error {
 	var errs []error
+
+	if platform == "" {
+		errs = append(errs, errors.New("platform is required (available: claude-code, opencode)"))
+	}
 
 	if a.Name == "" {
 		errs = append(errs, errors.New("name is required"))
 	} else {
-		matched, _ := regexp.MatchString(`^[a-z-]+$`, a.Name)
+		matched, _ := regexp.MatchString(`^[a-z0-9]+(-[a-z0-9]+)*$`, a.Name)
 		if !matched {
-			errs = append(errs, fmt.Errorf("name must be lowercase letters and hyphens only (got: %s)", a.Name))
+			errs = append(errs, fmt.Errorf("name must match pattern ^[a-z0-9]+(-[a-z0-9]+)*$ (got: %s)", a.Name))
 		}
 	}
 
 	if a.Description == "" {
 		errs = append(errs, errors.New("description is required"))
-	}
-
-	if a.Model != "" {
-		validModels := map[string]bool{
-			"sonnet":  true,
-			"opus":    true,
-			"haiku":   true,
-			"inherit": true,
-		}
-		if !validModels[a.Model] {
-			errs = append(errs, fmt.Errorf("model must be one of: sonnet, opus, haiku, inherit (got: %s)", a.Model))
-		}
 	}
 
 	if a.PermissionMode != "" {
@@ -66,21 +68,31 @@ func (a *Agent) Validate() []error {
 
 // Command represents an AI command configuration.
 type Command struct {
-	Name                   string   `yaml:"-"`
-	AllowedTools           []string `yaml:"allowed-tools"`
-	ArgumentHint           string   `yaml:"argument-hint"`
-	Context                string   `yaml:"context"`
-	Agent                  string   `yaml:"agent"`
-	Description            string   `yaml:"description"`
-	Model                  string   `yaml:"model"`
-	DisableModelInvocation bool     `yaml:"disable-model-invocation"`
-	FilePath               string   `yaml:"-"`
-	Content                string   `yaml:"-"`
+	Name        string `yaml:"name" json:"name"`
+	Description string `yaml:"description" json:"description"`
+	Content     string `yaml:"-" json:"-"`
+	FilePath    string `yaml:"-" json:"-"`
+
+	AllowedTools    []string `yaml:"allowed-tools,omitempty" json:"allowed-tools,omitempty"`
+	DisallowedTools []string `yaml:"disallowed-tools,omitempty" json:"disallowed-tools,omitempty"`
+
+	Subtask bool `yaml:"-" json:"subtask,omitempty"`
+
+	ArgumentHint           string `yaml:"argument-hint,omitempty" json:"argument-hint,omitempty"`
+	Context                string `yaml:"context,omitempty" json:"context,omitempty"`
+	Agent                  string `yaml:"agent,omitempty" json:"agent,omitempty"`
+	DisableModelInvocation bool   `yaml:"disable-model-invocation,omitempty" json:"disable-model-invocation,omitempty"`
+
+	Model string `yaml:"model,omitempty" json:"model,omitempty"`
 }
 
 // Validate checks if the command configuration is valid.
-func (c *Command) Validate() []error {
+func (c *Command) Validate(platform string) []error {
 	var errs []error
+
+	if platform == "" {
+		errs = append(errs, errors.New("platform is required (available: claude-code, opencode)"))
+	}
 
 	if c.Context != "" && c.Context != "fork" {
 		errs = append(errs, fmt.Errorf("context must be 'fork' if specified (got: %s)", c.Context))
@@ -91,50 +103,72 @@ func (c *Command) Validate() []error {
 
 // Memory represents an AI memory configuration.
 type Memory struct {
-	Paths    []string `yaml:"paths"`
-	FilePath string   `yaml:"-"`
-	Content  string   `yaml:"-"`
+	Paths    []string `yaml:"paths,omitempty" json:"paths,omitempty"`
+	Content  string   `yaml:"content,omitempty" json:"content,omitempty"`
+	FilePath string   `yaml:"-" json:"-"`
 }
 
 // Validate checks if the memory configuration is valid.
-func (m *Memory) Validate() []error {
-	return nil
+func (m *Memory) Validate(platform string) []error {
+	var errs []error
+
+	if platform == "" {
+		errs = append(errs, errors.New("platform is required (available: claude-code, opencode)"))
+	}
+
+	if len(m.Paths) == 0 && m.Content == "" {
+		errs = append(errs, errors.New("paths or content is required"))
+	}
+
+	return errs
 }
 
 // Skill represents an AI skill configuration.
 type Skill struct {
-	Name          string   `yaml:"name"`
-	Description   string   `yaml:"description"`
-	AllowedTools  []string `yaml:"allowed-tools"`
-	Model         string   `yaml:"model"`
-	Context       string   `yaml:"context"`
-	Agent         string   `yaml:"agent"`
-	UserInvocable bool     `yaml:"user-invocable"`
-	FilePath      string   `yaml:"-"`
-	Content       string   `yaml:"-"`
+	Name        string `yaml:"name" json:"name"`
+	Description string `yaml:"description" json:"description"`
+	Content     string `yaml:"-" json:"-"`
+	FilePath    string `yaml:"-" json:"-"`
+
+	AllowedTools    []string `yaml:"allowed-tools,omitempty" json:"allowed-tools,omitempty"`
+	DisallowedTools []string `yaml:"disallowed-tools,omitempty" json:"disallowed-tools,omitempty"`
+
+	License       string            `yaml:"-" json:"license,omitempty"`
+	Compatibility []string          `yaml:"-" json:"compatibility,omitempty"`
+	Metadata      map[string]string `yaml:"-" json:"metadata,omitempty"`
+	Hooks         map[string]string `yaml:"-" json:"hooks,omitempty"`
+
+	Model         string `yaml:"model,omitempty" json:"model,omitempty"`
+	Context       string `yaml:"context,omitempty" json:"context,omitempty"`
+	Agent         string `yaml:"agent,omitempty" json:"agent,omitempty"`
+	UserInvocable bool   `yaml:"user-invocable,omitempty" json:"user-invocable,omitempty"`
 }
 
 // Validate checks if the skill configuration is valid.
-func (s *Skill) Validate() []error {
+func (s *Skill) Validate(platform string) []error {
 	var errs []error
+
+	if platform == "" {
+		errs = append(errs, errors.New("platform is required (available: claude-code, opencode)"))
+	}
 
 	if s.Name == "" {
 		errs = append(errs, errors.New("name is required"))
 	} else {
-		if len(s.Name) > 64 {
-			errs = append(errs, fmt.Errorf("name must not exceed 64 characters (got: %d)", len(s.Name)))
+		if len(s.Name) < 1 || len(s.Name) > 64 {
+			errs = append(errs, fmt.Errorf("name must be 1-64 characters (got: %d)", len(s.Name)))
 		}
-		matched, _ := regexp.MatchString(`^[a-z0-9-]+$`, s.Name)
+		matched, _ := regexp.MatchString(`^[a-z0-9]+(-[a-z0-9]+)*$`, s.Name)
 		if !matched {
-			errs = append(errs, fmt.Errorf("name must be lowercase letters, numbers, and hyphens only (got: %s)", s.Name))
+			errs = append(errs, fmt.Errorf("name must match pattern ^[a-z0-9]+(-[a-z0-9]+)*$ (got: %s)", s.Name))
 		}
 	}
 
 	if s.Description == "" {
 		errs = append(errs, errors.New("description is required"))
 	} else {
-		if len(s.Description) > 1024 {
-			errs = append(errs, fmt.Errorf("description must not exceed 1024 characters (got: %d)", len(s.Description)))
+		if len(s.Description) < 1 || len(s.Description) > 1024 {
+			errs = append(errs, fmt.Errorf("description must be 1-1024 characters (got: %d)", len(s.Description)))
 		}
 	}
 

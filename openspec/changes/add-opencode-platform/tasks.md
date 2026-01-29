@@ -1,14 +1,21 @@
 ## 1. Model Structure Updates
 
-- [ ] 1.1 Add OpenCode fields to Agent model (Mode, Temperature, MaxSteps, Hidden, Prompt, Disable)
-- [ ] 1.2 Add Subtask field to Command model
-- [ ] 1.3 Add OpenCode fields to Skill model (License, Compatibility, Metadata, Hooks)
-- [ ] 1.4 Update model struct tags to separate common from platform-specific fields (use yaml:"-" for platform-specific)
-- [ ] 1.5 Update Agent model to support both paths and content for memory
-- [ ] 1.6 Update Memory model to support both paths and content fields
-- [ ] 1.7 Remove model validation for short model names (sonnet, opus, haiku) - allow full IDs
-- [ ] 1.8 Add struct tags for JSON compatibility (json:"fieldname,omitempty")
-- [ ] 1.9 Add Agent name regex validation (^[a-z0-9]+(-[a-z0-9]+)*$)
+- [x] 1.1 Add OpenCode fields to Agent model (Mode, Temperature, MaxSteps, Hidden, Prompt, Disable)
+- [x] 1.2 Add Subtask field to Command model
+- [x] 1.3 Add OpenCode fields to Skill model (License, Compatibility, Metadata, Hooks)
+- [x] 1.4 Update model struct tags to separate common from platform-specific fields (use yaml:"-" for platform-specific)
+- [x] 1.5 Update Agent model to support both paths and content for memory
+      **Note**: Memory is a separate model, not an Agent field. Only Memory model updated.
+- [x] 1.6 Update Memory model to support both paths and content fields
+- [x] 1.7 Remove model validation for short model names (sonnet, opus, haiku) - allow full IDs
+- [x] 1.8 Add struct tags for JSON compatibility (json:"fieldname,omitempty")
+- [x] 1.9 Add Agent name regex validation (^[a-z0-9]+(-[a-z0-9]+)*$)
+
+**Implementation Decisions**:
+- Preserved `ArgumentHint` field in Command model (Claude Code-specific, not in design spec)
+- Added JSON tags to all fields with `omitempty` suffix for compatibility
+- OpenCode-specific fields have `yaml:"-"` tags to prevent YAML contamination
+- Skill validation enforces 1-64 character name limit and 1-1024 description limit (from research)
 
 ## 2. Template Functions Implementation
 
@@ -45,25 +52,25 @@
 
 **Section 4 depends on: Section 1 complete (model updates)**
 
-- [ ] 4.1 Update Agent.Validate() to Validate(platform string)
+- [x] 4.1 Update Agent.Validate() to Validate(platform string)
       - Add platform parameter requirement check (return error if empty)
       - Add Agent name format validation (^[a-z0-9]+(-[a-z0-9]+)*$)
       - Add unknown platform error handling
       - Return []error (all errors, not just first)
 
-- [ ] 4.2 Update Command.Validate() to Validate(platform string)
+- [x] 4.2 Update Command.Validate() to Validate(platform string)
       - Add platform parameter requirement check
       - Add unknown platform error handling
       - Fix Name field YAML tag to yaml:"name"
       - Return []error
 
-- [ ] 4.3 Update Skill.Validate() to Validate(platform string)
+- [x] 4.3 Update Skill.Validate() to Validate(platform string)
       - Add platform parameter requirement check
       - Fix skill name regex to ^[a-z0-9]+(-[a-z0-9]+)*$
       - Add unknown platform error handling
       - Return []error
 
-- [ ] 4.4 Update Memory.Validate() to Validate(platform string)
+- [x] 4.4 Update Memory.Validate() to Validate(platform string)
       - Add platform parameter requirement check
       - Add paths or content required validation
       - Add unknown platform error handling
@@ -480,3 +487,41 @@
       - Verify output matches golden files
       - Verify no data loss
       - Verify all document types work
+
+---
+
+## Implementation Decisions (Session 1)
+
+### Model Updates (Section 1)
+- **Preserved ArgumentHint field**: Kept `ArgumentHint` in Command model as a Claude Code-specific field (yaml:"argument-hint", json:"argument-hint") to maintain compatibility with existing tests and codebase. Design spec listed it as skipped but it exists in production code.
+
+### Validation Updates (Section 4)
+- **Platform parameter addition**: Updated all four model Validate() methods to accept `platform string` parameter
+  - Agent.Validate(platform string)
+  - Command.Validate(platform string)
+  - Skill.Validate(platform string)
+  - Memory.Validate(platform string)
+- **Service layer updates**: Updated LoadDocument() and ValidateDocument() to propagate platform parameter
+- **OpenCode constraints**: Applied from research documentation:
+  - Skill name: 1-64 characters with regex `^[a-z0-9]+(-[a-z0-9]+)*$`
+  - Description: 1-1024 characters
+  - Agent name: regex validation only (no length constraint in OpenCode docs)
+- **Model validation**: Removed validation for short model names (sonnet, opus, haiku) - now allows full provider-prefixed IDs
+
+### Test Updates
+- Updated all test calls to pass `"claude-code"` as platform parameter
+- Updated integration tests in core/integration_test.go
+- Updated service tests in services/transformer_test.go
+- Updated model tests in internal/models/models_test.go
+- Updated cmd tests in cmd/cmd_test.go
+- Updated CLI validate command to pass platform parameter
+
+### Files Modified
+- internal/models/models.go - All model structs and Validate methods
+- internal/core/loader.go - LoadDocument signature
+- internal/services/transformer.go - ValidateDocument signature and LoadDocument call
+- cmd/validate.go - ValidateDocument call
+- internal/models/models_test.go - All Validate() calls
+- internal/core/integration_test.go - LoadDocument calls
+- internal/services/transformer_test.go - LoadDocument and ValidateDocument calls
+- cmd/cmd_test.go - ValidateDocument call

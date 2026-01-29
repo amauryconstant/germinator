@@ -21,7 +21,7 @@ This is valid content`
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	errs, err := services.ValidateDocument(validFile)
+	errs, err := services.ValidateDocument(validFile, "claude-code")
 	if err != nil {
 		t.Fatalf("ValidateDocument failed: %v", err)
 	}

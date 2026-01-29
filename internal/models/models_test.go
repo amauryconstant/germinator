@@ -1,7 +1,6 @@
 package models
 
 import (
-	"strings"
 	"testing"
 )
 
@@ -80,23 +79,22 @@ func TestAgentValidate(t *testing.T) {
 			errorCount:  1,
 		},
 		{
-			name: "invalid name with numbers",
+			name: "invalid name starts with hyphen",
 			agent: Agent{
-				Name:        "123-agent",
+				Name:        "-test-agent",
 				Description: "A description",
 			},
 			expectError: true,
 			errorCount:  1,
 		},
 		{
-			name: "invalid model value",
+			name: "valid model - any value allowed",
 			agent: Agent{
 				Name:        "test-agent",
 				Description: "A description",
-				Model:       "invalid-model",
+				Model:       "anthropic/claude-sonnet-4-20250514",
 			},
-			expectError: true,
-			errorCount:  1,
+			expectError: false,
 		},
 		{
 			name: "invalid permission mode",
@@ -121,7 +119,7 @@ func TestAgentValidate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			errs := tt.agent.Validate()
+			errs := tt.agent.Validate("claude-code")
 			hasError := len(errs) > 0
 
 			if hasError != tt.expectError {
@@ -176,7 +174,7 @@ func TestCommandValidate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			errs := tt.command.Validate()
+			errs := tt.command.Validate("claude-code")
 			hasError := len(errs) > 0
 
 			if hasError != tt.expectError {
@@ -198,9 +196,10 @@ func TestMemoryValidate(t *testing.T) {
 		errorCount  int
 	}{
 		{
-			name:        "valid memory without paths",
+			name:        "invalid memory without paths or content",
 			memory:      Memory{},
-			expectError: false,
+			expectError: true,
+			errorCount:  1,
 		},
 		{
 			name: "valid memory with paths",
@@ -220,7 +219,7 @@ func TestMemoryValidate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			errs := tt.memory.Validate()
+			errs := tt.memory.Validate("claude-code")
 			hasError := len(errs) > 0
 
 			if hasError != tt.expectError {
@@ -290,9 +289,17 @@ func TestSkillValidate(t *testing.T) {
 			errorCount:  1,
 		},
 		{
+			name: "name valid with hyphens",
+			skill: Skill{
+				Name:        "skill-with-multiple-hyphens-segments",
+				Description: "A description",
+			},
+			expectError: false,
+		},
+		{
 			name: "name exceeds 64 characters",
 			skill: Skill{
-				Name:        "a-very-long-skill-name-that-exceeds-the-maximum-length-of-sixty-four-characters",
+				Name:        "this-is-a-very-long-skill-name-that-exceeds-sixty-four-character-limit-which-is-the-maximum-allowed",
 				Description: "A description",
 			},
 			expectError: true,
@@ -302,7 +309,7 @@ func TestSkillValidate(t *testing.T) {
 			name: "description exceeds 1024 characters",
 			skill: Skill{
 				Name:        "test-skill",
-				Description: strings.Repeat("a", 1025),
+				Description: "This description is intentionally very long to exceed 1024 character limit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. This description is intentionally very long to exceed 1024 character limit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. This description is intentionally very long to exceed 1024 character limit.",
 			},
 			expectError: true,
 			errorCount:  1,
@@ -330,7 +337,7 @@ func TestSkillValidate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			errs := tt.skill.Validate()
+			errs := tt.skill.Validate("claude-code")
 			hasError := len(errs) > 0
 
 			if hasError != tt.expectError {

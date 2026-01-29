@@ -9,7 +9,7 @@ import (
 )
 
 // LoadDocument loads and validates a document from the given filepath.
-func LoadDocument(filepath string) (interface{}, error) {
+func LoadDocument(filepath, platform string) (interface{}, error) {
 	docType := DetectType(filepath)
 	if docType == "" {
 		return nil, fmt.Errorf("unrecognizable filename: %s (expected: agent-*.md, *-agent.md, etc.)", filepath)
@@ -23,13 +23,13 @@ func LoadDocument(filepath string) (interface{}, error) {
 	var errs []error
 	switch d := doc.(type) {
 	case *models.Agent:
-		errs = d.Validate()
+		errs = d.Validate(platform)
 	case *models.Command:
-		errs = d.Validate()
+		errs = d.Validate(platform)
 	case *models.Memory:
-		errs = d.Validate()
+		errs = d.Validate(platform)
 	case *models.Skill:
-		errs = d.Validate()
+		errs = d.Validate(platform)
 	}
 
 	if len(errs) > 0 {

@@ -106,7 +106,7 @@ content`
 		t.Fatalf("Failed to create input file: %v", err)
 	}
 
-	errs, err := ValidateDocument(inputFile)
+	errs, err := ValidateDocument(inputFile, "claude-code")
 	if err != nil {
 		t.Fatalf("ValidateDocument failed: %v", err)
 	}
@@ -130,7 +130,7 @@ content`
 		t.Fatalf("Failed to create input file: %v", err)
 	}
 
-	errs, err := ValidateDocument(inputFile)
+	errs, err := ValidateDocument(inputFile, "claude-code")
 	if err != nil {
 		t.Fatalf("ValidateDocument failed: %v", err)
 	}
@@ -143,7 +143,7 @@ content`
 func TestValidateDocumentMissingFile(t *testing.T) {
 	nonExistentFile := "/nonexistent/file.md"
 
-	_, err := ValidateDocument(nonExistentFile)
+	_, err := ValidateDocument(nonExistentFile, "claude-code")
 	if err == nil {
 		t.Error("Expected error for non-existent file")
 	}
@@ -178,12 +178,12 @@ And preserves markdown **formatting**
 		t.Fatalf("TransformDocument failed: %v", err)
 	}
 
-	doc1, err := core.LoadDocument(inputFile)
+	doc1, err := core.LoadDocument(inputFile, "claude-code")
 	if err != nil {
 		t.Fatalf("Failed to load original document: %v", err)
 	}
 
-	doc2, err := core.LoadDocument(outputFile)
+	doc2, err := core.LoadDocument(outputFile, "claude-code")
 	if err != nil {
 		t.Fatalf("Failed to load transformed document: %v", err)
 	}

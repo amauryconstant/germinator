@@ -11,7 +11,7 @@ import (
 
 // TransformDocument transforms a document to the target platform format.
 func TransformDocument(inputPath, outputPath, platform string) error {
-	doc, err := core.LoadDocument(inputPath)
+	doc, err := core.LoadDocument(inputPath, platform)
 	if err != nil {
 		return fmt.Errorf("failed to load document: %w", err)
 	}
@@ -29,7 +29,7 @@ func TransformDocument(inputPath, outputPath, platform string) error {
 }
 
 // ValidateDocument validates a document and returns any validation errors.
-func ValidateDocument(inputPath string) ([]error, error) {
+func ValidateDocument(inputPath, platform string) ([]error, error) {
 	docType := core.DetectType(inputPath)
 	if docType == "" {
 		return nil, fmt.Errorf("unrecognizable filename: %s", inputPath)
@@ -42,13 +42,13 @@ func ValidateDocument(inputPath string) ([]error, error) {
 
 	switch d := doc.(type) {
 	case *models.Agent:
-		return d.Validate(), nil
+		return d.Validate(platform), nil
 	case *models.Command:
-		return d.Validate(), nil
+		return d.Validate(platform), nil
 	case *models.Memory:
-		return d.Validate(), nil
+		return d.Validate(platform), nil
 	case *models.Skill:
-		return d.Validate(), nil
+		return d.Validate(platform), nil
 	default:
 		return nil, fmt.Errorf("unknown document type: %T", d)
 	}
