@@ -263,7 +263,7 @@ func TestCommandValidatePlatformRequirement(t *testing.T) {
 		},
 		{
 			name:        "valid opencode platform",
-			command:     Command{Name: "test-command"},
+			command:     Command{Name: "test-command", Description: "Test command", Content: "echo test"},
 			platform:    "opencode",
 			expectError: false,
 		},
@@ -530,7 +530,7 @@ func TestSkillValidatePlatformRequirement(t *testing.T) {
 		},
 		{
 			name:        "valid opencode platform",
-			skill:       Skill{Name: "test-skill", Description: "A description"},
+			skill:       Skill{Name: "test-skill", Description: "A description", Content: "Skill content here"},
 			platform:    "opencode",
 			expectError: false,
 		},

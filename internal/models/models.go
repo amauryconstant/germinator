@@ -29,7 +29,7 @@ type Agent struct {
 	Model string `yaml:"model,omitempty" json:"model,omitempty"`
 }
 
-// Validate checks if the agent configuration is valid.
+// Validate checks if agent configuration is valid.
 func (a *Agent) Validate(platform string) []error {
 	var errs []error
 
@@ -67,6 +67,10 @@ func (a *Agent) Validate(platform string) []error {
 		}
 	}
 
+	if platform == "opencode" {
+		errs = append(errs, ValidateOpenCodeAgent(a)...)
+	}
+
 	return errs
 }
 
@@ -90,7 +94,7 @@ type Command struct {
 	Model string `yaml:"model,omitempty" json:"model,omitempty"`
 }
 
-// Validate checks if the command configuration is valid.
+// Validate checks if command configuration is valid.
 func (c *Command) Validate(platform string) []error {
 	var errs []error
 
@@ -106,6 +110,10 @@ func (c *Command) Validate(platform string) []error {
 		errs = append(errs, fmt.Errorf("context must be 'fork' if specified (got: %s)", c.Context))
 	}
 
+	if platform == "opencode" {
+		errs = append(errs, ValidateOpenCodeCommand(c)...)
+	}
+
 	return errs
 }
 
@@ -116,7 +124,7 @@ type Memory struct {
 	FilePath string   `yaml:"-" json:"-"`
 }
 
-// Validate checks if the memory configuration is valid.
+// Validate checks if memory configuration is valid.
 func (m *Memory) Validate(platform string) []error {
 	var errs []error
 
@@ -130,6 +138,10 @@ func (m *Memory) Validate(platform string) []error {
 
 	if len(m.Paths) == 0 && m.Content == "" {
 		errs = append(errs, errors.New("paths or content is required"))
+	}
+
+	if platform == "opencode" {
+		errs = append(errs, ValidateOpenCodeMemory(m)...)
 	}
 
 	return errs
@@ -156,7 +168,7 @@ type Skill struct {
 	UserInvocable bool   `yaml:"user-invocable,omitempty" json:"user-invocable,omitempty"`
 }
 
-// Validate checks if the skill configuration is valid.
+// Validate checks if skill configuration is valid.
 func (s *Skill) Validate(platform string) []error {
 	var errs []error
 
@@ -190,6 +202,67 @@ func (s *Skill) Validate(platform string) []error {
 
 	if s.Context != "" && s.Context != "fork" {
 		errs = append(errs, fmt.Errorf("context must be 'fork' if specified (got: %s)", s.Context))
+	}
+
+	if platform == "opencode" {
+		errs = append(errs, ValidateOpenCodeSkill(s)...)
+	}
+
+	return errs
+}
+
+// ValidateOpenCodeAgent validates OpenCode-specific Agent constraints.
+func ValidateOpenCodeAgent(agent *Agent) []error {
+	var errs []error
+
+	if agent.Mode != "" && agent.Mode != "primary" && agent.Mode != "subagent" && agent.Mode != "all" {
+		errs = append(errs, fmt.Errorf("invalid mode: %s (valid values: primary, subagent, all)", agent.Mode))
+	}
+
+	if agent.Temperature < 0.0 || agent.Temperature > 1.0 {
+		errs = append(errs, fmt.Errorf("temperature must be between 0.0 and 1.0, got %f", agent.Temperature))
+	}
+
+	if agent.MaxSteps != 0 && agent.MaxSteps < 1 {
+		errs = append(errs, fmt.Errorf("maxSteps must be >= 1, got %d", agent.MaxSteps))
+	}
+
+	return errs
+}
+
+// ValidateOpenCodeCommand validates OpenCode-specific Command constraints.
+func ValidateOpenCodeCommand(cmd *Command) []error {
+	var errs []error
+
+	if cmd.Content == "" {
+		errs = append(errs, fmt.Errorf("template (content) is required"))
+	}
+
+	return errs
+}
+
+// ValidateOpenCodeSkill validates OpenCode-specific Skill constraints.
+func ValidateOpenCodeSkill(skill *Skill) []error {
+	var errs []error
+
+	skillNameRegex := regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
+	if !skillNameRegex.MatchString(skill.Name) {
+		errs = append(errs, fmt.Errorf("skill name must match pattern ^[a-z0-9]+(-[a-z0-9]+)*$, got %s", skill.Name))
+	}
+
+	if skill.Content == "" {
+		errs = append(errs, fmt.Errorf("content is required"))
+	}
+
+	return errs
+}
+
+// ValidateOpenCodeMemory validates OpenCode-specific Memory constraints.
+func ValidateOpenCodeMemory(mem *Memory) []error {
+	var errs []error
+
+	if len(mem.Paths) == 0 && mem.Content == "" {
+		errs = append(errs, fmt.Errorf("paths or content is required"))
 	}
 
 	return errs

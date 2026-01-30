@@ -349,9 +349,9 @@ func TestValidateOpenCodeAgent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			errs := validateOpenCodeAgent(tt.agent)
+			errs := models.ValidateOpenCodeAgent(tt.agent)
 			if len(errs) != tt.wantCount {
-				t.Errorf("validateOpenCodeAgent() error count = %d, want %d, errors: %v", len(errs), tt.wantCount, errs)
+				t.Errorf("models.ValidateOpenCodeAgent() error count = %d, want %d, errors: %v", len(errs), tt.wantCount, errs)
 			}
 		})
 	}
@@ -385,9 +385,9 @@ func TestValidateOpenCodeCommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			errs := validateOpenCodeCommand(tt.cmd)
+			errs := models.ValidateOpenCodeCommand(tt.cmd)
 			if len(errs) != tt.wantCount {
-				t.Errorf("validateOpenCodeCommand() error count = %d, want %d, errors: %v", len(errs), tt.wantCount, errs)
+				t.Errorf("models.ValidateOpenCodeCommand() error count = %d, want %d, errors: %v", len(errs), tt.wantCount, errs)
 			}
 		})
 	}
@@ -502,9 +502,9 @@ func TestValidateOpenCodeSkill(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			errs := validateOpenCodeSkill(tt.skill)
+			errs := models.ValidateOpenCodeSkill(tt.skill)
 			if len(errs) != tt.wantCount {
-				t.Errorf("validateOpenCodeSkill() error count = %d, want %d, errors: %v", len(errs), tt.wantCount, errs)
+				t.Errorf("models.ValidateOpenCodeSkill() error count = %d, want %d, errors: %v", len(errs), tt.wantCount, errs)
 			}
 		})
 	}
@@ -547,9 +547,9 @@ func TestValidateOpenCodeMemory(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			errs := validateOpenCodeMemory(tt.mem)
+			errs := models.ValidateOpenCodeMemory(tt.mem)
 			if len(errs) != tt.wantCount {
-				t.Errorf("validateOpenCodeMemory() error count = %d, want %d, errors: %v", len(errs), tt.wantCount, errs)
+				t.Errorf("models.ValidateOpenCodeMemory() error count = %d, want %d, errors: %v", len(errs), tt.wantCount, errs)
 			}
 		})
 	}
