@@ -171,45 +171,45 @@
 
 **Section 9 depends on: Section 4 complete (validation signatures updated)**
 
-- [ ] 9.1 Implement validateOpenCodeAgent in internal/services/transformer.go
+- [x] 9.1 Implement validateOpenCodeAgent in internal/services/transformer.go
       - Mode validation (primary/subagent/all)
       - Temperature range validation (0.0-1.0, inclusive)
       - MaxSteps validation (>= 1)
       - Return []error with all violations
 
-- [ ] 9.2 Add tests for validateOpenCodeAgent
+- [x] 9.2 Add tests for validateOpenCodeAgent
       - Valid modes: primary, subagent, all
       - Invalid mode: test error message
       - Temperature boundaries: 0.0 (pass), 0.5 (pass), 1.0 (pass), -0.5 (error), 1.5 (error)
       - MaxSteps boundaries: 1 (pass), 50 (pass), 0 (error), -5 (error)
       - Multiple validation errors test
 
-- [ ] 9.3 Implement validateOpenCodeCommand in internal/services/transformer.go
+- [x] 9.3 Implement validateOpenCodeCommand in internal/services/transformer.go
       - Template field required validation
       - Return []error
 
-- [ ] 9.4 Add tests for validateOpenCodeCommand
+- [x] 9.4 Add tests for validateOpenCodeCommand
       - Template present: verify no error
       - Template empty: verify error message
       - Test with empty string vs nil
 
-- [ ] 9.5 Implement validateOpenCodeSkill in internal/services/transformer.go
+- [x] 9.5 Implement validateOpenCodeSkill in internal/services/transformer.go
       - Name regex validation (^[a-z0-9]+(-[a-z0-9]+)*$)
       - Content required validation
       - Return []error
 
-- [ ] 9.6 Add tests for validateOpenCodeSkill
+- [x] 9.6 Add tests for validateOpenCodeSkill
       - Valid names: git-workflow, code-review-tool-enhanced, git2-operations
       - Invalid names: git--workflow (consecutive hyphens), -git-workflow (leading), git-workflow- (trailing)
       - Invalid names: Git-Workflow (uppercase), git_workflow (underscores)
       - Content present: verify no error
       - Content empty: verify error message
 
-- [ ] 9.7 Implement validateOpenCodeMemory in internal/services/transformer.go
+- [x] 9.7 Implement validateOpenCodeMemory in internal/services/transformer.go
       - Paths or content required validation
       - Return []error
 
-- [ ] 9.8 Add tests for validateOpenCodeMemory
+- [x] 9.8 Add tests for validateOpenCodeMemory
       - Paths only: verify no error
       - Content only: verify no error
       - Both paths and content: verify no error

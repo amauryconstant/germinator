@@ -208,3 +208,347 @@ And preserves markdown **formatting**
 		t.Errorf("Content mismatch:\nOriginal: %q\nGot:      %q", agent1.Content, agent2.Content)
 	}
 }
+
+func TestValidateOpenCodeAgent(t *testing.T) {
+	tests := []struct {
+		name      string
+		agent     *models.Agent
+		wantCount int
+	}{
+		{
+			name: "valid mode primary",
+			agent: &models.Agent{
+				Name:        "test-agent",
+				Description: "Test agent",
+				Mode:        "primary",
+			},
+			wantCount: 0,
+		},
+		{
+			name: "valid mode subagent",
+			agent: &models.Agent{
+				Name:        "test-agent",
+				Description: "Test agent",
+				Mode:        "subagent",
+			},
+			wantCount: 0,
+		},
+		{
+			name: "valid mode all",
+			agent: &models.Agent{
+				Name:        "test-agent",
+				Description: "Test agent",
+				Mode:        "all",
+			},
+			wantCount: 0,
+		},
+		{
+			name: "valid mode empty",
+			agent: &models.Agent{
+				Name:        "test-agent",
+				Description: "Test agent",
+				Mode:        "",
+			},
+			wantCount: 0,
+		},
+		{
+			name: "invalid mode",
+			agent: &models.Agent{
+				Name:        "test-agent",
+				Description: "Test agent",
+				Mode:        "invalid-mode",
+			},
+			wantCount: 1,
+		},
+		{
+			name: "valid temperature 0.0",
+			agent: &models.Agent{
+				Name:        "test-agent",
+				Description: "Test agent",
+				Temperature: 0.0,
+			},
+			wantCount: 0,
+		},
+		{
+			name: "valid temperature 0.5",
+			agent: &models.Agent{
+				Name:        "test-agent",
+				Description: "Test agent",
+				Temperature: 0.5,
+			},
+			wantCount: 0,
+		},
+		{
+			name: "valid temperature 1.0",
+			agent: &models.Agent{
+				Name:        "test-agent",
+				Description: "Test agent",
+				Temperature: 1.0,
+			},
+			wantCount: 0,
+		},
+		{
+			name: "invalid temperature negative",
+			agent: &models.Agent{
+				Name:        "test-agent",
+				Description: "Test agent",
+				Temperature: -0.5,
+			},
+			wantCount: 1,
+		},
+		{
+			name: "invalid temperature too high",
+			agent: &models.Agent{
+				Name:        "test-agent",
+				Description: "Test agent",
+				Temperature: 1.5,
+			},
+			wantCount: 1,
+		},
+		{
+			name: "valid maxSteps 1",
+			agent: &models.Agent{
+				Name:        "test-agent",
+				Description: "Test agent",
+				MaxSteps:    1,
+			},
+			wantCount: 0,
+		},
+		{
+			name: "valid maxSteps 50",
+			agent: &models.Agent{
+				Name:        "test-agent",
+				Description: "Test agent",
+				MaxSteps:    50,
+			},
+			wantCount: 0,
+		},
+		{
+			name: "invalid maxSteps negative",
+			agent: &models.Agent{
+				Name:        "test-agent",
+				Description: "Test agent",
+				MaxSteps:    -5,
+			},
+			wantCount: 1,
+		},
+		{
+			name: "multiple validation errors",
+			agent: &models.Agent{
+				Name:        "test-agent",
+				Description: "Test agent",
+				Mode:        "invalid",
+				Temperature: 1.5,
+				MaxSteps:    -1,
+			},
+			wantCount: 3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := validateOpenCodeAgent(tt.agent)
+			if len(errs) != tt.wantCount {
+				t.Errorf("validateOpenCodeAgent() error count = %d, want %d, errors: %v", len(errs), tt.wantCount, errs)
+			}
+		})
+	}
+}
+
+func TestValidateOpenCodeCommand(t *testing.T) {
+	tests := []struct {
+		name      string
+		cmd       *models.Command
+		wantCount int
+	}{
+		{
+			name: "template present",
+			cmd: &models.Command{
+				Name:        "test-command",
+				Description: "Test command",
+				Content:     "echo $ARGUMENTS",
+			},
+			wantCount: 0,
+		},
+		{
+			name: "template empty",
+			cmd: &models.Command{
+				Name:        "test-command",
+				Description: "Test command",
+				Content:     "",
+			},
+			wantCount: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := validateOpenCodeCommand(tt.cmd)
+			if len(errs) != tt.wantCount {
+				t.Errorf("validateOpenCodeCommand() error count = %d, want %d, errors: %v", len(errs), tt.wantCount, errs)
+			}
+		})
+	}
+}
+
+func TestValidateOpenCodeSkill(t *testing.T) {
+	tests := []struct {
+		name      string
+		skill     *models.Skill
+		wantCount int
+	}{
+		{
+			name: "valid name git-workflow",
+			skill: &models.Skill{
+				Name:        "git-workflow",
+				Description: "Test skill",
+				Content:     "Skill content",
+			},
+			wantCount: 0,
+		},
+		{
+			name: "valid name code-review-tool-enhanced",
+			skill: &models.Skill{
+				Name:        "code-review-tool-enhanced",
+				Description: "Test skill",
+				Content:     "Skill content",
+			},
+			wantCount: 0,
+		},
+		{
+			name: "valid name git2-operations",
+			skill: &models.Skill{
+				Name:        "git2-operations",
+				Description: "Test skill",
+				Content:     "Skill content",
+			},
+			wantCount: 0,
+		},
+		{
+			name: "invalid name consecutive hyphens",
+			skill: &models.Skill{
+				Name:        "git--workflow",
+				Description: "Test skill",
+				Content:     "Skill content",
+			},
+			wantCount: 1,
+		},
+		{
+			name: "invalid name leading hyphen",
+			skill: &models.Skill{
+				Name:        "-git-workflow",
+				Description: "Test skill",
+				Content:     "Skill content",
+			},
+			wantCount: 1,
+		},
+		{
+			name: "invalid name trailing hyphen",
+			skill: &models.Skill{
+				Name:        "git-workflow-",
+				Description: "Test skill",
+				Content:     "Skill content",
+			},
+			wantCount: 1,
+		},
+		{
+			name: "invalid name uppercase",
+			skill: &models.Skill{
+				Name:        "Git-Workflow",
+				Description: "Test skill",
+				Content:     "Skill content",
+			},
+			wantCount: 1,
+		},
+		{
+			name: "invalid name underscores",
+			skill: &models.Skill{
+				Name:        "git_workflow",
+				Description: "Test skill",
+				Content:     "Skill content",
+			},
+			wantCount: 1,
+		},
+		{
+			name: "content present",
+			skill: &models.Skill{
+				Name:        "test-skill",
+				Description: "Test skill",
+				Content:     "Skill content",
+			},
+			wantCount: 0,
+		},
+		{
+			name: "content empty",
+			skill: &models.Skill{
+				Name:        "test-skill",
+				Description: "Test skill",
+				Content:     "",
+			},
+			wantCount: 1,
+		},
+		{
+			name: "multiple validation errors",
+			skill: &models.Skill{
+				Name:        "Git_Workflow",
+				Description: "Test skill",
+				Content:     "",
+			},
+			wantCount: 2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := validateOpenCodeSkill(tt.skill)
+			if len(errs) != tt.wantCount {
+				t.Errorf("validateOpenCodeSkill() error count = %d, want %d, errors: %v", len(errs), tt.wantCount, errs)
+			}
+		})
+	}
+}
+
+func TestValidateOpenCodeMemory(t *testing.T) {
+	tests := []struct {
+		name      string
+		mem       *models.Memory
+		wantCount int
+	}{
+		{
+			name: "paths only",
+			mem: &models.Memory{
+				Paths: []string{"README.md", "CONTRIBUTING.md"},
+			},
+			wantCount: 0,
+		},
+		{
+			name: "content only",
+			mem: &models.Memory{
+				Content: "Project context and setup instructions",
+			},
+			wantCount: 0,
+		},
+		{
+			name: "both paths and content",
+			mem: &models.Memory{
+				Paths:   []string{"README.md"},
+				Content: "Additional context",
+			},
+			wantCount: 0,
+		},
+		{
+			name:      "both empty",
+			mem:       &models.Memory{},
+			wantCount: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := validateOpenCodeMemory(tt.mem)
+			if len(errs) != tt.wantCount {
+				t.Errorf("validateOpenCodeMemory() error count = %d, want %d, errors: %v", len(errs), tt.wantCount, errs)
+			}
+		})
+	}
+}
