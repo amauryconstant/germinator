@@ -2,9 +2,9 @@
 name: code-reviewer
 description: Reviews code for quality and best practices
 tools:
-  - Read
-  - Grep
-  - Glob
+  - read
+  - grep
+  - glob
 model: sonnet
 ---
 

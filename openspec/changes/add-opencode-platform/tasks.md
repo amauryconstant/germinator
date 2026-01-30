@@ -273,7 +273,7 @@
 
 **Section 12 depends on: Sections 5-8, 10-11 complete (templates, fixtures, golden)**
 
-- [ ] 12.1 Add comprehensive Agent transformation tests
+- [x] 12.1 Add comprehensive Agent transformation tests
       - Table-driven test: minimal agent (name, description, content only)
       - Table-driven test: full agent (all fields)
       - Table-driven test: mixed tools (allowed and disallowed)
@@ -282,7 +282,7 @@
        - Table-driven test: agent mode explicit (primary, subagent)
       - Table-driven test: OpenCode-specific fields (temperature, maxSteps, hidden, prompt, disable)
 
-- [ ] 12.2 Add comprehensive Command transformation tests
+- [x] 12.2 Add comprehensive Command transformation tests
       - Table-driven test: minimal command (name, description, content only)
       - Table-driven test: command with $ARGUMENTS placeholder
       - Table-driven test: full command (all optional fields)
@@ -291,7 +291,7 @@
       - Table-driven test: content preservation and indentation
       - Table-driven test: special characters in content ($, *, #)
 
-- [ ] 12.3 Add comprehensive Skill transformation tests
+- [x] 12.3 Add comprehensive Skill transformation tests
        - Table-driven test: minimal skill (name, description, content only)
        - Table-driven test: full skill (all OpenCode fields)
        - Table-driven test: license field
@@ -301,7 +301,7 @@
        - Table-driven test: multi-line content preservation
        - Table-driven test: markdown preservation (#, **, -)
 
-- [ ] 12.4 Add comprehensive Memory transformation tests
+- [x] 12.4 Add comprehensive Memory transformation tests
       - Table-driven test: paths-only scenario
       - Table-driven test: content-only scenario
       - Table-driven test: both paths and content
@@ -315,7 +315,7 @@
       - Table-driven test: long content (>1024 chars)
       - Table-driven test: special characters in paths (spaces)
 
-- [ ] 12.5 Add permission transformation tests
+- [x] 12.5 Add permission transformation tests
        - Table-driven test: default → {"edit": {"*": "ask"}, "bash": {"*": "ask"}}
        - Table-driven test: acceptEdits → {"edit": {"*": "allow"}, "bash": {"*": "ask"}}
        - Table-driven test: dontAsk → {"edit": {"*": "allow"}, "bash": {"*": "allow"}}
@@ -327,27 +327,27 @@
 
 **Section 13 depends on: Section 4 complete (validation updated)**
 
-- [ ] 13.1 Update test fixtures to use lowercase tool names
-      - Find all existing Claude Code fixtures
-      - Update tool names from PascalCase to lowercase (if any)
-      - Run tests to verify fixtures still parse correctly
+- [x] 13.1 Update test fixtures to use lowercase tool names
+       - Find all existing Claude Code fixtures
+       - Update tool names from PascalCase to lowercase (if any)
+       - Run tests to verify fixtures still parse correctly
 
-- [ ] 13.2 Update all existing test calls to use Validate(platform="claude-code")
-      - Find all Validate() calls in tests
-      - Update to Validate("claude-code") for Claude Code tests
-      - Verify tests compile
+- [x] 13.2 Update all existing test calls to use Validate(platform="claude-code")
+       - Find all Validate() calls in tests
+       - Update to Validate("claude-code") for Claude Code tests
+       - Verify tests compile
 
-- [ ] 13.3 Update golden files to match new output format (if any changes)
-      - Compare old and new golden files
-      - Update if serialization format changed
+- [x] 13.3 Update golden files to match new output format (if any changes)
+       - Compare old and new golden files
+       - Update if serialization format changed
 
-- [ ] 13.4 Add test for platform parameter requirement (empty platform returns error)
-      - Test all four models
-      - Verify error message is clear
+- [x] 13.4 Add test for platform parameter requirement (empty platform returns error)
+       - Test all four models
+       - Verify error message is clear
 
-- [ ] 13.5 Add test for unknown platform error
-      - Test with "invalid-platform"
-      - Verify error lists available platforms
+- [x] 13.5 Add test for unknown platform error
+       - Test with "invalid-platform"
+       - Verify error lists available platforms
 
 ## 14. CLI Updates
 

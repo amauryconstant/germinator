@@ -1,8 +1,8 @@
 ---
 description: Review this code for security vulnerabilities
 allowed-tools:
-  - Read
-  - Grep
+  - read
+  - grep
 ---
 
 This is a test command document for testing parser and loader.
