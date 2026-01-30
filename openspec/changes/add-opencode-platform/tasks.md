@@ -246,28 +246,28 @@
 
 **Section 11 depends on: Sections 5-8 complete (templates created)**
 
-- [ ] 11.1 Create test/golden/opencode directory
+- [x] 11.1 Create test/golden/opencode directory
 
-- [ ] 11.2 Create Agent golden files (from agent.tmpl)
-       - Create test/golden/opencode/code-reviewer-agent.md.golden (minimal)
-       - Create test/golden/opencode/agent-full.md.golden (all fields)
-       - Create test/golden/opencode/agent-mixed-tools.md.golden (mixed tools)
-       - Create golden files for all permission modes (default, acceptEdits, dontAsk, bypassPermissions, plan)
+- [x] 11.2 Create Agent golden files (from agent.tmpl)
+        - Create test/golden/opencode/code-reviewer-agent.md.golden (minimal)
+        - Create test/golden/opencode/agent-full.md.golden (all fields)
+        - Create test/golden/opencode/agent-mixed-tools.md.golden (mixed tools)
+        - Create golden files for all permission modes (default, acceptEdits, dontAsk, bypassPermissions, plan)
 
-- [ ] 11.3 Create Command golden files (from command.tmpl)
-       - Create test/golden/opencode/run-tests-command.md.golden (minimal)
-       - Create test/golden/opencode/command-full.md.golden (all fields)
-       - Create test/golden/opencode/command-with-arguments.md.golden ($ARGUMENTS placeholder)
+- [x] 11.3 Create Command golden files (from command.tmpl)
+        - Create test/golden/opencode/run-tests-command.md.golden (minimal)
+        - Create test/golden/opencode/command-full.md.golden (all fields)
+        - Create test/golden/opencode/command-with-arguments.md.golden ($ARGUMENTS placeholder)
 
-- [ ] 11.4 Create Skill golden files (from skill.tmpl)
-       - Create test/golden/opencode/git-workflow-skill subdirectory
-       - Create test/golden/opencode/git-workflow-skill/SKILL.md.golden (minimal)
-       - Create test/golden/opencode/skill-full.md.golden (all fields)
+- [x] 11.4 Create Skill golden files (from skill.tmpl)
+        - Create test/golden/opencode/git-workflow-skill subdirectory
+        - Create test/golden/opencode/git-workflow-skill/SKILL.md.golden (minimal)
+        - Create test/golden/opencode/skill-full.md.golden (all fields)
 
-- [ ] 11.5 Create Memory golden files (from memory.tmpl)
-       - Create test/golden/opencode/memory-paths-only.md.golden
-       - Create test/golden/opencode/memory-content-only.md.golden
-       - Create test/golden/opencode/memory-both.md.golden (paths and content)
+- [x] 11.5 Create Memory golden files (from memory.tmpl)
+        - Create test/golden/opencode/memory-paths-only.md.golden
+        - Create test/golden/opencode/memory-content-only.md.golden
+        - Create test/golden/opencode/memory-both.md.golden (paths and content)
 
 ## 12. Transformation Tests
 

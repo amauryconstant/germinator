@@ -1,0 +1,13 @@
+---
+description: Test agent with default permission mode
+mode: all
+tools:
+  read: true
+  bash: true
+permission:
+  edit:
+    "*": ask
+  bash:
+    "*": ask
+---
+Test content for default permission mode

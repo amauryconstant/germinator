@@ -1,0 +1,13 @@
+---
+description: Test agent with plan permission mode
+mode: all
+tools:
+  read: true
+  bash: true
+permission:
+  edit:
+    "*": deny
+  bash:
+    "*": deny
+---
+Test content for plan permission mode

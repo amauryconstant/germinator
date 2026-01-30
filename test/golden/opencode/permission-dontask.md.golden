@@ -1,0 +1,13 @@
+---
+description: Test agent with dontAsk permission mode
+mode: all
+tools:
+  read: true
+  bash: true
+permission:
+  edit:
+    "*": allow
+  bash:
+    "*": allow
+---
+Test content for dontAsk permission mode

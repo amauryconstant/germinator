@@ -1,0 +1,22 @@
+---
+description: Analyzes code patterns and suggests improvements
+mode: primary
+model: anthropic/claude-sonnet-4-20250514
+tools:
+  bash: true
+  grep: true
+  read: true
+  edit: true
+  write: true
+  dangerous-command: false
+permission:
+  edit:
+    "*": allow
+  bash:
+    "*": ask
+temperature: 0.3
+maxSteps: 25
+prompt: "Focus on readability and maintainability"
+---
+You are a code analyzer that reviews code for patterns and suggests improvements.
+Provide specific recommendations with code examples when possible.
