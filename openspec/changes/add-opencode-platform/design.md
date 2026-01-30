@@ -58,18 +58,20 @@ The current serialization uses Go templates in `config/templates/claude-code/` t
 
 ## Decisions
 
-### 1. Model Structure: Composition over Inheritance
+### 1. Model Structure: Germinator Format as Canonical Source
 
-**Decision**: Use composition rather than inheritance. Base struct contains platform-agnostic fields, platform-specific fields are added as struct fields with YAML/JSON tags.
+**Decision**: Germinator YAML format is the canonical source containing ALL platform fields (Claude Code + OpenCode) in single structs. All fields have YAML and JSON tags for full parseability.
 
 **Rationale**:
-- Go doesn't support inheritance, composition is idiomatic
-- Keeps models readable and easy to understand
-- Allows serialization/deserialization to handle platform differences transparently
-- Platform-specific fields can have YAML tags omitted (yaml:"-") to prevent serialization to non-target platforms
+- Go doesn't support inheritance, single structs with all fields is idiomatic
+- Germinator format serves as single source of truth with complete field set
+- All fields parseable from YAML eliminates need for JSON/CLI overrides
+- Clear separation of concerns: source (Germinator YAML) → transformation (templates) → output (target platform)
+- Templates handle field filtering based on platform, not struct tags
 
 **Alternatives considered**:
 - Separate structs per platform (rejected: would duplicate code, lose single-source-of-truth)
+- Claude Code YAML + JSON overrides (rejected: complex workflow, multiple files)
 - Tag-based conditional fields (rejected: complex to maintain, poor compile-time safety)
 
 ### 2. Field Mapping: Go Template-Based Serialization
@@ -298,10 +300,10 @@ func (a *Agent) ValidateClaudeCode() []error
 - **Claude Code**: No explicit mode field (inferred by invocation)
 - **OpenCode**: `mode: "primary" | "subagent" | "all"`
 
-**Platform-agnostic model structure**:
+**Platform-agnostic model structure (Germinator format - all fields parseable)**:
 ```go
 type Agent struct {
-    Mode    string   `yaml:"-" json:"mode,omitempty"`  // Omitted from YAML (platform-specific)
+    Mode    string   `yaml:"mode,omitempty" json:"mode,omitempty"`
     // ... other fields
 }
 ```
@@ -354,13 +356,13 @@ type Agent struct {
     Tools           []string `yaml:"tools,omitempty" json:"tools,omitempty"`
     DisallowedTools []string `yaml:"disallowedTools,omitempty" json:"disallowedTools,omitempty"`
 
-    // OPENCODE-SPECIFIC (must be provided via JSON or CLI, not YAML)
-    Mode        string  `yaml:"-" json:"mode,omitempty"`
-    Temperature float64 `yaml:"-" json:"temperature,omitempty"`
-    MaxSteps    int     `yaml:"-" json:"maxSteps,omitempty"`
-    Hidden      bool    `yaml:"-" json:"hidden,omitempty"`
-    Prompt      string  `yaml:"-" json:"prompt,omitempty"`
-    Disable     bool    `yaml:"-" json:"disable,omitempty"`
+     // OPENCODE-SPECIFIC (parseable from Germinator YAML)
+    Mode        string  `yaml:"mode,omitempty" json:"mode,omitempty"`
+    Temperature float64 `yaml:"temperature,omitempty" json:"temperature,omitempty"`
+    MaxSteps    int     `yaml:"maxSteps,omitempty" json:"maxSteps,omitempty"`
+    Hidden      bool    `yaml:"hidden,omitempty" json:"hidden,omitempty"`
+    Prompt      string  `yaml:"prompt,omitempty" json:"prompt,omitempty"`
+    Disable     bool    `yaml:"disable,omitempty" json:"disable,omitempty"`
 
     // CLAUDE CODE-SPECIFIC
     PermissionMode string   `yaml:"permissionMode,omitempty" json:"permissionMode,omitempty"`
@@ -372,9 +374,9 @@ type Agent struct {
 ```
 
 **Template handling**:
-- Claude Code templates: omit Temperature, MaxSteps, Hidden, Prompt, Disable fields
-- OpenCode templates: include all fields when specified
-- Validation: Temperature must be 0.0-1.0, MaxSteps must be > 0, Mode must be primary/subagent/all
+- Claude Code templates: omit OpenCode-specific fields (Mode, Temperature, MaxSteps, Hidden, Prompt, Disable)
+- OpenCode templates: include all OpenCode fields when specified
+- Validation: Temperature must be 0.0-1.0, MaxSteps must be >= 1, Mode must be primary/subagent/all
 
 **Rationale**:
 - OpenCode uses these fields for fine-grained control over agent behavior
@@ -382,25 +384,22 @@ type Agent struct {
 - Omitting from Claude Code templates maintains compatibility
 - Extensible for future platforms with similar configuration options
 
-### Decision 7.1: OpenCode Field Population Strategy
+### Decision 7.1: Germinator Format as Canonical Source
 
-**Decision**: OpenCode-specific fields are populated through three mechanisms:
-
-1. **JSON configuration files**: Parsed alongside YAML for platform-specific settings
-2. **CLI flags**: Common fields specified via flags (e.g., `--mode`, `--temperature`, `--max-steps`)
-3. **Platform-specific input templates**: When loading OpenCode-format documents, fields are parsed from the document itself
+**Decision**: Germinator YAML format is the canonical source format containing ALL platform fields. Source files include both Claude Code and OpenCode fields, with all fields parseable from YAML. Unidirectional transformation: Germinator format → Claude Code OR OpenCode.
 
 **Rationale**:
-- YAML `yaml:"-"` tags prevent accidental cross-platform contamination during serialization
-- JSON or CLI provides a clean separation for platform-specific configuration
-- Templates can reference fields directly during rendering without contamination
-- Users can mix YAML source with OpenCode-specific settings cleanly
+- Single canonical source eliminates ambiguity about what format to author
+- All fields available in one file simplifies configuration
+- Templates filter fields based on target platform, not struct tags
+- Unidirectional flow matches current use case (convert Germinator source to platform-specific output)
+- No need for CLI flags or JSON overrides - all fields in source YAML
 
 **Implementation**:
-- Model structs have both YAML and JSON tags: `yaml:"-" json:"field,omitempty"`
-- YAML parsing ignores platform-specific fields (safest approach)
-- JSON parsing populates all fields when targeting OpenCode
-- CLI flags override field values when provided
+- Model structs have all fields with proper YAML tags: `yaml:"field,omitempty" json:"field,omitempty"`
+- Source files written in Germinator format with complete field set
+- Templates use conditionals to render platform-specific output
+- `RenderDocument(doc, platform)` filters based on platform parameter
 
 ### 8. OpenCode-Specific Command Fields
 
@@ -423,8 +422,8 @@ type Command struct {
     AllowedTools    []string `yaml:"allowed-tools,omitempty" json:"allowed-tools,omitempty"`
     DisallowedTools []string `yaml:"disallowed-tools,omitempty" json:"disallowed-tools,omitempty"`
 
-    // OPENCODE-SPECIFIC
-    Subtask bool `yaml:"-" json:"subtask,omitempty"`
+     // OPENCODE-SPECIFIC (parseable from Germinator YAML)
+     Subtask bool `yaml:"subtask,omitempty" json:"subtask,omitempty"`
 
     // CLAUDE CODE-SPECIFIC
     Context                string `yaml:"context,omitempty" json:"context,omitempty"`
@@ -439,7 +438,7 @@ type Command struct {
 **Rationale**:
 - OpenCode uses subtask flag to control command invocation
 - Preserving this field enables accurate transformation
-- Skipped in Claude Code templates (field omitted)
+- Omitted in Claude Code templates (not rendered)
 - DisallowedTools is preserved in model for forward compatibility even if OpenCode doesn't currently support it
 
 ### 9. OpenCode-Specific Skill Fields
@@ -467,11 +466,11 @@ type Skill struct {
     AllowedTools    []string `yaml:"allowed-tools,omitempty" json:"allowed-tools,omitempty"`
     DisallowedTools []string `yaml:"disallowed-tools,omitempty" json:"disallowed-tools,omitempty"`
 
-    // OPENCODE-SPECIFIC (must be provided via JSON or CLI, not YAML)
-    License       string            `yaml:"-" json:"license,omitempty"`
-    Compatibility []string          `yaml:"-" json:"compatibility,omitempty"`
-    Metadata      map[string]string `yaml:"-" json:"metadata,omitempty"`
-    Hooks        map[string]string `yaml:"-" json:"hooks,omitempty"`
+     // OPENCODE-SPECIFIC (parseable from Germinator YAML)
+    License       string            `yaml:"license,omitempty" json:"license,omitempty"`
+    Compatibility []string          `yaml:"compatibility,omitempty" json:"compatibility,omitempty"`
+    Metadata      map[string]string `yaml:"metadata,omitempty" json:"metadata,omitempty"`
+    Hooks        map[string]string `yaml:"hooks,omitempty" json:"hooks,omitempty"`
 
     // CLAUDE CODE-SPECIFIC
     Model          string `yaml:"model,omitempty" json:"model,omitempty"`
@@ -488,12 +487,13 @@ type Skill struct {
 
 ### 10. Memory: Dual Support for Files and Narrative
 
-**Decision**: Memory model supports both `paths` (file paths to load into context) and `content` (narrative text directly included).
+**Decision**: Memory model supports both `paths` (file paths to load into context) and `content` (narrative text directly included). All fields parseable from YAML.
 
 **Rationale**:
 - Some platforms use file-based memory (Claude Code)
 - Some platforms support narrative memory (OpenCode skills)
 - Adapters normalize both forms to platform-specific output
+- Germinator format allows specifying both or either
 
 **Model structure**:
 ```go
@@ -662,7 +662,7 @@ type Agent struct {
 }
 ```
 
-**AFTER (Platform-agnostic):**
+**AFTER (Germinator Format - All Fields Parseable):**
 ```go
 type Agent struct {
     // REQUIRED (all platforms)
@@ -675,13 +675,13 @@ type Agent struct {
     Tools           []string `yaml:"tools,omitempty" json:"tools,omitempty"`
     DisallowedTools []string `yaml:"disallowedTools,omitempty" json:"disallowedTools,omitempty"`
 
-    // OPENCODE-SPECIFIC
-    Mode        string  `yaml:"-" json:"mode,omitempty"`
-    Temperature float64 `yaml:"-" json:"temperature,omitempty"`
-    MaxSteps    int     `yaml:"-" json:"maxSteps,omitempty"`
-    Hidden      bool    `yaml:"-" json:"hidden,omitempty"`
-    Prompt      string  `yaml:"-" json:"prompt,omitempty"`
-    Disable     bool    `yaml:"-" json:"disable,omitempty"`
+    // OPENCODE-SPECIFIC (all parseable from YAML)
+    Mode        string  `yaml:"mode,omitempty" json:"mode,omitempty"`
+    Temperature float64 `yaml:"temperature,omitempty" json:"temperature,omitempty"`
+    MaxSteps    int     `yaml:"maxSteps,omitempty" json:"maxSteps,omitempty"`
+    Hidden      bool    `yaml:"hidden,omitempty" json:"hidden,omitempty"`
+    Prompt      string  `yaml:"prompt,omitempty" json:"prompt,omitempty"`
+    Disable     bool    `yaml:"disable,omitempty" json:"disable,omitempty"`
 
     // CLAUDE CODE-SPECIFIC
     PermissionMode string   `yaml:"permissionMode,omitempty" json:"permissionMode,omitempty"`
@@ -710,7 +710,7 @@ type Command struct {
 }
 ```
 
-**AFTER (Platform-agnostic):**
+**AFTER (Germinator Format - All Fields Parseable):**
 ```go
 type Command struct {
     // REQUIRED (all platforms)
@@ -723,10 +723,11 @@ type Command struct {
     AllowedTools    []string `yaml:"allowed-tools,omitempty" json:"allowed-tools,omitempty"`
     DisallowedTools []string `yaml:"disallowed-tools,omitempty" json:"disallowed-tools,omitempty"`
 
-    // OPENCODE-SPECIFIC
-    Subtask bool `yaml:"-" json:"subtask,omitempty"`
+    // OPENCODE-SPECIFIC (parseable from YAML)
+    Subtask bool `yaml:"subtask,omitempty" json:"subtask,omitempty"`
 
     // CLAUDE CODE-SPECIFIC
+    ArgumentHint           string `yaml:"argument-hint,omitempty" json:"argument-hint,omitempty"`
     Context                string `yaml:"context,omitempty" json:"context,omitempty"`
     Agent                  string `yaml:"agent,omitempty" json:"agent,omitempty"`
     DisableModelInvocation bool   `yaml:"disable-model-invocation,omitempty" json:"disable-model-invocation,omitempty"`
@@ -753,7 +754,7 @@ type Skill struct {
 }
 ```
 
-**AFTER (Platform-agnostic):**
+**AFTER (Germinator Format - All Fields Parseable):**
 ```go
 type Skill struct {
     // REQUIRED (all platforms)
@@ -766,11 +767,11 @@ type Skill struct {
     AllowedTools    []string `yaml:"allowed-tools,omitempty" json:"allowed-tools,omitempty"`
     DisallowedTools []string `yaml:"disallowed-tools,omitempty" json:"disallowed-tools,omitempty"`
 
-    // OPENCODE-SPECIFIC
-    License       string            `yaml:"-" json:"license,omitempty"`
-    Compatibility []string          `yaml:"-" json:"compatibility,omitempty"`
-    Metadata      map[string]string `yaml:"-" json:"metadata,omitempty"`
-    Hooks        map[string]string `yaml:"-" json:"hooks,omitempty"`
+    // OPENCODE-SPECIFIC (parseable from YAML)
+    License       string            `yaml:"license,omitempty" json:"license,omitempty"`
+    Compatibility []string          `yaml:"compatibility,omitempty" json:"compatibility,omitempty"`
+    Metadata      map[string]string `yaml:"metadata,omitempty" json:"metadata,omitempty"`
+    Hooks        map[string]string `yaml:"hooks,omitempty" json:"hooks,omitempty"`
 
     // CLAUDE CODE-SPECIFIC
     Model          string `yaml:"model,omitempty" json:"model,omitempty"`

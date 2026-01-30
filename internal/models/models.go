@@ -16,12 +16,12 @@ type Agent struct {
 	Tools           []string `yaml:"tools,omitempty" json:"tools,omitempty"`
 	DisallowedTools []string `yaml:"disallowedTools,omitempty" json:"disallowedTools,omitempty"`
 
-	Mode        string  `yaml:"-" json:"mode,omitempty"`
-	Temperature float64 `yaml:"-" json:"temperature,omitempty"`
-	MaxSteps    int     `yaml:"-" json:"maxSteps,omitempty"`
-	Hidden      bool    `yaml:"-" json:"hidden,omitempty"`
-	Prompt      string  `yaml:"-" json:"prompt,omitempty"`
-	Disable     bool    `yaml:"-" json:"disable,omitempty"`
+	Mode        string  `yaml:"mode,omitempty" json:"mode,omitempty"`
+	Temperature float64 `yaml:"temperature,omitempty" json:"temperature,omitempty"`
+	MaxSteps    int     `yaml:"maxSteps,omitempty" json:"maxSteps,omitempty"`
+	Hidden      bool    `yaml:"hidden,omitempty" json:"hidden,omitempty"`
+	Prompt      string  `yaml:"prompt,omitempty" json:"prompt,omitempty"`
+	Disable     bool    `yaml:"disable,omitempty" json:"disable,omitempty"`
 
 	PermissionMode string   `yaml:"permissionMode,omitempty" json:"permissionMode,omitempty"`
 	Skills         []string `yaml:"skills,omitempty" json:"skills,omitempty"`
@@ -80,7 +80,7 @@ type Command struct {
 	AllowedTools    []string `yaml:"allowed-tools,omitempty" json:"allowed-tools,omitempty"`
 	DisallowedTools []string `yaml:"disallowed-tools,omitempty" json:"disallowed-tools,omitempty"`
 
-	Subtask bool `yaml:"-" json:"subtask,omitempty"`
+	Subtask bool `yaml:"subtask,omitempty" json:"subtask,omitempty"`
 
 	ArgumentHint           string `yaml:"argument-hint,omitempty" json:"argument-hint,omitempty"`
 	Context                string `yaml:"context,omitempty" json:"context,omitempty"`
@@ -145,10 +145,10 @@ type Skill struct {
 	AllowedTools    []string `yaml:"allowed-tools,omitempty" json:"allowed-tools,omitempty"`
 	DisallowedTools []string `yaml:"disallowed-tools,omitempty" json:"disallowed-tools,omitempty"`
 
-	License       string            `yaml:"-" json:"license,omitempty"`
-	Compatibility []string          `yaml:"-" json:"compatibility,omitempty"`
-	Metadata      map[string]string `yaml:"-" json:"metadata,omitempty"`
-	Hooks         map[string]string `yaml:"-" json:"hooks,omitempty"`
+	License       string            `yaml:"license,omitempty" json:"license,omitempty"`
+	Compatibility []string          `yaml:"compatibility,omitempty" json:"compatibility,omitempty"`
+	Metadata      map[string]string `yaml:"metadata,omitempty" json:"metadata,omitempty"`
+	Hooks         map[string]string `yaml:"hooks,omitempty" json:"hooks,omitempty"`
 
 	Model         string `yaml:"model,omitempty" json:"model,omitempty"`
 	Context       string `yaml:"context,omitempty" json:"context,omitempty"`

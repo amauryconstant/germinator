@@ -3,24 +3,26 @@
 Germinator currently uses Claude Code's document format as the source standard, which tightly couples the implementation to one platform's conventions. This limits extensibility and makes it difficult to support new platforms like OpenCode without significant refactoring.
 
 To add OpenCode as a target platform, we need to:
-1. Refactor models to be platform-agnostic (separate common from platform-specific fields)
-2. Establish template-based serialization infrastructure
-3. Create OpenCode templates and validation
-4. Add comprehensive tests and documentation
+1. Establish Germinator format as canonical source (contains ALL platform fields)
+2. Refactor models to support multiple platforms with all fields parseable
+3. Establish template-based serialization infrastructure
+4. Create OpenCode templates and validation
+5. Add comprehensive tests and documentation
 
-This change provides a complete solution: a platform-agnostic foundation that serves as a single source of truth, with concrete OpenCode transformation logic implemented through Go templates.
+This change provides a complete solution: a Germinator source format that serves as the single source of truth, with concrete OpenCode transformation logic implemented through Go templates.
 
 ## What Changes
 
 ### Model Refactoring
-- Refactor `internal/models/` to support multiple platforms with shared common fields and platform-specific extensions for Agent, Command, Skill, and Memory models
+- Establish Germinator format as canonical source with ALL platform fields parseable from YAML
+- Refactor `internal/models/` to support multiple platforms with all fields (both common and platform-specific) in single structs
 - Add OpenCode-specific fields to Agent model: Mode (primary/subagent/all, default: all), Temperature (0.0-1.0), MaxSteps (> 0), Hidden (bool), Prompt, Disable
 - Add OpenCode-specific field to Command model: Subtask
 - Add OpenCode-specific fields to Skill model: License, Compatibility (list), Metadata (map), Hooks
 - Support both file-based and narrative memory types (paths and content fields)
 - Support full model IDs (e.g., `anthropic/claude-sonnet-4-20250514`) across platforms
-- OpenCode-specific fields (Mode, Temperature, MaxSteps, Hidden, Prompt, Disable, Subtask, License, Compatibility, Metadata, Hooks) can ONLY be provided via JSON files or CLI flags when targeting OpenCode platform
-- These fields have `yaml:"-"` tags to prevent YAML serialization to non-target platforms
+- Add YAML tags to all OpenCode-specific fields (currently have `yaml:"-"` which prevents parsing)
+- Add JSON tags with `omitempty` to all fields for consistency
 
 ### Template Infrastructure
 - Create platform-specific Go templates in `config/templates/<platform>/` for serialization (Claude Code and OpenCode)
@@ -58,7 +60,9 @@ This change provides a complete solution: a platform-agnostic foundation that se
 ### New Capabilities
 
 **Models:**
-- `platform-agnostic-models`: Core domain models (Agent, Command, Skill, Memory) with shared common fields and platform-specific extensions. OpenCode-specific fields: Mode, Temperature, MaxSteps, Hidden, Prompt, Disable for Agent; Subtask for Command; License, Compatibility, Metadata, Hooks for Skill. Platform-specific fields have yaml:"-" tags to prevent cross-platform contamination. OpenCode-specific fields can ONLY be provided via JSON files or CLI flags, not YAML.
+- `germinator-source-format`: Canonical source format containing ALL platform fields (Claude Code + OpenCode) in single YAML files. All fields have `yaml:` tags for parsing, enabling comprehensive source files that include both common and platform-specific configurations.
+
+- `platform-agnostic-models`: Core domain models (Agent, Command, Skill, Memory) with shared common fields and platform-specific extensions. OpenCode-specific fields: Mode, Temperature, MaxSteps, Hidden, Prompt, Disable for Agent; Subtask for Command; License, Compatibility, Metadata, Hooks for Skill. All fields have YAML and JSON tags for full parseability.
 
 **Transformation:**
 - `permission-transformation`: Custom template function to transform Claude Code's `permissionMode` enum to OpenCode's permission object format. Preserves semantic intent: dontAsk→allow/allow, bypassPermissions→allow/allow, plan→deny/deny, default→ask/ask, acceptEdits→allow/ask. Function returns YAML-formatted string with proper indentation.
@@ -101,10 +105,11 @@ This change provides a complete solution: a platform-agnostic foundation that se
 - **Dependencies**: No new dependencies required
 
 - **Breaking changes**:
-  - Existing JSON schemas and model definitions will be replaced
+  - Germinator YAML format is now canonical source (all fields parseable from YAML)
+  - Existing Claude Code-only YAML files are incompatible - users must migrate to Germinator format
   - `Validate()` method signature changes from `Validate()` to `Validate(platform string)` (platform always required)
   - `--platform` flag becomes required for all CLI operations (no default to Claude Code)
-  - Users with custom schemas or parsers will need to migrate
+  - Users with custom schemas or parsers will need to migrate to Germinator format
   - Users upgrading from v0.x will need to explicitly specify --platform flag for all operations
 
 - **Claude Code-specific fields not supported in OpenCode**:

@@ -49,7 +49,7 @@
 #### Scenario: Agent with permission mode "dontAsk"
 - **GIVEN** Agent with permissionMode="dontAsk"
 - **WHEN** Rendered to OpenCode format
-- **THEN** Permission maps to: {"edit": {"*": "deny"}, "bash": {"*": "deny"}}
+- **THEN** Permission maps to: {"edit": {"*": "allow"}, "bash": {"*": "allow"}}
 
 #### Scenario: Agent with OpenCode mode field
 - **GIVEN** Agent with mode="subagent"

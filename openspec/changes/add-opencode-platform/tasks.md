@@ -3,10 +3,10 @@
 - [x] 1.1 Add OpenCode fields to Agent model (Mode, Temperature, MaxSteps, Hidden, Prompt, Disable)
 - [x] 1.2 Add Subtask field to Command model
 - [x] 1.3 Add OpenCode fields to Skill model (License, Compatibility, Metadata, Hooks)
-- [x] 1.4 Update model struct tags to separate common from platform-specific fields (use yaml:"-" for platform-specific)
-- [x] 1.5 Update Agent model to support both paths and content for memory
-      **Note**: Memory is a separate model, not an Agent field. Only Memory model updated.
-- [x] 1.6 Update Memory model to support both paths and content fields
+- [x] 1.4 Update model struct tags to remove yaml:"-" from OpenCode fields and add proper yaml:"field,omitempty" tags
+      **Note**: This change enables Germinator source format where all fields are parseable from YAML
+- [x] 1.6 Update Memory model to make Content field parseable from YAML
+      **Note**: Changed Content tag from yaml:"-" to yaml:"content,omitempty" to enable YAML parsing. Paths field already existed. Added JSON tags with omitempty to all fields.
 - [x] 1.7 Remove model validation for short model names (sonnet, opus, haiku) - allow full IDs
 - [x] 1.8 Add struct tags for JSON compatibility (json:"fieldname,omitempty")
 - [x] 1.9 Add Agent name regex validation (^[a-z0-9]+(-[a-z0-9]+)*$)
@@ -14,7 +14,7 @@
 **Implementation Decisions**:
 - Preserved `ArgumentHint` field in Command model (Claude Code-specific, not in design spec)
 - Added JSON tags to all fields with `omitempty` suffix for compatibility
-- OpenCode-specific fields have `yaml:"-"` tags to prevent YAML contamination
+- OpenCode-specific fields should have proper YAML tags to enable Germinator source format
 - Skill validation enforces 1-64 character name limit and 1-1024 description limit (from research)
 
 ## 2. Template Functions Implementation
@@ -221,22 +221,23 @@
 
 - [ ] 10.1 Create test/fixtures/opencode directory
 
-- [ ] 10.2 Create Agent fixtures
-      - Create test/fixtures/opencode/code-reviewer-agent.md (minimal)
-      - Create test/fixtures/opencode/agent-full.md (all fields)
+- [ ] 10.2 Create Agent fixtures in Germinator format
+      - Create test/fixtures/opencode/code-reviewer-agent.md (minimal, Claude Code fields only)
+      - Create test/fixtures/opencode/agent-full.md (all fields: Claude Code + OpenCode)
       - Create test/fixtures/opencode/agent-mixed-tools.md
+      **Note**: Fixtures are in Germinator format with ALL fields parseable from YAML
 
-- [ ] 10.3 Create Command fixtures
+- [ ] 10.3 Create Command fixtures in Germinator format
       - Create test/fixtures/opencode/run-tests-command.md (minimal)
       - Create test/fixtures/opencode/command-full.md (all fields)
       - Create test/fixtures/opencode/command-with-arguments.md
 
-- [ ] 10.4 Create Skill fixtures
+- [ ] 10.4 Create Skill fixtures in Germinator format
       - Create test/fixtures/opencode/git-workflow-skill subdirectory
       - Create test/fixtures/opencode/git-workflow-skill/SKILL.md (minimal)
       - Create test/fixtures/opencode/skill-full.md (all fields)
 
-- [ ] 10.5 Create Memory fixtures
+- [ ] 10.5 Create Memory fixtures in Germinator format
       - Create test/fixtures/opencode/memory-paths-only.md
       - Create test/fixtures/opencode/memory-content-only.md
       - Create test/fixtures/opencode/memory-both.md (paths and content)
@@ -356,11 +357,13 @@
       - Add flag definition to Cobra command
       - Document flag in help text
       - Make flag required (return error if not provided)
+      **Note**: No CLI flags for OpenCode-specific fields (mode, temperature, etc.) - all fields in source YAML
 
 - [ ] 14.2 Update CLI help text to document --platform flag requirement
       - Add description of --platform flag
       - List available platforms (claude-code, opencode)
-      - Document breaking change
+      - Document Germinator source format as canonical input
+      - Document breaking change (existing Claude Code YAML incompatible)
 
 - [ ] 14.3 Add validation to ensure --platform is provided (error if empty)
       - Check flag value before processing
@@ -387,10 +390,12 @@
 
 **Section 15 depends on: All implementation complete**
 
-- [ ] 15.1 Update README.md with OpenCode platform section
+- [ ] 15.1 Update README.md with Germinator source format and OpenCode platform
+      - Add "Germinator Source Format" section documenting canonical YAML format
       - Add "OpenCode Platform" section
       - Overview of OpenCode support
       - Supported document types (Agent, Command, Skill, Memory)
+      - Document unidirectional transformation flow
 
 - [ ] 15.2 Add usage examples for all document types
       - Agent: `germinator adapt agent.yaml opencode-agent.yaml --platform opencode`
@@ -399,24 +404,27 @@
       - Memory: `germinator adapt memory.yaml AGENTS.md --platform opencode`
 
 - [ ] 15.3 Add field mapping tables for all models
-      - Agent mapping table: Germinator → OpenCode
-      - Command mapping table: Germinator → OpenCode
-      - Skill mapping table: Germinator → OpenCode
-      - Memory mapping table: Germinator → OpenCode
+      - Agent mapping table: Germinator (all fields) → Claude Code + OpenCode
+      - Command mapping table: Germinator (all fields) → Claude Code + OpenCode
+      - Skill mapping table: Germinator (all fields) → Claude Code + OpenCode
+      - Memory mapping table: Germinator (all fields) → Claude Code + OpenCode
 
 - [ ] 15.4 Document known limitations
       - Permission mode basic approximation (only top-level edit and bash)
        - Skipped fields (skills list, allowedTools, userInvocable, disableModelInvocation)
       - Command-level permission rules not supported
       - DisallowedTools not supported in OpenCode (forward compatibility only)
+      - No bidirectional conversion (Germinator → target only)
 
 - [ ] 15.5 Document breaking changes and migration
+      - Germinator source format as canonical input (breaking change for existing Claude Code YAML)
+      - Migration guide for converting existing Claude Code YAML to Germinator format
       - --platform flag requirement (no default)
       - Validate() signature change (platform parameter added)
       - Field name changes (if any)
-      - Migration guide for existing users
 
 - [ ] 15.6 Update AGENTS.md
+      - Add Germinator source format documentation
       - Add OpenCode platform support notes
       - Document CLI changes (--platform flag)
       - Add field mapping reference

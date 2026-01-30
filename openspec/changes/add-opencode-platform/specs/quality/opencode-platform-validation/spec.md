@@ -31,7 +31,7 @@
 - **GIVEN** Agent with mode=""
 - **WHEN** validateOpenCodeAgent is called
 - **THEN** Validation passes (mode is optional)
-- **AND** Template will default to "primary"
+- **AND** Template will default to "all"
 
 #### Scenario: Agent temperature validation - valid range
 - **GIVEN** Agent with temperature=0.5
