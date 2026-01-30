@@ -353,38 +353,38 @@
 
 **Section 14 depends on: Sections 4, 9 complete (validation updated and functions implemented)**
 
-- [ ] 14.1 Add --platform flag to adapt command (required, no default)
-      - Add flag definition to Cobra command
-      - Document flag in help text
-      - Make flag required (return error if not provided)
-      **Note**: No CLI flags for OpenCode-specific fields (mode, temperature, etc.) - all fields in source YAML
+- [x] 14.1 Add --platform flag to adapt command (required, no default)
+       - Add flag definition to Cobra command
+       - Document flag in help text
+       - Make flag required (return error if not provided)
+       **Note**: No CLI flags for OpenCode-specific fields (mode, temperature, etc.) - all fields in source YAML
 
-- [ ] 14.2 Update CLI help text to document --platform flag requirement
-      - Add description of --platform flag
-      - List available platforms (claude-code, opencode)
-      - Document Germinator source format as canonical input
-      - Document breaking change (existing Claude Code YAML incompatible)
+- [x] 14.2 Update CLI help text to document --platform flag requirement
+       - Add description of --platform flag
+       - List available platforms (claude-code, opencode)
+       - Document Germinator source format as canonical input
+       - Document breaking change (existing Claude Code YAML incompatible)
 
-- [ ] 14.3 Add validation to ensure --platform is provided (error if empty)
-      - Check flag value before processing
-      - Return clear error message
+- [x] 14.3 Add validation to ensure --platform is provided (error if empty)
+       - Check flag value before processing
+       - Return clear error message
 
-- [ ] 14.4 Update CLI help text to list available platforms (claude-code, opencode)
-      - Update --help output
-      - Ensure platform names are clear
+- [x] 14.4 Update CLI help text to list available platforms (claude-code, opencode)
+       - Update --help output
+       - Ensure platform names are clear
 
-- [ ] 14.5 Add CLI tests for --platform flag requirement
-      - Test running adapt without --platform flag (should error)
-      - Verify error message is helpful
+- [x] 14.5 Add CLI tests for --platform flag requirement
+       - Test running adapt without --platform flag (should error)
+       - Verify error message is helpful
 
-- [ ] 14.6 Add CLI tests for invalid platform error
-      - Test with --platform invalid-platform
-      - Verify error message lists available platforms
+- [x] 14.6 Add CLI tests for invalid platform error
+       - Test with --platform invalid-platform
+       - Verify error message lists available platforms
 
-- [ ] 14.7 Add CLI tests for valid platform (claude-code and opencode)
-      - Test with --platform claude-code (should work)
-      - Test with --platform opencode (should work)
-      - Verify both platforms produce correct output
+- [x] 14.7 Add CLI tests for valid platform (claude-code and opencode)
+       - Test with --platform claude-code (should work)
+       - Test with --platform opencode (should work)
+       - Verify both platforms produce correct output
 
 ## 15. Documentation
 
