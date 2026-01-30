@@ -1,0 +1,17 @@
+---
+content: |
+  # Germinator Project Context
+  
+  Germinator is a configuration adapter for AI coding assistant documents.
+  
+  ## Architecture
+  - Models: internal/models/ - Platform-agnostic data structures
+  - Core: internal/core/ - Parser, loader, serializer
+  - Services: internal/services/ - Validation, transformation
+  - CLI: cmd/ - Cobra-based command line interface
+  
+  ## Key Principles
+  - Single source of truth: Germinator YAML format
+  - Platform-agnostic models with all fields
+  - Template-based serialization
+  - Unidirectional transformation: Germinator → target platform

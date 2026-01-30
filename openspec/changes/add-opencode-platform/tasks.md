@@ -219,25 +219,25 @@
 
 **Section 10 depends on: Sections 5-8 complete (templates created)**
 
-- [ ] 10.1 Create test/fixtures/opencode directory
+- [x] 10.1 Create test/fixtures/opencode directory
 
-- [ ] 10.2 Create Agent fixtures in Germinator format
+- [x] 10.2 Create Agent fixtures in Germinator format
       - Create test/fixtures/opencode/code-reviewer-agent.md (minimal, Claude Code fields only)
       - Create test/fixtures/opencode/agent-full.md (all fields: Claude Code + OpenCode)
       - Create test/fixtures/opencode/agent-mixed-tools.md
       **Note**: Fixtures are in Germinator format with ALL fields parseable from YAML
 
-- [ ] 10.3 Create Command fixtures in Germinator format
+- [x] 10.3 Create Command fixtures in Germinator format
       - Create test/fixtures/opencode/run-tests-command.md (minimal)
       - Create test/fixtures/opencode/command-full.md (all fields)
       - Create test/fixtures/opencode/command-with-arguments.md
 
-- [ ] 10.4 Create Skill fixtures in Germinator format
+- [x] 10.4 Create Skill fixtures in Germinator format
       - Create test/fixtures/opencode/git-workflow-skill subdirectory
       - Create test/fixtures/opencode/git-workflow-skill/SKILL.md (minimal)
       - Create test/fixtures/opencode/skill-full.md (all fields)
 
-- [ ] 10.5 Create Memory fixtures in Germinator format
+- [x] 10.5 Create Memory fixtures in Germinator format
       - Create test/fixtures/opencode/memory-paths-only.md
       - Create test/fixtures/opencode/memory-content-only.md
       - Create test/fixtures/opencode/memory-both.md (paths and content)

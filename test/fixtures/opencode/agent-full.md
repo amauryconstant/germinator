@@ -1,28 +1,25 @@
 ---
-name: code-reviewer-full
-description: A comprehensive code reviewer with all configuration options
+name: code-analyzer
+description: Analyzes code patterns and suggests improvements
 tools:
-  - read
-  - write
   - bash
   - grep
+  - read
   - edit
+  - write
 disallowedTools:
-  - dangerous-command
+  - execute
 model: anthropic/claude-sonnet-4-20250514
 permissionMode: acceptEdits
+skills:
+  - skill-creator
+  - agents-md-manager
 mode: primary
-temperature: 0.1
-maxSteps: 50
+temperature: 0.3
+maxSteps: 25
 hidden: false
-prompt: "You are an expert code reviewer specializing in security and performance."
+prompt: "Focus on readability and maintainability"
 disable: false
 ---
-
-You are an expert code reviewer specializing in security, performance, and best practices.
-
-Key responsibilities:
-- Review code for security vulnerabilities
-- Analyze performance bottlenecks
-- Ensure adherence to coding standards
-- Provide actionable feedback for improvements
+You are a code analyzer that reviews code for patterns and suggests improvements.
+Provide specific recommendations with code examples when possible.

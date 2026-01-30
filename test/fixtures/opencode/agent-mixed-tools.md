@@ -1,15 +1,22 @@
 ---
-name: code-reviewer-mixed
-description: Code reviewer with both allowed and disallowed tools
+name: security-scanner
+description: Scans code for security vulnerabilities
 tools:
-  - read
-  - write
   - bash
+  - grep
+  - read
 disallowedTools:
-  - dangerous-command
-  - system-config
+  - write
+  - execute
 model: anthropic/claude-sonnet-4-20250514
-permissionMode: dontAsk
+permissionMode: bypassPermissions
+mode: subagent
+temperature: 0.1
+maxSteps: 10
 ---
-
-You are a code reviewer with restricted tool access.
+You are a security scanner that identifies vulnerabilities in code.
+Check for common security issues:
+- Injection attacks
+- Missing input validation
+- Insecure dependencies
+- Hardcoded secrets

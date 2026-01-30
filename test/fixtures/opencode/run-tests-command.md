@@ -1,0 +1,8 @@
+---
+name: run-tests
+description: Runs all project tests
+---
+Execute test suite with coverage reporting:
+```bash
+go test ./... -v -cover
+```

@@ -1,0 +1,22 @@
+---
+paths:
+  - README.md
+  - LICENSE
+  - docs/development-guide.md
+content: |
+  # Additional Project Context
+  
+  ## Development Workflow
+  1. Use mise task runner for all operations
+  2. Follow OpenSpec workflow for changes
+  3. Run validation before committing: mise run check
+  
+  ## Testing
+  - Unit tests: internal/**/*_test.go
+  - Integration tests: internal/core/integration_test.go
+  - Golden file tests: test/golden/
+  
+  ## Release Process
+  - Git tags trigger CI pipeline
+  - GoReleaser builds cross-platform binaries
+  - Artifacts published to GitLab releases
