@@ -1,7 +1,7 @@
 
 ---
 
-**Project**: Configuration adapter for AI coding assistant documents. Transforms between platforms using Claude Code as source format.
+**Project**: Configuration adapter for AI coding assistant documents. Transforms from Germinator canonical YAML format to Claude Code or OpenCode.
 
 **Use**: Maintain single source of truth, switch platforms, adapt to new projects.
 
@@ -82,10 +82,138 @@ germinator/
 # CLI Pattern
 
 ```bash
-cli action input_file target_platform [options]
+cli action input_file output_file --platform <platform> [options]
+```
+
+**Platforms**: `claude-code`, `opencode` (required, no default)
+
+**Examples**:
+```bash
+# Validate
+./germinator validate agent.yaml --platform claude-code
+
+# Adapt to Claude Code
+./germinator adapt agent.yaml .claude/agents/my-agent.yaml --platform claude-code
+
+# Adapt to OpenCode
+./germinator adapt skill.yaml .opencode/skills/my-skill/SKILL.md --platform opencode
 ```
 
 See `IMPLEMENTATION_PLAN.md` for command structures.
+
+---
+
+# Germinator Source Format
+
+Germinator uses a canonical YAML format containing ALL fields for ALL platforms. This enables unidirectional transformation to either Claude Code or OpenCode.
+
+**Key Principles**:
+- Source YAML includes both Claude Code and OpenCode fields
+- Platform-specific fields are used or skipped based on target platform
+- Model IDs are user-provided platform-specific values (no normalization)
+- Permission modes are transformed from Claude Code enum to OpenCode objects
+
+**Document Types**:
+- **Agent**: Tools, permission modes, model configuration, prompts
+- **Command**: Tool permissions, execution context, agent references
+- **Skill**: Metadata, hooks, compatibility, tool restrictions
+- **Memory**: File paths and narrative content for project context
+
+---
+
+# Field Mapping Reference
+
+## Agent
+
+| Germinator Field | Claude Code | OpenCode |
+|------------------|-------------|----------|
+| name | ✓ | ✓ |
+| description | ✓ | ✓ |
+| model | ✓ | ✓ |
+| tools | ✓ | ✓ |
+| disallowedTools | ✓ | ⚠ skipped |
+| permissionMode | ✓ | → Permission object |
+| skills | ✓ | ⚠ skipped |
+| mode | - | ✓ |
+| temperature | - | ✓ |
+| maxSteps | - | ✓ |
+| hidden | - | ✓ |
+| prompt | - | ✓ |
+| disable | - | ✓ |
+
+## Command
+
+| Germinator Field | Claude Code | OpenCode |
+|------------------|-------------|----------|
+| name | ✓ | ✓ |
+| description | ✓ | ✓ |
+| allowed-tools | ✓ | ✓ |
+| disallowed-tools | ✓ | ✓ |
+| subtask | ✓ | ✓ |
+| argument-hint | ✓ | ✓ |
+| context | ✓ (fork) | ✓ (fork) |
+| agent | ✓ | ✓ |
+| model | ✓ | ✓ |
+| disable-model-invocation | ✓ | ⚠ skipped |
+
+## Skill
+
+| Germinator Field | Claude Code | OpenCode |
+|------------------|-------------|----------|
+| name | ✓ | ✓ |
+| description | ✓ | ✓ |
+| allowed-tools | ✓ | ✓ |
+| disallowed-tools | ✓ | ✓ |
+| license | ✓ | ✓ |
+| compatibility | ✓ | ✓ |
+| metadata | ✓ | ✓ |
+| hooks | ✓ | ✓ |
+| model | ✓ | ✓ |
+| context | ✓ (fork) | ✓ (fork) |
+| agent | ✓ | ✓ |
+| user-invocable | ✓ | ⚠ skipped |
+
+## Memory
+
+| Germinator Field | Claude Code | OpenCode |
+|------------------|-------------|----------|
+| paths | ✓ | → @ file references |
+| content | ✓ | → Narrative context |
+
+**Legend**: ✓ = Supported, → = Transformed, ⚠ = Skipped
+
+---
+
+# OpenCode Platform Support
+
+OpenCode support added in v0.4.0 with the following characteristics:
+
+**Transformation Flow**:
+1. Parse Germinator YAML (all fields)
+2. Validate platform-specific rules
+3. Render using OpenCode templates
+4. Transform permission modes to permission objects
+5. Generate platform-specific output format
+
+**OpenCode-Specific Features**:
+- Permission objects with `edit`, `bash`, `web` boolean flags
+- Agent modes (`strict`, `relaxed`, etc.)
+- Temperature and maxSteps configuration
+- Hidden agents
+- Custom prompts and disable flags
+
+**Known Limitations**:
+- Permission mode transformation is basic approximation
+- Agent `skills` list not supported (skipped)
+- Command `disable-model-invocation` not supported (skipped)
+- Skill `user-invocable` not supported (skipped)
+- No bidirectional conversion
+
+**Breaking Changes in v0.4.0**:
+- `--platform` flag required (no default)
+- Germinator source format replaces Claude Code YAML
+- `Validate(platform string)` signature change
+
 
 ---
 

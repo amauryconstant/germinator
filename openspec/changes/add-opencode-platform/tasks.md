@@ -390,45 +390,45 @@
 
 **Section 15 depends on: All implementation complete**
 
-- [ ] 15.1 Update README.md with Germinator source format and OpenCode platform
-      - Add "Germinator Source Format" section documenting canonical YAML format
-      - Add "OpenCode Platform" section
-      - Overview of OpenCode support
-      - Supported document types (Agent, Command, Skill, Memory)
-      - Document unidirectional transformation flow
+- [x] 15.1 Update README.md with Germinator source format and OpenCode platform
+       - Add "Germinator Source Format" section documenting canonical YAML format
+       - Add "OpenCode Platform" section
+       - Overview of OpenCode support
+       - Supported document types (Agent, Command, Skill, Memory)
+       - Document unidirectional transformation flow
 
-- [ ] 15.2 Add usage examples for all document types
-      - Agent: `germinator adapt agent.yaml opencode-agent.yaml --platform opencode`
-      - Command: `germinator adapt command.yaml opencode-command.yaml --platform opencode`
-      - Skill: `germinator adapt skill.yaml .opencode/skills/git-workflow/SKILL.md --platform opencode`
-      - Memory: `germinator adapt memory.yaml AGENTS.md --platform opencode`
+- [x] 15.2 Add usage examples for all document types
+       - Agent: `germinator adapt agent.yaml opencode-agent.yaml --platform opencode`
+       - Command: `germinator adapt command.yaml opencode-command.yaml --platform opencode`
+       - Skill: `germinator adapt skill.yaml .opencode/skills/git-workflow/SKILL.md --platform opencode`
+       - Memory: `germinator adapt memory.yaml AGENTS.md --platform opencode`
 
-- [ ] 15.3 Add field mapping tables for all models
-      - Agent mapping table: Germinator (all fields) → Claude Code + OpenCode
-      - Command mapping table: Germinator (all fields) → Claude Code + OpenCode
-      - Skill mapping table: Germinator (all fields) → Claude Code + OpenCode
-      - Memory mapping table: Germinator (all fields) → Claude Code + OpenCode
+- [x] 15.3 Add field mapping tables for all models
+       - Agent mapping table: Germinator (all fields) → Claude Code + OpenCode
+       - Command mapping table: Germinator (all fields) → Claude Code + OpenCode
+       - Skill mapping table: Germinator (all fields) → Claude Code + OpenCode
+       - Memory mapping table: Germinator (all fields) → Claude Code + OpenCode
 
-- [ ] 15.4 Document known limitations
-      - Permission mode basic approximation (only top-level edit and bash)
-       - Skipped fields (skills list, allowedTools, userInvocable, disableModelInvocation)
-      - Command-level permission rules not supported
-      - DisallowedTools not supported in OpenCode (forward compatibility only)
-      - No bidirectional conversion (Germinator → target only)
+- [x] 15.4 Document known limitations
+       - Permission mode basic approximation (only top-level edit and bash)
+        - Skipped fields (skills list, allowedTools, userInvocable, disableModelInvocation)
+       - Command-level permission rules not supported
+       - DisallowedTools not supported in OpenCode (forward compatibility only)
+       - No bidirectional conversion (Germinator → target only)
 
-- [ ] 15.5 Document breaking changes and migration
-      - Germinator source format as canonical input (breaking change for existing Claude Code YAML)
-      - Migration guide for converting existing Claude Code YAML to Germinator format
-      - --platform flag requirement (no default)
-      - Validate() signature change (platform parameter added)
-      - Field name changes (if any)
+- [x] 15.5 Document breaking changes and migration
+       - Germinator source format as canonical input (breaking change for existing Claude Code YAML)
+       - Migration guide for converting existing Claude Code YAML to Germinator format
+       - --platform flag requirement (no default)
+       - Validate() signature change (platform parameter added)
+       - Field name changes (if any)
 
-- [ ] 15.6 Update AGENTS.md
-      - Add Germinator source format documentation
-      - Add OpenCode platform support notes
-      - Document CLI changes (--platform flag)
-      - Add field mapping reference
-      - Update usage examples
+- [x] 15.6 Update AGENTS.md
+       - Add Germinator source format documentation
+       - Add OpenCode platform support notes
+       - Document CLI changes (--platform flag)
+       - Add field mapping reference
+       - Update usage examples
 
 ## 16. Verification
 
