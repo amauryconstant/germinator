@@ -32,7 +32,7 @@ This change provides a complete solution: a Germinator source format that serves
 ### OpenCode Templates
 - Create 4 Go template files in `config/templates/opencode/`:
   - `agent.tmpl` - Transform Agent model to OpenCode agent format with mode, tools map, permissions map.
-  - `command.tmpl` - Transform Command model with template field and $ARGUMENTS placeholder
+  - `command.tmpl` - Transform Command model with command template and $ARGUMENTS placeholder
   - `skill.tmpl` - Transform Skill model to `.opencode/skills/<name>/SKILL.md` structure with frontmatter
   - `memory.tmpl` - Transform Memory model to AGENTS.md format with @ file references
 - Implement transformation logic within templates:
@@ -67,7 +67,7 @@ This change provides a complete solution: a Germinator source format that serves
 **Transformation:**
 - `permission-transformation`: Custom template function to transform Claude Code's `permissionMode` enum to OpenCode's permission object format. Preserves semantic intent: dontAsk→allow/allow, bypassPermissions→allow/allow, plan→deny/deny, default→ask/ask, acceptEdits→allow/ask. Function returns YAML-formatted string with proper indentation.
 - `opencode-agent-transformation`: Template-based transformation from platform-agnostic Agent model to OpenCode agent YAML format with mode field (default "all"), tools map conversion (arrays to `{tool: true|false}`), and permissions map using transformPermissionMode().
-- `opencode-command-transformation`: Template-based transformation from platform-agnostic Command model to OpenCode command format with template field and $ARGUMENTS placeholder for argument substitution.
+- `opencode-command-transformation`: Template-based transformation from platform-agnostic Command model to OpenCode command format with command template and $ARGUMENTS placeholder for argument substitution.
 - `opencode-skill-transformation`: Template-based transformation from platform-agnostic Skill model to `.opencode/skills/<name>/SKILL.md` directory structure with YAML frontmatter, handling OpenCode-specific fields: License, Compatibility, Metadata, Hooks.
 - `opencode-memory-transformation`: Template-based transformation from platform-agnostic Memory model to AGENTS.md format with @ file references (e.g., @README.md) and project context narrative.
 

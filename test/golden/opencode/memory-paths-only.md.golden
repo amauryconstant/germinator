@@ -1,3 +1,4 @@
+To reference files, use @ followed by file path.
 @README.md
 @CONTRIBUTING.md
 @docs/architecture.md

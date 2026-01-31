@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Render YAML frontmatter with command configuration
-### Requirement: Include template field for command definition
+### Requirement: Include command template content body (markdown after YAML frontmatter)
 ### Requirement: Support $ARGUMENTS placeholder in content for argument substitution
 ### Requirement: Include OpenCode-specific field: subtask
 ### Requirement: Omit Claude Code-specific fields: allowedTools, argumentHint, context, disableModelInvocation
@@ -11,14 +11,14 @@
 - **GIVEN** Command with name="run-tests", description="Run all tests", content="npm test"
 - **WHEN** Rendered to OpenCode format
 - **THEN** Output contains YAML frontmatter with name and description
-- **AND** Output contains template field with command content
+- **AND** Output contains command template in content body (markdown after YAML frontmatter)
 - **AND** Content is preserved as-is
 
 #### Scenario: Command with $ARGUMENTS placeholder
 - **GIVEN** Command with content="git $ARGUMENTS"
 - **WHEN** Rendered to OpenCode format
 - **THEN** Output preserves "$ARGUMENTS" placeholder in content
-- **AND** Template field contains original content
+- **AND** Template content body contains original content
 
 #### Scenario: Command with agent field
 - **GIVEN** Command with agent="code-reviewer"
@@ -86,7 +86,7 @@
     ```
 - **WHEN** Rendered to OpenCode format
 - **THEN** Output preserves original indentation
-- **AND** Multi-line content is rendered correctly after template field
+- **AND** Multi-line content is rendered correctly in content body
 
 #### Scenario: Command preserves special characters in content
 - **GIVEN** Command with content containing special characters ($, *, #, etc.)
