@@ -1,8 +1,3 @@
-{{- if .Paths}}
-{{- range .Paths}}
+{{if .Paths}}{{range .Paths}}
 @{{.}}
-{{- end}}
-{{- end}}
-{{- if .Content}}
-{{.Content}}
-{{- end}}
+{{end}}{{end}}{{if .Content}}{{.Content}}{{end}}

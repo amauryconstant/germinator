@@ -583,19 +583,19 @@ func TestRenderOpenCodeSkill(t *testing.T) {
 				if !strings.Contains(result, "metadata:") {
 					t.Error("Expected metadata section in output")
 				}
-				if !strings.Contains(result, "version: 1.0.0") {
+				if !strings.Contains(result, "version: \"1.0.0\"") {
 					t.Error("Expected version in metadata")
 				}
-				if !strings.Contains(result, "maintainer: ops-team") {
+				if !strings.Contains(result, "maintainer: \"ops-team\"") {
 					t.Error("Expected maintainer in metadata")
 				}
 				if !strings.Contains(result, "hooks:") {
 					t.Error("Expected hooks section in output")
 				}
-				if !strings.Contains(result, "pre-run: validate-environment") {
+				if !strings.Contains(result, "pre-run: \"validate-environment\"") {
 					t.Error("Expected pre-run hook in output")
 				}
-				if !strings.Contains(result, "post-run: cleanup-temp-files") {
+				if !strings.Contains(result, "post-run: \"cleanup-temp-files\"") {
 					t.Error("Expected post-run hook in output")
 				}
 				if strings.Contains(result, "allowed-tools:") {

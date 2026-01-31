@@ -39,7 +39,7 @@ func parseMemory(filePath string, content string) (interface{}, error) {
 	}
 
 	lines := strings.Split(content, "\n")
-	if len(lines) >= 3 && lines[0] == "---" {
+	if len(lines) >= 2 && lines[0] == "---" {
 		var yamlLines []string
 		var bodyLines []string
 		foundEnd := false
@@ -53,23 +53,53 @@ func parseMemory(filePath string, content string) (interface{}, error) {
 			yamlLines = append(yamlLines, lines[i])
 		}
 
-		if foundEnd {
-			yamlContent := strings.Join(yamlLines, "\n")
-			var frontmatter map[string]interface{}
-			if err := yaml.Unmarshal([]byte(yamlContent), &frontmatter); err == nil {
-				if paths, ok := frontmatter["paths"].([]interface{}); ok {
-					for _, p := range paths {
-						if pathStr, ok := p.(string); ok {
-							memory.Paths = append(memory.Paths, pathStr)
-						}
+		yamlContent := strings.Join(yamlLines, "\n")
+		var frontmatter map[string]interface{}
+		if err := yaml.Unmarshal([]byte(yamlContent), &frontmatter); err == nil {
+			if paths, ok := frontmatter["paths"].([]interface{}); ok {
+				for _, p := range paths {
+					if pathStr, ok := p.(string); ok {
+						memory.Paths = append(memory.Paths, pathStr)
 					}
 				}
 			}
+			if _, ok := frontmatter["content"].(string); ok {
+				memory.Content = extractContentFromYamlLines(yamlLines)
+			} else if foundEnd {
+				memory.Content = strings.Join(bodyLines, "\n")
+			} else {
+				memory.Content = ""
+			}
+		} else if foundEnd {
 			memory.Content = strings.Join(bodyLines, "\n")
 		}
 	}
 
 	return memory, nil
+}
+
+func extractContentFromYamlLines(yamlLines []string) string {
+	for i, line := range yamlLines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "content:") {
+			parts := strings.SplitN(trimmed, ":", 2)
+			if len(parts) == 2 && strings.TrimSpace(parts[1]) == "|" {
+				contentLines := []string{}
+				j := i + 1
+				for j < len(yamlLines) {
+					nextLine := yamlLines[j]
+					if nextLine == "" || strings.HasPrefix(nextLine, " ") || strings.HasPrefix(nextLine, "\t") {
+						contentLines = append(contentLines, nextLine)
+						j++
+					} else {
+						break
+					}
+				}
+				return strings.Join(contentLines, "\n")
+			}
+		}
+	}
+	return ""
 }
 
 func parseDocumentWithFrontmatter(filePath string, fileContent string, docType string) (interface{}, error) {

@@ -8,15 +8,15 @@ tools:
   read: true
   edit: true
   write: true
-  dangerous-command: false
+  execute: false
 permission:
   edit:
-    "*": allow
+    *: allow
   bash:
-    "*": ask
+    *: ask
 temperature: 0.3
 maxSteps: 25
-prompt: "Focus on readability and maintainability"
+prompt: Focus on readability and maintainability
 ---
 You are a code analyzer that reviews code for patterns and suggests improvements.
 Provide specific recommendations with code examples when possible.

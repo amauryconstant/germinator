@@ -2,7 +2,6 @@
 description: Deploys service to production
 agent: code-reviewer
 model: anthropic/claude-sonnet-4-20250514
-subtask: false
 ---
 Deployment workflow for $ARGUMENTS environment:
 

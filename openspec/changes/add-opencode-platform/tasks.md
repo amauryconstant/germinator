@@ -234,7 +234,7 @@
 
 - [x] 10.4 Create Skill fixtures in Germinator format
       - Create test/fixtures/opencode/git-workflow-skill subdirectory
-      - Create test/fixtures/opencode/git-workflow-skill/SKILL.md (minimal)
+      - Create test/fixtures/opencode/git-workflow-skill/git-workflow-skill.md (minimal)
       - Create test/fixtures/opencode/skill-full.md (all fields)
 
 - [x] 10.5 Create Memory fixtures in Germinator format
@@ -261,7 +261,7 @@
 
 - [x] 11.4 Create Skill golden files (from skill.tmpl)
         - Create test/golden/opencode/git-workflow-skill subdirectory
-        - Create test/golden/opencode/git-workflow-skill/SKILL.md.golden (minimal)
+        - Create test/golden/opencode/git-workflow-skill/git-workflow-skill.md.golden (minimal)
         - Create test/golden/opencode/skill-full.md.golden (all fields)
 
 - [x] 11.5 Create Memory golden files (from memory.tmpl)
@@ -434,41 +434,41 @@
 
 **Section 16 depends on: All previous sections complete**
 
-- [ ] 16.1 Run full validation (mise run check)
+- [x] 16.1 Run full validation (mise run check)
 
-- [ ] 16.2 Run linting (mise run lint)
+- [x] 16.2 Run linting (mise run lint)
 
-- [ ] 16.3 Run all tests (mise run test)
+- [x] 16.3 Run all tests (mise run test)
 
-- [ ] 16.4 Verify test coverage (mise run test:coverage)
+- [x] 16.4 Verify test coverage (mise run test:coverage)
 
-- [ ] 16.5 Test end-to-end transformations
+- [x] 16.5 Test end-to-end transformations
       - Agent: germinator adapt input.yaml output.yaml --platform opencode
       - Command: germinator adapt input.yaml output.yaml --platform opencode
       - Skill: germinator adapt input.yaml .opencode/skills/name/SKILL.md --platform opencode
       - Memory: germinator adapt input.yaml AGENTS.md --platform opencode
 
-- [ ] 16.6 Verify golden file tests pass
+- [x] 16.6 Verify golden file tests pass
       - Run go test with golden file comparison
       - Verify all golden files match output
 
-- [ ] 16.7 Verify error messages are descriptive
+- [x] 16.7 Verify error messages are descriptive
       - Test invalid agent mode (should mention valid values)
       - Test invalid temperature (should mention range)
       - Test invalid maxSteps (should mention minimum)
       - Test unknown platform (should list available platforms)
 
-- [ ] 16.8 Verify platform-specific validation works
+- [x] 16.8 Verify platform-specific validation works
       - OpenCode constraints enforced (mode, temperature, maxSteps)
       - Claude Code still validates correctly
       - Platform parameter required
 
-- [ ] 16.9 Verify all permission modes transform correctly
+- [x] 16.9 Verify all permission modes transform correctly
       - Test all 5 Claude Code modes
       - Verify correct OpenCode permission objects generated
       - Verify unknown mode handled gracefully
 
-- [ ] 16.10 Final integration test
+- [x] 16.10 Final integration test
       - Full workflow: parse source → validate → transform → serialize
       - Verify output matches golden files
       - Verify no data loss

@@ -13,13 +13,13 @@ compatibility:
 {{- if .Metadata}}
 metadata:
 {{- range $key, $value := .Metadata}}
-  {{$key}}: {{$value}}
+  {{$key}}: "{{$value}}"
 {{- end}}
 {{- end}}
 {{- if .Hooks}}
 hooks:
 {{- range $key, $value := .Hooks}}
-  {{$key}}: {{$value}}
+  {{$key}}: "{{$value}}"
 {{- end}}
 {{- end}}
 ---

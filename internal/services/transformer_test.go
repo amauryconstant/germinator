@@ -884,13 +884,13 @@ Skill content`,
 				if !strings.Contains(output, "metadata:") {
 					t.Error("Expected metadata section")
 				}
-				if !strings.Contains(output, "version: 1.0.0") {
+				if !strings.Contains(output, "version: \"1.0.0\"") {
 					t.Error("Expected version in metadata")
 				}
 				if !strings.Contains(output, "hooks:") {
 					t.Error("Expected hooks section")
 				}
-				if !strings.Contains(output, "pre-run: validate") {
+				if !strings.Contains(output, "pre-run: \"validate\"") {
 					t.Error("Expected pre-run hook")
 				}
 			},
