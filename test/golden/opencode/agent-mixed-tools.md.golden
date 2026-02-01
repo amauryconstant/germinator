@@ -9,9 +9,9 @@ tools:
   write: false
   execute: false
 permission:
-  edit:
-    *: allow
   bash:
+    *: allow
+  edit:
     *: allow
 
 temperature: 0.1

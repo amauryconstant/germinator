@@ -10,10 +10,10 @@ tools:
   write: true
   execute: false
 permission:
-  edit:
-    *: allow
   bash:
     *: ask
+  edit:
+    *: allow
 
 temperature: 0.3
 maxSteps: 25

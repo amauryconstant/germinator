@@ -8,9 +8,9 @@ tools:
   read: true
   edit: true
 permission:
-  edit:
-    *: allow
   bash:
+    *: allow
+  edit:
     *: allow
 
 ---

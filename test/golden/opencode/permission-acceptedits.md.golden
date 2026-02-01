@@ -9,10 +9,10 @@ tools:
   edit: true
   write: true
 permission:
-  edit:
-    *: allow
   bash:
     *: ask
+  edit:
+    *: allow
 
 ---
 You are a helpful assistant that accepts edits without asking.

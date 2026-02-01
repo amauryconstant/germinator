@@ -1,7 +1,9 @@
 package main
 
 import (
+	"io"
 	"os"
+	"strings"
 	"testing"
 
 	"gitlab.com/amoconst/germinator/internal/services"
@@ -89,7 +91,7 @@ This is test content`
 					t.Errorf("Expected error but got none")
 				}
 				if tt.errorMsg != "" && err != nil {
-					if !contains(err.Error(), tt.errorMsg) {
+					if !strings.Contains(err.Error(), tt.errorMsg) {
 						t.Errorf("Expected error to contain %q, got %q", tt.errorMsg, err.Error())
 					}
 				}
@@ -103,15 +105,101 @@ This is test content`
 	}
 }
 
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && (s[:len(substr)] == substr || s[len(s)-len(substr):] == substr || containsMiddle(s, substr)))
+func TestValidateCommandWithPlatformVariants(t *testing.T) {
+	tmpDir := t.TempDir()
+	validFile := tmpDir + "/test-command.md"
+
+	content := `---
+name: test-command
+description: A test command
+template: command template
+---
+Command content`
+
+	if err := os.WriteFile(validFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	tests := []struct {
+		name     string
+		platform string
+	}{
+		{"claude-code platform", "claude-code"},
+		{"opencode platform", "opencode"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs, err := services.ValidateDocument(validFile, tt.platform)
+			if err != nil {
+				t.Errorf("ValidateDocument failed for %s: %v", tt.platform, err)
+			}
+
+			if len(errs) != 0 {
+				t.Errorf("Expected no validation errors for %s, got %d: %v", tt.platform, len(errs), errs)
+			}
+		})
+	}
 }
 
-func containsMiddle(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
+func TestVersionCommand(t *testing.T) {
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	versionCmd.Run(versionCmd, []string{})
+
+	_ = w.Close()
+	os.Stdout = old
+
+	var buf strings.Builder
+	_, _ = io.Copy(&buf, r)
+
+	output := buf.String()
+	if !strings.Contains(output, "germinator") {
+		t.Errorf("Version command output should contain 'germinator', got: %s", output)
 	}
-	return false
+}
+
+func TestRootCommand(t *testing.T) {
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	rootCmd.Run(rootCmd, []string{})
+
+	_ = w.Close()
+	os.Stdout = old
+
+	var buf strings.Builder
+	_, _ = io.Copy(&buf, r)
+
+	output := buf.String()
+	if !strings.Contains(output, "Germinator is a configuration adapter") {
+		t.Errorf("Root command should show help, got: %s", output)
+	}
+}
+
+func TestValidateCommandValidDocument(t *testing.T) {
+	tmpDir := t.TempDir()
+	validFile := tmpDir + "/test-skill.md"
+
+	content := `---
+name: test-skill
+description: A test skill
+---
+This is valid content`
+
+	if err := os.WriteFile(validFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	errs, err := services.ValidateDocument(validFile, "claude-code")
+	if err != nil {
+		t.Fatalf("ValidateDocument failed: %v", err)
+	}
+
+	if len(errs) != 0 {
+		t.Errorf("Expected no validation errors, got %d: %v", len(errs), errs)
+	}
 }

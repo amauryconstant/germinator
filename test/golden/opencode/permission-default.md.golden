@@ -9,9 +9,9 @@ tools:
   edit: true
   write: false
 permission:
-  edit:
-    *: ask
   bash:
+    *: ask
+  edit:
     *: ask
 
 ---

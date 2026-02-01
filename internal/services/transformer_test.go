@@ -213,9 +213,9 @@ And preserves markdown **formatting**
 
 func TestValidateOpenCodeAgent(t *testing.T) {
 	tests := []struct {
-		name      string
-		agent     *models.Agent
-		wantCount int
+		name       string
+		agent      *models.Agent
+		errorCount int
 	}{
 		{
 			name: "valid mode primary",
@@ -224,7 +224,7 @@ func TestValidateOpenCodeAgent(t *testing.T) {
 				Description: "Test agent",
 				Mode:        "primary",
 			},
-			wantCount: 0,
+			errorCount: 0,
 		},
 		{
 			name: "valid mode subagent",
@@ -233,7 +233,7 @@ func TestValidateOpenCodeAgent(t *testing.T) {
 				Description: "Test agent",
 				Mode:        "subagent",
 			},
-			wantCount: 0,
+			errorCount: 0,
 		},
 		{
 			name: "valid mode all",
@@ -242,7 +242,7 @@ func TestValidateOpenCodeAgent(t *testing.T) {
 				Description: "Test agent",
 				Mode:        "all",
 			},
-			wantCount: 0,
+			errorCount: 0,
 		},
 		{
 			name: "valid mode empty",
@@ -251,7 +251,7 @@ func TestValidateOpenCodeAgent(t *testing.T) {
 				Description: "Test agent",
 				Mode:        "",
 			},
-			wantCount: 0,
+			errorCount: 0,
 		},
 		{
 			name: "invalid mode",
@@ -260,7 +260,7 @@ func TestValidateOpenCodeAgent(t *testing.T) {
 				Description: "Test agent",
 				Mode:        "invalid-mode",
 			},
-			wantCount: 1,
+			errorCount: 1,
 		},
 		{
 			name: "valid temperature 0.0",
@@ -269,7 +269,7 @@ func TestValidateOpenCodeAgent(t *testing.T) {
 				Description: "Test agent",
 				Temperature: 0.0,
 			},
-			wantCount: 0,
+			errorCount: 0,
 		},
 		{
 			name: "valid temperature 0.5",
@@ -278,7 +278,7 @@ func TestValidateOpenCodeAgent(t *testing.T) {
 				Description: "Test agent",
 				Temperature: 0.5,
 			},
-			wantCount: 0,
+			errorCount: 0,
 		},
 		{
 			name: "valid temperature 1.0",
@@ -287,7 +287,7 @@ func TestValidateOpenCodeAgent(t *testing.T) {
 				Description: "Test agent",
 				Temperature: 1.0,
 			},
-			wantCount: 0,
+			errorCount: 0,
 		},
 		{
 			name: "invalid temperature negative",
@@ -296,7 +296,7 @@ func TestValidateOpenCodeAgent(t *testing.T) {
 				Description: "Test agent",
 				Temperature: -0.5,
 			},
-			wantCount: 1,
+			errorCount: 1,
 		},
 		{
 			name: "invalid temperature too high",
@@ -305,7 +305,7 @@ func TestValidateOpenCodeAgent(t *testing.T) {
 				Description: "Test agent",
 				Temperature: 1.5,
 			},
-			wantCount: 1,
+			errorCount: 1,
 		},
 		{
 			name: "valid maxSteps 1",
@@ -314,7 +314,7 @@ func TestValidateOpenCodeAgent(t *testing.T) {
 				Description: "Test agent",
 				MaxSteps:    1,
 			},
-			wantCount: 0,
+			errorCount: 0,
 		},
 		{
 			name: "valid maxSteps 50",
@@ -323,7 +323,7 @@ func TestValidateOpenCodeAgent(t *testing.T) {
 				Description: "Test agent",
 				MaxSteps:    50,
 			},
-			wantCount: 0,
+			errorCount: 0,
 		},
 		{
 			name: "invalid maxSteps negative",
@@ -332,7 +332,7 @@ func TestValidateOpenCodeAgent(t *testing.T) {
 				Description: "Test agent",
 				MaxSteps:    -5,
 			},
-			wantCount: 1,
+			errorCount: 1,
 		},
 		{
 			name: "multiple validation errors",
@@ -343,15 +343,15 @@ func TestValidateOpenCodeAgent(t *testing.T) {
 				Temperature: 1.5,
 				MaxSteps:    -1,
 			},
-			wantCount: 3,
+			errorCount: 3,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			errs := models.ValidateOpenCodeAgent(tt.agent)
-			if len(errs) != tt.wantCount {
-				t.Errorf("models.ValidateOpenCodeAgent() error count = %d, want %d, errors: %v", len(errs), tt.wantCount, errs)
+			if len(errs) != tt.errorCount {
+				t.Errorf("models.ValidateOpenCodeAgent() error count = %d, want %d, errors: %v", len(errs), tt.errorCount, errs)
 			}
 		})
 	}
@@ -359,9 +359,9 @@ func TestValidateOpenCodeAgent(t *testing.T) {
 
 func TestValidateOpenCodeCommand(t *testing.T) {
 	tests := []struct {
-		name      string
-		cmd       *models.Command
-		wantCount int
+		name       string
+		cmd        *models.Command
+		errorCount int
 	}{
 		{
 			name: "template present",
@@ -370,7 +370,7 @@ func TestValidateOpenCodeCommand(t *testing.T) {
 				Description: "Test command",
 				Content:     "echo $ARGUMENTS",
 			},
-			wantCount: 0,
+			errorCount: 0,
 		},
 		{
 			name: "template empty",
@@ -379,15 +379,15 @@ func TestValidateOpenCodeCommand(t *testing.T) {
 				Description: "Test command",
 				Content:     "",
 			},
-			wantCount: 1,
+			errorCount: 1,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			errs := models.ValidateOpenCodeCommand(tt.cmd)
-			if len(errs) != tt.wantCount {
-				t.Errorf("models.ValidateOpenCodeCommand() error count = %d, want %d, errors: %v", len(errs), tt.wantCount, errs)
+			if len(errs) != tt.errorCount {
+				t.Errorf("models.ValidateOpenCodeCommand() error count = %d, want %d, errors: %v", len(errs), tt.errorCount, errs)
 			}
 		})
 	}
@@ -395,9 +395,9 @@ func TestValidateOpenCodeCommand(t *testing.T) {
 
 func TestValidateOpenCodeSkill(t *testing.T) {
 	tests := []struct {
-		name      string
-		skill     *models.Skill
-		wantCount int
+		name       string
+		skill      *models.Skill
+		errorCount int
 	}{
 		{
 			name: "valid name git-workflow",
@@ -406,7 +406,7 @@ func TestValidateOpenCodeSkill(t *testing.T) {
 				Description: "Test skill",
 				Content:     "Skill content",
 			},
-			wantCount: 0,
+			errorCount: 0,
 		},
 		{
 			name: "valid name code-review-tool-enhanced",
@@ -415,7 +415,7 @@ func TestValidateOpenCodeSkill(t *testing.T) {
 				Description: "Test skill",
 				Content:     "Skill content",
 			},
-			wantCount: 0,
+			errorCount: 0,
 		},
 		{
 			name: "valid name git2-operations",
@@ -424,7 +424,7 @@ func TestValidateOpenCodeSkill(t *testing.T) {
 				Description: "Test skill",
 				Content:     "Skill content",
 			},
-			wantCount: 0,
+			errorCount: 0,
 		},
 		{
 			name: "invalid name consecutive hyphens",
@@ -433,7 +433,7 @@ func TestValidateOpenCodeSkill(t *testing.T) {
 				Description: "Test skill",
 				Content:     "Skill content",
 			},
-			wantCount: 1,
+			errorCount: 1,
 		},
 		{
 			name: "invalid name leading hyphen",
@@ -442,7 +442,7 @@ func TestValidateOpenCodeSkill(t *testing.T) {
 				Description: "Test skill",
 				Content:     "Skill content",
 			},
-			wantCount: 1,
+			errorCount: 1,
 		},
 		{
 			name: "invalid name trailing hyphen",
@@ -451,7 +451,7 @@ func TestValidateOpenCodeSkill(t *testing.T) {
 				Description: "Test skill",
 				Content:     "Skill content",
 			},
-			wantCount: 1,
+			errorCount: 1,
 		},
 		{
 			name: "invalid name uppercase",
@@ -460,7 +460,7 @@ func TestValidateOpenCodeSkill(t *testing.T) {
 				Description: "Test skill",
 				Content:     "Skill content",
 			},
-			wantCount: 1,
+			errorCount: 1,
 		},
 		{
 			name: "invalid name underscores",
@@ -469,7 +469,7 @@ func TestValidateOpenCodeSkill(t *testing.T) {
 				Description: "Test skill",
 				Content:     "Skill content",
 			},
-			wantCount: 1,
+			errorCount: 1,
 		},
 		{
 			name: "content present",
@@ -478,7 +478,7 @@ func TestValidateOpenCodeSkill(t *testing.T) {
 				Description: "Test skill",
 				Content:     "Skill content",
 			},
-			wantCount: 0,
+			errorCount: 0,
 		},
 		{
 			name: "content empty",
@@ -487,7 +487,7 @@ func TestValidateOpenCodeSkill(t *testing.T) {
 				Description: "Test skill",
 				Content:     "",
 			},
-			wantCount: 1,
+			errorCount: 1,
 		},
 		{
 			name: "multiple validation errors",
@@ -496,15 +496,15 @@ func TestValidateOpenCodeSkill(t *testing.T) {
 				Description: "Test skill",
 				Content:     "",
 			},
-			wantCount: 2,
+			errorCount: 2,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			errs := models.ValidateOpenCodeSkill(tt.skill)
-			if len(errs) != tt.wantCount {
-				t.Errorf("models.ValidateOpenCodeSkill() error count = %d, want %d, errors: %v", len(errs), tt.wantCount, errs)
+			if len(errs) != tt.errorCount {
+				t.Errorf("models.ValidateOpenCodeSkill() error count = %d, want %d, errors: %v", len(errs), tt.errorCount, errs)
 			}
 		})
 	}
@@ -512,23 +512,23 @@ func TestValidateOpenCodeSkill(t *testing.T) {
 
 func TestValidateOpenCodeMemory(t *testing.T) {
 	tests := []struct {
-		name      string
-		mem       *models.Memory
-		wantCount int
+		name       string
+		mem        *models.Memory
+		errorCount int
 	}{
 		{
 			name: "paths only",
 			mem: &models.Memory{
 				Paths: []string{"README.md", "CONTRIBUTING.md"},
 			},
-			wantCount: 0,
+			errorCount: 0,
 		},
 		{
 			name: "content only",
 			mem: &models.Memory{
 				Content: "Project context and setup instructions",
 			},
-			wantCount: 0,
+			errorCount: 0,
 		},
 		{
 			name: "both paths and content",
@@ -536,20 +536,20 @@ func TestValidateOpenCodeMemory(t *testing.T) {
 				Paths:   []string{"README.md"},
 				Content: "Additional context",
 			},
-			wantCount: 0,
+			errorCount: 0,
 		},
 		{
-			name:      "both empty",
-			mem:       &models.Memory{},
-			wantCount: 1,
+			name:       "both empty",
+			mem:        &models.Memory{},
+			errorCount: 1,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			errs := models.ValidateOpenCodeMemory(tt.mem)
-			if len(errs) != tt.wantCount {
-				t.Errorf("models.ValidateOpenCodeMemory() error count = %d, want %d, errors: %v", len(errs), tt.wantCount, errs)
+			if len(errs) != tt.errorCount {
+				t.Errorf("models.ValidateOpenCodeMemory() error count = %d, want %d, errors: %v", len(errs), tt.errorCount, errs)
 			}
 		})
 	}

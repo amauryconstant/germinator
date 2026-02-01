@@ -58,10 +58,14 @@ func transformPermissionMode(mode string) string {
 	}
 
 	var builder strings.Builder
-	for tool, rules := range perms {
-		for pattern, permission := range rules {
-			builder.WriteString(fmt.Sprintf("  %s:\n", tool))
-			builder.WriteString(fmt.Sprintf("    %s: %s\n", pattern, permission))
+
+	tools := []string{"bash", "edit"}
+	for _, tool := range tools {
+		if rules, ok := perms[tool]; ok {
+			for pattern, permission := range rules {
+				builder.WriteString(fmt.Sprintf("  %s:\n", tool))
+				builder.WriteString(fmt.Sprintf("    %s: %s\n", pattern, permission))
+			}
 		}
 	}
 	return builder.String()

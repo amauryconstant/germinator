@@ -6,9 +6,9 @@ tools:
   grep: true
   read: true
 permission:
-  edit:
-    *: deny
   bash:
+    *: deny
+  edit:
     *: deny
 
 ---

@@ -9,44 +9,104 @@ import (
 	"gitlab.com/amoconst/germinator/internal/models"
 )
 
-func TestLoadDocumentIntegration(t *testing.T) {
+func getProjectRoot() (string, error) {
 	wd, err := os.Getwd()
 	if err != nil {
-		t.Fatalf("failed to get working directory: %v", err)
+		return "", err
 	}
-	fixturesDir := filepath.Join(wd, "..", "..", "test", "fixtures")
+
+	testPath := filepath.Join(wd, "..", "..", "test")
+	if _, err := os.Stat(testPath); err == nil {
+		return filepath.Abs(filepath.Join(wd, "..", ".."))
+	}
+
+	altTestPath := filepath.Join(wd, "..", "..", "..", "test")
+	if _, err := os.Stat(altTestPath); err == nil {
+		return filepath.Abs(filepath.Join(wd, "..", "..", ".."))
+	}
+
+	return "", os.ErrNotExist
+}
+
+func getFixturesDir(t *testing.T) string {
+	root, err := getProjectRoot()
+	if err != nil {
+		t.Fatalf("failed to find project root: %v", err)
+	}
+	return filepath.Join(root, "test", "fixtures")
+}
+
+func TestLoadDocumentIntegration(t *testing.T) {
+	fixturesDir := getFixturesDir(t)
 
 	tests := []struct {
 		name         string
 		filepath     string
+		platform     string
 		expectError  bool
 		expectedType interface{}
 		checkContent bool
 	}{
 		{
-			name:         "load valid agent",
+			name:         "load valid agent (claude-code)",
 			filepath:     filepath.Join(fixturesDir, "agent-test.md"),
+			platform:     "claude-code",
 			expectError:  false,
 			expectedType: &models.Agent{},
 			checkContent: true,
 		},
 		{
-			name:         "load valid command",
+			name:         "load valid agent (opencode)",
+			filepath:     filepath.Join(fixturesDir, "agent-test.md"),
+			platform:     "opencode",
+			expectError:  false,
+			expectedType: &models.Agent{},
+			checkContent: true,
+		},
+		{
+			name:         "load valid command (claude-code)",
 			filepath:     filepath.Join(fixturesDir, "command-test.md"),
+			platform:     "claude-code",
 			expectError:  false,
 			expectedType: &models.Command{},
 			checkContent: true,
 		},
 		{
-			name:         "load valid memory",
+			name:         "load valid command (opencode)",
+			filepath:     filepath.Join(fixturesDir, "command-test.md"),
+			platform:     "opencode",
+			expectError:  false,
+			expectedType: &models.Command{},
+			checkContent: true,
+		},
+		{
+			name:         "load valid memory (claude-code)",
 			filepath:     filepath.Join(fixturesDir, "memory-test.md"),
+			platform:     "claude-code",
 			expectError:  false,
 			expectedType: &models.Memory{},
 			checkContent: true,
 		},
 		{
-			name:         "load valid skill",
+			name:         "load valid memory (opencode)",
+			filepath:     filepath.Join(fixturesDir, "memory-test.md"),
+			platform:     "opencode",
+			expectError:  false,
+			expectedType: &models.Memory{},
+			checkContent: true,
+		},
+		{
+			name:         "load valid skill (claude-code)",
 			filepath:     filepath.Join(fixturesDir, "skill-test.md"),
+			platform:     "claude-code",
+			expectError:  false,
+			expectedType: &models.Skill{},
+			checkContent: true,
+		},
+		{
+			name:         "load valid skill (opencode)",
+			filepath:     filepath.Join(fixturesDir, "skill-test.md"),
+			platform:     "opencode",
 			expectError:  false,
 			expectedType: &models.Skill{},
 			checkContent: true,
@@ -54,23 +114,26 @@ func TestLoadDocumentIntegration(t *testing.T) {
 		{
 			name:        "load invalid agent",
 			filepath:    filepath.Join(fixturesDir, "agent-invalid.md"),
+			platform:    "claude-code",
 			expectError: true,
 		},
 		{
 			name:        "load invalid command",
 			filepath:    filepath.Join(fixturesDir, "command-invalid.md"),
+			platform:    "claude-code",
 			expectError: true,
 		},
 		{
 			name:        "load unrecognizable filename",
 			filepath:    filepath.Join(fixturesDir, "my-document.md"),
+			platform:    "claude-code",
 			expectError: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			doc, err := LoadDocument(tt.filepath, "claude-code")
+			doc, err := LoadDocument(tt.filepath, tt.platform)
 
 			if tt.expectError {
 				if err == nil {
@@ -151,11 +214,7 @@ func TestLoadDocumentIntegration(t *testing.T) {
 }
 
 func TestParseDocument(t *testing.T) {
-	wd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get working directory: %v", err)
-	}
-	fixturesDir := filepath.Join(wd, "..", "..", "test", "fixtures")
+	fixturesDir := getFixturesDir(t)
 
 	tests := []struct {
 		name        string
