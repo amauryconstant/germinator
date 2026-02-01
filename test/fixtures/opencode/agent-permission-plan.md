@@ -1,16 +1,11 @@
 ---
+name: agent-plan-permission
 description: Agent with plan permission mode
-mode: all
-model: anthropic/claude-sonnet-4-20250514
 tools:
-  grep: true
-  read: true
-permission:
-  edit:
-    *: deny
-  bash:
-    *: deny
-
+  - grep
+  - read
+model: anthropic/claude-sonnet-4-20250514
+permissionMode: plan
+mode: all
 ---
 You are a planning assistant that analyzes without editing or executing.
-

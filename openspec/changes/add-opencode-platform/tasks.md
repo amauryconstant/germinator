@@ -469,10 +469,138 @@
       - Verify unknown mode handled gracefully
 
 - [x] 16.10 Final integration test
-      - Full workflow: parse source → validate → transform → serialize
-      - Verify output matches golden files
-      - Verify no data loss
-      - Verify all document types work
+       - Full workflow: parse source → validate → transform → serialize
+       - Verify output matches golden files
+       - Verify no data loss
+       - Verify all document types work
+
+## 17. Golden File Testing
+
+**Section 17 depends on: Section 12 complete (transformation tests exist)**
+
+- [x] 17.1 Research golden file test patterns
+         - Review Go testing patterns for golden file comparison (e.g., testify's GoldenFile approach)
+         - Research best practices for golden file testing in Go projects
+         - Document patterns and approaches found
+
+- [x] 17.2 Evaluate current golden files against transformer output
+         - List all files in `test/golden/opencode/`
+         - Run TransformDocument on corresponding fixtures
+         - Compare actual output with existing golden files
+         - Document any discrepancies found
+
+- [x] 17.3 Create transformer_golden_test.go with table-driven tests
+         - Create `internal/services/transformer_golden_test.go` for golden file testing
+         - Use table-driven pattern with test cases for each golden file:
+           ```go
+           tests := []struct {
+               name     string
+               input    string  // Germinator format fixture
+               expected string  // Golden file path
+           }{
+               {"agent-full", "test/fixtures/opencode/agent-full.md", "test/golden/opencode/agent-full.md.golden"},
+               {"agent-mixed-tools", "test/fixtures/opencode/agent-mixed-tools.md", "test/golden/opencode/agent-mixed-tools.md.golden"},
+               {"command-full", "test/fixtures/opencode/command-full.md", "test/golden/opencode/command-full.md.golden"},
+               // ... all other golden files
+           }
+           ```
+         - Load input fixture, run TransformDocument, read expected golden
+         - Compare actual output vs expected golden byte-by-byte
+         - Use `filepath.Join()` for cross-platform path construction
+         - Implement comparison using `cmp.Diff` or byte-by-byte equality
+
+- [x] 17.4 Add update-golden mechanism for regenerating files
+         - Add environment variable support for updating golden files:
+           ```go
+           // Add comment at top of test file:
+           // To update golden files: go test ./... -update-golden
+           if os.Getenv("UPDATE_GOLDEN") == "true" {
+               // Write actual output to golden file
+               os.MkdirAll(filepath.Dir(goldenPath), 0755)
+               os.WriteFile(goldenPath, []byte(actual), 0644)
+           }
+           ```
+         - Update test documentation with update instructions
+         - Add helper function to handle file writing
+
+- [x] 17.5 Update CI to verify golden files match
+         - Add test job to CI pipeline to run golden file tests
+         - Ensure golden file tests pass before merging
+         - Add note about -update-golden flag for developers
+
+- [x] 17.6 Document golden file testing convention in test/README.md
+         - Add "Golden File Testing" section to test/README.md
+         - Document how to add new golden file tests
+         - Explain update-golden workflow
+         - Provide examples for new developers
+
+## 18. Testing System Improvements
+
+**Section 18 depends on: Section 17 complete (golden file tests implemented)**
+
+- [ ] 18.1 Remove custom contains() helper function from cmd/cmd_test.go
+        - Replace custom `contains()` and `containsMiddle()` functions with `strings.Contains()`
+        - Update TestAdaptCommand to use strings.Contains()
+        - Run tests to verify no regression
+
+- [ ] 18.2 Fix hardcoded platform in integration tests
+        - Update TestLoadDocumentIntegration to accept platform parameter
+        - Add table-driven test cases for both "claude-code" and "opencode"
+        - Verify both platforms load correctly
+
+- [ ] 18.3 Add cmd package tests to increase coverage (currently 20.6%)
+        - Add tests for adapt.go command functionality
+        - Add tests for validate.go command functionality
+        - Add tests for root.go setup
+        - Add tests for version.go command
+        - Target coverage: >70%
+
+- [ ] 18.4 Add version package tests (currently 0% coverage)
+        - Create internal/version/version_test.go
+        - Test version variable
+        - Test commit variable
+        - Test date variable
+        - Add edge case tests
+
+- [ ] 18.5 Unify test data setup patterns
+        - Decide on standard approach: t.TempDir() (dynamic) vs fixtures (static)
+        - Update tests to use consistent pattern
+        - Document pattern in test/README.md
+
+- [ ] 18.6 Fix fragile path resolution in integration tests
+        - Replace relative path navigation with embedded fixtures or test data package
+        - Use filepath.Join() properly for cross-platform compatibility
+        - Ensure tests work from any working directory
+
+- [ ] 18.7 Add loader unit tests
+        - Create internal/core/loader_test.go
+        - Test DetectType() edge cases (empty paths, invalid extensions, etc.)
+        - Test LoadDocument() validation error propagation
+        - Test DetectType() with all valid document types
+
+- [ ] 18.8 Expand test/README.md documentation
+        - Document when to use fixtures vs golden files
+        - Add section on test naming conventions
+        - Document platform testing expectations
+        - Add examples for adding new tests
+        - Explain table-driven test pattern
+
+- [ ] 18.9 Standardize error counting patterns across tests
+        - Choose pattern: explicit errorCount field or len(errs) > 0
+        - Update inconsistent tests to use chosen pattern
+        - Document pattern in test/README.md
+
+- [ ] 18.10 Verify and reduce duplicate test coverage
+        - Identify overlapping test cases (e.g., LoadDocument vs ParseDocument)
+        - Consolidate overlapping tests
+        - Remove redundant assertions
+        - Maintain coverage while reducing duplication
+
+- [ ] 18.11 Run coverage analysis after improvements
+        - Run mise run test:coverage
+        - Verify cmd package coverage >70%
+        - Verify version package coverage >80%
+        - Document coverage metrics in tasks
 
 ---
 

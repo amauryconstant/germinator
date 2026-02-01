@@ -592,6 +592,97 @@ if platform == "" {
 
 **Decision**: Layered approach (base + platform-specific) balances consistency and flexibility. Base validation catches obvious errors; platform validation catches platform-specific issues.
 
+## Testing Strategy
+
+### Current Testing Issues Identified
+
+Based on comprehensive testing system review, the following issues require resolution:
+
+**1. Platform Coverage Gap**
+- Integration tests hardcode "claude-code" platform, never testing OpenCode
+- `internal/core/integration_test.go:73` uses fixed platform string
+- Risk: OpenCode-specific code paths untested in integration scenarios
+
+**2. Golden Files Not Tested**
+- Golden files exist in `test/golden/opencode/` but are never referenced in test code
+- No automated verification of golden file correctness
+- Risk: Golden files become stale, manual verification only
+
+**3. Custom Utility Functions**
+- `cmd/cmd_test.go` implements custom `contains()` and `containsMiddle()` functions
+- Standard library `strings.Contains()` provides equivalent functionality
+- Risk: Unnecessary complexity, potential bugs
+
+**4. Inconsistent Test Data Setup**
+- `transformer_test.go`: Uses `t.TempDir()` (dynamic test files)
+- `integration_test.go`: Uses static fixtures from `test/fixtures/`
+- Mixed patterns create navigation and understanding issues
+
+**5. Coverage Gaps**
+- `cmd` package: 20.6% coverage (minimal tests)
+- `version` package: 0% coverage (no tests)
+- Core functionality tested, but CLI and version components neglected
+
+**6. Fragile Path Resolution**
+- `integration_test.go:17` uses relative path navigation
+- Assumes specific working directory structure
+- Risk: Tests fail from different working directories
+
+**7. Missing Loader Unit Tests**
+- No dedicated tests for `loader.go` functions
+- Only indirect testing through integration tests
+- Edge cases in `DetectType()` and `LoadDocument()` untested
+
+**8. Test Documentation Gaps**
+- `test/README.md` is minimal (17 lines)
+- No guidance on test patterns or conventions
+- Unclear when to use fixtures vs golden files
+
+### Testing Patterns and Conventions
+
+**Table-Driven Tests**
+- Primary pattern for test organization
+- Structure: `tests := []struct { name, input, expect }`
+- Run with `for _, tt := range tests { t.Run(tt.name, ...) }`
+- Used in: `models_test.go`, `serializer_test.go`, `transformer_test.go`
+
+**Test Data Setup**
+- **Preferred**: `t.TempDir()` for dynamic test file creation
+- **Alternative**: Static fixtures in `test/fixtures/` for shared test data
+- **Decision**: Use dynamic for test-specific data, static for reusable fixtures
+
+**Error Assertions**
+- **Preferred**: Explicit error count with `errorCount` field
+- **Alternative**: Check `len(errs) > 0`
+- **Decision**: Use explicit count for expected error scenarios
+
+**Platform Testing**
+- All validation tests parameterize platform field
+- Test both "claude-code" and "opencode" where applicable
+- Use table-driven tests for platform scenarios
+
+### Testing Goals
+
+**Coverage Targets**
+- `cmd` package: >70% (from current 20.6%)
+- `version` package: >80% (from current 0%)
+- `models` package: Maintain >90% (currently 91.6%)
+- `core` package: Maintain >80% (currently 83.6%)
+- `services` package: Maintain >70% (currently 71.4%)
+
+**Quality Standards**
+- No custom utility functions when standard library available
+- Golden files either automated or removed (no manual-only)
+- Platform testing across all supported platforms
+- Path resolution works from any working directory
+- All public APIs have unit tests
+
+**Test Organization Principles**
+- **Unit tests**: Single function/method, isolated dependencies
+- **Integration tests**: End-to-end workflows, multiple components
+- **Transformation tests**: Input → Output verification (with golden files if automated)
+- **Validation tests**: Edge cases, error scenarios, platform-specific constraints
+
 ### Risk: Template Complexity May Become Unmaintainable
 
 **Risk**: Complex transformation logic in templates may become difficult to maintain.

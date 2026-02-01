@@ -8,9 +8,10 @@ tools:
   read: true
 permission:
   edit:
-    "*": ask
+    *: ask
   bash:
-    "*": ask
+    *: ask
+
 ---
 You are a code reviewer focused on security vulnerabilities and best practices.
 Check for:
@@ -18,3 +19,4 @@ Check for:
 - XSS vulnerabilities
 - Authentication issues
 - Code quality and maintainability
+

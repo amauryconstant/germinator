@@ -49,6 +49,7 @@ This change provides a complete solution: a Germinator source format that serves
 ### Testing
 - Create comprehensive test fixtures and golden files for all 4 document types in `test/fixtures/` and `test/golden/`
 - Add table-driven tests for template transformations, validation, and edge cases
+- **Address testing system gaps**: Fix platform coverage, golden file verification, custom utilities, coverage gaps (cmd: 20.6%, version: 0%), fragile path resolution, missing loader tests, and test documentation
 
 ### Documentation
 - Update `README.md` and `AGENTS.md` with OpenCode usage examples and field mapping notes

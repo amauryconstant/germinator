@@ -41,11 +41,11 @@ run = "gofmt -w ."
 
 [tasks.test]
 description = "Run all tests"
-run = "go test ./... -v"
+run = "go test ./..."
 
 [tasks."test:coverage"]
 description = "Run tests with coverage"
-run = "go test ./... -cover"
+run = "go test ./... -cover -v"
 
 [tasks.check]
 description = "Run all validation checks"

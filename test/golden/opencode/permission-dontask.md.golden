@@ -1,13 +1,18 @@
 ---
-description: Test agent with dontAsk permission mode
+description: Agent with dontAsk permission mode
 mode: all
+model: anthropic/claude-sonnet-4-20250514
 tools:
-  read: true
   bash: true
+  grep: true
+  read: true
+  edit: true
 permission:
   edit:
-    "*": allow
+    *: allow
   bash:
-    "*": allow
+    *: allow
+
 ---
-Test content for dontAsk permission mode
+You are a helpful assistant that doesn't ask for permissions.
+

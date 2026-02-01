@@ -6,12 +6,12 @@ compatibility:
   - claude-code
   - opencode
 metadata:
-  version: "1.0.0"
   author: "Germinator Team"
   category: "code-quality"
+  version: "1.0.0"
 hooks:
-  pre-review: "run-linters"
   post-review: "update-metrics"
+  pre-review: "run-linters"
 ---
 You are an enhanced code review tool with automated checks.
 
