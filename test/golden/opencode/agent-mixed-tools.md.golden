@@ -9,9 +9,21 @@ tools:
   write: false
   execute: false
 permission:
+  edit:
+    *: allow
   bash:
     *: allow
-  edit:
+  read:
+    *: allow
+  grep:
+    *: allow
+  glob:
+    *: allow
+  list:
+    *: allow
+  webfetch:
+    *: allow
+  websearch:
     *: allow
 
 temperature: 0.1

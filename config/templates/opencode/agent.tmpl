@@ -3,9 +3,6 @@ description: {{.Description}}
 {{- if .Mode}}
 mode: {{.Mode}}
 {{- end}}
-{{- if not .Mode}}
-mode: all
-{{- end}}
 {{- if .Model}}
 model: {{.Model}}
 {{- end}}
@@ -31,13 +28,13 @@ temperature: {{.Temperature}}
 maxSteps: {{.MaxSteps}}
 {{- end}}
 {{- if .Hidden}}
-hidden: {{.Hidden}}
+hidden: true
 {{- end}}
 {{- if ne .Prompt ""}}
 prompt: {{.Prompt}}
 {{- end}}
 {{- if .Disable}}
-disable: {{.Disable}}
+disable: true
 {{- end}}
 ---
 {{.Content}}

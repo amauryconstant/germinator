@@ -6,10 +6,22 @@ tools:
   grep: true
   read: true
 permission:
-  bash:
-    *: deny
   edit:
     *: deny
+  bash:
+    *: deny
+  read:
+    *: allow
+  grep:
+    *: allow
+  glob:
+    *: allow
+  list:
+    *: allow
+  webfetch:
+    *: allow
+  websearch:
+    *: allow
 
 ---
 You are a planning assistant that analyzes without editing or executing.

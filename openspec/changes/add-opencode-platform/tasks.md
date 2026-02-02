@@ -577,50 +577,50 @@
 
 ## 20. High Priority Fixes
 
-- [ ] 20.1 Expand permission transformation to 8+ tools
-        - Add mapping for read, grep, glob, list, webfetch, websearch tools
-        - Update internal/core/template_funcs.go transformPermissionMode function
-        - Document remaining 7+ undefined tools clearly in field mapping tables
-        - Add unit tests for newly mapped tools
-        - Verify permission objects generated correctly for all 8 tools
+- [x] 20.1 Expand permission transformation to 8+ tools
+         - Add mapping for read, grep, glob, list, webfetch, websearch tools
+         - Update internal/core/template_funcs.go transformPermissionMode function
+         - Document remaining 7+ undefined tools clearly in field mapping tables
+         - Add unit tests for newly mapped tools
+         - Verify permission objects generated correctly for all 8 tools
 
-- [ ] 20.2 Extract platform constants to internal/models/constants.go
-        - Create internal/models/constants.go with PlatformClaudeCode and PlatformOpenCode constants
-        - Replace magic string literals "claude-code" and "opencode" throughout codebase
-        - Update validation functions to use constants instead of strings
-        - Update CLI commands to use constants
-        - Eliminates 4x code duplication in platform validation
+- [x] 20.2 Extract platform constants to internal/models/constants.go
+         - Create internal/models/constants.go with PlatformClaudeCode and PlatformOpenCode constants
+         - Replace magic string literals "claude-code" and "opencode" throughout codebase
+         - Update validation functions to use constants instead of strings
+         - Update CLI commands to use constants
+         - Eliminates 4x code duplication in platform validation
 
-- [ ] 20.3 Add tool configuration to command.tmpl
-        - Update config/templates/opencode/command.tmpl to include allowedTools/disallowedTools
-        - Convert tool arrays to lowercase tool maps using Sprig's | lower
-        - Test with commands containing tool restrictions
-        - Verify tool configuration not silently dropped
+- [x] 20.3 Add tool configuration to command.tmpl
+         - Update config/templates/opencode/command.tmpl to include allowedTools/disallowedTools
+         - Convert tool arrays to lowercase tool maps using Sprig's | lower
+         - Test with commands containing tool restrictions
+         - Verify tool configuration not silently dropped
 
-- [ ] 20.4 Fix regexp.MatchString error handling
-        - Update internal/models/models.go:47 and :189 to handle error from regexp.MatchString
-        - Properly check error return value instead of using _
-        - Follow Go error handling best practices
-        - Add unit test for regex validation error path
+- [x] 20.4 Fix regexp.MatchString error handling
+         - Update internal/models/models.go:47 and :189 to handle error from regexp.MatchString
+         - Properly check error return value instead of using _
+         - Follow Go error handling best practices
+         - Add unit test for regex validation error path
 
-- [ ] 20.5 Make agent mode field truly optional
-        - Update config/templates/opencode/agent.tmpl to omit mode when empty (not default to "all")
-        - Update spec to reflect mode as optional field
-        - Verify template omits mode when .Mode is empty string
-        - Test with agents that have empty mode field
+- [x] 20.5 Make agent mode field truly optional
+         - Update config/templates/opencode/agent.tmpl to omit mode when empty (not default to "all")
+         - Update spec to reflect mode as optional field
+         - Verify template omits mode when .Mode is empty string
+         - Test with agents that have empty mode field
 
-- [ ] 20.6 Fix hidden/disable boolean output logic
-        - Update config/templates/opencode/agent.tmpl to only output hidden/disable when true
-        - Change from {{- if .Hidden}} to {{- if .Hidden}}{{- if eq .Hidden true}}}
-        - Verify false values are not rendered in output
-        - Test with hidden=false and disable=false scenarios
+- [x] 20.6 Fix hidden/disable boolean output logic
+         - Update config/templates/opencode/agent.tmpl to only output hidden/disable when true
+         - Change from {{- if .Hidden}} to {{- if .Hidden}}{{- if eq .Hidden true}}}
+         - Verify false values are not rendered in output
+         - Test with hidden=false and disable=false scenarios
 
-- [ ] 20.7 Add CLI end-to-end tests
-        - Test adapt command through CLI with real files
-        - Test validate command through CLI with validation errors
-        - Verify platform flag validation, error messages, exit codes
-        - Add tests for help text completeness
-        - Increase cmd package coverage significantly
+- [x] 20.7 Add CLI end-to-end tests
+         - Test adapt command through CLI with real files
+         - Test validate command through CLI with validation errors
+         - Verify platform flag validation, error messages, exit codes
+         - Add tests for help text completeness
+         - Increase cmd package coverage significantly
 
 
 

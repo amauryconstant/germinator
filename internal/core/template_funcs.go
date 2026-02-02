@@ -30,28 +30,58 @@ func transformPermissionMode(mode string) string {
 	switch mode {
 	case "default":
 		perms = map[string]map[string]string{
-			"edit": {"*": "ask"},
-			"bash": {"*": "ask"},
+			"edit":      {"*": "ask"},
+			"bash":      {"*": "ask"},
+			"read":      {"*": "ask"},
+			"grep":      {"*": "ask"},
+			"glob":      {"*": "ask"},
+			"list":      {"*": "ask"},
+			"webfetch":  {"*": "ask"},
+			"websearch": {"*": "ask"},
 		}
 	case "acceptEdits":
 		perms = map[string]map[string]string{
-			"edit": {"*": "allow"},
-			"bash": {"*": "ask"},
+			"edit":      {"*": "allow"},
+			"bash":      {"*": "ask"},
+			"read":      {"*": "allow"},
+			"grep":      {"*": "allow"},
+			"glob":      {"*": "allow"},
+			"list":      {"*": "allow"},
+			"webfetch":  {"*": "ask"},
+			"websearch": {"*": "ask"},
 		}
 	case "dontAsk":
 		perms = map[string]map[string]string{
-			"edit": {"*": "allow"},
-			"bash": {"*": "allow"},
+			"edit":      {"*": "allow"},
+			"bash":      {"*": "allow"},
+			"read":      {"*": "allow"},
+			"grep":      {"*": "allow"},
+			"glob":      {"*": "allow"},
+			"list":      {"*": "allow"},
+			"webfetch":  {"*": "allow"},
+			"websearch": {"*": "allow"},
 		}
 	case "bypassPermissions":
 		perms = map[string]map[string]string{
-			"edit": {"*": "allow"},
-			"bash": {"*": "allow"},
+			"edit":      {"*": "allow"},
+			"bash":      {"*": "allow"},
+			"read":      {"*": "allow"},
+			"grep":      {"*": "allow"},
+			"glob":      {"*": "allow"},
+			"list":      {"*": "allow"},
+			"webfetch":  {"*": "allow"},
+			"websearch": {"*": "allow"},
 		}
 	case "plan":
 		perms = map[string]map[string]string{
-			"edit": {"*": "deny"},
-			"bash": {"*": "deny"},
+			"edit":      {"*": "deny"},
+			"bash":      {"*": "deny"},
+			"read":      {"*": "allow"},
+			"grep":      {"*": "allow"},
+			"glob":      {"*": "allow"},
+			"list":      {"*": "allow"},
+			"webfetch":  {"*": "allow"},
+			"websearch": {"*": "allow"},
 		}
 	default:
 		return ""
@@ -59,7 +89,7 @@ func transformPermissionMode(mode string) string {
 
 	var builder strings.Builder
 
-	tools := []string{"bash", "edit"}
+	tools := []string{"edit", "bash", "read", "grep", "glob", "list", "webfetch", "websearch"}
 	for _, tool := range tools {
 		if rules, ok := perms[tool]; ok {
 			for pattern, permission := range rules {

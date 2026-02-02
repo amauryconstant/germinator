@@ -225,8 +225,8 @@ func TestRenderOpenCodeAgent(t *testing.T) {
 				if !strings.Contains(result, "bash:") {
 					t.Error("Expected bash permission in output")
 				}
-				if !strings.Contains(result, "mode: all") {
-					t.Error("Expected default mode to be 'all'")
+				if strings.Contains(result, "mode:") {
+					t.Error("Expected mode to be omitted when empty")
 				}
 				if !strings.Contains(result, "model: anthropic/claude-sonnet-4-20250514") {
 					t.Error("Expected model field in output")
@@ -346,7 +346,7 @@ func TestRenderOpenCodeAgent(t *testing.T) {
 			},
 		},
 		{
-			name: "agent mode default (empty → all)",
+			name: "agent mode empty (omitted from output)",
 			agent: &models.Agent{
 				Name:        "test-agent",
 				Description: "Test agent",
@@ -354,8 +354,8 @@ func TestRenderOpenCodeAgent(t *testing.T) {
 			},
 			wantErr: false,
 			check: func(t *testing.T, result string) {
-				if !strings.Contains(result, "mode: all") {
-					t.Error("Expected default mode to be 'all'")
+				if strings.Contains(result, "mode:") {
+					t.Error("Expected mode to be omitted when empty")
 				}
 			},
 		},

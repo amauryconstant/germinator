@@ -37,15 +37,17 @@ func (a *Agent) Validate(platform string) []error {
 		errs = append(errs, errors.New("platform is required (available: claude-code, opencode)"))
 	}
 
-	if platform != "" && platform != "claude-code" && platform != "opencode" {
+	if platform != "" && platform != PlatformClaudeCode && platform != PlatformOpenCode {
 		errs = append(errs, fmt.Errorf("unknown platform: %s (available: claude-code, opencode)", platform))
 	}
 
 	if a.Name == "" {
 		errs = append(errs, errors.New("name is required"))
 	} else {
-		matched, _ := regexp.MatchString(`^[a-z0-9]+(-[a-z0-9]+)*$`, a.Name)
-		if !matched {
+		matched, err := regexp.MatchString(`^[a-z0-9]+(-[a-z0-9]+)*$`, a.Name)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to validate name regex: %w", err))
+		} else if !matched {
 			errs = append(errs, fmt.Errorf("name must match pattern ^[a-z0-9]+(-[a-z0-9]+)*$ (got: %s)", a.Name))
 		}
 	}
@@ -67,7 +69,7 @@ func (a *Agent) Validate(platform string) []error {
 		}
 	}
 
-	if platform == "opencode" {
+	if platform == PlatformOpenCode {
 		errs = append(errs, ValidateOpenCodeAgent(a)...)
 	}
 
@@ -102,7 +104,7 @@ func (c *Command) Validate(platform string) []error {
 		errs = append(errs, errors.New("platform is required (available: claude-code, opencode)"))
 	}
 
-	if platform != "" && platform != "claude-code" && platform != "opencode" {
+	if platform != "" && platform != PlatformClaudeCode && platform != PlatformOpenCode {
 		errs = append(errs, fmt.Errorf("unknown platform: %s (available: claude-code, opencode)", platform))
 	}
 
@@ -110,7 +112,7 @@ func (c *Command) Validate(platform string) []error {
 		errs = append(errs, fmt.Errorf("context must be 'fork' if specified (got: %s)", c.Context))
 	}
 
-	if platform == "opencode" {
+	if platform == PlatformOpenCode {
 		errs = append(errs, ValidateOpenCodeCommand(c)...)
 	}
 
@@ -132,7 +134,7 @@ func (m *Memory) Validate(platform string) []error {
 		errs = append(errs, errors.New("platform is required (available: claude-code, opencode)"))
 	}
 
-	if platform != "" && platform != "claude-code" && platform != "opencode" {
+	if platform != "" && platform != PlatformClaudeCode && platform != PlatformOpenCode {
 		errs = append(errs, fmt.Errorf("unknown platform: %s (available: claude-code, opencode)", platform))
 	}
 
@@ -140,7 +142,7 @@ func (m *Memory) Validate(platform string) []error {
 		errs = append(errs, errors.New("paths or content is required"))
 	}
 
-	if platform == "opencode" {
+	if platform == PlatformOpenCode {
 		errs = append(errs, ValidateOpenCodeMemory(m)...)
 	}
 
@@ -176,7 +178,7 @@ func (s *Skill) Validate(platform string) []error {
 		errs = append(errs, errors.New("platform is required (available: claude-code, opencode)"))
 	}
 
-	if platform != "" && platform != "claude-code" && platform != "opencode" {
+	if platform != "" && platform != PlatformClaudeCode && platform != PlatformOpenCode {
 		errs = append(errs, fmt.Errorf("unknown platform: %s (available: claude-code, opencode)", platform))
 	}
 
@@ -186,8 +188,10 @@ func (s *Skill) Validate(platform string) []error {
 		if len(s.Name) < 1 || len(s.Name) > 64 {
 			errs = append(errs, fmt.Errorf("name must be 1-64 characters (got: %d)", len(s.Name)))
 		}
-		matched, _ := regexp.MatchString(`^[a-z0-9]+(-[a-z0-9]+)*$`, s.Name)
-		if !matched {
+		matched, err := regexp.MatchString(`^[a-z0-9]+(-[a-z0-9]+)*$`, s.Name)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to validate name regex: %w", err))
+		} else if !matched {
 			errs = append(errs, fmt.Errorf("name must match pattern ^[a-z0-9]+(-[a-z0-9]+)*$ (got: %s)", s.Name))
 		}
 	}
@@ -204,7 +208,7 @@ func (s *Skill) Validate(platform string) []error {
 		errs = append(errs, fmt.Errorf("context must be 'fork' if specified (got: %s)", s.Context))
 	}
 
-	if platform == "opencode" {
+	if platform == PlatformOpenCode {
 		errs = append(errs, ValidateOpenCodeSkill(s)...)
 	}
 

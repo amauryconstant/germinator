@@ -9,10 +9,22 @@ tools:
   edit: true
   write: true
 permission:
-  bash:
-    *: ask
   edit:
     *: allow
+  bash:
+    *: ask
+  read:
+    *: allow
+  grep:
+    *: allow
+  glob:
+    *: allow
+  list:
+    *: allow
+  webfetch:
+    *: ask
+  websearch:
+    *: ask
 
 ---
 You are a helpful assistant that accepts edits without asking.

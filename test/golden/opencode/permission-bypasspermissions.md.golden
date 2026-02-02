@@ -9,9 +9,21 @@ tools:
   edit: true
   write: true
 permission:
+  edit:
+    *: allow
   bash:
     *: allow
-  edit:
+  read:
+    *: allow
+  grep:
+    *: allow
+  glob:
+    *: allow
+  list:
+    *: allow
+  webfetch:
+    *: allow
+  websearch:
     *: allow
 
 ---

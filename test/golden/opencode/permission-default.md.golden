@@ -9,9 +9,21 @@ tools:
   edit: true
   write: false
 permission:
+  edit:
+    *: ask
   bash:
     *: ask
-  edit:
+  read:
+    *: ask
+  grep:
+    *: ask
+  glob:
+    *: ask
+  list:
+    *: ask
+  webfetch:
+    *: ask
+  websearch:
     *: ask
 
 ---

@@ -585,8 +585,8 @@ Agent content`,
 				if !strings.Contains(output, "description: Test agent") {
 					t.Error("Expected description in output")
 				}
-				if !strings.Contains(output, "mode: all") {
-					t.Error("Expected default mode: all")
+				if strings.Contains(output, "mode:") {
+					t.Error("Expected mode to be omitted when empty")
 				}
 			},
 		},
@@ -659,15 +659,15 @@ Agent content`,
 			},
 		},
 		{
-			name: "agent mode defaults to all when empty",
+			name: "agent mode omitted when empty",
 			inputContent: `---
 name: test-agent
 description: Test agent
 ---
 Agent content`,
 			checkOutput: func(t *testing.T, output string) {
-				if !strings.Contains(output, "mode: all") {
-					t.Error("Expected default mode: all")
+				if strings.Contains(output, "mode:") {
+					t.Error("Expected mode to be omitted when empty")
 				}
 			},
 		},

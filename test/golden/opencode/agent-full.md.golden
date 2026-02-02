@@ -10,10 +10,22 @@ tools:
   write: true
   execute: false
 permission:
-  bash:
-    *: ask
   edit:
     *: allow
+  bash:
+    *: ask
+  read:
+    *: allow
+  grep:
+    *: allow
+  glob:
+    *: allow
+  list:
+    *: allow
+  webfetch:
+    *: ask
+  websearch:
+    *: ask
 
 temperature: 0.3
 maxSteps: 25

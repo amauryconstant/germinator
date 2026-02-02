@@ -1,15 +1,26 @@
 ---
 description: Reviews code for security and best practices
-mode: all
 model: anthropic/claude-sonnet-4-20250514
 tools:
   bash: true
   grep: true
   read: true
 permission:
+  edit:
+    *: ask
   bash:
     *: ask
-  edit:
+  read:
+    *: ask
+  grep:
+    *: ask
+  glob:
+    *: ask
+  list:
+    *: ask
+  webfetch:
+    *: ask
+  websearch:
     *: ask
 
 ---

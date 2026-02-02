@@ -13,3 +13,4 @@ Example usage:
 /format-code main.go
 /format-code internal/*.go
 ```
+
