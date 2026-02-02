@@ -38,6 +38,20 @@ The system SHALL provide transformPermissionMode function to convert Claude Code
 ### Requirement: Permission Transformation Limitations
 The permission transformation SHALL document its limitations due to fundamental differences between platforms.
 
+#### Scenario: Eight tools are mapped for common permissions
+- **GIVEN** OpenCode supports 15+ permissionable tools (read, write, edit, grep, glob, list, bash, task, skill, lsp, todoread, todowrite, webfetch, websearch, codesearch, external_directory, doom_loop)
+- **WHEN** transformPermissionMode is called
+- **THEN** Eight tools SHALL be set in permission object: edit, bash, read, grep, glob, list, webfetch, websearch
+- **AND** Seven tools SHALL remain at undefined state: task, skill, lsp, todoread, todowrite, codesearch, external_directory, doom_loop
+- **AND** Limitation SHALL be documented prominently in field mapping tables
+
+#### Scenario: Command-level granularity not supported
+- **GIVEN** Claude Code permissionMode enum cannot represent command-specific rules
+- **WHEN** Transforming to OpenCode format
+- **THEN** Transformation SHALL use tool-specific wildcards only (e.g., `{"edit": {"*": "allow"}}`)
+- **AND** Command-level rules (e.g., `{"bash": {"git push": "deny"}}`) SHALL NOT be supported
+- **AND** Limitation SHALL be documented
+
 #### Scenario: Basic approximation only
 - **GIVEN** permission systems are fundamentally different (enum vs. nested objects)
 - **WHEN** transforming permissions
@@ -49,6 +63,21 @@ The permission transformation SHALL document its limitations due to fundamental 
 - **GIVEN** OpenCode doesn't support global wildcards
 - **WHEN** transforming to OpenCode format
 - **THEN** it SHALL use tool-specific wildcards (edit: {"*": "ask"})
+
+### Requirement: Expanded Permission Coverage
+The system SHALL provide permission mappings for 8 common tools used in code development workflows.
+
+#### Scenario: Core code analysis tools mapped
+- **GIVEN** Claude Code permissionMode enum
+- **WHEN** transformPermissionMode is called
+- **THEN** read, grep, glob, list tools SHALL be mapped to appropriate permissions (ask/allow/deny) based on mode
+- **AND** These tools are commonly used in read-only analysis workflows
+
+#### Scenario: Web tools mapped
+- **GIVEN** Claude Code permissionMode enum
+- **WHEN** transformPermissionMode is called
+- **THEN** webfetch, websearch tools SHALL be mapped to appropriate permissions (ask/allow/deny) based on mode
+- **AND** These tools enable web-based research capabilities
 
 ### Requirement: Permission Transformation Testing
 Permission transformation functions SHALL have comprehensive test coverage.

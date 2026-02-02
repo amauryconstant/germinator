@@ -130,19 +130,19 @@ compatibility:
 
 | Germinator Field | Claude Code | OpenCode |
 |------------------|-------------|----------|
-| name | ✓ | ✓ |
+| name | ✓ | ⚠ omitted (uses filename as identifier) |
 | description | ✓ | ✓ |
 | model | ✓ | ✓ (full provider-prefixed ID) |
-| tools | ✓ | ✓ |
-| disallowedTools | ✓ | ⚠ (skipped - not supported) |
-| permissionMode | ✓ | → Permission object |
+| tools | ✓ | ✓ (converted to lowercase) |
+| disallowedTools | ✓ | ✓ (converted to lowercase, set false) |
+| permissionMode | ✓ | → Permission object (nested with ask/allow/deny) |
 | skills | ✓ | ⚠ (skipped - not supported) |
-| mode | - | ✓ |
-| temperature | - | ✓ |
+| mode | - | ✓ (primary/subagent/all, defaults to all) |
+| temperature | - | ✓ (*float64 pointer, omits when nil) |
 | maxSteps | - | ✓ |
-| hidden | - | ✓ |
+| hidden | - | ✓ (omits when false) |
 | prompt | - | ✓ |
-| disable | - | ✓ |
+| disable | - | ✓ (omits when false) |
 
 ### Command
 
@@ -150,10 +150,10 @@ compatibility:
 |------------------|-------------|----------|
 | name | ✓ | ✓ |
 | description | ✓ | ✓ |
-| allowed-tools | ✓ | ✓ |
-| disallowed-tools | ✓ | ✓ |
+| allowed-tools | ✓ | ✓ (converted to lowercase) |
+| disallowed-tools | ✓ | ✓ (converted to lowercase, set false) |
 | subtask | ✓ | ✓ |
-| argument-hint | ✓ | ✓ |
+| argument-hint | ✓ | ⚠ (skipped - not supported) |
 | context | ✓ (fork) | ✓ (fork) |
 | agent | ✓ | ✓ |
 | model | ✓ | ✓ (full provider-prefixed ID) |
@@ -165,8 +165,8 @@ compatibility:
 |------------------|-------------|----------|
 | name | ✓ | ✓ |
 | description | ✓ | ✓ |
-| allowed-tools | ✓ | ✓ |
-| disallowed-tools | ✓ | ✓ |
+| allowed-tools | ✓ | ✓ (converted to lowercase) |
+| disallowed-tools | ✓ | ✓ (converted to lowercase) |
 | license | ✓ | ✓ |
 | compatibility | ✓ | ✓ |
 | metadata | ✓ | ✓ |
@@ -180,23 +180,26 @@ compatibility:
 
 | Germinator Field | Claude Code | OpenCode |
 |------------------|-------------|----------|
-| paths | ✓ | → @ file references |
-| content | ✓ | → Narrative context |
+| paths | ✓ | → @ file references (one per line) |
+| content | ✓ | → Narrative context (rendered as-is) |
 
 ## Known Limitations
 
 ### Permission Mode Transformation
 The transformation from Claude Code's `permissionMode` enum to OpenCode's permission object is a basic approximation:
-- `default`, `dontAsk` → `{edit: true, bash: true, web: false}`
-- `acceptEdits` → `{edit: true, bash: true, web: false}`
-- `bypassPermissions`, `plan` → `{edit: true, bash: true, web: true}`
+- `default` → `{edit: {"*": "ask"}, bash: {"*": "ask"}}`
+- `acceptEdits` → `{edit: {"*": "allow"}, bash: {"*": "ask"}}`
+- `dontAsk` → `{edit: {"*": "allow"}, bash: {"*": "allow"}}`
+- `bypassPermissions` → `{edit: {"*": "allow"}, bash: {"*": "allow"}}`
+- `plan` → `{edit: {"*": "deny"}, bash: {"*": "deny"}}`
+- Only `edit` and `bash` tools are mapped (7+ other OpenCode permissionable tools remain undefined)
 - Command-level permission rules are not supported
 
 ### Skipped Fields
 The following fields are not supported in OpenCode and are silently skipped:
-- **Agent**: `skills`, `disallowedTools`
-- **Command**: `disableModelInvocation`
-- **Skill**: `userInvocable`
+- **Agent**: `skills`
+- **Command**: `disableModelInvocation`, `argumentHint`, `allowedTools`, `disallowedTools`
+- **Skill**: `userInvocable`, `allowedTools`, `disallowedTools`
 
 ### DisallowedTools Forward Compatibility
 OpenCode does not support `disallowedTools` in agents. Fields are included for forward compatibility but not used in current transformations.

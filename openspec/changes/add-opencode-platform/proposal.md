@@ -1,122 +1,81 @@
+# Proposal: Add OpenCode Platform Support
+
 ## Why
 
-Germinator currently uses Claude Code's document format as the source standard, which tightly couples the implementation to one platform's conventions. This limits extensibility and makes it difficult to support new platforms like OpenCode without significant refactoring.
+Germinator currently uses Claude Code's document format as the source standard, tightly coupling implementation to one platform's conventions. This limits extensibility and makes it difficult to support new platforms like OpenCode without significant refactoring.
 
-To add OpenCode as a target platform, we need to:
-1. Establish Germinator format as canonical source (contains ALL platform fields)
-2. Refactor models to support multiple platforms with all fields parseable
-3. Establish template-based serialization infrastructure
-4. Create OpenCode templates and validation
-5. Add comprehensive tests and documentation
+To add OpenCode as a target platform, we need:
+- Canonical source format containing all platform fields
+- Platform-agnostic models with transformation infrastructure
+- OpenCode templates and validation
+- Unidirectional transformation (Germinator → target platform)
 
 This change provides a complete solution: a Germinator source format that serves as the single source of truth, with concrete OpenCode transformation logic implemented through Go templates.
 
 ## What Changes
 
-### Model Refactoring
-- Establish Germinator format as canonical source with ALL platform fields parseable from YAML
-- Refactor `internal/models/` to support multiple platforms with all fields (both common and platform-specific) in single structs
-- Add OpenCode-specific fields to Agent model: Mode (primary/subagent/all, default: all), Temperature (0.0-1.0), MaxSteps (> 0), Hidden (bool), Prompt, Disable
-- Add OpenCode-specific field to Command model: Subtask
-- Add OpenCode-specific fields to Skill model: License, Compatibility (list), Metadata (map), Hooks
-- Support both file-based and narrative memory types (paths and content fields)
-- Support full model IDs (e.g., `anthropic/claude-sonnet-4-20250514`) across platforms
-- Add YAML tags to all OpenCode-specific fields (currently have `yaml:"-"` which prevents parsing)
-- Add JSON tags with `omitempty` to all fields for consistency
+### Canonical Source Format
+- Germinator YAML format as single source of truth containing all platform fields
+- All fields parseable from YAML (no `yaml:"-"` tags)
+- Platform-specific fields included in same structs
 
-### Template Infrastructure
-- Create platform-specific Go templates in `config/templates/<platform>/` for serialization (Claude Code and OpenCode)
-- Implement template functions: permission transformation (basic approximation)
-- Establish template function registration in serializer
+### Transformation Infrastructure
+- Go templates for both Claude Code and OpenCode serialization
+- Permission mode transformation: Claude Code enum → OpenCode permission object
+- Tool name case conversion: PascalCase → lowercase for OpenCode via Sprig library
+- Template functions: `transformPermissionMode()`, Sprig's `lower` function
 
-### OpenCode Templates
-- Create 4 Go template files in `config/templates/opencode/`:
-  - `agent.tmpl` - Transform Agent model to OpenCode agent format with mode, tools map, permissions map.
-  - `command.tmpl` - Transform Command model with command template and $ARGUMENTS placeholder
-  - `skill.tmpl` - Transform Skill model to `.opencode/skills/<name>/SKILL.md` structure with frontmatter
-  - `memory.tmpl` - Transform Memory model to AGENTS.md format with @ file references
-- Implement transformation logic within templates:
-  - Conditional rendering for optional fields
-  - Convert tools allowed/disallowed lists to `{tool: true|false}` map
-  - Permission mapping using transformPermissionMode() function (returns YAML-formatted string)
-
-### Validation
-- Establish platform-agnostic validation rules with single `Validate(platform string)` function (platform always required)
-- Define tool configuration schema using flat arrays as single internal representation (no ToolConfig field)
-- Fix skill name regex to match OpenCode specs: `^[a-z0-9]+(-[a-z0-9]+)*$`
-- Add platform-specific validation functions in `internal/services/transformer.go` for OpenCode constraints
-
-### Testing
-- Create comprehensive test fixtures and golden files for all 4 document types in `test/fixtures/` and `test/golden/`
-- Add table-driven tests for template transformations, validation, and edge cases
-- **Address testing system gaps**: Fix platform coverage, golden file verification, custom utilities, coverage gaps (cmd: 20.6%, version: 0%), fragile path resolution, missing loader tests, and test documentation
-
-### Documentation
-- Update `README.md` and `AGENTS.md` with OpenCode usage examples and field mapping notes
-- Document CLI changes (--platform flag requirement)
-- Document known limitations (permission mode approximation, skipped Claude Code-specific fields)
-
-## Capabilities
-
-### New Capabilities
-
-**Models:**
-- `germinator-source-format`: Canonical source format containing ALL platform fields (Claude Code + OpenCode) in single YAML files. All fields have `yaml:` tags for parsing, enabling comprehensive source files that include both common and platform-specific configurations.
-
-- `platform-agnostic-models`: Core domain models (Agent, Command, Skill, Memory) with shared common fields and platform-specific extensions. OpenCode-specific fields: Mode, Temperature, MaxSteps, Hidden, Prompt, Disable for Agent; Subtask for Command; License, Compatibility, Metadata, Hooks for Skill. All fields have YAML and JSON tags for full parseability.
-
-**Transformation:**
-- `permission-transformation`: Custom template function to transform Claude Code's `permissionMode` enum to OpenCode's permission object format. Preserves semantic intent: dontAsk→allow/allow, bypassPermissions→allow/allow, plan→deny/deny, default→ask/ask, acceptEdits→allow/ask. Function returns YAML-formatted string with proper indentation.
-- `opencode-agent-transformation`: Template-based transformation from platform-agnostic Agent model to OpenCode agent YAML format with mode field (default "all"), tools map conversion (arrays to `{tool: true|false}`), and permissions map using transformPermissionMode().
-- `opencode-command-transformation`: Template-based transformation from platform-agnostic Command model to OpenCode command format with command template and $ARGUMENTS placeholder for argument substitution.
-- `opencode-skill-transformation`: Template-based transformation from platform-agnostic Skill model to `.opencode/skills/<name>/SKILL.md` directory structure with YAML frontmatter, handling OpenCode-specific fields: License, Compatibility, Metadata, Hooks.
-- `opencode-memory-transformation`: Template-based transformation from platform-agnostic Memory model to AGENTS.md format with @ file references (e.g., @README.md) and project context narrative.
-
-**Validation:**
-- `platform-agnostic-validation`: All models implement `Validate(platform string)` method that applies both common validation (required fields, data types, format constraints) and platform-specific validation rules. Platform parameter is always required.
-- `opencode-platform-validation`: Platform-specific validation functions to enforce OpenCode constraints: Agent mode values (primary/subagent/all), temperature range (0.0-1.0), MaxSteps constraint (> 0), skill name regex (`^[a-z0-9]+(-[a-z0-9]+)*$`).
-
-**Infrastructure:**
-- `platform-field-mappings`: Documentation of all field mappings between Germinator models, Claude Code format, and OpenCode format. Indicates field type (common, platform-specific), transformation logic, and skipped fields.
-
-### Modified Capabilities
-
-**Documents:**
-- `template-based-serialization`: MODIFIED - Go templates in `config/templates/<platform>/` that transform platform-agnostic models to platform-specific outputs. Now includes custom template function registration for permission transformations.
+### New OpenCode-Specific Fields
+- **Agent**: Mode, Temperature (*float64 pointer for nil/0.0 distinction), Steps, Hidden, Prompt, Disable
+- **Command**: Subtask
+- **Skill**: License, Compatibility, Metadata, Hooks
+- **Memory**: Support both file paths and narrative content
 
 ## Impact
 
-- **New files**:
-  - `internal/models/models.go` (refactored with platform-agnostic structure)
-  - `internal/core/template_funcs.go` (custom template functions)
-  - `config/templates/opencode/agent.tmpl`
-  - `config/templates/opencode/command.tmpl`
-  - `config/templates/opencode/skill.tmpl`
-  - `config/templates/opencode/memory.tmpl`
-  - `test/fixtures/opencode/` (fixture files for all 4 document types)
-  - `test/golden/opencode/` (golden files for all 4 document types)
+### New Files
+- `internal/core/template_funcs.go` - Custom template functions
+- `config/templates/opencode/*.tmpl` - 4 template files (agent, command, skill, memory)
+- `test/fixtures/opencode/` - Fixture files for all document types
+- `test/golden/opencode/` - Golden files for all document types
 
-- **Modified files**:
-  - `internal/core/serializer.go` (template function registration, platform-aware template loading)
-  - `internal/services/transformer.go` (add OpenCode validation functions)
-  - `internal/models/models.go` (restructured domain models)
-  - `README.md` (add OpenCode usage examples)
-  - `AGENTS.md` (add OpenCode field mapping notes, CLI changes)
+### Modified Files
+- `internal/models/models.go` - Platform-agnostic model structures
+- `internal/core/serializer.go` - Template function registration
+- `internal/services/transformer.go` - OpenCode validation functions
+- `README.md` - OpenCode usage examples
+- `AGENTS.md` - Field mapping notes and CLI changes
 
-- **Dependencies**: No new dependencies required
+### Breaking Changes
+- **Germinator YAML format is now canonical source** - Existing Claude Code-only YAML files incompatible
+- **Validate() signature change**: `Validate()` → `Validate(platform string)` - platform always required
+- **--platform flag always required** - No default to Claude Code
+- Users must migrate existing Claude Code YAML to Germinator format
 
-- **Breaking changes**:
-  - Germinator YAML format is now canonical source (all fields parseable from YAML)
-  - Existing Claude Code-only YAML files are incompatible - users must migrate to Germinator format
-  - `Validate()` method signature changes from `Validate()` to `Validate(platform string)` (platform always required)
-  - `--platform` flag becomes required for all CLI operations (no default to Claude Code)
-  - Users with custom schemas or parsers will need to migrate to Germinator format
-  - Users upgrading from v0.x will need to explicitly specify --platform flag for all operations
+### Limitations
+- Permission transformation: Approximation with 8 tools mapped (edit, bash, read, grep, glob, list, webfetch, websearch), 7+ tools remain undefined
+- No bidirectional transformation (Germinator → target only)
+- Some Claude Code fields skipped (skills, userInvocable, disableModelInvocation, allowedTools)
+- Command-level permission rules not supported in transformation
 
-- **Claude Code-specific fields not supported in OpenCode**:
-   - Agent.skills list (skipped without warnings)
-   - Skill.userInvocable (skipped without warnings)
-   - Command.argumentHint (skipped without warnings) **NOTE: Preserved in implementation for backward compatibility with existing tests and codebase**
-   - Command.disableModelInvocation (skipped without warnings)
-   - Agent.permissionMode (transformed to OpenCode permission object via transformPermissionMode() - returns YAML-formatted string)
-- **Permission mode mapping preserves distinction**: dontAsk → allow both, bypassPermissions → allow both, plan → deny both
+## Risks
+
+### Tool Name Case Conversion Errors
+Claude Code uses PascalCase tool names (Bash, Read, Edit) but OpenCode requires lowercase (bash, read, edit). If templates don't perform case conversion consistently, OpenCode will not recognize tools.
+
+**Mitigation**: Use Sprig library's `lower` function and apply it to all tool name outputs in OpenCode templates. Add comprehensive tests verifying tool names are correctly lowercased.
+
+### Incomplete Permission Transformation
+Permission transformation handles 8 tools (edit, bash, read, grep, glob, list, webfetch, websearch), leaving 7+ other OpenCode permissionable tools at undefined state. Users may have incorrect expectations about permission behavior.
+
+**Mitigation**: Document this limitation prominently in field mapping tables. Clearly indicate which tools are mapped vs undefined in implementation.
+
+### Documentation Accuracy Gaps
+Field mapping documentation may claim fields as "supported" that are not actually output to target format, leading to user confusion about data loss.
+
+**Mitigation**: Maintain strict synchronization between templates and documentation. Distinguish between "parseable from source" vs "output to target". Add validation tests verifying actual template output matches documented behavior.
+
+### Breaking Changes for Existing Users
+Users with custom schemas or parsers will need to update their code.
+
+**Mitigation**: Document breaking changes clearly in migration guide. Provide example migration path. Version JSON schemas clearly.

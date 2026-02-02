@@ -10,7 +10,8 @@
 #### Scenario: Minimal command transformation
 - **GIVEN** Command with name="run-tests", description="Run all tests", content="npm test"
 - **WHEN** Rendered to OpenCode format
-- **THEN** Output contains YAML frontmatter with name and description
+- **THEN** Output does NOT contain name field (OpenCode uses filename as identifier)
+- **AND** Output contains description in YAML frontmatter
 - **AND** Output contains command template in content body (markdown after YAML frontmatter)
 - **AND** Content is preserved as-is
 
@@ -40,29 +41,32 @@
 - **WHEN** Rendered to OpenCode format
 - **THEN** Output contains "subtask: false"
 
+#### Scenario: Command name field handling for OpenCode
+- **GIVEN** Command with Name="run-tests"
+- **WHEN** Rendered to OpenCode format
+- **THEN** Output does NOT contain name field in frontmatter
+- **AND** OpenCode uses filename (e.g., run-tests.md) as command identifier
+- **AND** Claude Code template outputs name field in frontmatter
+
 #### Scenario: Command omits allowedTools
 - **GIVEN** Command with allowedTools=["bash", "read"]
 - **WHEN** Rendered to OpenCode format
 - **THEN** Output does not contain allowedTools field
-- **AND** No warning is logged (silent skip)
 
 #### Scenario: Command omits argumentHint
 - **GIVEN** Command with argumentHint="file path"
 - **WHEN** Rendered to OpenCode format
 - **THEN** Output does not contain argumentHint field
-- **AND** No warning is logged (silent skip)
 
 #### Scenario: Command omits context field
 - **GIVEN** Command with context="fork"
 - **WHEN** Rendered to OpenCode format
 - **THEN** Output does not contain context field
-- **AND** No warning is logged (silent skip)
 
 #### Scenario: Command omits disableModelInvocation
 - **GIVEN** Command with disableModelInvocation=true
 - **WHEN** Rendered to OpenCode format
 - **THEN** Output does not contain disableModelInvocation field
-- **AND** No warning is logged (silent skip)
 
 #### Scenario: Command with full model ID
 - **GIVEN** Command with model="openai/gpt-4-1"

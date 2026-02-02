@@ -127,19 +127,19 @@ Germinator uses a canonical YAML format containing ALL fields for ALL platforms.
 
 | Germinator Field | Claude Code | OpenCode |
 |------------------|-------------|----------|
-| name | ✓ | ✓ |
+| name | ✓ | ⚠ omitted (uses filename as identifier) |
 | description | ✓ | ✓ |
-| model | ✓ | ✓ |
-| tools | ✓ | ✓ |
-| disallowedTools | ✓ | ⚠ skipped |
-| permissionMode | ✓ | → Permission object |
-| skills | ✓ | ⚠ skipped |
-| mode | - | ✓ |
-| temperature | - | ✓ |
+| model | ✓ | ✓ (full provider-prefixed ID) |
+| tools | ✓ | ✓ (converted to lowercase) |
+| disallowedTools | ✓ | ✓ (converted to lowercase, set false) |
+| permissionMode | ✓ | → Permission object (nested with ask/allow/deny) |
+| skills | ✓ | ⚠ skipped (not supported) |
+| mode | - | ✓ (primary/subagent/all, defaults to all) |
+| temperature | - | ✓ (*float64 pointer, omits when nil) |
 | maxSteps | - | ✓ |
-| hidden | - | ✓ |
+| hidden | - | ✓ (omits when false) |
 | prompt | - | ✓ |
-| disable | - | ✓ |
+| disable | - | ✓ (omits when false) |
 
 ## Command
 
@@ -147,14 +147,14 @@ Germinator uses a canonical YAML format containing ALL fields for ALL platforms.
 |------------------|-------------|----------|
 | name | ✓ | ✓ |
 | description | ✓ | ✓ |
-| allowed-tools | ✓ | ✓ |
-| disallowed-tools | ✓ | ✓ |
+| allowed-tools | ✓ | ✓ (converted to lowercase) |
+| disallowed-tools | ✓ | ✓ (converted to lowercase, set false) |
 | subtask | ✓ | ✓ |
-| argument-hint | ✓ | ✓ |
+| argument-hint | ✓ | ⚠ skipped |
 | context | ✓ (fork) | ✓ (fork) |
 | agent | ✓ | ✓ |
-| model | ✓ | ✓ |
-| disable-model-invocation | ✓ | ⚠ skipped |
+| model | ✓ | ✓ (full provider-prefixed ID) |
+| disable-model-invocation | ✓ | ⚠ skipped (not supported) |
 
 ## Skill
 
@@ -162,23 +162,23 @@ Germinator uses a canonical YAML format containing ALL fields for ALL platforms.
 |------------------|-------------|----------|
 | name | ✓ | ✓ |
 | description | ✓ | ✓ |
-| allowed-tools | ✓ | ✓ |
-| disallowed-tools | ✓ | ✓ |
+| allowed-tools | ✓ | ✓ (converted to lowercase) |
+| disallowed-tools | ✓ | ✓ (converted to lowercase) |
 | license | ✓ | ✓ |
 | compatibility | ✓ | ✓ |
 | metadata | ✓ | ✓ |
 | hooks | ✓ | ✓ |
-| model | ✓ | ✓ |
+| model | ✓ | ✓ (full provider-prefixed ID) |
 | context | ✓ (fork) | ✓ (fork) |
 | agent | ✓ | ✓ |
-| user-invocable | ✓ | ⚠ skipped |
+| user-invocable | ✓ | ⚠ skipped (not supported) |
 
 ## Memory
 
 | Germinator Field | Claude Code | OpenCode |
 |------------------|-------------|----------|
-| paths | ✓ | → @ file references |
-| content | ✓ | → Narrative context |
+| paths | ✓ | → @ file references (one per line) |
+| content | ✓ | → Narrative context (rendered as-is) |
 
 **Legend**: ✓ = Supported, → = Transformed, ⚠ = Skipped
 
@@ -196,11 +196,13 @@ OpenCode support added in v0.4.0 with the following characteristics:
 5. Generate platform-specific output format
 
 **OpenCode-Specific Features**:
-- Permission objects with `edit`, `bash`, `web` boolean flags
-- Agent modes (`strict`, `relaxed`, etc.)
-- Temperature and maxSteps configuration
-- Hidden agents
-- Custom prompts and disable flags
+- Agent `name` field is omitted in output (uses filename as identifier)
+- Permission objects with nested structures: `{"edit": {"*": "ask"}, "bash": {"*": "allow"}}`
+- Agent modes: `primary`, `subagent`, `all` (default when empty)
+- Temperature as *float64 pointer (nil omits field, 0.0 renders explicitly)
+- MaxSteps configuration
+- Hidden and disable boolean fields (omit when false)
+- Custom prompts
 
 **Known Limitations**:
 - Permission mode transformation is basic approximation

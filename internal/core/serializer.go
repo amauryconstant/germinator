@@ -8,6 +8,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/Masterminds/sprig/v3"
 	"gitlab.com/amoconst/germinator/internal/models"
 )
 
@@ -41,18 +42,28 @@ func RenderDocument(doc interface{}, platform string) (string, error) {
 	return sb.String(), nil
 }
 
-// createTemplateFuncMap creates and returns a FuncMap with all custom template functions.
+// createTemplateFuncMap creates and returns a FuncMap with all template functions.
 // This map is passed to template.Funcs() to make custom functions available in templates.
 //
-// Current registered functions:
+// It combines Sprig's built-in functions with our custom functions:
+//   - Sprig provides string functions like lower, upper, trim, etc.
+//   - Custom functions:
 //   - transformPermissionMode: Converts Claude Code permissionMode enum to OpenCode permission object
 //
 // Returns:
-//   - map[string]interface{}: Template function map
+//   - map[string]interface{}: Template function map containing Sprig and custom functions
 func createTemplateFuncMap() map[string]interface{} {
-	return map[string]interface{}{
+	funcMap := sprig.FuncMap()
+
+	customFuncs := map[string]interface{}{
 		"transformPermissionMode": transformPermissionMode,
 	}
+
+	for k, v := range customFuncs {
+		funcMap[k] = v
+	}
+
+	return funcMap
 }
 
 func getTemplatePath(platform string, filename string) (string, error) {

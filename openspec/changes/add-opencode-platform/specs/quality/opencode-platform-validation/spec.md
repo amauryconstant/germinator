@@ -1,186 +1,87 @@
 ## ADDED Requirements
 
-### Requirement: validateOpenCodeAgent: mode values, temperature range, maxSteps constraint
-### Requirement: validateOpenCodeCommand: template field required
-### Requirement: validateOpenCodeSkill: name regex format, content required
-### Requirement: validateOpenCodeMemory: paths or content required
-### Requirement: All validation functions return []error
-### Requirement: Validation errors are descriptive and helpful
+### Requirement: validateOpenCodeAgent validates OpenCode-specific constraints
+Validates Agent mode values, temperature range, and steps constraint.
 
-#### Scenario: Agent mode validation - valid primary
-- **GIVEN** Agent with mode="primary"
+#### Scenario: Agent mode validation
+- **GIVEN** An Agent with mode set
 - **WHEN** validateOpenCodeAgent is called
-- **THEN** Validation passes (no error)
+- **THEN** mode="primary", mode="subagent", mode="all" SHALL pass validation
+- **AND** mode="" (empty) SHALL pass (mode is optional, defaults to "all" in template)
+- **AND** mode="invalid" SHALL return error "mode must be one of: primary, subagent, all"
 
-#### Scenario: Agent mode validation - valid subagent
-- **GIVEN** Agent with mode="subagent"
+#### Scenario: Agent temperature validation
+- **GIVEN** An Agent with Temperature (*float64 pointer)
 - **WHEN** validateOpenCodeAgent is called
-- **THEN** Validation passes (no error)
+- **THEN** Temperature=nil SHALL pass validation (optional field)
+- **AND** Temperature=0.0 SHALL pass (valid deterministic value)
+- **AND** Temperature=0.5 SHALL pass
+- **AND** Temperature=1.0 SHALL pass (max randomness)
+- **AND** Temperature=-0.5 SHALL fail with "temperature must be between 0.0 and 1.0"
+- **AND** Temperature=1.5 SHALL fail with "temperature must be between 0.0 and 1.0"
 
-#### Scenario: Agent mode validation - valid all
-- **GIVEN** Agent with mode="all"
+#### Scenario: Agent steps validation
+- **GIVEN** An Agent with Steps field
 - **WHEN** validateOpenCodeAgent is called
-- **THEN** Validation passes (no error)
-
-#### Scenario: Agent mode validation - invalid value
-- **GIVEN** Agent with mode="invalid-mode"
-- **WHEN** validateOpenCodeAgent is called
-- **THEN** Validation returns error "mode must be one of: primary, subagent, all"
-
-#### Scenario: Agent mode validation - empty value allowed
-- **GIVEN** Agent with mode=""
-- **WHEN** validateOpenCodeAgent is called
-- **THEN** Validation passes (mode is optional)
-- **AND** Template will default to "all"
-
-#### Scenario: Agent temperature validation - valid range
-- **GIVEN** Agent with temperature=0.5
-- **WHEN** validateOpenCodeAgent is called
-- **THEN** Validation passes (no error)
-
-#### Scenario: Agent temperature validation - boundary 0.0
-- **GIVEN** Agent with temperature=0.0
-- **WHEN** validateOpenCodeAgent is called
-- **THEN** Validation passes (no error)
-
-#### Scenario: Agent temperature validation - boundary 1.0
-- **GIVEN** Agent with temperature=1.0
-- **WHEN** validateOpenCodeAgent is called
-- **THEN** Validation passes (no error)
-
-#### Scenario: Agent temperature validation - too high
-- **GIVEN** Agent with temperature=1.5
-- **WHEN** validateOpenCodeAgent is called
-- **THEN** Validation returns error "temperature must be between 0.0 and 1.0"
-
-#### Scenario: Agent temperature validation - negative
-- **GIVEN** Agent with temperature=-0.5
-- **WHEN** validateOpenCodeAgent is called
-- **THEN** Validation returns error "temperature must be between 0.0 and 1.0"
-
-#### Scenario: Agent temperature validation - not set
-- **GIVEN** Agent with temperature=0.0 (Go zero value)
-- **WHEN** validateOpenCodeAgent is called
-- **THEN** Validation passes (temperature is optional)
-
-#### Scenario: Agent maxSteps validation - valid
-- **GIVEN** Agent with maxSteps=50
-- **WHEN** validateOpenCodeAgent is called
-- **THEN** Validation passes (no error)
-
-#### Scenario: Agent maxSteps validation - minimum 1
-- **GIVEN** Agent with maxSteps=1
-- **WHEN** validateOpenCodeAgent is called
-- **THEN** Validation passes (no error)
-
-#### Scenario: Agent maxSteps validation - too low
-- **GIVEN** Agent with maxSteps=0
-- **WHEN** validateOpenCodeAgent is called
-- **THEN** Validation returns error "maxSteps must be >= 1"
-
-#### Scenario: Agent maxSteps validation - negative
-- **GIVEN** Agent with maxSteps=-5
-- **WHEN** validateOpenCodeAgent is called
-- **THEN** Validation returns error "maxSteps must be >= 1"
-
-#### Scenario: Agent maxSteps validation - not set
-- **GIVEN** Agent with maxSteps=0 (Go zero value)
-- **WHEN** validateOpenCodeAgent is called
-- **THEN** Validation passes (maxSteps is optional)
+- **THEN** Steps=1 SHALL pass validation (minimum valid value)
+- **AND** Steps=50 SHALL pass validation
+- **AND** Steps=0 (Go zero value) SHALL pass (field is optional)
+- **AND** Steps=-5 SHALL fail with "steps must be >= 1"
 
 #### Scenario: Agent multiple validation errors
-- **GIVEN** Agent with mode="invalid", temperature=2.0, maxSteps=0
+- **GIVEN** An Agent with mode="invalid", temperature=2.0, steps=0
 - **WHEN** validateOpenCodeAgent is called
-- **THEN** Validation returns []error with all three errors
-- **AND** Each error is descriptive
+- **THEN** Validation SHALL return []error with all three errors
+- **AND** Each error SHALL be descriptive
 
-#### Scenario: Command template validation - content present
-- **GIVEN** Command with content="npm test"
+### Requirement: validateOpenCodeCommand validates template field
+Validates that Command template content is present.
+
+#### Scenario: Command template validation
+- **GIVEN** A Command model
 - **WHEN** validateOpenCodeCommand is called
-- **THEN** Validation passes (no error)
+- **THEN** content="npm test" SHALL pass validation
+- **AND** content="" (empty string) SHALL return error "template is required"
 
-#### Scenario: Command template validation - empty
-- **GIVEN** Command with content=""
-- **WHEN** validateOpenCodeCommand is called
-- **THEN** Validation returns error "template is required"
+### Requirement: validateOpenCodeSkill validates OpenCode-specific constraints
+Validates Skill name format (kebab-case) and requires content.
 
-#### Scenario: Skill name validation - valid simple
-- **GIVEN** Skill with name="git-workflow"
+#### Scenario: Skill name validation
+- **GIVEN** A Skill with Name field
 - **WHEN** validateOpenCodeSkill is called
-- **THEN** Validation passes (no error)
-- **AND** Regex ^[a-z0-9]+(-[a-z0-9]+)*$ matches
+- **THEN** name="git-workflow" SHALL pass (simple valid)
+- **AND** name="code-review-tool-enhanced" SHALL pass (multiple hyphens, non-consecutive)
+- **AND** name="git2-operations" SHALL pass (numbers allowed)
+- **AND** name="git--workflow" SHALL fail with error about invalid format (consecutive hyphens)
+- **AND** name="-git-workflow" SHALL fail (leading hyphen)
+- **AND** name="git-workflow-" SHALL fail (trailing hyphen)
+- **AND** name="Git-Workflow" SHALL fail (uppercase)
+- **AND** name="git_workflow" SHALL fail (underscores)
+- **AND** Regex SHALL be `^[a-z0-9]+(-[a-z0-9]+)*$`
 
-#### Scenario: Skill name validation - valid multiple hyphens
-- **GIVEN** Skill with name="code-review-tool-enhanced"
+#### Scenario: Skill content validation
+- **GIVEN** A Skill model
 - **WHEN** validateOpenCodeSkill is called
-- **THEN** Validation passes (no error)
-- **AND** Multiple hyphens are allowed (non-consecutive)
+- **THEN** content="Provides git operations..." SHALL pass validation
+- **AND** content="" SHALL return error "content is required"
 
-#### Scenario: Skill name validation - valid with numbers
-- **GIVEN** Skill with name="git2-operations"
-- **WHEN** validateOpenCodeSkill is called
-- **THEN** Validation passes (no error)
-- **AND** Numbers are allowed
+### Requirement: validateOpenCodeMemory validates paths or content presence
+Validates that Memory has at least one of paths or content populated.
 
-#### Scenario: Skill name validation - invalid consecutive hyphens
-- **GIVEN** Skill with name="git--workflow"
-- **WHEN** validateOpenCodeSkill is called
-- **THEN** Validation returns error about invalid name format
-- **AND** Consecutive hyphens not allowed
-
-#### Scenario: Skill name validation - invalid starting hyphen
-- **GIVEN** Skill with name="-git-workflow"
-- **WHEN** validateOpenCodeSkill is called
-- **THEN** Validation returns error about invalid name format
-- **AND** Cannot start with hyphen
-
-#### Scenario: Skill name validation - invalid ending hyphen
-- **GIVEN** Skill with name="git-workflow-"
-- **WHEN** validateOpenCodeSkill is called
-- **THEN** Validation returns error about invalid name format
-- **AND** Cannot end with hyphen
-
-#### Scenario: Skill name validation - invalid uppercase
-- **GIVEN** Skill with name="Git-Workflow"
-- **WHEN** validateOpenCodeSkill is called
-- **THEN** Validation returns error about invalid name format
-- **AND** Uppercase not allowed
-
-#### Scenario: Skill name validation - invalid special chars
-- **GIVEN** Skill with name="git_workflow"
-- **WHEN** validateOpenCodeSkill is called
-- **THEN** Validation returns error about invalid name format
-- **AND** Underscores not allowed
-
-#### Scenario: Skill content validation - present
-- **GIVEN** Skill with content="Provides git operations..."
-- **WHEN** validateOpenCodeSkill is called
-- **THEN** Validation passes (no error)
-
-#### Scenario: Skill content validation - empty
-- **GIVEN** Skill with content=""
-- **WHEN** validateOpenCodeSkill is called
-- **THEN** Validation returns error "content is required"
-
-#### Scenario: Memory validation - paths only
-- **GIVEN** Memory with paths=["README.md"], content=""
+#### Scenario: Memory validation
+- **GIVEN** A Memory model
 - **WHEN** validateOpenCodeMemory is called
-- **THEN** Validation passes (no error)
-- **AND** Paths present is sufficient
+- **THEN** paths=["README.md"], content="" SHALL pass (paths present)
+- **AND** paths=[], content="Project context..." SHALL pass (content present)
+- **AND** paths=["README.md"], content="Project context..." SHALL pass (both present)
+- **AND** paths=[], content="" SHALL fail with "paths or content is required"
 
-#### Scenario: Memory validation - content only
-- **GIVEN** Memory with paths=[], content="Project context..."
-- **WHEN** validateOpenCodeMemory is called
-- **THEN** Validation passes (no error)
-- **AND** Content present is sufficient
+### Requirement: Agent and Skill name regex uses correct character class
+The regex pattern for validating Agent and Skill names SHALL use `[a-z0-9-]` character class to properly allow hyphens as separators while preventing consecutive hyphens, leading hyphens, and trailing hyphens.
 
-#### Scenario: Memory validation - both paths and content
-- **GIVEN** Memory with paths=["README.md"], content="Project context..."
-- **WHEN** validateOpenCodeMemory is called
-- **THEN** Validation passes (no error)
-- **AND** Both fields present is valid
-
-#### Scenario: Memory validation - both empty
-- **GIVEN** Memory with paths=[], content=""
-- **WHEN** validateOpenCodeMemory is called
-- **THEN** Validation returns error "paths or content is required"
+#### Scenario: Regex character class and pattern
+- **GIVEN** Name validation regex
+- **WHEN** Pattern is defined
+- **THEN** Character class SHALL be `[a-z0-9-]` (hyphen included in character class for segments)
+- **AND** Pattern SHALL be `^[a-z0-9]+(-[a-z0-9]+)*$` (hyphens outside character class as separators)
+- **AND** Agent and Skill validation SHALL both use this regex

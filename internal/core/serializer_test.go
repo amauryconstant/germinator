@@ -7,6 +7,10 @@ import (
 	"gitlab.com/amoconst/germinator/internal/models"
 )
 
+func float64Ptr(f float64) *float64 {
+	return &f
+}
+
 func TestRenderDocumentAgent(t *testing.T) {
 	agent := &models.Agent{
 		Name:        "test-agent",
@@ -242,7 +246,7 @@ func TestRenderOpenCodeAgent(t *testing.T) {
 				Model:           "anthropic/claude-sonnet-4-20250514",
 				PermissionMode:  "acceptEdits",
 				Mode:            "primary",
-				Temperature:     0.1,
+				Temperature:     float64Ptr(0.1),
 				MaxSteps:        50,
 				Hidden:          false,
 				Prompt:          "You are an expert code reviewer.",
@@ -367,6 +371,36 @@ func TestRenderOpenCodeAgent(t *testing.T) {
 			check: func(t *testing.T, result string) {
 				if !strings.Contains(result, "mode: primary") {
 					t.Error("Expected mode to be 'primary'")
+				}
+			},
+		},
+		{
+			name: "temperature nil (omitted from output)",
+			agent: &models.Agent{
+				Name:        "test-agent",
+				Description: "Test agent",
+				Content:     "Test content",
+				Temperature: nil,
+			},
+			wantErr: false,
+			check: func(t *testing.T, result string) {
+				if strings.Contains(result, "temperature:") {
+					t.Error("Expected temperature field to be omitted when nil")
+				}
+			},
+		},
+		{
+			name: "temperature 0.0 (rendered in output)",
+			agent: &models.Agent{
+				Name:        "test-agent",
+				Description: "Test agent",
+				Content:     "Test content",
+				Temperature: float64Ptr(0.0),
+			},
+			wantErr: false,
+			check: func(t *testing.T, result string) {
+				if !strings.Contains(result, "temperature: 0") {
+					t.Error("Expected temperature field to be rendered when set to 0.0")
 				}
 			},
 		},

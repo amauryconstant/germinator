@@ -11,6 +11,10 @@ import (
 	"gitlab.com/amoconst/germinator/internal/models"
 )
 
+func float64Ptr(f float64) *float64 {
+	return &f
+}
+
 func TestTransformDocumentSuccess(t *testing.T) {
 	tmpDir := t.TempDir()
 	inputFile := filepath.Join(tmpDir, "test-agent.md")
@@ -254,6 +258,15 @@ func TestValidateOpenCodeAgent(t *testing.T) {
 			errorCount: 0,
 		},
 		{
+			name: "temperature nil (omitted, valid)",
+			agent: &models.Agent{
+				Name:        "test-agent",
+				Description: "Test agent",
+				Temperature: nil,
+			},
+			errorCount: 0,
+		},
+		{
 			name: "invalid mode",
 			agent: &models.Agent{
 				Name:        "test-agent",
@@ -267,7 +280,7 @@ func TestValidateOpenCodeAgent(t *testing.T) {
 			agent: &models.Agent{
 				Name:        "test-agent",
 				Description: "Test agent",
-				Temperature: 0.0,
+				Temperature: float64Ptr(0.0),
 			},
 			errorCount: 0,
 		},
@@ -276,7 +289,7 @@ func TestValidateOpenCodeAgent(t *testing.T) {
 			agent: &models.Agent{
 				Name:        "test-agent",
 				Description: "Test agent",
-				Temperature: 0.5,
+				Temperature: float64Ptr(0.5),
 			},
 			errorCount: 0,
 		},
@@ -285,7 +298,7 @@ func TestValidateOpenCodeAgent(t *testing.T) {
 			agent: &models.Agent{
 				Name:        "test-agent",
 				Description: "Test agent",
-				Temperature: 1.0,
+				Temperature: float64Ptr(1.0),
 			},
 			errorCount: 0,
 		},
@@ -294,7 +307,7 @@ func TestValidateOpenCodeAgent(t *testing.T) {
 			agent: &models.Agent{
 				Name:        "test-agent",
 				Description: "Test agent",
-				Temperature: -0.5,
+				Temperature: float64Ptr(-0.5),
 			},
 			errorCount: 1,
 		},
@@ -303,7 +316,7 @@ func TestValidateOpenCodeAgent(t *testing.T) {
 			agent: &models.Agent{
 				Name:        "test-agent",
 				Description: "Test agent",
-				Temperature: 1.5,
+				Temperature: float64Ptr(1.5),
 			},
 			errorCount: 1,
 		},
@@ -340,7 +353,7 @@ func TestValidateOpenCodeAgent(t *testing.T) {
 				Name:        "test-agent",
 				Description: "Test agent",
 				Mode:        "invalid",
-				Temperature: 1.5,
+				Temperature: float64Ptr(1.5),
 				MaxSteps:    -1,
 			},
 			errorCount: 3,

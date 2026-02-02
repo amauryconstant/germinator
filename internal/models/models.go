@@ -16,12 +16,12 @@ type Agent struct {
 	Tools           []string `yaml:"tools,omitempty" json:"tools,omitempty"`
 	DisallowedTools []string `yaml:"disallowedTools,omitempty" json:"disallowedTools,omitempty"`
 
-	Mode        string  `yaml:"mode,omitempty" json:"mode,omitempty"`
-	Temperature float64 `yaml:"temperature,omitempty" json:"temperature,omitempty"`
-	MaxSteps    int     `yaml:"maxSteps,omitempty" json:"maxSteps,omitempty"`
-	Hidden      bool    `yaml:"hidden,omitempty" json:"hidden,omitempty"`
-	Prompt      string  `yaml:"prompt,omitempty" json:"prompt,omitempty"`
-	Disable     bool    `yaml:"disable,omitempty" json:"disable,omitempty"`
+	Mode        string   `yaml:"mode,omitempty" json:"mode,omitempty"`
+	Temperature *float64 `yaml:"temperature,omitempty" json:"temperature,omitempty"`
+	MaxSteps    int      `yaml:"maxSteps,omitempty" json:"maxSteps,omitempty"`
+	Hidden      bool     `yaml:"hidden,omitempty" json:"hidden,omitempty"`
+	Prompt      string   `yaml:"prompt,omitempty" json:"prompt,omitempty"`
+	Disable     bool     `yaml:"disable,omitempty" json:"disable,omitempty"`
 
 	PermissionMode string   `yaml:"permissionMode,omitempty" json:"permissionMode,omitempty"`
 	Skills         []string `yaml:"skills,omitempty" json:"skills,omitempty"`
@@ -219,8 +219,8 @@ func ValidateOpenCodeAgent(agent *Agent) []error {
 		errs = append(errs, fmt.Errorf("invalid mode: %s (valid values: primary, subagent, all)", agent.Mode))
 	}
 
-	if agent.Temperature < 0.0 || agent.Temperature > 1.0 {
-		errs = append(errs, fmt.Errorf("temperature must be between 0.0 and 1.0, got %f", agent.Temperature))
+	if agent.Temperature != nil && (*agent.Temperature < 0.0 || *agent.Temperature > 1.0) {
+		errs = append(errs, fmt.Errorf("temperature must be between 0.0 and 1.0, got %f", *agent.Temperature))
 	}
 
 	if agent.MaxSteps != 0 && agent.MaxSteps < 1 {

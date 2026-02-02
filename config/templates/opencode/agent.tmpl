@@ -12,19 +12,19 @@ model: {{.Model}}
 {{- if .Tools}}
 tools:
 {{- range .Tools}}
-  {{.}}: true
+  {{. | lower}}: true
 {{- end}}
 {{- end}}
 {{- if .DisallowedTools}}
 {{- range .DisallowedTools}}
-  {{.}}: false
+  {{. | lower}}: false
 {{- end}}
 {{- end}}
 {{- if .PermissionMode}}
 permission:
 {{transformPermissionMode .PermissionMode}}
 {{- end}}
-{{- if ne .Temperature 0.0}}
+{{- if .Temperature}}
 temperature: {{.Temperature}}
 {{- end}}
 {{- if gt .MaxSteps 0}}
