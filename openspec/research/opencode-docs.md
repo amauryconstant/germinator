@@ -8,10 +8,7 @@ Platform documentation for AI coding assistant configuration
 - [Skills](https://opencode.ai/docs/skills) - Agent skills format
 - [Permissions](https://opencode.ai/docs/permissions) - Permission system
 - [Commands](https://opencode.ai/docs/commands) - Custom commands
-- [Tools](https://opencode.ai/docs/tools) - Tool configuration
 - [Config](https://opencode.ai/docs/config) - Global configuration
-- [Models](https://opencode.ai/docs/models) - Model configuration
-- [Rules](https://opencode.ai/docs/rules) - Project rules (AGENTS.md/CLAUDE.md)
 
 ---
 
@@ -23,18 +20,19 @@ Platform documentation for AI coding assistant configuration
 
 **Frontmatter Fields (Markdown):**
 
-| Field       | Type    | Required | Description                                                     |
-| ----------- | ------- | -------- | --------------------------------------------------------------- |
-| description | string  | Yes      | Brief description of what agent does                            |
-| mode        | string  | No       | `primary`, `subagent`, or `all` (default: `all`)                |
-| model       | string  | No       | Model: `provider/model-id` format                               |
-| prompt      | string  | No       | System prompt file path or content                              |
-| tools       | object  | No       | Tools available to agent (lowercase tool names, boolean values) |
-| permissions | object  | No       | Permission overrides                                            |
-| temperature | number  | No       | Temperature (0.0-1.0, default: varies)                          |
-| maxSteps    | number  | No       | Maximum agentic iterations (must be > 0)                        |
-| disable     | boolean | No       | Disable agent                                                   |
-| hidden      | boolean | No       | Hide from `@` autocomplete (subagents only)                     |
+| Field       | Type    | Required | Default | Description                                                     |
+| ----------- | ------- | -------- | ------- | --------------------------------------------------------------- |
+| description | string  | Yes      | -       | Brief description of what agent does (1-1024 characters)         |
+| mode        | string  | No       | `all`   | `primary`, `subagent`, or `all`                                |
+| model       | string  | No       | -       | Model: `provider/model-id` format                               |
+| prompt      | string  | No       | -       | System prompt file path or content                              |
+| tools       | object  | No       | -       | Tools available to agent (lowercase tool names, boolean values) |
+| permissions | object  | No       | -       | Permission overrides                                            |
+| temperature | number  | No       | model   | Temperature (0.0-1.0)                                          |
+| steps       | number  | No       | -       | Maximum agentic iterations (must be > 0)                        |
+| disable     | boolean | No       | `false` | Disable agent                                                   |
+| hidden      | boolean | No       | `false` | Hide from `@` autocomplete (subagents only)                     |
+| top_p       | number  | No       | -       | Nucleus sampling parameter (0.0-1.0)                            |
 
 **Body (Markdown):** Markdown content with system prompt instructions
 
@@ -55,11 +53,21 @@ Platform documentation for AI coding assistant configuration
         "tool": "allow|ask|deny"
       },
       "temperature": 0.5,
-      "maxSteps": 10
+      "steps": 10,
+      "top_p": 0.9
     }
   }
 }
 ```
+
+**Built-in Agents:**
+
+| Agent   | Mode      | Description                                                                      |
+| ------- | --------- | -------------------------------------------------------------------------------- |
+| Build   | primary   | Default agent with all tools enabled                                            |
+| Plan    | primary   | Restricted agent for analysis and planning (edits, bash ask by default)         |
+| General | subagent  | General-purpose agent for research and multi-step tasks (full tool access)       |
+| Explore | subagent  | Fast, read-only agent for exploring codebases (no file modifications)           |
 
 ---
 
@@ -67,12 +75,19 @@ Platform documentation for AI coding assistant configuration
 
 **Files:** `.opencode/skills/<name>/SKILL.md` or `~/.claude/skills/`
 
+**Discovery Order:**
+
+1. Project local: `.opencode/skills/<name>/SKILL.md` (walks up to git worktree)
+2. Global OpenCode: `~/.config/opencode/skills/<name>/SKILL.md`
+3. Project Claude-compatible: `.claude/skills/<name>/SKILL.md`
+4. Global Claude-compatible: `~/.claude/skills/<name>/SKILL.md`
+
 **Frontmatter Fields:**
 
 | Field         | Type   | Required | Description                       |
 | ------------- | ------ | -------- | --------------------------------- |
-| name          | string | Yes      | Skill identifier                  |
-| description   | string | Yes      | What skill does                   |
+| name          | string | Yes      | Skill identifier (1-64 characters) |
+| description   | string | Yes      | What skill does (1-1024 characters) |
 | license       | string | No       | License identifier                |
 | compatibility | string | No       | Platform compatibility            |
 | metadata      | object | No       | String-to-string map for metadata |
@@ -81,10 +96,34 @@ Platform documentation for AI coding assistant configuration
 
 - 1-64 characters
 - Lowercase alphanumeric with single hyphen separators
+- Cannot start or end with `-`
+- No consecutive `--`
 - Regex: `^[a-z0-9]+(-[a-z0-9]+)*$`
 - Must match directory name
+- Must be unique across all discovery locations
 
 **Body:** Markdown content with instructions
+
+**Permission Configuration:**
+
+```json
+{
+  "permission": {
+    "skill": {
+      "*": "allow",
+      "pr-review": "allow",
+      "internal-*": "deny",
+      "experimental-*": "ask"
+    }
+  }
+}
+```
+
+| Permission | Behavior                                    |
+| ---------- | ------------------------------------------- |
+| allow      | Skill loads immediately                     |
+| deny       | Skill hidden from agent, access rejected    |
+| ask        | User prompted for approval before loading  |
 
 ---
 
@@ -100,6 +139,7 @@ Platform documentation for AI coding assistant configuration
 | agent       | string  | No       | Which agent should execute |
 | subtask     | boolean | No       | Force subagent invocation  |
 | model       | string  | No       | Override model             |
+| template    | string  | Yes      | Prompt template (JSON only) |
 
 **Body (Markdown):** Markdown content with instructions
 
@@ -110,44 +150,67 @@ Platform documentation for AI coding assistant configuration
 - `` `!command` `` - Shell output injection
 - `@filename` - File content inclusion
 
+**Command Override:** Custom commands can override built-in commands (e.g., `/init`, `/undo`, `/redo`, `/share`, `/help`)
+
 ---
 
-### Permissions
+### Memory
+
+**Note:** OpenCode does not have a native Memory document type like Claude Code. Memory-like functionality is provided through:
+
+- **Rules files:** `AGENTS.md` or `CLAUDE.md` in project root for project context
+- **Instructions configuration:** Array of files/globs in config (e.g., `CONTRIBUTING.md`, docs files)
+- **Prompt field:** Agents can reference prompt files or include prompt content directly
+
+---
+
+## Permissions
 
 **Configuration:** Configured in JSON
 
-### Permission Actions
+**Permission Actions:**
 
 - `"allow"` - Run without approval
 - `"ask"` - Prompt for approval
 - `"deny"` - Block the action
 
-### Available Permissions
+**Available Permissions:**
 
-| Permission            | Description                                            |
-| --------------------- | ------------------------------------------------------ |
-| read                  | Reading files (matches file path)                      |
-| edit                  | All file modifications (edit, write, patch, multiedit) |
-| glob                  | File globbing (matches glob pattern)                   |
-| grep                  | Content search (matches regex pattern)                 |
-| list                  | Listing directories (matches directory path)           |
-| bash                  | Running shell commands (matches parsed commands)       |
-| task                  | Launching subagents (matches subagent type)            |
-| skill                 | Loading skills (matches skill name)                    |
-| lsp                   | Running LSP queries                                    |
-| todoread, todowrite   | Todo list operations                                   |
-| webfetch              | Fetching URLs (matches URL)                            |
-| websearch, codesearch | Web/code search (matches query)                        |
-| external_directory    | Paths outside working directory                        |
-| doom_loop             | Repeated tool calls                                    |
+| Permission            | Matches                    | Default | Notes                                       |
+| --------------------- | -------------------------- | ------- | ------------------------------------------- |
+| read                  | File path                  | allow   | `.env` files denied by default             |
+| edit                  | All file modifications     | allow   | Covers edit, write, patch, multiedit        |
+| glob                  | Glob pattern               | allow   |                                             |
+| grep                  | Regex pattern              | allow   |                                             |
+| list                  | Directory path             | allow   |                                             |
+| bash                  | Parsed commands            | allow   |                                             |
+| task                  | Subagent type              | allow   |                                             |
+| skill                 | Skill name                 | allow   |                                             |
+| lsp                   | Non-granular               | allow   |                                             |
+| todoread              | Todo list operations       | allow   | Disabled for subagents by default           |
+| todowrite             | Todo list operations       | allow   | Disabled for subagents by default           |
+| webfetch              | URL                        | allow   |                                             |
+| websearch             | Query                      | allow   |                                             |
+| codesearch            | Query                      | allow   |                                             |
+| external_directory    | Paths outside working dir  | ask     | Inherits workspace defaults                 |
+| doom_loop             | Repeated tool calls        | ask     | 3 identical calls in a row                 |
 
-### Defaults
+**Special `.env` Rules:**
 
-- Most: `"allow"`
-- `doom_loop`, `external_directory`: `"ask"`
-- `read`: `.env` files denied by default
+```json
+{
+  "permission": {
+    "read": {
+      "*": "allow",
+      "*.env": "deny",
+      "*.env.*": "deny",
+      "*.env.example": "allow"
+    }
+  }
+}
+```
 
-### Structure
+**Structure:**
 
 ```json
 {
@@ -160,18 +223,22 @@ Platform documentation for AI coding assistant configuration
     "edit": {
       "*.env": "deny",
       "*.mdx": "allow"
+    },
+    "external_directory": {
+      "~/projects/personal/**": "allow"
     }
   }
 }
 ```
 
-### Pattern Matching
+**Pattern Matching:**
 
 - Simple wildcard: `*`, `?`
 - Last matching rule wins
-- Can use home directory expansion: `~/projects/*`
+- Home directory expansion: `~/projects/*` or `$HOME/projects/*`
+- External directories inherit workspace defaults
 
-### Agent-Specific Permissions
+**Agent-Specific Permissions:**
 
 ```json
 {
@@ -190,27 +257,28 @@ Platform documentation for AI coding assistant configuration
 
 ---
 
-### Tools
+## Tools
 
-**Configuration:** Built-in tools configured via permissions
+**Built-in Tools (15 total):**
 
-### Built-in Tools
-
-| Tool                | Description            |
-| ------------------- | ---------------------- |
-| bash                | Execute shell commands |
-| edit                | Modify files           |
-| write               | Create/overwrite files |
-| read                | Read files             |
-| grep                | Search content         |
-| glob                | Find files             |
-| list                | List directories       |
-| lsp (experimental)  | LSP queries            |
-| patch               | Apply patches          |
-| skill               | Load skills            |
-| todowrite, todoread | Todo lists             |
-| webfetch            | Fetch web content      |
-| question            | Ask questions          |
+| Tool                | Description                                  |
+| ------------------- | -------------------------------------------- |
+| bash                | Execute shell commands                       |
+| edit                | Modify files (covers edit, write, patch, multiedit) |
+| write               | Create/overwrite files                       |
+| read                | Read files                                   |
+| grep                | Search content using regex                  |
+| glob                | Find files by pattern                        |
+| list                | List directories                             |
+| lsp (experimental)  | LSP queries (requires OPENCODE_EXPERIMENTAL_LSP_TOOL=true) |
+| patch               | Apply patches                                |
+| skill               | Load skills                                  |
+| todowrite           | Manage todo lists                            |
+| todoread            | Read todo lists                              |
+| webfetch            | Fetch web content                            |
+| websearch           | Web search                                   |
+| codesearch          | Code search                                  |
+| question            | Ask questions                                |
 
 **Configuration:**
 
@@ -222,23 +290,7 @@ Platform documentation for AI coding assistant configuration
 
 ---
 
-### Rules
-
-**Files:** `AGENTS.md` or `CLAUDE.md` (Claude Code compatible)
-
-**Format:** Claude Code compatible - no frontmatter, pure markdown
-
----
-
-### Config
-
-**File:** Global configuration in JSON
-
-**Structure:** Contains agent, permission, tool, and model configurations
-
----
-
-### Models
+## Models
 
 **Format:** `provider/model-id`
 
@@ -248,10 +300,60 @@ Platform documentation for AI coding assistant configuration
 - `opencode/gpt-5.1-codex`
 - `lmstudio/google/gemma-3n-e4b`
 
-**Variants:**
+**Loading Priority Order (4 levels):**
 
-- Built-in variants exist for popular providers
-- Custom variants can be defined in config
+1. `--model` or `-m` CLI flag
+2. `model` key in OpenCode config
+3. Last used model
+4. First model using internal priority
+
+**Provider Configuration:**
+
+```json
+{
+  "provider": {
+    "openai": {
+      "options": {
+        "baseURL": "https://api.openai.com/v1",
+        "timeout": 600000,
+        "setCacheKey": true
+      },
+      "models": {
+        "gpt-5": {
+          "id": "custom-model-id",
+          "options": {
+            "reasoningEffort": "high",
+            "textVerbosity": "low",
+            "reasoningSummary": "auto"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+**Provider Options:**
+
+- `baseURL`: Custom endpoint URL
+- `timeout`: Request timeout in ms (default: 300000, set to false to disable)
+- `setCacheKey`: Ensure cache key always set
+
+---
+
+## Config Schema
+
+**Format:** JSON or JSONC (JSON with Comments)
+
+**Schema Sections Relevant to Document Types:**
+
+| Section          | Description                                       |
+| ---------------- | ------------------------------------------------- |
+| agents           | Agent definitions                                 |
+| commands         | Custom commands                                   |
+| permissions      | Permission rules                                  |
+| instructions     | Instruction files (CONTRIBUTING.md, etc.)         |
+| models           | Provider and model configuration                  |
 
 ---
 
@@ -291,12 +393,14 @@ OpenCode uses a **structured permission object** with tool-specific configuratio
 - **subagent** - Specialized assistant invoked by primary or via `@` mention
 - **all** - Can function as either (default if not specified)
 
-### Built-in Agents
+### Built-in Agents Details
 
-- **Build** (mode: primary) - Default agent with all tools
-- **Plan** (mode: primary) - Restricted agent for analysis
-- **General** (mode: subagent) - General-purpose agent
-- **Explore** (mode: subagent) - Fast, read-only agent
+| Agent   | Mode      | Tools                          | Description                                                                 |
+| ------- | --------- | ------------------------------ | --------------------------------------------------------------------------- |
+| Build   | primary   | All enabled                    | Default agent with all tools enabled, full access for development work     |
+| Plan    | primary   | Restricted                      | Analysis and planning with restrictions (edits, bash ask by default)       |
+| General | subagent  | All except todo                | Research and multi-step tasks, can make file changes                       |
+| Explore | subagent  | Read-only (no edits, no bash) | Fast codebase exploration, file patterns, content search, questions         |
 
 ---
 
@@ -306,8 +410,11 @@ OpenCode uses a **structured permission object** with tool-specific configuratio
 
 - 1-64 characters
 - Lowercase alphanumeric with single hyphen separators
+- Cannot start or end with `-`
+- No consecutive `--`
 - Regex: `^[a-z0-9]+(-[a-z0-9]+)*$`
 - Must match directory name
+- Must be unique across all discovery locations
 
 ### Descriptions
 
@@ -318,20 +425,23 @@ OpenCode uses a **structured permission object** with tool-specific configuratio
 
 - Range: 0.0 to 1.0
 - Typical ranges:
-  - 0.0-0.2: Focused/deterministic
-  - 0.3-0.5: Balanced
-  - 0.6-1.0: Creative/variable
+  - 0.0-0.2: Focused/deterministic (code analysis, planning)
+  - 0.3-0.5: Balanced (general development)
+  - 0.6-1.0: Creative/variable (brainstorming, exploration)
+- Model defaults if not specified: typically 0 for most models, 0.55 for Qwen
 
-### MaxSteps
+### Steps
 
 - Must be > 0
 - No upper limit specified
+- When limit reached, agent receives system prompt to summarize and recommend remaining tasks
 
 ### Permissions
 
 - Pattern matching with wildcards
 - Last matching rule wins
 - Home directory expansion supported
+- External directories inherit workspace defaults
 
 ---
 
@@ -361,6 +471,16 @@ OpenCode uses a **structured permission object** with tool-specific configuratio
         "edit": false,
         "bash": false
       }
+    },
+    "code-reviewer": {
+      "description": "Reviews code for best practices and potential issues",
+      "mode": "subagent",
+      "model": "anthropic/claude-sonnet-4-20250514",
+      "prompt": "You are a code reviewer. Focus on security, performance, and maintainability.",
+      "tools": {
+        "write": false,
+        "edit": false
+      }
     }
   }
 }
@@ -378,6 +498,14 @@ tools:
   write: false
   edit: false
   bash: false
+permissions:
+  edit: deny
+  bash:
+    "*": ask
+    "git diff": allow
+    "git log*": allow
+    "grep *": allow
+  webfetch: deny
 ---
 
 You are in code review mode. Focus on:
@@ -409,6 +537,8 @@ metadata:
 
 ## When to use me
 Use this when you are preparing a tagged release.
+
+Ask clarifying questions if the target versioning scheme is unclear.
 ```
 
 ### Permissions Example
@@ -417,14 +547,13 @@ Use this when you are preparing a tagged release.
 {
   "$schema": "https://opencode.ai/config.json",
   "permission": {
-    "bash": {
-      "*": "ask",
-      "git *": "allow",
-      "grep *": "allow"
-    },
+    "bash": "ask",
     "edit": {
       "*.env": "deny",
       "*.mdx": "allow"
+    },
+    "external_directory": {
+      "~/projects/personal/**": "allow"
     }
   }
 }
@@ -441,6 +570,50 @@ Use this when you are preparing a tagged release.
 - `` `!command` `` - Shell output injection
 - `@filename` - File content inclusion
 
+### File References
+
+Use `{file:path}` syntax to include file content:
+
+```json
+{
+  "prompt": "{file:./prompts/code-review.txt}"
+}
+```
+
+---
+
+## Edge Cases and Special Behaviors
+
+### Agent Defaults
+
+- If no `temperature` specified, uses model-specific defaults
+- If no `model` specified, primary agents use global model, subagents use invoking agent's model
+- If no `mode` specified, defaults to "all"
+
+### Permission Last-Rule-Wins
+
+Pattern matching is evaluated with the last matching rule taking precedence. Common pattern: place catch-all `*` rule first, more specific rules after.
+
+### Skill Name Uniqueness
+
+Skill names must be unique across all discovery locations (project `.opencode/skills/`, global `~/.config/opencode/skills/`, project `.claude/skills/`, global `~/.claude/skills/`)
+
+### Config Merging
+
+Configuration files are merged, not replaced. Non-conflicting settings from all configs are preserved. Later configs override earlier ones for conflicting keys only.
+
+### Subtask Field Behavior
+
+When `subtask: true` is set on a command, it forces subagent invocation even if the agent's `mode` is set to "primary". This prevents polluting the primary context.
+
+### Todo Tools Default Disabled
+
+`todoread` and `todowrite` tools are disabled for subagents by default, but can be enabled manually via permissions.
+
+### File Hygiene
+
+SKILL.md must be spelled in all caps. Unknown frontmatter fields in skills are silently ignored.
+
 ---
 
 ## Comparison with Claude Code
@@ -456,5 +629,53 @@ Use this when you are preparing a tagged release.
 | Skills            | Optional `name` field          | Required `name` field                  |
 | Additional Fields | `hooks` (lifecycle)            | `license`, `compatibility`, `metadata` |
 | Temperature       | Not supported                  | Supported (0.0-1.0)                    |
-| MaxSteps          | Not supported                  | Supported (> 0)                        |
+| MaxSteps          | Not supported                  | `steps` supported (> 0)                |
 | Hidden            | Not supported                  | Supported (boolean)                    |
+| Memory            | Native document type           | Via rules files and instructions      |
+
+---
+
+## Validation Rules Summary
+
+### Required Fields
+
+- **Agent**: `description` required (JSON), optional in markdown frontmatter
+- **Skill**: `name` and `description` required
+- **Command**: `template` required in JSON format
+
+### Format Constraints
+
+- **Skill names**: `^[a-z0-9]+(-[a-z0-9]+)*$`, 1-64 chars
+- **Descriptions**: 1-1024 characters
+- **Temperature**: 0.0-1.0 range
+- **Steps**: Must be > 0
+
+### File Locations
+
+- **Skills**: 4 discovery locations (project, global, Claude-compatible project, Claude-compatible global)
+- **Agents**: `opencode.json` or `.opencode/agents/*.md` or `~/.config/opencode/agents/`
+- **Commands**: `opencode.json` or `.opencode/commands/*.md` or `~/.config/opencode/commands/`
+
+### Permission Pattern Matching
+
+- Wildcards: `*` (zero or more), `?` (exactly one)
+- Home directory expansion: `~` or `$HOME`
+- Last matching rule wins
+- External directories inherit workspace defaults
+
+### Agent Types
+
+- `primary`: Main agent, cycle with Tab, full tool access
+- `subagent`: Specialized, invoked by primary or `@`, limited tools
+- `all`: Can function as either (default)
+
+### Tool Naming
+
+- Built-in tools: lowercase (`bash`, `edit`, `read`, etc.)
+- MCP tools: server_name_tool_name pattern
+- Custom tools: filename or filename_exportname pattern
+
+### Model Configuration
+
+- Format: `provider/model-id`
+- 4-level loading priority (CLI flag → config → last used → internal)

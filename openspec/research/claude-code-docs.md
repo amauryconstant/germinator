@@ -1,20 +1,19 @@
 # Claude Code Documentation
 
-Platform documentation for AI coding assistant configuration
+Platform reference for AI coding assistant configuration. Focuses on document types (Agents, Commands, Skills, Memory) and their field definitions for use by the Germinator configuration adapter.
 
 ## Official Documentation Sources
 
-- [Overview](https://code.claude.com/docs/en/overview) - General platform overview
 - [Skills](https://code.claude.com/docs/en/skills.md) - Custom skills with SKILL.md format
 - [Memory](https://code.claude.com/docs/en/memory.md) - Memory management with CLAUDE.md
 - [Sub-agents](https://code.claude.com/docs/en/sub-agents.md) - Custom subagents
 - [Settings](https://code.claude.com/docs/en/settings.md) - Configuration and permissions
-- [CLI Reference](https://code.claude.com/docs/en/cli-reference.md) - Command-line interface
-- [Interactive Mode](https://code.claude.com/docs/en/interactive-mode.md) - Built-in commands and shortcuts
 
 ---
 
 ## Document Types
+
+Claude Code supports four primary document types: Skills, Agents (Subagents), Memory, and Settings.
 
 ### Skills
 
@@ -22,26 +21,87 @@ Platform documentation for AI coding assistant configuration
 
 **Frontmatter Fields:**
 
-| Field                    | Type          | Required    | Description                                                                  |
-| ------------------------ | ------------- | ----------- | ---------------------------------------------------------------------------- |
-| name                     | string        | No          | Display name for skill, lowercase, max 64 chars (defaults to directory name) |
-| description              | string        | Recommended | What skill does and when to use it                                           |
-| argument-hint            | string        | No          | Hint shown during autocomplete, e.g., `[issue-number]`                       |
-| disable-model-invocation | boolean       | No          | Prevent Claude from auto-loading (default: `false`)                          |
-| user-invocable           | boolean       | No          | Hide from `/` menu (default: `true`)                                         |
-| allowed-tools            | array[string] | No          | Tools Claude can use without approval                                        |
-| model                    | string        | No          | Model to use when skill is active                                            |
-| context                  | string        | No          | Set to `fork` to run in subagent context                                     |
-| agent                    | string        | No          | Which subagent type when `context: fork`                                     |
-| hooks                    | object        | No          | Lifecycle hooks scoped to skill                                              |
+| Field                    | Type          | Required    | Default  | Description                                                                                                                                  |
+| ------------------------ | ------------- | ----------- | --------- | ---------------------------------------------------------------------------- |
+| name                     | string        | No          | Directory name | Display name for skill, lowercase, max 64 chars                              |
+| description              | string        | Recommended | -         | What skill does and when to use it                                           |
+| argument-hint            | string        | No          | -         | Hint shown during autocomplete, e.g., `[issue-number]`                       |
+| disable-model-invocation | boolean       | No          | `false`  | Prevent Claude from auto-loading                                              |
+| user-invocable           | boolean       | No          | `true`   | Hide from `/` menu                                                         |
+| allowed-tools            | array[string] | No          | -         | Tools Claude can use without approval                                        |
+| model                    | string        | No          | -         | Model to use when skill is active                                            |
+| context                  | string        | No          | -         | Set to `fork` to run in subagent context                                     |
+| agent                    | string        | No          | -         | Which subagent type when `context: fork`                                     |
+| hooks                    | object        | No          | -         | Lifecycle hooks scoped to skill                                              |
 
 **Body:** Markdown content with skill instructions
 
 **String Substitutions:**
 
 - `$ARGUMENTS` - All arguments passed
-- `$ARGUMENTS[N]` or `$N` - Specific argument by position
+- `$ARGUMENTS[N]` or `$N` - Specific argument by position (0-based index)
 - `${CLAUDE_SESSION_ID}` - Current session ID
+
+**Skill Locations (by precedence):**
+
+1. Enterprise: Managed policy
+2. Personal: `~/.claude/skills/<name>/SKILL.md`
+3. Project: `.claude/skills/<name>/SKILL.md`
+4. Plugin: `<plugin-root>/skills/<name>/SKILL.md` (namespaced as `plugin:name`)
+
+**Automatic Discovery from Nested Directories:**
+
+When working in subdirectories, Claude Code automatically discovers skills from nested `.claude/skills/` directories (e.g., `packages/frontend/.claude/skills/`).
+
+**Supporting Files:**
+
+Skills can include additional files in their directory:
+
+```
+my-skill/
+├── SKILL.md (required - overview and navigation)
+├── reference.md (detailed API docs - loaded when needed)
+├── examples.md (usage examples - loaded when needed)
+└── scripts/
+    └── helper.py (utility script - executed, not loaded)
+```
+
+Reference supporting files from SKILL.md so Claude knows what each file contains and when to load it. Keep SKILL.md under 500 lines for optimal context management.
+
+**Character Budget:**
+
+Skill descriptions are loaded into context so Claude knows what's available. If many skills exceed the character budget (default 15,000 characters), some skills are excluded. Increase the limit with `SLASH_COMMAND_TOOL_CHAR_BUDGET` environment variable. Use `/context` to check for warnings about excluded skills.
+
+**Ultrathink Mode:**
+
+Include the word "ultrathink" anywhere in skill content to enable extended thinking when the skill runs.
+
+**Invocation Control:**
+
+| Frontmatter                              | You can invoke | Claude can invoke | When loaded into context                                           |
+| ---------------------------------------- | ------------- | ---------------- | -------------------------------------------------------------------------- |
+| (default)                               | Yes           | Yes              | Description always in context, full skill loads when invoked                |
+| `disable-model-invocation: true`         | Yes           | No               | Description not in context, full skill loads when you invoke               |
+| `user-invocable: false`                 | No            | Yes              | Description always in context, full skill loads when invoked               |
+
+**Dynamic Context Injection:**
+
+The `!`command\`` syntax runs shell commands before the skill content is sent to Claude. Command output replaces the placeholder.
+
+**Example:**
+```yaml
+---
+name: pr-summary
+description: Summarize changes in a pull request
+context: fork
+agent: Explore
+allowed-tools: Bash(gh *)
+---
+## Pull request context
+- PR diff: !`gh pr diff`
+- PR comments: !`gh pr view --comments`
+- Changed files: !`gh pr diff --name-only`
+```
 
 ---
 
@@ -51,18 +111,48 @@ Platform documentation for AI coding assistant configuration
 
 **Frontmatter Fields:**
 
-| Field           | Type          | Required | Description                                                      |
-| --------------- | ------------- | -------- | ---------------------------------------------------------------- |
-| name            | string        | Yes      | Unique identifier, lowercase with hyphens                        |
-| description     | string        | Yes      | When Claude should delegate to this subagent                     |
-| tools           | array[string] | No       | Tools subagent can use (PascalCase)                              |
-| disallowedTools | array[string] | No       | Tools to deny (PascalCase)                                       |
-| model           | string        | No       | Model: `sonnet`, `opus`, `haiku`, or `inherit` (default)         |
-| permissionMode  | string        | No       | `default`, `acceptEdits`, `dontAsk`, `bypassPermissions`, `plan` |
-| skills          | array[string] | No       | Skills to preload into subagent's context                        |
-| hooks           | object        | No       | Lifecycle hooks scoped to subagent                               |
+| Field           | Type          | Required | Default  | Description                                                      |
+| --------------- | ------------- | -------- | --------- | ---------------------------------------------------------------- |
+| name            | string        | Yes      | -         | Unique identifier, lowercase with hyphens                        |
+| description     | string        | Yes      | -         | When Claude should delegate to this subagent                     |
+| tools           | array[string] | No       | -         | Tools subagent can use (PascalCase)                              |
+| disallowedTools | array[string] | No       | -         | Tools to deny (PascalCase)                                       |
+| model           | string        | No       | `inherit` | Model: `sonnet`, `opus`, `haiku`, or `inherit`                 |
+| permissionMode  | string        | No       | -         | `default`, `acceptEdits`, `dontAsk`, `bypassPermissions`, `plan` |
+| skills          | array[string] | No       | -         | Skills to preload into subagent's context                        |
+| hooks           | object        | No       | -         | Lifecycle hooks scoped to subagent                               |
 
 **Body:** Markdown content as system prompt
+
+**Built-in Subagents:**
+
+| Name            | Model    | Tools               | Purpose                                                        |
+| --------------- | -------- | ------------------- | -------------------------------------------------------------- |
+| Explore         | Haiku    | Read-only only      | Fast, read-only codebase exploration                              |
+| Plan            | Inherits | Read-only only      | Research for plan mode                                            |
+| general-purpose | Inherits | All tools           | Complex, multi-step tasks with exploration and action                |
+| Bash            | Inherits | Terminal commands   | Running terminal commands in separate context                       |
+| statusline-setup | Sonnet   | Varies              | Configured when running `/statusline`                               |
+| Claude Code Guide | Haiku   | Varies              | Answering questions about Claude Code features                       |
+
+**Subagent Execution:**
+
+When Claude delegates to a subagent:
+1. Creates isolated context window
+2. Subagent inherits parent's permissions with additional restrictions
+3. Subagent can optionally preload skills via `skills` field
+4. Results are summarized and returned to main conversation
+5. Subagents cannot spawn other subagents (prevents infinite nesting)
+
+**Scope Hierarchy:**
+
+1. Managed (highest)
+2. User (`~/.claude/agents/`)
+3. Project (`.claude/agents/`)
+
+**Skill Preloading:**
+
+Subagents can preload skills via the `skills` field. Preloaded skills' full content is injected at subagent startup, not just descriptions. This differs from regular session skills where only descriptions are in context initially.
 
 ---
 
@@ -73,6 +163,7 @@ Platform documentation for AI coding assistant configuration
 - `CLAUDE.md` (multiple locations)
 - `.claude/CLAUDE.md`
 - `.claude/rules/*.md`
+- `CLAUDE.local.md`
 
 **Frontmatter:** None - Pure markdown content with optional file references
 
@@ -81,14 +172,24 @@ Platform documentation for AI coding assistant configuration
 - `@path/to/file` syntax for importing files
 - Recursive imports supported (max 5 hops)
 - Path-specific rules in `.claude/rules/` with `paths` frontmatter field
+- Home directory expansion: `~` supported
+- Relative paths resolve relative to importing file, not working directory
 
 **Locations (by precedence):**
 
-1. Managed policy: System-level CLAUDE.md
-2. Project: `./CLAUDE.md` or `./.claude/CLAUDE.md`
-3. Project rules: `./.claude/rules/*.md`
-4. User: `~/.claude/CLAUDE.md`
-5. Local: `./CLAUDE.local.md`
+| Memory Type              | Location                                                                                                      | Purpose                           | Shared With              |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------- | --------------------------------- | ------------------------ |
+| **Managed policy**       | macOS: `/Library/Application Support/ClaudeCode/CLAUDE.md`<br />Linux: `/etc/claude-code/CLAUDE.md`<br />Windows: `C:\Program Files\ClaudeCode\CLAUDE.md` | Organization-wide instructions       | All users in organization |
+| **Project memory**       | `./CLAUDE.md` or `./.claude/CLAUDE.md`                                                                      | Team-shared instructions             | Team via source control  |
+| **Project rules**        | `./.claude/rules/*.md`                                                                                          | Modular, topic-specific rules       | Team via source control  |
+| **User memory**          | `~/.claude/CLAUDE.md`                                                                                           | Personal preferences                | Just you (all projects)  |
+| **Project memory (local)** | `./CLAUDE.local.md`                                                                                              | Personal project-specific preferences | Just you (current project) |
+
+**Recursive Discovery:**
+
+Claude Code reads memories recursively: starting in cwd, it recurses up to (but not including) root directory and reads any CLAUDE.md or CLAUDE.local.md files it finds. This is convenient when running Claude Code in subdirectories with memories in parent directories.
+
+Claude also discovers CLAUDE.md nested in subtrees under current working directory. These are only included when Claude reads files in those subtrees.
 
 **Frontmatter for `.claude/rules/*.md`:**
 
@@ -96,34 +197,62 @@ Platform documentation for AI coding assistant configuration
 | ----- | ------------- | -------- | ----------------------------------- |
 | paths | array[string] | No       | Glob patterns for conditional rules |
 
+**Glob Patterns:**
+
+Supported patterns for `paths` field:
+
+| Pattern          | Matches                                     |
+| ---------------- | ------------------------------------------- |
+| `**/*.ts`        | All TypeScript files in any directory    |
+| `src/**/*`       | All files under `src/` directory         |
+| `*.md`           | Markdown files in project root           |
+| `src/**/*.{ts,tsx}` | Multiple extensions via brace expansion |
+| `{src,lib}/**/*.ts` | Multiple directories via brace expansion |
+
+**Additional Directories:**
+
+The `--add-dir` flag gives Claude access to additional directories. By default, CLAUDE.md files from these directories are not loaded. To also load memory files from additional directories, set `CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1`:
+
+```bash
+CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1 claude --add-dir ../shared-config
+```
+
+**Symlinks:**
+
+The `.claude/rules/` directory supports symlinks for sharing rules across projects. Circular symlinks are detected and handled gracefully.
+
 ---
 
 ### Settings
 
 **File:** `settings.json` (multiple scopes)
 
+**Configuration Scopes:**
+
+| Scope       | Location                             | Who it affects          | Shared with team? |
+| ---------- | ----------------------------------- | --------------------- | ----------------- |
+| Managed     | System-level `managed-settings.json` | All users on machine   | Yes (deployed by IT)   |
+| User        | `~/.claude/settings.json`           | You, across all projects | No                   |
+| Project     | `.claude/settings.json`              | All collaborators       | Yes (committed)       |
+| Local       | `.claude/settings.local.json`        | You, in this repository | No (gitignored)      |
+
+**Precedence:**
+
+1. Managed (highest) - cannot be overridden
+2. Command line arguments
+3. Local
+4. Project
+5. User (lowest)
+
 **Permission Settings:**
 
-| Key         | Type          | Description                                  |
-| ----------- | ------------- | -------------------------------------------- |
-| allow       | array[string] | Permission rules to allow                    |
-| ask         | array[string] | Permission rules to ask for confirmation     |
-| deny        | array[string] | Permission rules to deny                     |
-| defaultMode | string        | Default permission mode: `acceptEdits`, etc. |
-
-**Other Settings:**
-
-| Key            | Type   | Description                          |
-| -------------- | ------ | ------------------------------------ |
-| permissions    | object | Permission configuration (see above) |
-| env            | object | Environment variables                |
-| attribution    | object | Git commit/PR attribution settings   |
-| hooks          | object | Pre/post tool hooks                  |
-| model          | string | Override default model               |
-| statusLine     | object | Custom status line config            |
-| fileSuggestion | object | Custom file autocomplete             |
-| outputStyle    | string | Output style configuration           |
-| language       | string | Preferred response language          |
+| Field        | Type          | Description                                  |
+| ------------ | ------------- | -------------------------------------------- |
+| permissions  | object        | Permission configuration (see below)           |
+| allow        | array[string] | Permission rules to allow                    |
+| ask          | array[string] | Permission rules to ask for confirmation     |
+| deny         | array[string] | Permission rules to deny                     |
+| defaultMode  | string        | Default permission mode                        |
 
 ---
 
@@ -151,6 +280,8 @@ Platform documentation for AI coding assistant configuration
 
 ### Tool Names (PascalCase)
 
+**Built-in Tools:**
+
 - `Bash` - Execute shell commands
 - `Read` - Read file contents
 - `Write` - Create/overwrite files
@@ -164,6 +295,17 @@ Platform documentation for AI coding assistant configuration
 - `Skill` - Load skills
 - `TodoRead`, `TodoWrite` - Manage todo lists
 - `Question` - Ask user questions
+- `WebSearch` - Search the web
+- `Notebook` - Interactive notebook execution
+- `AskUserQuestion` - Ask user clarifying questions
+
+**MCP Tools:**
+
+Format: `mcp__<server>__<tool>`
+
+- `mcp__memory__create_entities` - Create memory entities
+- `mcp__filesystem__read_file` - Read files via filesystem server
+- `mcp__github__search_repositories` - Search GitHub repositories
 
 ### Specifier Examples
 
@@ -173,22 +315,26 @@ Platform documentation for AI coding assistant configuration
 - `Bash(git *)` - Git commands with any arguments
 - `Read(./.env)` - Specific file
 - `WebFetch(domain:example.com)` - Specific domain
+- `Edit|Write` - Multiple tools
+- `mcp__memory__.*` - All memory server tools
 
 ### Wildcards
 
 - `*` matches zero or more characters
 - `?` matches exactly one character
+- `**` matches any number of directories
 
 ---
 
 ## Tool Configuration
 
-### Configuration
+### Configuration Methods
 
 - Via `tools` field in subagent
-- Via `allowedTools` in skill frontmatter
-- Via `--tools` CLI flag
+- Via `allowed-tools` in skill frontmatter
 - Via `--allowedTools` CLI flag
+- Via `--disallowedTools` CLI flag
+- Via `--tools` CLI flag
 
 ---
 
@@ -200,50 +346,33 @@ Full model name or alias
 
 ### Aliases
 
-- `sonnet` - Use Sonnet model
-- `opus` - Use Opus model
-- `haiku` - Use Haiku model
-- `inherit` - Inherit default model (default)
+| Alias      | Description                                                  |
+| ---------- | ------------------------------------------------------------ |
+| `default`  | Use default model                                             |
+| `sonnet`   | Use Sonnet model                                              |
+| `opus`     | Use Opus model                                                |
+| `haiku`    | Use Haiku model                                               |
+| `sonnet[1m]`| Use Sonnet with 1M context (extended thinking)           |
+| `opusplan` | Use Opus for planning (specialized)                           |
+| `inherit`  | Inherit default model (default for subagents)                   |
 
 ### Full Names
 
-- `claude-sonnet-4-5-20250929` - Specific version
+- `claude-sonnet-4-5-20250929` - Specific Sonnet version
+- `claude-3-5-sonnet-20241022` - Sonnet 3.5
+- `claude-3-opus-20240229` - Opus 3
+- `claude-3-haiku-20240307` - Haiku 3
 
 ### Examples
 
 ```yaml
 model: sonnet              # Alias
 model: opus                # Alias
+model: default             # Default model
+model: sonnet[1m]          # Extended thinking
 model: claude-sonnet-4-5-20250929  # Full name
 model: inherit             # Inherit default
 ```
-
----
-
-## Validation Constraints
-
-### Skill Names
-
-- Lowercase letters, numbers, hyphens only
-- Max 64 characters
-- No consecutive hyphens
-- No starting/ending with hyphen
-
-### Subagent Names
-
-- Lowercase letters and hyphens
-- Must be unique
-
-### Permissions
-
-- Rule evaluation is order-dependent
-- Deny rules always take precedence
-- Patterns are simple wildcards (`*`, `?`)
-
-### File Paths
-
-- Imports support recursive loading (max 5 hops)
-- Home directory expansion: `~` supported
 
 ---
 
@@ -312,7 +441,11 @@ Include specific examples of how to fix issues.
 ```json
 {
   "permissions": {
-    "allow": ["Bash(npm run lint)", "Bash(npm run test *)", "Read(~/.zshrc)"],
+    "allow": [
+      "Bash(npm run lint)",
+      "Bash(npm run test *)",
+      "Read(~/.zshrc)"
+    ],
     "deny": [
       "Bash(curl *)",
       "Read(./.env)",
@@ -322,8 +455,40 @@ Include specific examples of how to fix issues.
   },
   "env": {
     "FOO": "bar"
-  }
+  },
+  "companyAnnouncements": [
+    "Welcome to our team! Review our code guidelines at docs.example.com"
+  ],
+  "cleanupPeriodDays": 30,
+  "disableAllHooks": false
 }
 ```
 
+---
 
+## Validation Constraints
+
+### Skill Names
+- Lowercase letters, numbers, hyphens only
+- Max 64 characters
+- No consecutive hyphens
+- No starting/ending with hyphen
+
+### Subagent Names
+- Lowercase letters and hyphens
+- Must be unique
+
+### Permissions
+- Rule evaluation is order-dependent
+- Deny rules always take precedence
+- Patterns are simple wildcards (`*`, `?`)
+
+### File Paths
+- Imports support recursive loading (max 5 hops)
+- Home directory expansion: `~` supported
+- Relative paths resolve from importing file, not working directory
+
+### Settings JSON
+- Must be valid JSON
+- Optional `$schema` field for validation support
+- Settings files auto-backed up (5 most recent)
