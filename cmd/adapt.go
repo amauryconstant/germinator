@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"gitlab.com/amoconst/germinator/internal/models"
 	"gitlab.com/amoconst/germinator/internal/services"
 )
 
@@ -14,21 +15,21 @@ var platform string
 var adaptCmd = &cobra.Command{
 	Use:   "adapt <input> <output>",
 	Short: "Transform a document to another platform",
-	Long: `Transform a document from Germinator source format to another platform's format.
+	Long: fmt.Sprintf(`Transform a document from Germinator source format to another platform's format.
 
 Supported platforms:
-  claude-code - Claude Code document format
-  opencode    - OpenCode document format
+  %s - Claude Code document format
+  %s    - OpenCode document format
 
 Example:
-  germinator adapt agent.yaml opencode-agent.md --platform opencode`,
+  germinator adapt agent.yaml opencode-agent.md --platform %s`, models.PlatformClaudeCode, models.PlatformOpenCode, models.PlatformOpenCode),
 	Args: cobra.ExactArgs(2),
 	Run: func(_ *cobra.Command, args []string) {
 		inputPath := args[0]
 		outputPath := args[1]
 
 		if platform == "" {
-			fmt.Fprintln(os.Stderr, "Error: --platform flag is required (available: claude-code, opencode)")
+			fmt.Fprintf(os.Stderr, "Error: --platform flag is required (available: %s, %s)\n", models.PlatformClaudeCode, models.PlatformOpenCode)
 			os.Exit(1)
 		}
 
@@ -43,7 +44,7 @@ Example:
 }
 
 func init() {
-	adaptCmd.Flags().StringVar(&platform, "platform", "", "Target platform (required: claude-code, opencode)")
+	adaptCmd.Flags().StringVar(&platform, "platform", "", fmt.Sprintf("Target platform (required: %s, %s)", models.PlatformClaudeCode, models.PlatformOpenCode))
 	_ = adaptCmd.MarkFlagRequired("platform")
 	rootCmd.AddCommand(adaptCmd)
 }

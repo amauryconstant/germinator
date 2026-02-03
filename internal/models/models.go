@@ -33,13 +33,7 @@ type Agent struct {
 func (a *Agent) Validate(platform string) []error {
 	var errs []error
 
-	if platform == "" {
-		errs = append(errs, errors.New("platform is required (available: claude-code, opencode)"))
-	}
-
-	if platform != "" && platform != PlatformClaudeCode && platform != PlatformOpenCode {
-		errs = append(errs, fmt.Errorf("unknown platform: %s (available: claude-code, opencode)", platform))
-	}
+	errs = append(errs, ValidatePlatform(platform)...)
 
 	if a.Name == "" {
 		errs = append(errs, errors.New("name is required"))
@@ -100,13 +94,7 @@ type Command struct {
 func (c *Command) Validate(platform string) []error {
 	var errs []error
 
-	if platform == "" {
-		errs = append(errs, errors.New("platform is required (available: claude-code, opencode)"))
-	}
-
-	if platform != "" && platform != PlatformClaudeCode && platform != PlatformOpenCode {
-		errs = append(errs, fmt.Errorf("unknown platform: %s (available: claude-code, opencode)", platform))
-	}
+	errs = append(errs, ValidatePlatform(platform)...)
 
 	if c.Context != "" && c.Context != "fork" {
 		errs = append(errs, fmt.Errorf("context must be 'fork' if specified (got: %s)", c.Context))
@@ -130,13 +118,7 @@ type Memory struct {
 func (m *Memory) Validate(platform string) []error {
 	var errs []error
 
-	if platform == "" {
-		errs = append(errs, errors.New("platform is required (available: claude-code, opencode)"))
-	}
-
-	if platform != "" && platform != PlatformClaudeCode && platform != PlatformOpenCode {
-		errs = append(errs, fmt.Errorf("unknown platform: %s (available: claude-code, opencode)", platform))
-	}
+	errs = append(errs, ValidatePlatform(platform)...)
 
 	if len(m.Paths) == 0 && m.Content == "" {
 		errs = append(errs, errors.New("paths or content is required"))
@@ -174,13 +156,7 @@ type Skill struct {
 func (s *Skill) Validate(platform string) []error {
 	var errs []error
 
-	if platform == "" {
-		errs = append(errs, errors.New("platform is required (available: claude-code, opencode)"))
-	}
-
-	if platform != "" && platform != PlatformClaudeCode && platform != PlatformOpenCode {
-		errs = append(errs, fmt.Errorf("unknown platform: %s (available: claude-code, opencode)", platform))
-	}
+	errs = append(errs, ValidatePlatform(platform)...)
 
 	if s.Name == "" {
 		errs = append(errs, errors.New("name is required"))
@@ -249,8 +225,10 @@ func ValidateOpenCodeCommand(cmd *Command) []error {
 func ValidateOpenCodeSkill(skill *Skill) []error {
 	var errs []error
 
-	skillNameRegex := regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
-	if !skillNameRegex.MatchString(skill.Name) {
+	matched, err := regexp.MatchString(`^[a-z0-9]+(-[a-z0-9]+)*$`, skill.Name)
+	if err != nil {
+		errs = append(errs, fmt.Errorf("failed to validate name regex: %w", err))
+	} else if !matched {
 		errs = append(errs, fmt.Errorf("skill name must match pattern ^[a-z0-9]+(-[a-z0-9]+)*$, got %s", skill.Name))
 	}
 
