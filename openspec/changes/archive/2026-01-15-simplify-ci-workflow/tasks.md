@@ -356,7 +356,7 @@
 - [x] Configure goreleaser-dry-run job to use goreleaser/goreleaser image
 - [x] Add entrypoint: [""] to goreleaser-dry-run job
 - [x] Add GIT_DEPTH: 0 variable to goreleaser-dry-run job
-- [x] Configure goreleaser-dry-run to run with --snapshot --skip-publish --clean
+- [x] Configure goreleaser-dry-run to run with --snapshot --clean
 - [x] Add job rules to run on MRs with .goreleaser.yml, go.mod, go.sum, cmd/**/*, internal/**/* changes
 - [x] Update openspec proposal to document GoReleaser dry-run validation
 - [x] Update spec with GoReleaser dry-run requirements

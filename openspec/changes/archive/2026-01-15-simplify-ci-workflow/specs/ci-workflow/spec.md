@@ -739,7 +739,6 @@ And job SHALL NOT publish artifacts
 Given goreleaser-dry-run job is running
 When goreleaser release command executes
 Then command SHALL use --snapshot flag
-And command SHALL use --skip-publish flag
 And command SHALL use --clean flag
 And no artifacts SHALL be published
 And no GitLab release SHALL be created
