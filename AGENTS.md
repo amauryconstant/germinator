@@ -145,7 +145,7 @@ Germinator uses a canonical YAML format containing ALL fields for ALL platforms.
 
 | Germinator Field | Claude Code | OpenCode |
 |------------------|-------------|----------|
-| name | ✓ | ✓ |
+| name | ✓ | ⚠ omitted (uses filename as identifier) |
 | description | ✓ | ✓ |
 | allowed-tools | ✓ | ✓ (converted to lowercase) |
 | disallowed-tools | ✓ | ✓ (converted to lowercase, set false) |

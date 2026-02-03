@@ -4,6 +4,7 @@ package services
 import (
 	"fmt"
 	"os"
+	"regexp"
 
 	"gitlab.com/amoconst/germinator/internal/core"
 	"gitlab.com/amoconst/germinator/internal/models"
@@ -40,16 +41,92 @@ func ValidateDocument(inputPath, platform string) ([]error, error) {
 		return nil, fmt.Errorf("failed to parse document: %w", parseErr)
 	}
 
+	var errs []error
+	var errs2 []error
+
 	switch d := doc.(type) {
 	case *models.Agent:
-		return d.Validate(platform), nil
+		errs = d.Validate(platform)
+		if platform == models.PlatformOpenCode {
+			errs2 = ValidateOpenCodeAgent(d)
+		}
 	case *models.Command:
-		return d.Validate(platform), nil
+		errs = d.Validate(platform)
+		if platform == models.PlatformOpenCode {
+			errs2 = ValidateOpenCodeCommand(d)
+		}
 	case *models.Memory:
-		return d.Validate(platform), nil
+		errs = d.Validate(platform)
+		if platform == models.PlatformOpenCode {
+			errs2 = ValidateOpenCodeMemory(d)
+		}
 	case *models.Skill:
-		return d.Validate(platform), nil
+		errs = d.Validate(platform)
+		if platform == models.PlatformOpenCode {
+			errs2 = ValidateOpenCodeSkill(d)
+		}
 	default:
 		return nil, fmt.Errorf("unknown document type: %T", d)
 	}
+
+	return append(errs, errs2...), nil
+}
+
+// ValidateOpenCodeAgent validates OpenCode-specific Agent constraints.
+func ValidateOpenCodeAgent(agent *models.Agent) []error {
+	var errs []error
+
+	if agent.Mode != "" && agent.Mode != "primary" && agent.Mode != "subagent" && agent.Mode != "all" {
+		errs = append(errs, fmt.Errorf("invalid mode: %s (valid values: primary, subagent, all)", agent.Mode))
+	}
+
+	if agent.Temperature != nil && (*agent.Temperature < 0.0 || *agent.Temperature > 1.0) {
+		errs = append(errs, fmt.Errorf("temperature must be between 0.0 and 1.0, got %f", *agent.Temperature))
+	}
+
+	if agent.MaxSteps != 0 && agent.MaxSteps < 1 {
+		errs = append(errs, fmt.Errorf("maxSteps must be >= 1, got %d", agent.MaxSteps))
+	}
+
+	return errs
+}
+
+// ValidateOpenCodeCommand validates OpenCode-specific Command constraints.
+func ValidateOpenCodeCommand(cmd *models.Command) []error {
+	var errs []error
+
+	if cmd.Content == "" {
+		errs = append(errs, fmt.Errorf("template (content) is required"))
+	}
+
+	return errs
+}
+
+// ValidateOpenCodeSkill validates OpenCode-specific Skill constraints.
+func ValidateOpenCodeSkill(skill *models.Skill) []error {
+	var errs []error
+
+	matched, err := regexp.MatchString(`^[a-z0-9]+(-[a-z0-9]+)*$`, skill.Name)
+	if err != nil {
+		errs = append(errs, fmt.Errorf("failed to validate name regex: %w", err))
+	} else if !matched {
+		errs = append(errs, fmt.Errorf("skill name must match pattern ^[a-z0-9]+(-[a-z0-9]+)*$, got %s", skill.Name))
+	}
+
+	if skill.Content == "" {
+		errs = append(errs, fmt.Errorf("content is required"))
+	}
+
+	return errs
+}
+
+// ValidateOpenCodeMemory validates OpenCode-specific Memory constraints.
+func ValidateOpenCodeMemory(mem *models.Memory) []error {
+	var errs []error
+
+	if len(mem.Paths) == 0 && mem.Content == "" {
+		errs = append(errs, fmt.Errorf("paths or content is required"))
+	}
+
+	return errs
 }

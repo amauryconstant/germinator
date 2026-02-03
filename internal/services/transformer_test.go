@@ -362,9 +362,9 @@ func TestValidateOpenCodeAgent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			errs := models.ValidateOpenCodeAgent(tt.agent)
+			errs := ValidateOpenCodeAgent(tt.agent)
 			if len(errs) != tt.errorCount {
-				t.Errorf("models.ValidateOpenCodeAgent() error count = %d, want %d, errors: %v", len(errs), tt.errorCount, errs)
+				t.Errorf("ValidateOpenCodeAgent() error count = %d, want %d, errors: %v", len(errs), tt.errorCount, errs)
 			}
 		})
 	}
@@ -398,9 +398,9 @@ func TestValidateOpenCodeCommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			errs := models.ValidateOpenCodeCommand(tt.cmd)
+			errs := ValidateOpenCodeCommand(tt.cmd)
 			if len(errs) != tt.errorCount {
-				t.Errorf("models.ValidateOpenCodeCommand() error count = %d, want %d, errors: %v", len(errs), tt.errorCount, errs)
+				t.Errorf("ValidateOpenCodeCommand() error count = %d, want %d, errors: %v", len(errs), tt.errorCount, errs)
 			}
 		})
 	}
@@ -515,9 +515,9 @@ func TestValidateOpenCodeSkill(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			errs := models.ValidateOpenCodeSkill(tt.skill)
+			errs := ValidateOpenCodeSkill(tt.skill)
 			if len(errs) != tt.errorCount {
-				t.Errorf("models.ValidateOpenCodeSkill() error count = %d, want %d, errors: %v", len(errs), tt.errorCount, errs)
+				t.Errorf("ValidateOpenCodeSkill() error count = %d, want %d, errors: %v", len(errs), tt.errorCount, errs)
 			}
 		})
 	}
@@ -560,9 +560,9 @@ func TestValidateOpenCodeMemory(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			errs := models.ValidateOpenCodeMemory(tt.mem)
+			errs := ValidateOpenCodeMemory(tt.mem)
 			if len(errs) != tt.errorCount {
-				t.Errorf("models.ValidateOpenCodeMemory() error count = %d, want %d, errors: %v", len(errs), tt.errorCount, errs)
+				t.Errorf("ValidateOpenCodeMemory() error count = %d, want %d, errors: %v", len(errs), tt.errorCount, errs)
 			}
 		})
 	}
