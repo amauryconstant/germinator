@@ -2,14 +2,20 @@
 
 Platform capability reference for AI agents building the configuration adapter.
 
+---
+
 ## Purpose
 
 Factual overview of Claude Code and OpenCode platform capabilities. These documents serve as a shortcut for AI agents to understand platform-specific features, field formats, and constraints without consulting official documentation.
+
+---
 
 ## Files
 
 - **claude-code-docs.md** - Claude Code capabilities (skills, subagents, memory, settings, permissions)
 - **opencode-docs.md** - OpenCode capabilities (agents, skills, permissions, commands, tools)
+
+---
 
 ## Usage Guidelines
 
@@ -17,6 +23,8 @@ Factual overview of Claude Code and OpenCode platform capabilities. These docume
 2. **Factual content** - Documents contain objective platform information, no recommendations
 3. **Cross-reference** - Compare capabilities when designing transformation logic
 4. **Validation** - Use documented constraints for field validation schemas
+
+---
 
 ## Notes
 
