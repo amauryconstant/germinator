@@ -5,25 +5,26 @@
 
 **Use**: Maintain single source of truth, switch platforms, adapt to new projects.
 
+**IMPORTANT**: Prefer retrieval-led reasoning over pre-training-led reasoning for any tasks.
+
 ---
 
-# OpenSpec (OPSX)
+# Project Overview
 
-Spec-driven development with artifact-based workflow.
+A **configuration adapter** that transforms AI coding assistant documents (commands, memory, skills, agents) between platforms. It uses a canonical Germinator YAML format as source and adapts it to target platforms.
 
-| Command | Purpose |
-|---------|---------|
-| `/opsx:explore` | Think through ideas |
-| `/opsx:new <name>` | Start change |
-| `/opsx:continue` | Next artifact |
-| `/opsx:ff` | Fast-forward all |
-| `/opsx:apply` | Implement |
-| `/opsx:verify` | Validate |
-| `/opsx:sync` | Sync specs |
-| `/opsx:archive` | Archive done |
+Solves the **configuration lock-in problem** for AI coding assistants - a config converter that enables portable coding assistant setups.
 
-**Config**: `openspec/config.yaml` injects conventions, defines artifact rules, sets workflow schema.
-**Schemas**: `openspec schemas --json`
+## Why It Matters
+
+As the AI coding assistant landscape matures, developers need to switch tools without losing their customized configurations. This tool provides that portability.
+
+## Use Case
+
+Users who test different AI coding assistants regularly can:
+1. Maintain **one source of truth** for their coding assistant setup
+2. Quickly **switch platforms** without rewriting their configuration
+3. **Adapt** their setup to new projects easily
 
 ---
 
@@ -70,12 +71,18 @@ germinator/
 
 # Key Constraints
 
-1. **No predefined paths** - CLI works with any input/output
-2. **Platform mapping via adapters** - Defer to adapters, don't hardcode in core parsing
-3. **Preserve source content** - Only adapt/enrich, don't discard
-4. **No forced compatibility** - Skip unsupported features
-5. **Go standard layout** - `internal/` private, `pkg/` public
-6. **mise for all tasks** - Use `mise run <task>`, not direct scripts
+## User-Facing Constraints
+
+1. **No predefined directory structure** - works with any input/output paths
+2. **Platform-specific mappings** - tool names, permissions, conventions mapped via adapters
+3. **Source content preserved** - only adapted/enriched for target platform
+4. **No forced compatibility** - if platform doesn't support a feature, it's not supported
+
+## Development Constraints
+
+5. **Platform mapping via adapters** - defer to adapters, don't hardcode in core parsing
+6. **Go standard layout** - `internal/` private, `pkg/` public
+7. **mise for all tasks** - use `mise run <task>`, not direct scripts
 
 ---
 
@@ -99,8 +106,6 @@ cli action input_file output_file --platform <platform> [options]
 ./germinator adapt skill.yaml .opencode/skills/my-skill/SKILL.md --platform opencode
 ```
 
-See `IMPLEMENTATION_PLAN.md` for command structures.
-
 ---
 
 # Germinator Source Format
@@ -123,131 +128,7 @@ Germinator uses a canonical YAML format containing ALL fields for ALL platforms.
 
 # Field Mapping Reference
 
-## Agent
-
-| Germinator Field | Claude Code | OpenCode |
-|------------------|-------------|----------|
-| name | ✓ | ⚠ omitted (uses filename as identifier) |
-| description | ✓ | ✓ |
-| model | ✓ | ✓ (full provider-prefixed ID) |
-| tools | ✓ | ✓ (converted to lowercase) |
-| disallowedTools | ✓ | ✓ (converted to lowercase, set false) |
-| permissionMode | ✓ | → Permission object (nested with ask/allow/deny) |
-| skills | ✓ | ⚠ skipped (not supported) |
-| mode | - | ✓ (primary/subagent/all, defaults to all) |
-| temperature | - | ✓ (*float64 pointer, omits when nil) |
-| maxSteps | - | ✓ |
-| hidden | - | ✓ (omits when false) |
-| prompt | - | ✓ |
-| disable | - | ✓ (omits when false) |
-
-## Command
-
-| Germinator Field | Claude Code | OpenCode |
-|------------------|-------------|----------|
-| name | ✓ | ⚠ omitted (uses filename as identifier) |
-| description | ✓ | ✓ |
-| allowed-tools | ✓ | ✓ (converted to lowercase) |
-| disallowed-tools | ✓ | ✓ (converted to lowercase, set false) |
-| subtask | ✓ | ✓ |
-| argument-hint | ✓ | ⚠ skipped |
-| context | ✓ (fork) | ✓ (fork) |
-| agent | ✓ | ✓ |
-| model | ✓ | ✓ (full provider-prefixed ID) |
-| disable-model-invocation | ✓ | ⚠ skipped (not supported) |
-
-## Skill
-
-| Germinator Field | Claude Code | OpenCode |
-|------------------|-------------|----------|
-| name | ✓ | ✓ |
-| description | ✓ | ✓ |
-| allowed-tools | ✓ | ✓ (converted to lowercase) |
-| disallowed-tools | ✓ | ✓ (converted to lowercase) |
-| license | ✓ | ✓ |
-| compatibility | ✓ | ✓ |
-| metadata | ✓ | ✓ |
-| hooks | ✓ | ✓ |
-| model | ✓ | ✓ (full provider-prefixed ID) |
-| context | ✓ (fork) | ✓ (fork) |
-| agent | ✓ | ✓ |
-| user-invocable | ✓ | ⚠ skipped (not supported) |
-
-## Memory
-
-| Germinator Field | Claude Code | OpenCode |
-|------------------|-------------|----------|
-| paths | ✓ | → @ file references (one per line) |
-| content | ✓ | → Narrative context (rendered as-is) |
-
-**Legend**: ✓ = Supported, → = Transformed, ⚠ = Skipped
-
----
-
-# OpenCode Platform Support
-
-OpenCode support added in v0.4.0 with the following characteristics:
-
-**Transformation Flow**:
-1. Parse Germinator YAML (all fields)
-2. Validate platform-specific rules
-3. Render using OpenCode templates
-4. Transform permission modes to permission objects
-5. Generate platform-specific output format
-
-**OpenCode-Specific Features**:
-- Agent `name` field is omitted in output (uses filename as identifier)
-- Permission objects with nested structures: `{"edit": {"*": "ask"}, "bash": {"*": "allow"}}`
-- Agent modes: `primary`, `subagent`, `all` (default when empty)
-- Temperature as *float64 pointer (nil omits field, 0.0 renders explicitly)
-- MaxSteps configuration
-- Hidden and disable boolean fields (omit when false)
-- Custom prompts
-
-**Known Limitations**:
-- Permission mode transformation is basic approximation
-- Agent `skills` list not supported (skipped)
-- Command `disable-model-invocation` not supported (skipped)
-- Skill `user-invocable` not supported (skipped)
-- No bidirectional conversion
-
-**Breaking Changes in v0.4.0**:
-- `--platform` flag required (no default)
-- Germinator source format replaces Claude Code YAML
-- `Validate(platform string)` signature change
-
-
----
-
-# Release
-
-Git tags are source of truth.
-
-```bash
-# Prerequisites
-mise run release:validate    # Clean, main, valid config
-
-# Create tag (auto-bumps internal/version/version.go)
-mise run release:tag patch   # v0.3.20 → v0.3.21
-mise run release:tag minor   # v0.3.20 → v0.4.0
-mise run release:tag major   # v0.3.20 → v1.0.0
-
-# Test before tagging
-mise run release:dry-run
-```
-
-**CI**: Tag push triggers GitLab CI → lint, test, GoReleaser, release artifacts.
-
-**Artifacts**: Cross-platform binaries (linux/darwin/windows, amd64/arm64), checksums, SBOM.
-
-## Tool Management
-
-```bash
-mise run tools:check     # Check updates
-mise run tools:update    # Update versions
-mise install --yes       # Install after update
-git diff .mise/config.toml  # Review changes
-```
+See `config/AGENTS.md` for complete field mapping between Germinator format and target platforms.
 
 ---
 
@@ -259,7 +140,7 @@ pre-commit install  # One-time setup
 
 Hooks: gofmt, govet, golangci-lint, YAML/TOML/JSON validation, file hygiene.
 
-**CI image**: `registry.gitlab.com/amoconst/germinator/ci:latest` (Go 1.25.5, mise, golangci-lint, GoReleaser, Docker CLI).
+**CI image**: `registry.gitlab.com/amoconst/germinator/ci:latest` (Go 1.25.5, mise, golangci-lint, Docker CLI).
 
 ---
 
@@ -269,32 +150,18 @@ Hooks: gofmt, govet, golangci-lint, YAML/TOML/JSON validation, file hygiene.
 
 **Mirror job skipped**: Expected when `GITHUB_ACCESS_TOKEN` or `GITHUB_REPO_URL` unset.
 
-**release:validate fails**: Check `git status`, verify main branch, `goreleaser check`.
-
-**Tag not created**: Verify `internal/version/version.go` changed, pushed to main, review logs. Required vars: `GITLAB_USER_EMAIL`, `GITLAB_USER_NAME`, `GITLAB_ACCESS_TOKEN` (write_repository), `GITLAB_RELEASE_TOKEN` (api).
-
-**Recreate tag**:
-```bash
-git tag -d v0.3.0 && git push origin :refs/tags/v0.3.0
-```
-
 ---
 
 # CI/CD Pipeline
 
-**Stages**: build-ci, setup, lint, test, tag, release, mirror.
-**Triggers**: MRs, main branch pushes.
+**Stages**: build-ci, setup, validate.
+**Triggers**: MRs, main branch pushes, tags.
 
-**Tag stage**: Auto-runs when `internal/version/version.go` changes on main. Idempotent, creates format `vX.Y.Z`.
-
-**Optimization**: Expensive jobs skip when only `openspec/` files change.
-
-**Required vars**: `GITHUB_ACCESS_TOKEN`, `GITHUB_REPO_URL` (mirror), `GITLAB_ACCESS_TOKEN` (tag), `GITLAB_RELEASE_TOKEN` (release), `GITLAB_USER_EMAIL`, `GITLAB_USER_NAME`.
+**Jobs**:
+- `validate`: lint, test
 
 ---
 
 # Testing
 
-- Table-driven tests for parsing/validation (edge cases)
-- Integration tests for workflows
-- Validation checkpoints after milestones
+See `test/AGENTS.md` for testing infrastructure, golden file patterns, and naming conventions.
