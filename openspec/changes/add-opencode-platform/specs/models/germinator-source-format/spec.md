@@ -8,7 +8,7 @@ The system SHALL use a single canonical YAML format containing ALL platform fiel
 - **WHEN** The file is parsed
 - **THEN** Common fields SHALL be present (Name, Description, Model, Content)
 - **AND** Claude Code-specific fields SHALL be parseable (Tools, PermissionMode, Skills)
-- **AND** OpenCode-specific fields SHALL be parseable (Mode, Temperature (*float64), Steps, Hidden, Prompt, Disable)
+- **AND** OpenCode-specific fields SHALL be parseable (Mode, Temperature (*float64), MaxSteps, Hidden, Prompt, Disable)
 
 ### Requirement: All platform fields MUST be parseable from YAML
 The system SHALL NOT use `yaml:"-"` tags to prevent parsing of platform-specific fields.

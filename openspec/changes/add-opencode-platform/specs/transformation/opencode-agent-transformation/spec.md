@@ -49,7 +49,7 @@ Claude Code permissionMode enum transforms to OpenCode permission object using t
 - **AND** permissionMode="plan" → {"edit": {"*": "deny"}, "bash": {"*": "deny"}}
 
 ### Requirement: Include OpenCode-specific agent fields
-OpenCode agent fields (mode, temperature, steps, hidden, prompt, disable) are rendered when set.
+OpenCode agent fields (mode, temperature, maxSteps, hidden, prompt, disable) are rendered when set.
 
 #### Scenario: Agent mode field
 - **GIVEN** Agent with mode="subagent"
@@ -79,10 +79,10 @@ OpenCode agent fields (mode, temperature, steps, hidden, prompt, disable) are re
 - **AND** User explicitly requested deterministic low-temperature behavior
 - **AND** Template checks for nil presence, not zero value
 
-#### Scenario: Agent steps field
-- **GIVEN** Agent with steps=50
+#### Scenario: Agent maxSteps field
+- **GIVEN** Agent with maxSteps=50
 - **WHEN** Rendered to OpenCode format
-- **THEN** Output contains "steps: 50"
+- **THEN** Output contains "maxSteps: 50"
 
 #### Scenario: Agent hidden, prompt, disable fields
 - **GIVEN** Agent with hidden=true, prompt="You are expert...", disable=true

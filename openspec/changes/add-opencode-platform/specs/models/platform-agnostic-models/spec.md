@@ -4,7 +4,7 @@
 The system SHALL NOT use `yaml:"-"` tags to prevent parsing of platform-specific fields. All platform fields SHALL have proper YAML tags (`yaml:"field,omitempty"`) for full parseability.
 
 #### Scenario: Platform fields parseable with proper YAML tags
-- **GIVEN** Models with platform-specific fields (OpenCode: Mode, Temperature *float64, Steps; Claude Code: PermissionMode, Skills)
+- **GIVEN** Models with platform-specific fields (OpenCode: Mode, Temperature *float64, MaxSteps; Claude Code: PermissionMode, Skills)
 - **WHEN** YAML is unmarshaled into structs
 - **THEN** All fields SHALL parse from their respective YAML keys
 - **AND** Temperature SHALL be parsed as *float64 pointer to distinguish nil from 0.0
@@ -48,7 +48,7 @@ Agent model includes required common fields and platform-specific fields for bot
 
 #### Scenario: Agent OpenCode-specific fields
 - **GIVEN** An Agent model with OpenCode-specific fields
-- **WHEN** Mode, Temperature (*float64 pointer), Steps, Hidden, Prompt, Disable are set
+- **WHEN** Mode, Temperature (*float64 pointer), MaxSteps, Hidden, Prompt, Disable are set
 - **THEN** Fields are preserved in Go struct with proper YAML tags
 - **AND** Temperature pointer distinguishes nil (not set) from 0.0 (deterministic mode)
 - **AND** Templates handle field filtering based on target platform

@@ -150,8 +150,8 @@ compatibility:
 |------------------|-------------|----------|
 | name | ✓ | ✓ |
 | description | ✓ | ✓ |
-| allowed-tools | ✓ | ✓ (converted to lowercase) |
-| disallowed-tools | ✓ | ✓ (converted to lowercase, set false) |
+| allowed-tools | ✓ | ⚠ (skipped - not supported) |
+| disallowed-tools | ✓ | ⚠ (skipped - not supported) |
 | subtask | ✓ | ✓ |
 | argument-hint | ✓ | ⚠ (skipped - not supported) |
 | context | ✓ (fork) | ✓ (fork) |
@@ -165,8 +165,8 @@ compatibility:
 |------------------|-------------|----------|
 | name | ✓ | ✓ |
 | description | ✓ | ✓ |
-| allowed-tools | ✓ | ✓ (converted to lowercase) |
-| disallowed-tools | ✓ | ✓ (converted to lowercase) |
+| allowed-tools | ✓ | ⚠ (skipped - not supported) |
+| disallowed-tools | ✓ | ⚠ (skipped - not supported) |
 | license | ✓ | ✓ |
 | compatibility | ✓ | ✓ |
 | metadata | ✓ | ✓ |

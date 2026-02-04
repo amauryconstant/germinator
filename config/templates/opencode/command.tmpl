@@ -2,18 +2,6 @@
 {{- if ne .Description ""}}
 description: {{.Description}}
 {{- end}}
-{{- if .AllowedTools}}
-tools:
-{{- range .AllowedTools}}
-  {{. | lower}}: true
-{{- end}}
-{{- end}}
-{{- if .DisallowedTools}}
-tools:
-{{- range .DisallowedTools}}
-  {{. | lower}}: false
-{{- end}}
-{{- end}}
 {{- if ne .Agent ""}}
 agent: {{.Agent}}
 {{- end}}

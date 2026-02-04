@@ -498,7 +498,7 @@ Agent content`,
 			},
 		},
 		{
-			name:     "adapt command to opencode with tools",
+			name:     "adapt command to opencode omits tool fields",
 			filename: "test-command.md",
 			platform: "opencode",
 			content: `---
@@ -516,11 +516,8 @@ Command content`,
 				if strings.Contains(output, "name: test-command") {
 					t.Errorf("Expected OpenCode output to omit name field")
 				}
-				if !strings.Contains(output, "bash: true") {
-					t.Errorf("Expected output to contain allowed tools")
-				}
-				if !strings.Contains(output, "write: false") {
-					t.Errorf("Expected output to contain disallowed tools")
+				if strings.Contains(output, "bash:") || strings.Contains(output, "read:") || strings.Contains(output, "write:") {
+					t.Errorf("Expected OpenCode output to omit tool fields (OpenCode commands don't support tools)")
 				}
 			},
 		},

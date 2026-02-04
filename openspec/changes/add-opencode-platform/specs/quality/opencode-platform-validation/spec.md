@@ -20,16 +20,16 @@ Validates Agent mode values, temperature range, and steps constraint.
 - **AND** Temperature=-0.5 SHALL fail with "temperature must be between 0.0 and 1.0"
 - **AND** Temperature=1.5 SHALL fail with "temperature must be between 0.0 and 1.0"
 
-#### Scenario: Agent steps validation
-- **GIVEN** An Agent with Steps field
+#### Scenario: Agent maxSteps validation
+- **GIVEN** An Agent with MaxSteps field
 - **WHEN** validateOpenCodeAgent is called
-- **THEN** Steps=1 SHALL pass validation (minimum valid value)
-- **AND** Steps=50 SHALL pass validation
-- **AND** Steps=0 (Go zero value) SHALL pass (field is optional)
-- **AND** Steps=-5 SHALL fail with "steps must be >= 1"
+- **THEN** MaxSteps=1 SHALL pass validation (minimum valid value)
+- **AND** MaxSteps=50 SHALL pass validation
+- **AND** MaxSteps=0 (Go zero value) SHALL pass (field is optional)
+- **AND** MaxSteps=-5 SHALL fail with "maxSteps must be >= 1"
 
 #### Scenario: Agent multiple validation errors
-- **GIVEN** An Agent with mode="invalid", temperature=2.0, steps=0
+- **GIVEN** An Agent with mode="invalid", temperature=2.0, maxSteps=0
 - **WHEN** validateOpenCodeAgent is called
 - **THEN** Validation SHALL return []error with all three errors
 - **AND** Each error SHALL be descriptive

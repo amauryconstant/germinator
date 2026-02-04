@@ -38,12 +38,12 @@
 - **AND** Skills are independent documents in OpenCode
 
 #### Scenario: Agent OpenCode-specific fields
-- **GIVEN** Agent model with Mode, Temperature, Steps, Hidden, Prompt, Disable
+- **GIVEN** Agent model with Mode, Temperature, MaxSteps, Hidden, Prompt, Disable
 - **WHEN** Serializing to OpenCode
 - **THEN** All fields are included if set
 - **AND** Mode defaults to "all" if empty
 - **AND** Temperature must be 0.0-1.0
-- **AND** Steps must be >= 1
+- **AND** MaxSteps must be >= 1
 - **AND** Fields are omitted from Claude Code serialization
 
 #### Scenario: Command common fields map directly

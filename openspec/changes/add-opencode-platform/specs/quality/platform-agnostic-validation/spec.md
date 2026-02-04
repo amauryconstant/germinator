@@ -55,7 +55,7 @@ Each platform has unique validation rules applied when that platform is specifie
 - **THEN** Validation SHALL call validateOpenCodeAgent and return errors for invalid mode, temperature out of range, steps too low
 - **AND** Valid modes: primary, subagent, all
 - **AND** Temperature range: 0.0-1.0
-- **AND** Steps must be >= 1
+- **AND** MaxSteps must be >= 1
 
 #### Scenario: Agent Claude Code platform validation
 - **GIVEN** An Agent model
