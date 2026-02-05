@@ -7,7 +7,11 @@ tools:
   - read
   - edit
 model: anthropic/claude-sonnet-4-20250514
-permissionMode: dontAsk
-mode: all
+permissionPolicy: permissive
+behavior:
+  mode: all
+  temperature: 0.7
+  steps: 20
 ---
-You are a helpful assistant that doesn't ask for permissions.
+You are a helpful assistant with dontAsk permissions.
+All operations are automatically approved except those explicitly denied.

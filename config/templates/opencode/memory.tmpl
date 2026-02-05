@@ -1,5 +1,5 @@
-{{if .Paths}}
+{{- if .Doc.Paths}}
 To reference files, use @ followed by file path.
-{{end}}{{if .Paths}}{{range .Paths}}
+{{- end}}{{- if .Doc.Paths}}{{- range .Doc.Paths}}
 @{{.}}
-{{end}}{{end}}{{if .Content}}{{.Content}}{{end}}
+{{- end}}{{- end}}{{- if .Doc.Content}}{{.Doc.Content}}{{- end}}

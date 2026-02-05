@@ -1,19 +1,10 @@
 package services
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
-
-	"gitlab.com/amoconst/germinator/internal/core"
-	"gitlab.com/amoconst/germinator/internal/models"
 )
-
-func float64Ptr(f float64) *float64 {
-	return &f
-}
 
 func TestTransformDocumentSuccess(t *testing.T) {
 	tmpDir := t.TempDir()
@@ -155,1079 +146,214 @@ func TestValidateDocumentMissingFile(t *testing.T) {
 	}
 }
 
-func TestTransformAndRoundTrip(t *testing.T) {
+func TestTransformDocumentCanonicalAgent(t *testing.T) {
 	tmpDir := t.TempDir()
-	inputFile := filepath.Join(tmpDir, "input-agent.md")
-	outputFile := filepath.Join(tmpDir, "output-agent.md")
+	inputFile := filepath.Join(tmpDir, "code-reviewer-agent.md")
 
-	originalContent := `---
-name: test-agent
-description: A test agent
+	content := `---
+name: code-reviewer
+description: Reviews code changes and provides feedback
+permissionPolicy: balanced
 tools:
-  - editor
   - bash
-  - grep
-model: sonnet
-permissionMode: default
+  - editor
+behavior:
+  mode: primary
+  temperature: 0.3
+  steps: 100
 ---
-This is the agent content
-It has multiple lines
-And preserves markdown **formatting**
+Reviews code changes and provides constructive feedback.
 `
 
-	if err := os.WriteFile(inputFile, []byte(originalContent), 0644); err != nil {
+	if err := os.WriteFile(inputFile, []byte(content), 0644); err != nil {
 		t.Fatalf("Failed to create input file: %v", err)
 	}
 
-	err := TransformDocument(inputFile, outputFile, "claude-code")
-	if err != nil {
-		t.Fatalf("TransformDocument failed: %v", err)
-	}
+	for _, platform := range []string{"claude-code", "opencode"} {
+		t.Run(platform, func(t *testing.T) {
+			platformOutputFile := filepath.Join(tmpDir, "output-"+platform+".md")
+			err := TransformDocument(inputFile, platformOutputFile, platform)
+			if err != nil {
+				t.Fatalf("TransformDocument failed: %v", err)
+			}
 
-	doc1, err := core.LoadDocument(inputFile, "claude-code")
-	if err != nil {
-		t.Fatalf("Failed to load original document: %v", err)
-	}
+			output, err := os.ReadFile(platformOutputFile)
+			if err != nil {
+				t.Fatalf("Failed to read output file: %v", err)
+			}
 
-	doc2, err := core.LoadDocument(outputFile, "claude-code")
-	if err != nil {
-		t.Fatalf("Failed to load transformed document: %v", err)
-	}
-
-	agent1, ok1 := doc1.(*models.Agent)
-	agent2, ok2 := doc2.(*models.Agent)
-
-	if !ok1 || !ok2 {
-		t.Fatal("Documents are not of expected type")
-	}
-
-	if agent1.Name != agent2.Name {
-		t.Errorf("Name mismatch: %q != %q", agent1.Name, agent2.Name)
-	}
-	if agent1.Description != agent2.Description {
-		t.Errorf("Description mismatch: %q != %q", agent1.Description, agent2.Description)
-	}
-	if len(agent1.Tools) != len(agent2.Tools) {
-		t.Errorf("Tools count mismatch: %d != %d", len(agent1.Tools), len(agent2.Tools))
-	}
-	if agent1.Content != agent2.Content {
-		t.Errorf("Content mismatch:\nOriginal: %q\nGot:      %q", agent1.Content, agent2.Content)
-	}
-}
-
-func TestValidateOpenCodeAgent(t *testing.T) {
-	tests := []struct {
-		name       string
-		agent      *models.Agent
-		errorCount int
-	}{
-		{
-			name: "valid mode primary",
-			agent: &models.Agent{
-				Name:        "test-agent",
-				Description: "Test agent",
-				Mode:        "primary",
-			},
-			errorCount: 0,
-		},
-		{
-			name: "valid mode subagent",
-			agent: &models.Agent{
-				Name:        "test-agent",
-				Description: "Test agent",
-				Mode:        "subagent",
-			},
-			errorCount: 0,
-		},
-		{
-			name: "valid mode all",
-			agent: &models.Agent{
-				Name:        "test-agent",
-				Description: "Test agent",
-				Mode:        "all",
-			},
-			errorCount: 0,
-		},
-		{
-			name: "valid mode empty",
-			agent: &models.Agent{
-				Name:        "test-agent",
-				Description: "Test agent",
-				Mode:        "",
-			},
-			errorCount: 0,
-		},
-		{
-			name: "temperature nil (omitted, valid)",
-			agent: &models.Agent{
-				Name:        "test-agent",
-				Description: "Test agent",
-				Temperature: nil,
-			},
-			errorCount: 0,
-		},
-		{
-			name: "invalid mode",
-			agent: &models.Agent{
-				Name:        "test-agent",
-				Description: "Test agent",
-				Mode:        "invalid-mode",
-			},
-			errorCount: 1,
-		},
-		{
-			name: "valid temperature 0.0",
-			agent: &models.Agent{
-				Name:        "test-agent",
-				Description: "Test agent",
-				Temperature: float64Ptr(0.0),
-			},
-			errorCount: 0,
-		},
-		{
-			name: "valid temperature 0.5",
-			agent: &models.Agent{
-				Name:        "test-agent",
-				Description: "Test agent",
-				Temperature: float64Ptr(0.5),
-			},
-			errorCount: 0,
-		},
-		{
-			name: "valid temperature 1.0",
-			agent: &models.Agent{
-				Name:        "test-agent",
-				Description: "Test agent",
-				Temperature: float64Ptr(1.0),
-			},
-			errorCount: 0,
-		},
-		{
-			name: "invalid temperature negative",
-			agent: &models.Agent{
-				Name:        "test-agent",
-				Description: "Test agent",
-				Temperature: float64Ptr(-0.5),
-			},
-			errorCount: 1,
-		},
-		{
-			name: "invalid temperature too high",
-			agent: &models.Agent{
-				Name:        "test-agent",
-				Description: "Test agent",
-				Temperature: float64Ptr(1.5),
-			},
-			errorCount: 1,
-		},
-		{
-			name: "valid maxSteps 1",
-			agent: &models.Agent{
-				Name:        "test-agent",
-				Description: "Test agent",
-				MaxSteps:    1,
-			},
-			errorCount: 0,
-		},
-		{
-			name: "valid maxSteps 50",
-			agent: &models.Agent{
-				Name:        "test-agent",
-				Description: "Test agent",
-				MaxSteps:    50,
-			},
-			errorCount: 0,
-		},
-		{
-			name: "invalid maxSteps negative",
-			agent: &models.Agent{
-				Name:        "test-agent",
-				Description: "Test agent",
-				MaxSteps:    -5,
-			},
-			errorCount: 1,
-		},
-		{
-			name: "multiple validation errors",
-			agent: &models.Agent{
-				Name:        "test-agent",
-				Description: "Test agent",
-				Mode:        "invalid",
-				Temperature: float64Ptr(1.5),
-				MaxSteps:    -1,
-			},
-			errorCount: 3,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			errs := ValidateOpenCodeAgent(tt.agent)
-			if len(errs) != tt.errorCount {
-				t.Errorf("ValidateOpenCodeAgent() error count = %d, want %d, errors: %v", len(errs), tt.errorCount, errs)
+			if len(output) == 0 {
+				t.Error("Output file is empty")
 			}
 		})
 	}
 }
 
-func TestValidateOpenCodeCommand(t *testing.T) {
+func TestValidateDocumentCanonical(t *testing.T) {
 	tests := []struct {
-		name       string
-		cmd        *models.Command
-		errorCount int
+		name        string
+		content     string
+		platform    string
+		expectError bool
 	}{
 		{
-			name: "template present",
-			cmd: &models.Command{
-				Name:        "test-command",
-				Description: "Test command",
-				Content:     "echo $ARGUMENTS",
-			},
-			errorCount: 0,
-		},
-		{
-			name: "template empty",
-			cmd: &models.Command{
-				Name:        "test-command",
-				Description: "Test command",
-				Content:     "",
-			},
-			errorCount: 1,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			errs := ValidateOpenCodeCommand(tt.cmd)
-			if len(errs) != tt.errorCount {
-				t.Errorf("ValidateOpenCodeCommand() error count = %d, want %d, errors: %v", len(errs), tt.errorCount, errs)
-			}
-		})
-	}
-}
-
-func TestValidateOpenCodeSkill(t *testing.T) {
-	tests := []struct {
-		name       string
-		skill      *models.Skill
-		errorCount int
-	}{
-		{
-			name: "valid name git-workflow",
-			skill: &models.Skill{
-				Name:        "git-workflow",
-				Description: "Test skill",
-				Content:     "Skill content",
-			},
-			errorCount: 0,
-		},
-		{
-			name: "valid name code-review-tool-enhanced",
-			skill: &models.Skill{
-				Name:        "code-review-tool-enhanced",
-				Description: "Test skill",
-				Content:     "Skill content",
-			},
-			errorCount: 0,
-		},
-		{
-			name: "valid name git2-operations",
-			skill: &models.Skill{
-				Name:        "git2-operations",
-				Description: "Test skill",
-				Content:     "Skill content",
-			},
-			errorCount: 0,
-		},
-		{
-			name: "invalid name consecutive hyphens",
-			skill: &models.Skill{
-				Name:        "git--workflow",
-				Description: "Test skill",
-				Content:     "Skill content",
-			},
-			errorCount: 1,
-		},
-		{
-			name: "invalid name leading hyphen",
-			skill: &models.Skill{
-				Name:        "-git-workflow",
-				Description: "Test skill",
-				Content:     "Skill content",
-			},
-			errorCount: 1,
-		},
-		{
-			name: "invalid name trailing hyphen",
-			skill: &models.Skill{
-				Name:        "git-workflow-",
-				Description: "Test skill",
-				Content:     "Skill content",
-			},
-			errorCount: 1,
-		},
-		{
-			name: "invalid name uppercase",
-			skill: &models.Skill{
-				Name:        "Git-Workflow",
-				Description: "Test skill",
-				Content:     "Skill content",
-			},
-			errorCount: 1,
-		},
-		{
-			name: "invalid name underscores",
-			skill: &models.Skill{
-				Name:        "git_workflow",
-				Description: "Test skill",
-				Content:     "Skill content",
-			},
-			errorCount: 1,
-		},
-		{
-			name: "content present",
-			skill: &models.Skill{
-				Name:        "test-skill",
-				Description: "Test skill",
-				Content:     "Skill content",
-			},
-			errorCount: 0,
-		},
-		{
-			name: "content empty",
-			skill: &models.Skill{
-				Name:        "test-skill",
-				Description: "Test skill",
-				Content:     "",
-			},
-			errorCount: 1,
-		},
-		{
-			name: "multiple validation errors",
-			skill: &models.Skill{
-				Name:        "Git_Workflow",
-				Description: "Test skill",
-				Content:     "",
-			},
-			errorCount: 2,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			errs := ValidateOpenCodeSkill(tt.skill)
-			if len(errs) != tt.errorCount {
-				t.Errorf("ValidateOpenCodeSkill() error count = %d, want %d, errors: %v", len(errs), tt.errorCount, errs)
-			}
-		})
-	}
-}
-
-func TestValidateOpenCodeMemory(t *testing.T) {
-	tests := []struct {
-		name       string
-		mem        *models.Memory
-		errorCount int
-	}{
-		{
-			name: "paths only",
-			mem: &models.Memory{
-				Paths: []string{"README.md", "CONTRIBUTING.md"},
-			},
-			errorCount: 0,
-		},
-		{
-			name: "content only",
-			mem: &models.Memory{
-				Content: "Project context and setup instructions",
-			},
-			errorCount: 0,
-		},
-		{
-			name: "both paths and content",
-			mem: &models.Memory{
-				Paths:   []string{"README.md"},
-				Content: "Additional context",
-			},
-			errorCount: 0,
-		},
-		{
-			name:       "both empty",
-			mem:        &models.Memory{},
-			errorCount: 1,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			errs := ValidateOpenCodeMemory(tt.mem)
-			if len(errs) != tt.errorCount {
-				t.Errorf("ValidateOpenCodeMemory() error count = %d, want %d, errors: %v", len(errs), tt.errorCount, errs)
-			}
-		})
-	}
-}
-
-func TestTransformOpenCodeAgent(t *testing.T) {
-	tests := []struct {
-		name         string
-		inputContent string
-		checkOutput  func(t *testing.T, output string)
-	}{
-		{
-			name: "minimal agent transforms correctly",
-			inputContent: `---
+			name: "valid canonical agent",
+			content: `---
 name: test-agent
 description: Test agent
+permissionPolicy: permissive
 ---
-Agent content`,
-			checkOutput: func(t *testing.T, output string) {
-				if !strings.Contains(output, "description: Test agent") {
-					t.Error("Expected description in output")
-				}
-				if strings.Contains(output, "mode:") {
-					t.Error("Expected mode to be omitted when empty")
-				}
-			},
+Content`,
+			platform:    "claude-code",
+			expectError: false,
 		},
 		{
-			name: "full agent transforms correctly",
-			inputContent: `---
-name: test-agent
+			name: "invalid agent name",
+			content: `---
+name: Invalid_Name
 description: Test agent
-mode: primary
-temperature: 0.5
-maxSteps: 50
-model: anthropic/claude-sonnet-4-20250514
-tools:
-  - read
-  - write
-permissionMode: acceptEdits
 ---
-Agent content`,
-			checkOutput: func(t *testing.T, output string) {
-				if !strings.Contains(output, "mode: primary") {
-					t.Error("Expected mode: primary")
-				}
-				if !strings.Contains(output, "temperature: 0.5") {
-					t.Error("Expected temperature: 0.5")
-				}
-				if !strings.Contains(output, "maxSteps: 50") {
-					t.Error("Expected maxSteps: 50")
-				}
-				if !strings.Contains(output, "model: anthropic/claude-sonnet-4-20250514") {
-					t.Error("Expected full model ID")
-				}
-			},
+Content`,
+			platform:    "claude-code",
+			expectError: true,
 		},
 		{
-			name: "mixed tools transform to map",
-			inputContent: `---
-name: test-agent
-description: Test agent
-tools:
-  - read
-  - write
-disallowedTools:
-  - dangerous
+			name: "valid canonical skill",
+			content: `---
+name: git-workflow
+description: Git workflow skill
 ---
-Agent content`,
-			checkOutput: func(t *testing.T, output string) {
-				if !strings.Contains(output, "read: true") {
-					t.Error("Expected read: true")
-				}
-				if !strings.Contains(output, "write: true") {
-					t.Error("Expected write: true")
-				}
-				if !strings.Contains(output, "dangerous: false") {
-					t.Error("Expected dangerous: false")
-				}
-			},
+Content`,
+			platform:    "opencode",
+			expectError: false,
 		},
 		{
-			name: "all permission modes transform correctly",
-			inputContent: `---
+			name: "invalid permission policy",
+			content: `---
 name: test-agent
 description: Test agent
-permissionMode: dontAsk
+permissionPolicy: invalid
 ---
-Agent content`,
-			checkOutput: func(t *testing.T, output string) {
-				if !strings.Contains(output, "permission:") {
-					t.Error("Expected permission section")
-				}
-			},
-		},
-		{
-			name: "agent mode omitted when empty",
-			inputContent: `---
-name: test-agent
-description: Test agent
----
-Agent content`,
-			checkOutput: func(t *testing.T, output string) {
-				if strings.Contains(output, "mode:") {
-					t.Error("Expected mode to be omitted when empty")
-				}
-			},
-		},
-		{
-			name: "OpenCode-specific fields preserved",
-			inputContent: `---
-name: test-agent
-description: Test agent
-mode: subagent
-temperature: 0.1
-maxSteps: 100
-hidden: true
-prompt: Custom prompt
-disable: false
----
-Agent content`,
-			checkOutput: func(t *testing.T, output string) {
-				if !strings.Contains(output, "mode: subagent") {
-					t.Error("Expected mode: subagent")
-				}
-				if !strings.Contains(output, "temperature: 0.1") {
-					t.Error("Expected temperature: 0.1")
-				}
-				if !strings.Contains(output, "maxSteps: 100") {
-					t.Error("Expected maxSteps: 100")
-				}
-				if !strings.Contains(output, "hidden: true") {
-					t.Error("Expected hidden: true")
-				}
-				if !strings.Contains(output, "prompt: Custom prompt") {
-					t.Error("Expected prompt field")
-				}
-			},
+Content`,
+			platform:    "claude-code",
+			expectError: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
-			inputFile := filepath.Join(tmpDir, "test-agent.md")
-			outputFile := filepath.Join(tmpDir, "output.md")
+			var inputFile string
+			switch tt.name {
+			case "valid canonical agent", "invalid agent name", "invalid permission policy":
+				inputFile = filepath.Join(tmpDir, "test-agent.md")
+			case "valid canonical skill":
+				inputFile = filepath.Join(tmpDir, "git-workflow-skill.md")
+			}
 
-			if err := os.WriteFile(inputFile, []byte(tt.inputContent), 0644); err != nil {
+			if err := os.WriteFile(inputFile, []byte(tt.content), 0644); err != nil {
 				t.Fatalf("Failed to create input file: %v", err)
 			}
 
-			if err := TransformDocument(inputFile, outputFile, "opencode"); err != nil {
-				t.Fatalf("TransformDocument failed: %v", err)
-			}
-
-			output, err := os.ReadFile(outputFile)
+			errs, err := ValidateDocument(inputFile, tt.platform)
 			if err != nil {
-				t.Fatalf("Failed to read output file: %v", err)
+				t.Fatalf("ValidateDocument failed: %v", err)
 			}
 
-			tt.checkOutput(t, string(output))
+			if tt.expectError && len(errs) == 0 {
+				t.Error("Expected validation errors, got none")
+			}
+			if !tt.expectError && len(errs) > 0 {
+				t.Errorf("Expected no validation errors, got %d: %v", len(errs), errs)
+			}
 		})
 	}
 }
 
-func TestTransformOpenCodeCommand(t *testing.T) {
+func TestTransformDocumentPlatforms(t *testing.T) {
+	tmpDir := t.TempDir()
+
 	tests := []struct {
-		name         string
-		inputContent string
-		checkOutput  func(t *testing.T, output string)
+		name    string
+		docType string
+		content string
 	}{
 		{
-			name: "minimal command transforms correctly",
-			inputContent: `---
-name: test-command
-description: Test command
+			name:    "agent",
+			docType: "agent",
+			content: `---
+name: test-agent
+description: Test agent
+permissionPolicy: balanced
+behavior:
+  steps: 50
 ---
-Command content`,
-			checkOutput: func(t *testing.T, output string) {
-				if !strings.Contains(output, "description: Test command") {
-					t.Error("Expected description in output")
-				}
-				if !strings.Contains(output, "Command content") {
-					t.Error("Expected content in output")
-				}
-			},
+Agent content`,
 		},
 		{
-			name: "command with $ARGUMENTS placeholder preserved",
-			inputContent: `---
+			name:    "command",
+			docType: "command",
+			content: `---
 name: test-command
 description: Test command
+execution:
+  subtask: true
 ---
-Run with: $ARGUMENTS`,
-			checkOutput: func(t *testing.T, output string) {
-				if !strings.Contains(output, "$ARGUMENTS") {
-					t.Error("Expected $ARGUMENTS preserved")
-				}
-			},
+Command template: echo "hello"`,
 		},
 		{
-			name: "full command transforms correctly",
-			inputContent: `---
-name: test-command
-description: Test command
-agent: build-agent
-model: anthropic/claude-sonnet-4-20250514
-subtask: true
----
-Command content`,
-			checkOutput: func(t *testing.T, output string) {
-				if !strings.Contains(output, "agent: build-agent") {
-					t.Error("Expected agent field")
-				}
-				if !strings.Contains(output, "model: anthropic/claude-sonnet-4-20250514") {
-					t.Error("Expected model field")
-				}
-				if !strings.Contains(output, "subtask: true") {
-					t.Error("Expected subtask: true")
-				}
-			},
-		},
-		{
-			name: "subtask field renders correctly",
-			inputContent: `---
-name: test-command
-description: Test command
-subtask: false
----
-Command content`,
-			checkOutput: func(t *testing.T, output string) {
-				if !strings.Contains(output, "Command content") {
-					t.Error("Expected content")
-				}
-			},
-		},
-		{
-			name: "content and indentation preserved",
-			inputContent: `---
-name: test-command
-description: Test command
----
-Run command with bash output: echo test
-ls -la`,
-			checkOutput: func(t *testing.T, output string) {
-				if !strings.Contains(output, "Run command") {
-					t.Error("Expected content preserved")
-				}
-				if !strings.Contains(output, `echo test`) {
-					t.Error("Expected echo command")
-				}
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tmpDir := t.TempDir()
-			inputFile := filepath.Join(tmpDir, "test-command.md")
-			outputFile := filepath.Join(tmpDir, "output.md")
-
-			if err := os.WriteFile(inputFile, []byte(tt.inputContent), 0644); err != nil {
-				t.Fatalf("Failed to create input file: %v", err)
-			}
-
-			if err := TransformDocument(inputFile, outputFile, "opencode"); err != nil {
-				t.Fatalf("TransformDocument failed: %v", err)
-			}
-
-			output, err := os.ReadFile(outputFile)
-			if err != nil {
-				t.Fatalf("Failed to read output file: %v", err)
-			}
-
-			tt.checkOutput(t, string(output))
-		})
-	}
-}
-
-func TestTransformOpenCodeSkill(t *testing.T) {
-	tests := []struct {
-		name         string
-		inputContent string
-		checkOutput  func(t *testing.T, output string)
-	}{
-		{
-			name: "minimal skill transforms correctly",
-			inputContent: `---
+			name:    "skill",
+			docType: "skill",
+			content: `---
 name: test-skill
 description: Test skill
+extensions:
+  license: MIT
 ---
 Skill content`,
-			checkOutput: func(t *testing.T, output string) {
-				if !strings.Contains(output, "name: test-skill") {
-					t.Error("Expected name in output")
-				}
-				if !strings.Contains(output, "description: Test skill") {
-					t.Error("Expected description in output")
-				}
-				if !strings.Contains(output, "Skill content") {
-					t.Error("Expected content in output")
-				}
-			},
 		},
 		{
-			name: "full skill with OpenCode fields",
-			inputContent: `---
-name: test-skill
-description: Test skill
-license: MIT
-compatibility:
-  - claude-code
-  - opencode
-metadata:
-  version: 1.0.0
-  maintainer: ops
-hooks:
-  pre-run: validate
-  post-run: cleanup
+			name:    "memory",
+			docType: "memory",
+			content: `---
+paths:
+  - README.md
+  - AGENTS.md
 ---
-Skill content`,
-			checkOutput: func(t *testing.T, output string) {
-				if !strings.Contains(output, "license: MIT") {
-					t.Error("Expected license field")
-				}
-				if !strings.Contains(output, "compatibility:") {
-					t.Error("Expected compatibility section")
-				}
-				if !strings.Contains(output, "- claude-code") {
-					t.Error("Expected claude-code in compatibility")
-				}
-				if !strings.Contains(output, "metadata:") {
-					t.Error("Expected metadata section")
-				}
-				if !strings.Contains(output, "version: \"1.0.0\"") {
-					t.Error("Expected version in metadata")
-				}
-				if !strings.Contains(output, "hooks:") {
-					t.Error("Expected hooks section")
-				}
-				if !strings.Contains(output, "pre-run: \"validate\"") {
-					t.Error("Expected pre-run hook")
-				}
-			},
-		},
-		{
-			name: "multi-line content preserved",
-			inputContent: `---
-name: test-skill
-description: Test skill
----
-## Section 1
-Content here
-
-## Section 2
-More content`,
-			checkOutput: func(t *testing.T, output string) {
-				if !strings.Contains(output, "## Section 1") {
-					t.Error("Expected section headers")
-				}
-				if !strings.Contains(output, "## Section 2") {
-					t.Error("Expected section headers")
-				}
-			},
-		},
-		{
-			name: "markdown formatting preserved",
-			inputContent: `---
-name: test-skill
-description: Test skill
----
-# Header
-
-**Bold** and *italic*
-
-- List item 1
-- List item 2`,
-			checkOutput: func(t *testing.T, output string) {
-				if !strings.Contains(output, "# Header") {
-					t.Error("Expected markdown header")
-				}
-				if !strings.Contains(output, "**Bold**") {
-					t.Error("Expected bold markdown")
-				}
-				if !strings.Contains(output, "- List item 1") {
-					t.Error("Expected list items")
-				}
-			},
+Memory content`,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmpDir := t.TempDir()
-			inputFile := filepath.Join(tmpDir, "test-skill.md")
-			outputFile := filepath.Join(tmpDir, "output.md")
+			for _, platform := range []string{"claude-code", "opencode"} {
+				t.Run(platform, func(t *testing.T) {
+					var inputFile string
+					switch tt.docType {
+					case "agent":
+						inputFile = filepath.Join(tmpDir, "test-agent.md")
+					case "command":
+						inputFile = filepath.Join(tmpDir, "test-command.md")
+					case "skill":
+						inputFile = filepath.Join(tmpDir, "test-skill.md")
+					case "memory":
+						inputFile = filepath.Join(tmpDir, "project-memory.md")
+					}
+					outputFile := filepath.Join(tmpDir, tt.docType+"-"+platform+".md")
 
-			if err := os.WriteFile(inputFile, []byte(tt.inputContent), 0644); err != nil {
-				t.Fatalf("Failed to create input file: %v", err)
-			}
+					if err := os.WriteFile(inputFile, []byte(tt.content), 0644); err != nil {
+						t.Fatalf("Failed to create input file: %v", err)
+					}
 
-			if err := TransformDocument(inputFile, outputFile, "opencode"); err != nil {
-				t.Fatalf("TransformDocument failed: %v", err)
-			}
+					err := TransformDocument(inputFile, outputFile, platform)
+					if err != nil {
+						t.Fatalf("TransformDocument failed: %v", err)
+					}
 
-			output, err := os.ReadFile(outputFile)
-			if err != nil {
-				t.Fatalf("Failed to read output file: %v", err)
-			}
-
-			tt.checkOutput(t, string(output))
-		})
-	}
-}
-
-func TestTransformOpenCodeMemory(t *testing.T) {
-	tests := []struct {
-		name         string
-		inputContent string
-		checkOutput  func(t *testing.T, output string)
-	}{
-		{
-			name: "paths-only converts to @ references",
-			inputContent: `---
-paths:
-  - README.md
-  - CONTRIBUTING.md
----
-`,
-			checkOutput: func(t *testing.T, output string) {
-				if strings.Contains(output, "---") {
-					t.Error("Expected no YAML frontmatter")
-				}
-				if !strings.Contains(output, "@README.md") {
-					t.Error("Expected @README.md")
-				}
-				if !strings.Contains(output, "@CONTRIBUTING.md") {
-					t.Error("Expected @CONTRIBUTING.md")
-				}
-			},
-		},
-		{
-			name: "content-only renders as narrative",
-			inputContent: `# Project Context
-
-This is the project context.
-
-## More Details
-
-Additional information here.
-`,
-			checkOutput: func(t *testing.T, output string) {
-				if strings.Contains(output, "---") {
-					t.Error("Expected no YAML frontmatter")
-				}
-				if !strings.Contains(output, "# Project Context") {
-					t.Error("Expected content")
-				}
-				if !strings.Contains(output, "This is the project context") {
-					t.Error("Expected content")
-				}
-			},
-		},
-		{
-			name: "both paths and content",
-			inputContent: `---
-paths:
-  - config/mise.toml
----
-
-# Project Rules
-
-Additional context here.
-`,
-			checkOutput: func(t *testing.T, output string) {
-				if !strings.Contains(output, "@config/mise.toml") {
-					t.Error("Expected @ file reference")
-				}
-				if !strings.Contains(output, "# Project Rules") {
-					t.Error("Expected content")
-				}
-				if !strings.Contains(output, "Additional context here") {
-					t.Error("Expected content")
-				}
-			},
-		},
-		{
-			name: "multiple paths rendered",
-			inputContent: `---
-paths:
-  - src/*.go
-  - test/*.go
-  - README.md
----
-`,
-			checkOutput: func(t *testing.T, output string) {
-				if !strings.Contains(output, "@src/*.go") {
-					t.Error("Expected src pattern")
-				}
-				if !strings.Contains(output, "@test/*.go") {
-					t.Error("Expected test pattern")
-				}
-				if !strings.Contains(output, "@README.md") {
-					t.Error("Expected README")
-				}
-			},
-		},
-		{
-			name: "nested directory paths",
-			inputContent: `---
-paths:
-  - config/platforms/claude-code/agent.tmpl
-  - internal/models/models.go
----
-`,
-			checkOutput: func(t *testing.T, output string) {
-				if !strings.Contains(output, "@config/platforms/claude-code/agent.tmpl") {
-					t.Error("Expected nested path")
-				}
-				if !strings.Contains(output, "@internal/models/models.go") {
-					t.Error("Expected nested path")
-				}
-			},
-		},
-		{
-			name: "teaching instructions included",
-			inputContent: `---
-paths:
-  - README.md
----
-
-# Memory
-
-Project info.
-`,
-			checkOutput: func(t *testing.T, output string) {
-				if !strings.Contains(output, "@README.md") {
-					t.Error("Expected @ reference")
-				}
-			},
-		},
-		{
-			name: "markdown formatting preserved in content",
-			inputContent: `# Project Info
-
-**Important** notes here
-
-## Details
-
-More content.
-`,
-			checkOutput: func(t *testing.T, output string) {
-				if !strings.Contains(output, "# Project Info") {
-					t.Error("Expected markdown header")
-				}
-				if !strings.Contains(output, "**Important**") {
-					t.Error("Expected bold markdown")
-				}
-				if !strings.Contains(output, "## Details") {
-					t.Error("Expected markdown section")
-				}
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tmpDir := t.TempDir()
-			inputFile := filepath.Join(tmpDir, "test-memory.md")
-			outputFile := filepath.Join(tmpDir, "output.md")
-
-			if err := os.WriteFile(inputFile, []byte(tt.inputContent), 0644); err != nil {
-				t.Fatalf("Failed to create input file: %v", err)
-			}
-
-			if err := TransformDocument(inputFile, outputFile, "opencode"); err != nil {
-				t.Fatalf("TransformDocument failed: %v", err)
-			}
-
-			output, err := os.ReadFile(outputFile)
-			if err != nil {
-				t.Fatalf("Failed to read output file: %v", err)
-			}
-
-			tt.checkOutput(t, string(output))
-		})
-	}
-}
-func TestTransformPermissionModes(t *testing.T) {
-	tests := []struct {
-		name           string
-		permissionMode string
-		expectedEdit   string
-		expectedBash   string
-	}{
-		{
-			name:           "default mode",
-			permissionMode: "default",
-			expectedEdit:   "ask",
-			expectedBash:   "ask",
-		},
-		{
-			name:           "acceptEdits mode",
-			permissionMode: "acceptEdits",
-			expectedEdit:   "allow",
-			expectedBash:   "ask",
-		},
-		{
-			name:           "dontAsk mode",
-			permissionMode: "dontAsk",
-			expectedEdit:   "allow",
-			expectedBash:   "allow",
-		},
-		{
-			name:           "bypassPermissions mode",
-			permissionMode: "bypassPermissions",
-			expectedEdit:   "allow",
-			expectedBash:   "allow",
-		},
-		{
-			name:           "plan mode",
-			permissionMode: "plan",
-			expectedEdit:   "deny",
-			expectedBash:   "deny",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			inputContent := fmt.Sprintf(`---
-name: test-agent
-description: Test agent
-permissionMode: %s
----
-Agent content`, tt.permissionMode)
-
-			tmpDir := t.TempDir()
-			inputFile := filepath.Join(tmpDir, "test-agent.md")
-			outputFile := filepath.Join(tmpDir, "output.md")
-
-			if err := os.WriteFile(inputFile, []byte(inputContent), 0644); err != nil {
-				t.Fatalf("Failed to create input file: %v", err)
-			}
-
-			if err := TransformDocument(inputFile, outputFile, "opencode"); err != nil {
-				t.Fatalf("TransformDocument failed: %v", err)
-			}
-
-			output, err := os.ReadFile(outputFile)
-			if err != nil {
-				t.Fatalf("Failed to read output file: %v", err)
-			}
-
-			outputStr := string(output)
-			if !strings.Contains(outputStr, "edit:") {
-				t.Error("Expected edit permission in output")
-			}
-			if !strings.Contains(outputStr, "bash:") {
-				t.Error("Expected bash permission in output")
-			}
-			if !strings.Contains(outputStr, fmt.Sprintf("*: %s", tt.expectedEdit)) {
-				t.Errorf("Expected edit permission '*: %s'", tt.expectedEdit)
-			}
-			if !strings.Contains(outputStr, fmt.Sprintf("*: %s", tt.expectedBash)) {
-				t.Errorf("Expected bash permission '*: %s'", tt.expectedBash)
+					if _, err := os.Stat(outputFile); os.IsNotExist(err) {
+						t.Error("Output file was not created")
+					}
+				})
 			}
 		})
 	}

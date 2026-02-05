@@ -12,6 +12,9 @@ metadata:
 hooks:
   post-review: "update-metrics"
   pre-review: "run-linters"
+agent: code-reviewer
+context: fork
+user-invocable: true
 ---
 You are an enhanced code review tool with automated checks.
 
@@ -23,3 +26,4 @@ You are an enhanced code review tool with automated checks.
 
 ## Usage
 Call this skill to review code changes before merging.
+

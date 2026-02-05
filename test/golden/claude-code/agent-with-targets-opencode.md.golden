@@ -1,0 +1,25 @@
+---
+name: agent-with-opencode-targets
+description: Agent demonstrating OpenCode-specific targets
+tools:
+  - Bash
+  - Grep
+  - Read
+  - Edit
+model: anthropic/claude-sonnet-4-20250514
+permissionMode: acceptEdits
+mode: primary
+temperature: 0.5
+maxSteps: 15
+---
+This agent demonstrates using targets section for OpenCode-specific configuration.
+
+When rendered for Claude Code:
+- targets.opencode section is omitted
+- Uses default behavior.temperature: 0.5 and behavior.steps: 15
+
+When rendered for OpenCode:
+- Uses targets.opencode.temperature: 0.8 instead of behavior.temperature
+- Uses targets.opencode.steps: 25 instead of behavior.steps
+- Uses targets.opencode.prompt as override
+

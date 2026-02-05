@@ -1,5 +1,7 @@
 ---
 description: Formats code using project standards
+context: fork
+model: anthropic/claude-sonnet-4-20250514
 ---
 Format the specified file $ARGUMENTS:
 

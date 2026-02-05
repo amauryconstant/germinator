@@ -13,4 +13,3 @@
   - Platform-agnostic models with all fields
   - Template-based serialization
   - Unidirectional transformation: Germinator → target platform
-

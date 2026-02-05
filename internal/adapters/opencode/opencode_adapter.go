@@ -479,13 +479,12 @@ func (a *OpenCodeAdapter) mapPermissionObjectToPolicy(permission map[string]inte
 						allAllow = false
 					}
 					if actionStr == "deny" {
-						if tool == "edit" || tool == "bash" {
-							if tool == "edit" {
-								editDenied = true
-							} else if tool == "bash" {
-								bashDenied = true
-							}
-						} else {
+						switch tool {
+						case "edit":
+							editDenied = true
+						case "bash":
+							bashDenied = true
+						default:
 							otherDeny = true
 						}
 					}

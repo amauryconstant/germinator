@@ -1,39 +1,40 @@
 ---
-description: {{.Description}}
-{{- if .Mode}}
-mode: {{.Mode}}
+{{- if .Doc.Description}}
+description: {{.Doc.Description}}
 {{- end}}
-{{- if .Model}}
-model: {{.Model}}
+{{- if .Doc.Behavior.Mode}}
+mode: {{.Doc.Behavior.Mode}}
 {{- end}}
-{{- if .Tools}}
+{{- if .Doc.Model}}
+model: {{.Doc.Model}}
+{{- end}}
+{{- if or .Doc.Tools .Doc.DisallowedTools}}
 tools:
-{{- range .Tools}}
-  {{. | lower}}: true
+{{- range .Doc.Tools}}
+  {{convertToolNameCase . "opencode"}}: true
+{{- end}}
+{{- range .Doc.DisallowedTools}}
+  {{convertToolNameCase . "opencode"}}: false
 {{- end}}
 {{- end}}
-{{- if .DisallowedTools}}
-{{- range .DisallowedTools}}
-  {{. | lower}}: false
-{{- end}}
-{{- end}}
-{{- if .PermissionMode}}
+{{- if .Doc.PermissionPolicy}}
 permission:
+{{.Doc.PermissionPolicy | permissionPolicyToOpenCode}}
 {{- end}}
-{{- if .Temperature}}
-temperature: {{.Temperature}}
+{{- if .Doc.Behavior.Temperature}}
+temperature: {{.Doc.Behavior.Temperature}}
 {{- end}}
-{{- if gt .MaxSteps 0}}
-maxSteps: {{.MaxSteps}}
+{{- if gt .Doc.Behavior.Steps 0}}
+maxSteps: {{.Doc.Behavior.Steps}}
 {{- end}}
-{{- if .Hidden}}
+{{- if .Doc.Behavior.Hidden}}
 hidden: true
 {{- end}}
-{{- if ne .Prompt ""}}
-prompt: {{.Prompt}}
+{{- if .Doc.Behavior.Prompt}}
+prompt: {{.Doc.Behavior.Prompt}}
 {{- end}}
-{{- if .Disable}}
+{{- if .Doc.Behavior.Disabled}}
 disable: true
 {{- end}}
 ---
-{{.Content}}
+{{.Doc.Content}}

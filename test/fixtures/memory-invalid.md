@@ -1,6 +1,3 @@
 ---
-paths:
-  - src/**/*.go
-  - README.md
 ---
-This is valid memory configuration.
+This is an invalid memory document for testing validation.

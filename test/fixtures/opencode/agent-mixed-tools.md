@@ -7,12 +7,13 @@ tools:
   - read
 disallowedTools:
   - write
-  - execute
+  - edit
 model: anthropic/claude-sonnet-4-20250514
-permissionMode: bypassPermissions
-mode: subagent
-temperature: 0.1
-maxSteps: 10
+permissionPolicy: unrestricted
+behavior:
+  mode: subagent
+  temperature: 0.1
+  steps: 10
 ---
 You are a security scanner that identifies vulnerabilities in code.
 Check for common security issues:

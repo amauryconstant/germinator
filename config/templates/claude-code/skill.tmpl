@@ -1,23 +1,48 @@
 ---
-name: {{.Name}}
-description: {{.Description}}
-{{- if .AllowedTools}}
-allowed-tools:
-{{- range .AllowedTools}}
+{{- if .Doc.Name}}
+name: {{.Doc.Name}}
+{{- end}}
+{{- if .Doc.Description}}
+description: {{.Doc.Description}}
+{{- end}}
+{{- if .Doc.Tools}}
+tools:
+{{- range .Doc.Tools}}
+  - {{convertToolNameCase . "claude-code"}}
+{{- end}}
+{{- end}}
+{{- if .Doc.Model}}
+model: {{.Doc.Model}}
+{{- end}}
+{{- if .Doc.Extensions.License}}
+license: {{.Doc.Extensions.License}}
+{{- end}}
+{{- if .Doc.Extensions.Compatibility}}
+compatibility:
+{{- range .Doc.Extensions.Compatibility}}
   - {{.}}
 {{- end}}
 {{- end}}
-{{- if .Model}}
-model: {{.Model}}
+{{- if .Doc.Extensions.Metadata}}
+metadata:
+{{- range $key, $value := .Doc.Extensions.Metadata}}
+  {{$key}}: "{{$value}}"
 {{- end}}
-{{- if .Context}}
-context: {{.Context}}
 {{- end}}
-{{- if .Agent}}
-agent: {{.Agent}}
+{{- if .Doc.Extensions.Hooks}}
+hooks:
+{{- range $key, $value := .Doc.Extensions.Hooks}}
+  {{$key}}: "{{$value}}"
 {{- end}}
-{{- if .UserInvocable}}
-user-invocable: {{.UserInvocable}}
+{{- end}}
+{{- if .Doc.Execution.Context}}
+context: {{.Doc.Execution.Context}}
+{{- end}}
+{{- if .Doc.Execution.Agent}}
+agent: {{.Doc.Execution.Agent}}
+{{- end}}
+{{- if .Doc.Execution.UserInvocable}}
+user-invocable: {{.Doc.Execution.UserInvocable}}
 {{- end}}
 ---
-{{.Content}}
+{{.Doc.Content}}

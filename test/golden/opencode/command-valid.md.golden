@@ -1,0 +1,12 @@
+---
+description: Run linting and formatting checks on code
+context: fork
+model: anthropic/claude-sonnet-4-20250514
+---
+This command runs comprehensive code quality checks including:
+- Go fmt verification
+- Go vet analysis
+- golangci-lint with standard rules
+
+Usage: run-lint [options] <files...>
+

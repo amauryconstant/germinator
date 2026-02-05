@@ -8,6 +8,28 @@ import (
 	"gitlab.com/amoconst/germinator/internal/core"
 )
 
+const (
+	PlatformClaudeCode = "claude-code"
+	PlatformOpenCode   = "opencode"
+)
+
+// validatePlatform checks if platform parameter is valid.
+func validatePlatform(platform string) []error {
+	var errs []error
+
+	if platform == "" {
+		errs = append(errs, fmt.Errorf("platform is required (available: %s, %s)", PlatformClaudeCode, PlatformOpenCode))
+		return errs
+	}
+
+	if platform != PlatformClaudeCode && platform != PlatformOpenCode {
+		errs = append(errs, fmt.Errorf("unknown platform: %s (available: %s, %s)", platform, PlatformClaudeCode, PlatformOpenCode))
+		return errs
+	}
+
+	return nil
+}
+
 // TransformDocument transforms a document to target platform format.
 func TransformDocument(inputPath, outputPath, platform string) error {
 	doc, err := core.LoadDocument(inputPath, platform)
@@ -29,6 +51,10 @@ func TransformDocument(inputPath, outputPath, platform string) error {
 
 // ValidateDocument validates a document and returns any validation errors.
 func ValidateDocument(inputPath, platform string) ([]error, error) {
+	if errs := validatePlatform(platform); len(errs) > 0 {
+		return errs, nil
+	}
+
 	docType := core.DetectType(inputPath)
 	if docType == "" {
 		return nil, fmt.Errorf("unrecognizable filename: %s", inputPath)
@@ -43,16 +69,26 @@ func ValidateDocument(inputPath, platform string) ([]error, error) {
 
 	switch d := doc.(type) {
 	case *core.CanonicalAgent:
-		errs = d.Agent.Validate()
+		errs = d.Validate()
+		if platform == PlatformOpenCode {
+			errs = append(errs, validateOpenCodeAgent(*d)...)
+		}
 	case *core.CanonicalCommand:
-		errs = d.Command.Validate()
+		errs = d.Validate()
 	case *core.CanonicalMemory:
-		errs = d.Memory.Validate()
+		errs = d.Validate()
 	case *core.CanonicalSkill:
-		errs = d.Skill.Validate()
+		errs = d.Validate()
 	default:
 		return nil, fmt.Errorf("unknown document type: %T", d)
 	}
 
 	return errs, nil
+}
+
+// validateOpenCodeAgent performs OpenCode-specific validation on an agent.
+// Note: Temperature and mode validation are already in AgentBehavior.Validate()
+func validateOpenCodeAgent(agent core.CanonicalAgent) []error {
+	// No OpenCode-specific validation needed beyond what's already in AgentBehavior.Validate()
+	return nil
 }

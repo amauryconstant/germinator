@@ -54,48 +54,50 @@
 
 ## 4. Templates
 
-- [ ] 4.1 Create config/templates/canonical/ directory for future use (optional)
-- [ ] 4.2 Update config/templates/claude-code/agent.tmpl to render from canonical models
-- [ ] 4.3 Update config/templates/claude-code/command.tmpl to render from canonical models
-- [ ] 4.4 Update config/templates/claude-code/skill.tmpl to render from canonical models
-- [ ] 4.5 Update config/templates/claude-code/memory.tmpl to render from canonical models
-- [ ] 4.6 Update config/templates/opencode/agent.tmpl to render from canonical models
-- [ ] 4.7 Update config/templates/opencode/command.tmpl to render from canonical models
-- [ ] 4.8 Update config/templates/opencode/skill.tmpl to render from canonical models
-- [ ] 4.9 Update config/templates/opencode/memory.tmpl to render from canonical models
-- [ ] 4.10 Remove permission transformation template function calls from all templates
-- [ ] 4.11 Add permission policy enum to template context via adapter methods
-- [ ] 4.12 Test templates with canonical fixtures for both platforms
+- [x] 4.1 Create config/templates/canonical/ directory for future use (optional)
+- [x] 4.2 Update config/templates/claude-code/agent.tmpl to render from canonical models
+- [x] 4.3 Update config/templates/claude-code/command.tmpl to render from canonical models
+- [x] 4.4 Update config/templates/claude-code/skill.tmpl to render from canonical models
+- [x] 4.5 Update config/templates/claude-code/memory.tmpl to render from canonical models
+- [x] 4.6 Update config/templates/opencode/agent.tmpl to render from canonical models
+- [x] 4.7 Update config/templates/opencode/command.tmpl to render from canonical models
+- [x] 4.8 Update config/templates/opencode/skill.tmpl to render from canonical models
+- [x] 4.9 Update config/templates/opencode/memory.tmpl to render from canonical models
+- [x] 4.10 Remove permission transformation template function calls from all templates
+- [x] 4.11 Add permission policy enum to template context via adapter methods
+- [x] 4.12 Test templates with canonical fixtures for both platforms
 
 ## 5. Test Fixtures Conversion
 
-- [ ] 5.1 Convert test/fixtures/agent-valid.md to canonical format
-- [ ] 5.2 Convert test/fixtures/agent-invalid.md to canonical format (show validation errors)
-- [ ] 5.3 Convert test/fixtures/command-valid.md to canonical format
-- [ ] 5.4 Convert test/fixtures/command-invalid.md to canonical format
-- [ ] 5.5 Convert test/fixtures/skill-valid.md to canonical format
-- [ ] 5.6 Convert test/fixtures/skill-invalid.md to canonical format
-- [ ] 5.7 Convert test/fixtures/memory-valid.md to canonical format
-- [ ] 5.8 Convert test/fixtures/memory-invalid.md to canonical format
-- [ ] 5.9 Convert all test/fixtures/opencode/*.md fixtures to canonical format
-- [ ] 5.10 Create new canonical agent fixtures with permission policies (all 5 policies)
-- [ ] 5.11 Create new canonical fixtures demonstrating targets section (Claude Code skills, OpenCode overrides)
+- [x] 5.1 Convert test/fixtures/agent-valid.md to canonical format
+- [x] 5.2 Convert test/fixtures/agent-invalid.md to canonical format (show validation errors)
+- [x] 5.3 Convert test/fixtures/command-valid.md to canonical format
+- [x] 5.4 Convert test/fixtures/command-invalid.md to canonical format
+- [x] 5.5 Convert test/fixtures/skill-valid.md to canonical format
+- [x] 5.6 Convert test/fixtures/skill-invalid.md to canonical format
+- [x] 5.7 Convert test/fixtures/memory-valid.md to canonical format
+- [x] 5.8 Convert test/fixtures/memory-invalid.md to canonical format
+- [x] 5.9 Convert all test/fixtures/opencode/*.md fixtures to canonical format
+- [x] 5.10 Create new canonical agent fixtures with permission policies (all 5 policies)
+- [x] 5.11 Create new canonical fixtures demonstrating targets section (Claude Code skills, OpenCode overrides)
 
 ## 6. Test Updates
 
-- [ ] 6.1 Update internal/models/canonical/*_test.go files for canonical model validation
-- [ ] 6.2 Update internal/core/parser_test.go for canonical YAML parsing
-- [ ] 6.3 Update internal/core/serializer_test.go for canonical model serialization
-- [ ] 6.4 Update internal/services/transformer_test.go for adapter-based transformations
-- [ ] 6.5 Add internal/adapters/claude-code/claude_code_adapter_test.go
-- [ ] 6.6 Add internal/adapters/opencode/opencode_adapter_test.go
-- [ ] 6.7 Remove internal/core/template_funcs_test.go tests for transformPermissionMode()
-- [ ] 6.8 Regenerate golden files for both platforms using canonical fixtures
-- [ ] 6.9 Run mise run test to verify all tests pass
-- [ ] 6.10 Run mise run lint to verify code quality
-- [ ] 6.11 Run mise run check to verify all validation passes
-- [ ] 6.12 Remove Claude Code-based models from internal/models/ (Agent, Command, Memory, Skill)
-- [ ] 6.13 Remove Claude Code-specific validation (permissionMode enum, model aliases) from old Validate()
+- [x] 6.1 Update internal/models/canonical/*_test.go files for canonical model validation
+- [x] 6.2 Update internal/core/parser_test.go for canonical YAML parsing
+- [x] 6.3 Update internal/core/serializer_test.go for canonical model serialization
+- [x] 6.4 Update internal/services/transformer_test.go for adapter-based transformations
+- [x] 6.5 Add internal/adapters/claude-code/claude_code_adapter_test.go
+- [x] 6.6 Add internal/adapters/opencode/opencode_adapter_test.go
+- [x] 6.7 Remove internal/core/template_funcs_test.go tests for transformPermissionMode()
+- [x] 6.8 Regenerate golden files for both platforms using canonical fixtures
+- [x] 6.12 Remove Claude Code-based models from internal/models/ (Agent, Command, Memory, Skill)
+- [x] 6.13 Remove Claude Code-specific validation (permissionMode enum, model aliases) from old Validate()
+- [x] 6.9 Run mise run test to verify all tests pass
+- [x] 6.10 Run mise run lint to verify code quality (0 issues)
+- [x] 6.11 Run mise run check to verify all validation passes
+- [x] 6.14 Fix all lint issues (staticcheck suggestions, unused code)
+- [x] 6.15 Run mise run test:coverage to verify test coverage
 
 ## 7. Documentation and Cleanup
 

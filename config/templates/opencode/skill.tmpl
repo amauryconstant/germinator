@@ -1,26 +1,39 @@
 ---
-name: {{.Name}}
-description: {{.Description}}
-{{- if ne .License ""}}
-license: {{.License}}
+{{- if .Doc.Name}}
+name: {{.Doc.Name}}
 {{- end}}
-{{- if .Compatibility}}
+{{- if .Doc.Description}}
+description: {{.Doc.Description}}
+{{- end}}
+{{- if .Doc.Extensions.License}}
+license: {{.Doc.Extensions.License}}
+{{- end}}
+{{- if .Doc.Extensions.Compatibility}}
 compatibility:
-{{- range .Compatibility}}
+{{- range .Doc.Extensions.Compatibility}}
   - {{.}}
 {{- end}}
 {{- end}}
-{{- if .Metadata}}
+{{- if .Doc.Extensions.Metadata}}
 metadata:
-{{- range $key, $value := .Metadata}}
+{{- range $key, $value := .Doc.Extensions.Metadata}}
   {{$key}}: "{{$value}}"
 {{- end}}
 {{- end}}
-{{- if .Hooks}}
+{{- if .Doc.Extensions.Hooks}}
 hooks:
-{{- range $key, $value := .Hooks}}
+{{- range $key, $value := .Doc.Extensions.Hooks}}
   {{$key}}: "{{$value}}"
 {{- end}}
+{{- end}}
+{{- if .Doc.Execution.Agent}}
+agent: {{.Doc.Execution.Agent}}
+{{- end}}
+{{- if .Doc.Execution.Context}}
+context: {{.Doc.Execution.Context}}
+{{- end}}
+{{- if .Doc.Execution.UserInvocable}}
+user-invocable: {{.Doc.Execution.UserInvocable}}
 {{- end}}
 ---
-{{.Content}}
+{{.Doc.Content}}

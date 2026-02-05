@@ -1,12 +1,8 @@
 
 To reference files, use @ followed by file path.
-
 @README.md
-
 @LICENSE
-
-@docs/development-guide.md
-  # Additional Project Context
+@docs/development-guide.md  # Additional Project Context
   
   ## Development Workflow
   1. Use mise task runner for all operations
@@ -22,4 +18,3 @@ To reference files, use @ followed by file path.
   - Git tags trigger CI pipeline
   - GoReleaser builds cross-platform binaries
   - Artifacts published to GitLab releases
-

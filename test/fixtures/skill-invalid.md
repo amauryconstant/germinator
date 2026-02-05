@@ -1,5 +1,11 @@
 ---
-name: INVALID_SKILL
-description: ""
+description: A skill with missing name field
+tools:
+  - bash
+extensions:
+  license: MIT
+execution:
+  context: invalid-context-value
 ---
-This should fail validation due to uppercase name and missing description
+
+This is an invalid skill document for testing validation.

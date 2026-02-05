@@ -11,22 +11,21 @@ tools:
   execute: false
 permission:
   edit:
-    *: allow
+    "*": allow
   bash:
-    *: ask
+    "*": ask
   read:
-    *: allow
+    "*": allow
   grep:
-    *: allow
+    "*": allow
   glob:
-    *: allow
+    "*": allow
   list:
-    *: allow
+    "*": allow
   webfetch:
-    *: ask
+    "*": allow
   websearch:
-    *: ask
-
+    "*": allow
 temperature: 0.3
 maxSteps: 25
 prompt: Focus on readability and maintainability

@@ -1,0 +1,13 @@
+---
+name: run-tests
+description: Runs all project tests
+tools:
+  - Bash
+context: fork
+model: anthropic/claude-sonnet-4-20250514
+---
+Execute test suite with coverage reporting:
+```bash
+go test ./... -v -cover
+```
+

@@ -1,11 +1,18 @@
 ---
 name: deploy-service
 description: Deploys service to production
-agent: code-reviewer
+tools:
+  - bash
+execution:
+  context: fork
+  subtask: false
+  agent: code-reviewer
+arguments:
+  hint: "Target environment (staging|production)"
 model: anthropic/claude-sonnet-4-20250514
-context: fork
-subtask: false
-argument-hint: "Target environment (staging|production)"
+targets:
+  claude-code:
+    disable-model-invocation: false
 ---
 Deployment workflow for $ARGUMENTS environment:
 

@@ -9,9 +9,19 @@ import (
 	"text/template"
 
 	"github.com/Masterminds/sprig/v3"
+
+	"gitlab.com/amoconst/germinator/internal/adapters"
+	claudecode "gitlab.com/amoconst/germinator/internal/adapters/claude-code"
+	opencode "gitlab.com/amoconst/germinator/internal/adapters/opencode"
+	"gitlab.com/amoconst/germinator/internal/models/canonical"
 )
 
-// RenderDocument renders a document using the platform-specific template.
+type templateContext struct {
+	Doc     interface{}
+	Adapter interface{}
+}
+
+// RenderDocument renders a document using platform-specific template.
 func RenderDocument(doc interface{}, platform string) (string, error) {
 	docType, err := getDocType(doc)
 	if err != nil {
@@ -28,13 +38,26 @@ func RenderDocument(doc interface{}, platform string) (string, error) {
 		return "", fmt.Errorf("failed to read template file %s: %w", tmplPath, err)
 	}
 
+	var adapter interface{}
+	switch platform {
+	case "claude-code":
+		adapter = claudecode.New()
+	case "opencode":
+		adapter = opencode.New()
+	}
+
+	ctx := templateContext{
+		Doc:     doc,
+		Adapter: adapter,
+	}
+
 	tmpl, err := template.New(docType).Funcs(createTemplateFuncMap()).Parse(string(tmplContent))
 	if err != nil {
 		return "", fmt.Errorf("failed to parse template: %w", err)
 	}
 
 	var sb strings.Builder
-	if err := tmpl.Execute(&sb, doc); err != nil {
+	if err := tmpl.Execute(&sb, ctx); err != nil {
 		return "", fmt.Errorf("failed to execute template: %w", err)
 	}
 
@@ -46,11 +69,91 @@ func RenderDocument(doc interface{}, platform string) (string, error) {
 //
 // It combines Sprig's built-in functions with our custom functions:
 //   - Sprig provides string functions like lower, upper, trim, etc.
+//   - permissionPolicyToClaudeCode: converts canonical permission policy to Claude Code enum
+//   - permissionPolicyToOpenCode: converts canonical permission policy to OpenCode permission map as YAML string
+//   - convertToolNameCase: converts tool name to platform-specific case
 //
 // Returns:
 //   - map[string]interface{}: Template function map containing Sprig and custom functions
 func createTemplateFuncMap() map[string]interface{} {
-	return sprig.FuncMap()
+	funcMap := sprig.FuncMap()
+
+	funcMap["permissionPolicyToClaudeCode"] = func(policy canonical.PermissionPolicy) string {
+		if policy == "" {
+			return ""
+		}
+		adapter := claudecode.New()
+		result, err := adapter.PermissionPolicyToPlatform(policy)
+		if err != nil {
+			return ""
+		}
+		if s, ok := result.(string); ok {
+			return s
+		}
+		return ""
+	}
+
+	funcMap["permissionPolicyToOpenCode"] = func(policy canonical.PermissionPolicy) string {
+		if policy == "" {
+			return ""
+		}
+		adapter := opencode.New()
+		result, err := adapter.PermissionPolicyToPlatform(policy)
+		if err != nil {
+			return ""
+		}
+		if permMap, ok := result.(adapters.PermissionMap); ok {
+			var sb strings.Builder
+			sb.WriteString("  edit:\n")
+			sb.WriteString("    \"*\": ")
+			sb.WriteString(string(permMap.Edit))
+			sb.WriteString("\n")
+			sb.WriteString("  bash:\n")
+			sb.WriteString("    \"*\": ")
+			sb.WriteString(string(permMap.Bash))
+			sb.WriteString("\n")
+			sb.WriteString("  read:\n")
+			sb.WriteString("    \"*\": ")
+			sb.WriteString(string(permMap.Read))
+			sb.WriteString("\n")
+			sb.WriteString("  grep:\n")
+			sb.WriteString("    \"*\": ")
+			sb.WriteString(string(permMap.Grep))
+			sb.WriteString("\n")
+			sb.WriteString("  glob:\n")
+			sb.WriteString("    \"*\": ")
+			sb.WriteString(string(permMap.Glob))
+			sb.WriteString("\n")
+			sb.WriteString("  list:\n")
+			sb.WriteString("    \"*\": ")
+			sb.WriteString(string(permMap.List))
+			sb.WriteString("\n")
+			sb.WriteString("  webfetch:\n")
+			sb.WriteString("    \"*\": ")
+			sb.WriteString(string(permMap.WebFetch))
+			sb.WriteString("\n")
+			sb.WriteString("  websearch:\n")
+			sb.WriteString("    \"*\": ")
+			sb.WriteString(string(permMap.WebSearch))
+			return sb.String()
+		}
+		return ""
+	}
+
+	funcMap["convertToolNameCase"] = func(name string, platform string) string {
+		switch platform {
+		case "claude-code":
+			adapter := claudecode.New()
+			return adapter.ConvertToolNameCase(name)
+		case "opencode":
+			adapter := opencode.New()
+			return adapter.ConvertToolNameCase(name)
+		default:
+			return name
+		}
+	}
+
+	return funcMap
 }
 
 func getTemplatePath(platform string, filename string) (string, error) {

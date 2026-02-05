@@ -1,5 +1,7 @@
 ---
 description: Runs all project tests
+context: fork
+model: anthropic/claude-sonnet-4-20250514
 ---
 Execute test suite with coverage reporting:
 ```bash

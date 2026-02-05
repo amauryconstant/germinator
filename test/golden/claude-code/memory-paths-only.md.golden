@@ -1,0 +1,9 @@
+---
+paths:
+  - README.md
+  - CONTRIBUTING.md
+  - docs/architecture.md
+content: |
+  This memory tracks project documentation files for context.
+  
+---

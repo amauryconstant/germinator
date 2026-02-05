@@ -1,5 +1,6 @@
 ---
 description: Reviews code for security and best practices
+mode: subagent
 model: anthropic/claude-sonnet-4-20250514
 tools:
   bash: true
@@ -7,22 +8,23 @@ tools:
   read: true
 permission:
   edit:
-    *: ask
+    "*": ask
   bash:
-    *: ask
+    "*": ask
   read:
-    *: ask
+    "*": ask
   grep:
-    *: ask
+    "*": ask
   glob:
-    *: ask
+    "*": ask
   list:
-    *: ask
+    "*": ask
   webfetch:
-    *: ask
+    "*": ask
   websearch:
-    *: ask
-
+    "*": ask
+temperature: 0.2
+maxSteps: 15
 ---
 You are a code reviewer focused on security vulnerabilities and best practices.
 Check for:

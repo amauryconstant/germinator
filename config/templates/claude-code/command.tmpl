@@ -1,27 +1,35 @@
 ---
-{{- if .AllowedTools}}
-allowed-tools:
-{{- range .AllowedTools}}
-  - {{.}}
+{{- if .Doc.Name}}
+name: {{.Doc.Name}}
+{{- end}}
+{{- if .Doc.Description}}
+description: {{.Doc.Description}}
+{{- end}}
+{{- if .Doc.Tools}}
+tools:
+{{- range .Doc.Tools}}
+  - {{convertToolNameCase . "claude-code"}}
 {{- end}}
 {{- end}}
-{{- if .ArgumentHint}}
-argument-hint: {{.ArgumentHint}}
+{{- if .Doc.Execution.Context}}
+context: {{.Doc.Execution.Context}}
 {{- end}}
-{{- if .Context}}
-context: {{.Context}}
+{{- if .Doc.Execution.Subtask}}
+subtask: {{.Doc.Execution.Subtask}}
 {{- end}}
-{{- if .Agent}}
-agent: {{.Agent}}
+{{- if .Doc.Execution.Agent}}
+agent: {{.Doc.Execution.Agent}}
 {{- end}}
-{{- if .Description}}
-description: {{.Description}}
+{{- if .Doc.Arguments.Hint}}
+argument-hint: {{.Doc.Arguments.Hint}}
 {{- end}}
-{{- if .Model}}
-model: {{.Model}}
+{{- if .Doc.Model}}
+model: {{.Doc.Model}}
 {{- end}}
-{{- if .DisableModelInvocation}}
-disable-model-invocation: {{.DisableModelInvocation}}
+{{- with index .Doc.Targets "claude-code"}}
+{{- if index . "disable-model-invocation"}}
+disable-model-invocation: {{index . "disable-model-invocation"}}
+{{- end}}
 {{- end}}
 ---
-{{.Content}}
+{{.Doc.Content}}

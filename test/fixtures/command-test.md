@@ -1,6 +1,7 @@
 ---
+name: security-review
 description: Review this code for security vulnerabilities
-allowed-tools:
+tools:
   - read
   - grep
 ---

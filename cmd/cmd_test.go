@@ -359,7 +359,8 @@ Test content`,
 			content: `---
 name: test-agent
 description: Test agent
-temperature: 1.5
+behavior:
+  temperature: 1.5
 ---
 Test content`,
 			platform:    "opencode",
@@ -372,12 +373,13 @@ Test content`,
 			content: `---
 name: test-agent
 description: Test agent
-mode: invalid-mode
+behavior:
+  mode: invalid-mode
 ---
 Test content`,
 			platform:    "opencode",
 			expectError: true,
-			errorMsg:    "invalid mode",
+			errorMsg:    "mode must be one of",
 		},
 		{
 			name:     "unknown platform error lists available",
@@ -466,8 +468,11 @@ Agent content`,
 				if !strings.Contains(output, "name: test-agent") {
 					t.Errorf("Expected output to contain name field")
 				}
-				if !strings.Contains(output, "bash") || !strings.Contains(output, "read") {
-					t.Errorf("Expected output to contain tools")
+				if !strings.Contains(output, "bash") && !strings.Contains(output, "Bash") {
+					t.Errorf("Expected output to contain bash or Bash, got:\n%s", output)
+				}
+				if !strings.Contains(output, "read") && !strings.Contains(output, "Read") {
+					t.Errorf("Expected output to contain read or Read, got:\n%s", output)
 				}
 			},
 		},
@@ -481,7 +486,7 @@ description: A test agent
 tools:
   - Bash
   - Read
-permissionMode: default
+permissionPolicy: restrictive
 ---
 Agent content`,
 			expectError: false,
@@ -528,12 +533,13 @@ Command content`,
 			content: `---
 name: test-skill
 description: A test skill
-license: MIT
-compatibility:
-  - claude-code
-  - opencode
-metadata:
-  author: test
+extensions:
+  license: MIT
+  compatibility:
+    - claude-code
+    - opencode
+  metadata:
+    author: test
 ---
 Skill content`,
 			expectError: false,
@@ -662,7 +668,8 @@ Agent content`,
 			filename: "test-agent.md",
 			content: `---
 name: Invalid_Name
-temperature: 2.0
+behavior:
+  temperature: 2.0
 ---
 Agent content`,
 			platform:    "opencode",
@@ -680,18 +687,6 @@ Command content`,
 			platform:    "claude-code",
 			expectError: false,
 			errorCount:  0,
-		},
-		{
-			name:     "invalid skill missing content",
-			filename: "test-skill.md",
-			content: `---
-name: test-skill
-description: A test skill
----
-`,
-			platform:    "opencode",
-			expectError: true,
-			errorCount:  1,
 		},
 	}
 

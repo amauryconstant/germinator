@@ -9,7 +9,10 @@ tools:
 disallowedTools:
   - write
 model: anthropic/claude-sonnet-4-20250514
-permissionMode: default
-mode: all
+permissionPolicy: restrictive
+behavior:
+  mode: all
+  temperature: 0.7
+  steps: 20
 ---
 You are a helpful assistant with default permissions.

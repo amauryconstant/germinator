@@ -1,0 +1,36 @@
+---
+description: A specialized agent for code review tasks
+mode: subagent
+model: anthropic/claude-sonnet-4-20250514
+tools:
+  bash: true
+  grep: true
+  read: true
+permission:
+  edit:
+    "*": ask
+  bash:
+    "*": ask
+  read:
+    "*": ask
+  grep:
+    "*": ask
+  glob:
+    "*": ask
+  list:
+    "*": ask
+  webfetch:
+    "*": ask
+  websearch:
+    "*": ask
+temperature: 0.5
+maxSteps: 20
+---
+This is code-reviewer agent. It specializes in analyzing code for:
+- Potential bugs
+- Security issues
+- Performance optimizations
+- Code style violations
+
+The agent uses balanced permission settings for safe code review operations.
+

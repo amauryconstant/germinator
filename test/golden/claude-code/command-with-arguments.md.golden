@@ -1,0 +1,21 @@
+---
+name: format-code
+description: Formats code using project standards
+tools:
+  - Bash
+context: fork
+model: anthropic/claude-sonnet-4-20250514
+---
+Format the specified file $ARGUMENTS:
+
+```bash
+gofmt -w $ARGUMENTS
+goimports -w $ARGUMENTS
+```
+
+Example usage:
+```
+/format-code main.go
+/format-code internal/*.go
+```
+

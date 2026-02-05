@@ -7,25 +7,24 @@ tools:
   grep: true
   read: true
   write: false
-  execute: false
+  edit: false
 permission:
   edit:
-    *: allow
+    "*": allow
   bash:
-    *: allow
+    "*": allow
   read:
-    *: allow
+    "*": allow
   grep:
-    *: allow
+    "*": allow
   glob:
-    *: allow
+    "*": allow
   list:
-    *: allow
+    "*": allow
   webfetch:
-    *: allow
+    "*": allow
   websearch:
-    *: allow
-
+    "*": allow
 temperature: 0.1
 maxSteps: 10
 ---

@@ -5,8 +5,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"gitlab.com/amoconst/germinator/internal/models"
 )
 
 func getProjectRoot() (string, error) {
@@ -52,7 +50,7 @@ func TestLoadDocumentIntegration(t *testing.T) {
 			filepath:     filepath.Join(fixturesDir, "agent-test.md"),
 			platform:     "claude-code",
 			expectError:  false,
-			expectedType: &models.Agent{},
+			expectedType: &CanonicalAgent{},
 			checkContent: true,
 		},
 		{
@@ -60,7 +58,7 @@ func TestLoadDocumentIntegration(t *testing.T) {
 			filepath:     filepath.Join(fixturesDir, "agent-test.md"),
 			platform:     "opencode",
 			expectError:  false,
-			expectedType: &models.Agent{},
+			expectedType: &CanonicalAgent{},
 			checkContent: true,
 		},
 		{
@@ -68,7 +66,7 @@ func TestLoadDocumentIntegration(t *testing.T) {
 			filepath:     filepath.Join(fixturesDir, "command-test.md"),
 			platform:     "claude-code",
 			expectError:  false,
-			expectedType: &models.Command{},
+			expectedType: &CanonicalCommand{},
 			checkContent: true,
 		},
 		{
@@ -76,7 +74,7 @@ func TestLoadDocumentIntegration(t *testing.T) {
 			filepath:     filepath.Join(fixturesDir, "command-test.md"),
 			platform:     "opencode",
 			expectError:  false,
-			expectedType: &models.Command{},
+			expectedType: &CanonicalCommand{},
 			checkContent: true,
 		},
 		{
@@ -84,7 +82,7 @@ func TestLoadDocumentIntegration(t *testing.T) {
 			filepath:     filepath.Join(fixturesDir, "memory-test.md"),
 			platform:     "claude-code",
 			expectError:  false,
-			expectedType: &models.Memory{},
+			expectedType: &CanonicalMemory{},
 			checkContent: true,
 		},
 		{
@@ -92,7 +90,7 @@ func TestLoadDocumentIntegration(t *testing.T) {
 			filepath:     filepath.Join(fixturesDir, "memory-test.md"),
 			platform:     "opencode",
 			expectError:  false,
-			expectedType: &models.Memory{},
+			expectedType: &CanonicalMemory{},
 			checkContent: true,
 		},
 		{
@@ -100,7 +98,7 @@ func TestLoadDocumentIntegration(t *testing.T) {
 			filepath:     filepath.Join(fixturesDir, "skill-test.md"),
 			platform:     "claude-code",
 			expectError:  false,
-			expectedType: &models.Skill{},
+			expectedType: &CanonicalSkill{},
 			checkContent: true,
 		},
 		{
@@ -108,7 +106,7 @@ func TestLoadDocumentIntegration(t *testing.T) {
 			filepath:     filepath.Join(fixturesDir, "skill-test.md"),
 			platform:     "opencode",
 			expectError:  false,
-			expectedType: &models.Skill{},
+			expectedType: &CanonicalSkill{},
 			checkContent: true,
 		},
 		{
@@ -148,10 +146,10 @@ func TestLoadDocumentIntegration(t *testing.T) {
 			}
 
 			switch tt.expectedType.(type) {
-			case *models.Agent:
-				agent, ok := doc.(*models.Agent)
+			case *CanonicalAgent:
+				agent, ok := doc.(*CanonicalAgent)
 				if !ok {
-					t.Errorf("LoadDocument() expected *models.Agent, got %T", doc)
+					t.Errorf("LoadDocument() expected *CanonicalAgent, got %T", doc)
 					return
 				}
 				if agent.Name != "code-reviewer" {
@@ -164,14 +162,14 @@ func TestLoadDocumentIntegration(t *testing.T) {
 					t.Errorf("LoadDocument() agent.Content missing expected content")
 				}
 
-			case *models.Command:
-				command, ok := doc.(*models.Command)
+			case *CanonicalCommand:
+				command, ok := doc.(*CanonicalCommand)
 				if !ok {
-					t.Errorf("LoadDocument() expected *models.Command, got %T", doc)
+					t.Errorf("LoadDocument() expected *CanonicalCommand, got %T", doc)
 					return
 				}
-				if command.Name != "command-test" {
-					t.Errorf("LoadDocument() command.Name = %v, want command-test", command.Name)
+				if command.Name != "security-review" {
+					t.Errorf("LoadDocument() command.Name = %v, want security-review", command.Name)
 				}
 				if command.FilePath != tt.filepath {
 					t.Errorf("LoadDocument() command.FilePath = %v, want %v", command.FilePath, tt.filepath)
@@ -180,10 +178,10 @@ func TestLoadDocumentIntegration(t *testing.T) {
 					t.Errorf("LoadDocument() command.Content missing expected content")
 				}
 
-			case *models.Memory:
-				memory, ok := doc.(*models.Memory)
+			case *CanonicalMemory:
+				memory, ok := doc.(*CanonicalMemory)
 				if !ok {
-					t.Errorf("LoadDocument() expected *models.Memory, got %T", doc)
+					t.Errorf("LoadDocument() expected *CanonicalMemory, got %T", doc)
 					return
 				}
 				if memory.FilePath != tt.filepath {
@@ -193,10 +191,10 @@ func TestLoadDocumentIntegration(t *testing.T) {
 					t.Errorf("LoadDocument() memory.Content missing expected content")
 				}
 
-			case *models.Skill:
-				skill, ok := doc.(*models.Skill)
+			case *CanonicalSkill:
+				skill, ok := doc.(*CanonicalSkill)
 				if !ok {
-					t.Errorf("LoadDocument() expected *models.Skill, got %T", doc)
+					t.Errorf("LoadDocument() expected *CanonicalSkill, got %T", doc)
 					return
 				}
 				if skill.Name != "explaining-code" {
@@ -278,20 +276,20 @@ func TestParseDocument(t *testing.T) {
 
 			switch tt.docType {
 			case "agent":
-				if _, ok := doc.(*models.Agent); !ok {
-					t.Errorf("ParseDocument() expected *models.Agent, got %T", doc)
+				if _, ok := doc.(*CanonicalAgent); !ok {
+					t.Errorf("ParseDocument() expected *CanonicalAgent, got %T", doc)
 				}
 			case "command":
-				if _, ok := doc.(*models.Command); !ok {
-					t.Errorf("ParseDocument() expected *models.Command, got %T", doc)
+				if _, ok := doc.(*CanonicalCommand); !ok {
+					t.Errorf("ParseDocument() expected *CanonicalCommand, got %T", doc)
 				}
 			case "memory":
-				if _, ok := doc.(*models.Memory); !ok {
-					t.Errorf("ParseDocument() expected *models.Memory, got %T", doc)
+				if _, ok := doc.(*CanonicalMemory); !ok {
+					t.Errorf("ParseDocument() expected *CanonicalMemory, got %T", doc)
 				}
 			case "skill":
-				if _, ok := doc.(*models.Skill); !ok {
-					t.Errorf("ParseDocument() expected *models.Skill, got %T", doc)
+				if _, ok := doc.(*CanonicalSkill); !ok {
+					t.Errorf("ParseDocument() expected *CanonicalSkill, got %T", doc)
 				}
 			}
 		})

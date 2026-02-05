@@ -1,0 +1,35 @@
+---
+description: Agent with analysis permission policy
+mode: primary
+model: anthropic/claude-sonnet-4-20250514
+tools:
+  grep: true
+  read: true
+  bash: false
+  edit: false
+  write: false
+permission:
+  edit:
+    "*": deny
+  bash:
+    "*": deny
+  read:
+    "*": allow
+  grep:
+    "*": allow
+  glob:
+    "*": allow
+  list:
+    "*": allow
+  webfetch:
+    "*": allow
+  websearch:
+    "*": allow
+temperature: 0.3
+maxSteps: 20
+---
+This agent uses analysis permission policy.
+Read-only analysis mode for exploration and planning.
+No file modifications or command execution allowed.
+Perfect for code review, documentation, and research.
+

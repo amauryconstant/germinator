@@ -4,7 +4,6 @@ package core
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"gitlab.com/amoconst/germinator/internal/models/canonical"
@@ -195,11 +194,4 @@ func extractFrontmatter(content string) (yamlContent string, markdownBody string
 	}
 
 	return strings.Join(yamlLines, "\n"), strings.Join(bodyLines, "\n"), nil
-}
-
-func extractCommandName(filePath string) string {
-	base := filepath.Base(filePath)
-	ext := filepath.Ext(base)
-	name := strings.TrimSuffix(base, ext)
-	return name
 }

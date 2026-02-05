@@ -12,33 +12,57 @@ import (
 
 func TestGoldenFiles(t *testing.T) {
 	// Ensure tests run from project root for correct fixture paths
-	if _, err := os.Stat("../../test/fixtures/opencode"); os.IsNotExist(err) {
+	if _, err := os.Stat("../../test/fixtures/canonical"); os.IsNotExist(err) {
 		t.Skip("Golden file tests require running from project root")
 	}
 
 	tests := []struct {
 		name     string
-		fixture  string // Germinator format fixture
+		fixture  string // Canonical format fixture
 		golden   string // Golden file path
 		platform string // Platform to test
 	}{
-		// Agent tests
+		// Agent tests - Canonical permission policies
 		{
-			name:     "agent-full",
-			fixture:  "../../test/fixtures/opencode/agent-full.md",
-			golden:   "../../test/golden/opencode/agent-full.md.golden",
+			name:     "agent-permission-restrictive",
+			fixture:  "../../test/fixtures/canonical/agent-permission-restrictive.md",
+			golden:   "../../test/golden/opencode/agent-permission-restrictive.md.golden",
 			platform: "opencode",
 		},
 		{
-			name:     "agent-mixed-tools",
-			fixture:  "../../test/fixtures/opencode/agent-mixed-tools.md",
-			golden:   "../../test/golden/opencode/agent-mixed-tools.md.golden",
+			name:     "agent-permission-balanced",
+			fixture:  "../../test/fixtures/canonical/agent-permission-balanced.md",
+			golden:   "../../test/golden/opencode/agent-permission-balanced.md.golden",
 			platform: "opencode",
 		},
 		{
-			name:     "code-reviewer-agent",
-			fixture:  "../../test/fixtures/opencode/code-reviewer-agent.md",
-			golden:   "../../test/golden/opencode/code-reviewer-agent.md.golden",
+			name:     "agent-permission-permissive",
+			fixture:  "../../test/fixtures/canonical/agent-permission-permissive.md",
+			golden:   "../../test/golden/opencode/agent-permission-permissive.md.golden",
+			platform: "opencode",
+		},
+		{
+			name:     "agent-permission-analysis",
+			fixture:  "../../test/fixtures/canonical/agent-permission-analysis.md",
+			golden:   "../../test/golden/opencode/agent-permission-analysis.md.golden",
+			platform: "opencode",
+		},
+		{
+			name:     "agent-permission-unrestricted",
+			fixture:  "../../test/fixtures/canonical/agent-permission-unrestricted.md",
+			golden:   "../../test/golden/opencode/agent-permission-unrestricted.md.golden",
+			platform: "opencode",
+		},
+		{
+			name:     "agent-with-targets-claude-code",
+			fixture:  "../../test/fixtures/canonical/agent-with-targets-claude-code.md",
+			golden:   "../../test/golden/opencode/agent-with-targets-claude-code.md.golden",
+			platform: "opencode",
+		},
+		{
+			name:     "agent-with-targets-opencode",
+			fixture:  "../../test/fixtures/canonical/agent-with-targets-opencode.md",
+			golden:   "../../test/golden/opencode/agent-with-targets-opencode.md.golden",
 			platform: "opencode",
 		},
 
@@ -72,7 +96,7 @@ func TestGoldenFiles(t *testing.T) {
 		{
 			name:     "git-workflow-skill",
 			fixture:  "../../test/fixtures/opencode/git-workflow-skill/git-workflow-skill.md",
-			golden:   "../../test/golden/opencode/git-workflow-skill/git-workflow-skill.md.golden",
+			golden:   "../../test/golden/opencode/git-workflow-skill.md.golden",
 			platform: "opencode",
 		},
 
@@ -96,35 +120,23 @@ func TestGoldenFiles(t *testing.T) {
 			platform: "opencode",
 		},
 
-		// Permission mode tests
+		// Agent tests - basic fixtures
 		{
-			name:     "permission-default",
-			fixture:  "../../test/fixtures/opencode/agent-permission-default.md",
-			golden:   "../../test/golden/opencode/permission-default.md.golden",
+			name:     "agent-full",
+			fixture:  "../../test/fixtures/opencode/agent-full.md",
+			golden:   "../../test/golden/opencode/agent-full.md.golden",
 			platform: "opencode",
 		},
 		{
-			name:     "permission-acceptedits",
-			fixture:  "../../test/fixtures/opencode/agent-permission-acceptedits.md",
-			golden:   "../../test/golden/opencode/permission-acceptedits.md.golden",
+			name:     "agent-mixed-tools",
+			fixture:  "../../test/fixtures/opencode/agent-mixed-tools.md",
+			golden:   "../../test/golden/opencode/agent-mixed-tools.md.golden",
 			platform: "opencode",
 		},
 		{
-			name:     "permission-dontask",
-			fixture:  "../../test/fixtures/opencode/agent-permission-dontask.md",
-			golden:   "../../test/golden/opencode/permission-dontask.md.golden",
-			platform: "opencode",
-		},
-		{
-			name:     "permission-bypasspermissions",
-			fixture:  "../../test/fixtures/opencode/agent-permission-bypasspermissions.md",
-			golden:   "../../test/golden/opencode/permission-bypasspermissions.md.golden",
-			platform: "opencode",
-		},
-		{
-			name:     "permission-plan",
-			fixture:  "../../test/fixtures/opencode/agent-permission-plan.md",
-			golden:   "../../test/golden/opencode/permission-plan.md.golden",
+			name:     "code-reviewer-agent",
+			fixture:  "../../test/fixtures/opencode/code-reviewer-agent.md",
+			golden:   "../../test/golden/opencode/code-reviewer-agent.md.golden",
 			platform: "opencode",
 		},
 	}
@@ -190,13 +202,13 @@ func TestGoldenFiles(t *testing.T) {
 	}
 }
 
-// TestGoldenFileUpdate tests the golden file update mechanism
+// TestGoldenFileUpdate tests golden file update mechanism
 func TestGoldenFileUpdate(t *testing.T) {
 	if os.Getenv("UPDATE_GOLDEN") != "true" {
 		t.Skip("Set UPDATE_GOLDEN=true to test update mechanism")
 	}
 
-	// This test just verifies the mechanism works by running a subset of golden tests
+	// This test just verifies mechanism works by running a subset of golden tests
 	tests := []struct {
 		name     string
 		fixture  string

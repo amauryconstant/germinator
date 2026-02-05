@@ -1,9 +1,12 @@
 ---
-{{- if .Paths}}
+{{- if .Doc.Paths}}
 paths:
-{{- range .Paths}}
+{{- range .Doc.Paths}}
   - {{.}}
 {{- end}}
 {{- end}}
+{{- if .Doc.Content}}
+content: |
+{{.Doc.Content | indent 2}}
+{{- end}}
 ---
-{{.Content}}

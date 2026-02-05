@@ -1,0 +1,20 @@
+---
+name: agent-restrictive
+description: Agent with restrictive permission policy
+tools:
+  - Bash
+  - Grep
+  - Read
+  - Edit
+disallowedTools:
+  - Write
+model: anthropic/claude-sonnet-4-20250514
+permissionMode: default
+mode: primary
+temperature: 0.7
+maxSteps: 20
+---
+This agent uses restrictive permission policy.
+All tool operations require confirmation before execution.
+Use when you want to review every action before it's taken.
+

@@ -1,0 +1,34 @@
+---
+description: Agent with restrictive permission policy
+mode: primary
+model: anthropic/claude-sonnet-4-20250514
+tools:
+  bash: true
+  grep: true
+  read: true
+  edit: true
+  write: false
+permission:
+  edit:
+    "*": ask
+  bash:
+    "*": ask
+  read:
+    "*": ask
+  grep:
+    "*": ask
+  glob:
+    "*": ask
+  list:
+    "*": ask
+  webfetch:
+    "*": ask
+  websearch:
+    "*": ask
+temperature: 0.7
+maxSteps: 20
+---
+This agent uses restrictive permission policy.
+All tool operations require confirmation before execution.
+Use when you want to review every action before it's taken.
+

@@ -1,15 +1,18 @@
 ---
-{{- if ne .Description ""}}
-description: {{.Description}}
+{{- if .Doc.Description}}
+description: {{.Doc.Description}}
 {{- end}}
-{{- if ne .Agent ""}}
-agent: {{.Agent}}
+{{- if .Doc.Execution.Agent}}
+agent: {{.Doc.Execution.Agent}}
 {{- end}}
-{{- if .Subtask}}
-subtask: {{.Subtask}}
+{{- if .Doc.Execution.Subtask}}
+subtask: {{.Doc.Execution.Subtask}}
 {{- end}}
-{{- if ne .Model ""}}
-model: {{.Model}}
+{{- if .Doc.Execution.Context}}
+context: {{.Doc.Execution.Context}}
+{{- end}}
+{{- if .Doc.Model}}
+model: {{.Doc.Model}}
 {{- end}}
 ---
-{{.Content}}
+{{.Doc.Content}}

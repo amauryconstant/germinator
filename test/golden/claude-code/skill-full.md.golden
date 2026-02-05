@@ -1,0 +1,34 @@
+---
+name: code-review-tool-enhanced
+description: Advanced code review with automated checks
+tools:
+  - Read
+  - Grep
+  - Bash
+model: anthropic/claude-sonnet-4-20250514
+license: MIT
+compatibility:
+  - claude-code
+  - opencode
+metadata:
+  author: "Germinator Team"
+  category: "code-quality"
+  version: "1.0.0"
+hooks:
+  post-review: "update-metrics"
+  pre-review: "run-linters"
+context: fork
+agent: code-reviewer
+user-invocable: true
+---
+You are an enhanced code review tool with automated checks.
+
+## Features
+- Automated linting and static analysis
+- Security vulnerability detection
+- Performance bottleneck identification
+- Best practices enforcement
+
+## Usage
+Call this skill to review code changes before merging.
+

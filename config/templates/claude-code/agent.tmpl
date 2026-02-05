@@ -1,29 +1,58 @@
 ---
-name: {{.Name}}
-description: {{.Description}}
-{{- if .Tools}}
+name: {{.Doc.Name}}
+description: {{.Doc.Description}}
+{{- if .Doc.Tools}}
 tools:
-{{- range .Tools}}
-  - {{.}}
+{{- range .Doc.Tools}}
+  - {{convertToolNameCase . "claude-code"}}
 {{- end}}
 {{- end}}
-{{- if .DisallowedTools}}
+{{- if .Doc.DisallowedTools}}
 disallowedTools:
-{{- range .DisallowedTools}}
-  - {{.}}
+{{- range .Doc.DisallowedTools}}
+  - {{convertToolNameCase . "claude-code"}}
 {{- end}}
 {{- end}}
-{{- if .Model}}
-model: {{.Model}}
+{{- if .Doc.Model}}
+model: {{.Doc.Model}}
 {{- end}}
-{{- if .PermissionMode}}
-permissionMode: {{.PermissionMode}}
+{{- if .Doc.PermissionPolicy}}
+permissionMode: {{.Doc.PermissionPolicy | permissionPolicyToClaudeCode}}
 {{- end}}
-{{- if .Skills}}
+{{- if .Doc.Behavior.Mode}}
+mode: {{.Doc.Behavior.Mode}}
+{{- end}}
+{{- if .Doc.Behavior.Temperature}}
+temperature: {{.Doc.Behavior.Temperature}}
+{{- end}}
+{{- if gt .Doc.Behavior.Steps 0}}
+maxSteps: {{.Doc.Behavior.Steps}}
+{{- end}}
+{{- if .Doc.Behavior.Prompt}}
+prompt: {{.Doc.Behavior.Prompt}}
+{{- end}}
+{{- if .Doc.Behavior.Hidden}}
+hidden: {{.Doc.Behavior.Hidden}}
+{{- end}}
+{{- if .Doc.Behavior.Disabled}}
+disabled: {{.Doc.Behavior.Disabled}}
+{{- end}}
+{{- if .Doc.Extensions.Hooks}}
+hooks:
+{{- range $key, $value := .Doc.Extensions.Hooks}}
+  {{$key}}: "{{$value}}"
+{{- end}}
+{{- end}}
+{{- with index .Doc.Targets "claude-code"}}
+{{- if .skills}}
 skills:
-{{- range .Skills}}
+{{- range .skills}}
   - {{.}}
+{{- end}}
+{{- end}}
+{{- if index . "disable-model-invocation"}}
+disable-model-invocation: {{index . "disable-model-invocation"}}
 {{- end}}
 {{- end}}
 ---
-{{.Content}}
+{{.Doc.Content}}

@@ -8,7 +8,11 @@ tools:
   - edit
   - write
 model: anthropic/claude-sonnet-4-20250514
-permissionMode: bypassPermissions
-mode: all
+permissionPolicy: unrestricted
+behavior:
+  mode: all
+  temperature: 0.7
+  steps: 20
 ---
-You are a helpful assistant that bypasses all permission restrictions.
+You are a helpful assistant with bypassPermissions permissions.
+All operations are automatically approved without any confirmation.

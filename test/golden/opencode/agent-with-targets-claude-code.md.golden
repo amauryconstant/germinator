@@ -1,0 +1,38 @@
+---
+description: Agent demonstrating Claude Code-specific targets
+mode: primary
+model: anthropic/claude-sonnet-4-20250514
+tools:
+  bash: true
+  grep: true
+  read: true
+permission:
+  edit:
+    "*": allow
+  bash:
+    "*": ask
+  read:
+    "*": allow
+  grep:
+    "*": allow
+  glob:
+    "*": allow
+  list:
+    "*": allow
+  webfetch:
+    "*": allow
+  websearch:
+    "*": allow
+temperature: 0.7
+maxSteps: 20
+---
+This agent demonstrates using targets section for Claude Code-specific configuration.
+
+When rendered for Claude Code:
+- Skills array is rendered from targets.claude-code.skills
+- disable-model-invocation field is rendered from targets.claude-code
+
+When rendered for OpenCode:
+- targets.claude-code section is omitted
+- Only common fields are used
+

@@ -1,0 +1,28 @@
+---
+name: code-analyzer
+description: Advanced code analysis with multiple backends
+tools:
+  - Bash
+  - Grep
+  - Read
+model: anthropic/claude-haiku-4-20250514
+license: MIT
+compatibility:
+  - claude-code
+  - opencode
+metadata:
+  author: "Germinator Team"
+  version: "1.0.0"
+context: fork
+agent: code-reviewer
+user-invocable: true
+---
+This skill provides advanced code analysis capabilities:
+- Pattern matching and detection
+- Code complexity metrics
+- Dependency graph analysis
+- Security vulnerability scanning
+
+The skill can be invoked by users directly and automatically
+by code-reviewer agent for related tasks.
+
