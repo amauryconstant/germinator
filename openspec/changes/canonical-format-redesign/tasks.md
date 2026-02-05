@@ -1,19 +1,17 @@
 ## 1. Setup
 
-- [ ] 1.1 Create internal/models/canonical/ package structure
-- [ ] 1.2 Define PermissionPolicy enum (restrictive, balanced, permissive, analysis, unrestricted)
-- [ ] 1.3 Define canonical Agent struct (PermissionPolicy, Behavior, Tools arrays, Targets map)
-- [ ] 1.4 Define canonical AgentBehavior struct (Mode, Temperature, MaxSteps, Prompt, Hidden, Disabled)
-- [ ] 1.5 Define canonical Command struct (Tools, Execution, Arguments, Targets map)
-- [ ] 1.6 Define canonical CommandExecution struct (Context, Subtask, Agent)
-- [ ] 1.7 Define canonical CommandArguments struct (Hint)
-- [ ] 1.8 Define canonical Memory struct (Paths, Content)
-- [ ] 1.9 Define canonical Skill struct (Tools, Extensions, Execution, Targets map)
-- [ ] 1.10 Define canonical SkillExtensions struct (License, Compatibility, Metadata, Hooks)
-- [ ] 1.11 Define canonical SkillExecution struct (Context, Agent, UserInvocable)
-- [ ] 1.12 Add Validate() methods to all canonical structs (platform-agnostic rules)
-- [ ] 1.13 Remove Claude Code-based models from internal/models/ (Agent, Command, Memory, Skill)
-- [ ] 1.14 Remove Claude Code-specific validation (permissionMode enum, model aliases) from Validate()
+- [x] 1.1 Create internal/models/canonical/ package structure
+- [x] 1.2 Define PermissionPolicy enum (restrictive, balanced, permissive, analysis, unrestricted)
+- [x] 1.3 Define canonical Agent struct (PermissionPolicy, Behavior, Tools arrays, Targets map)
+- [x] 1.4 Define canonical AgentBehavior struct (Mode, Temperature, MaxSteps, Prompt, Hidden, Disabled)
+- [x] 1.5 Define canonical Command struct (Tools, Execution, Arguments, Targets map)
+- [x] 1.6 Define canonical CommandExecution struct (Context, Subtask, Agent)
+- [x] 1.7 Define canonical CommandArguments struct (Hint)
+- [x] 1.8 Define canonical Memory struct (Paths, Content)
+- [x] 1.9 Define canonical Skill struct (Tools, Extensions, Execution, Targets map)
+- [x] 1.10 Define canonical SkillExtensions struct (License, Compatibility, Metadata, Hooks)
+- [x] 1.11 Define canonical SkillExecution struct (Context, Agent, UserInvocable)
+- [x] 1.12 Add Validate() methods to all canonical structs (platform-agnostic rules)
 
 ## 2. Platform Adapters
 
@@ -51,6 +49,8 @@
 - [ ] 3.9 Remove platform-specific validation from services (OpenCode-specific validation now in adapters)
 - [ ] 3.10 Update internal/services/transformer.go to use adapters for conversion
 - [ ] 3.11 Remove ValidateOpenCode*() methods from services (validation moved to adapters)
+- [ ] 3.12 Remove Claude Code-based models from internal/models/ (Agent, Command, Memory, Skill)
+- [ ] 3.13 Remove Claude Code-specific validation (permissionMode enum, model aliases) from old Validate()
 
 ## 4. Templates
 
