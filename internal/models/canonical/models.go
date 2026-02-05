@@ -62,6 +62,14 @@ func (b *AgentBehavior) Validate() []error {
 	return errs
 }
 
+type AgentExtensions struct {
+	Hooks map[string]string `yaml:"hooks,omitempty" json:"hooks,omitempty"`
+}
+
+func (e *AgentExtensions) Validate() []error {
+	return nil
+}
+
 type PlatformConfig map[string]map[string]interface{}
 
 type Agent struct {
@@ -75,6 +83,7 @@ type Agent struct {
 	PermissionPolicy PermissionPolicy `yaml:"permissionPolicy,omitempty" json:"permissionPolicy,omitempty"`
 	Behavior         AgentBehavior    `yaml:"behavior,omitempty" json:"behavior,omitempty"`
 	Targets          PlatformConfig   `yaml:"targets,omitempty" json:"targets,omitempty"`
+	Extensions       AgentExtensions  `yaml:"extensions,omitempty" json:"extensions,omitempty"`
 
 	Model string `yaml:"model,omitempty" json:"model,omitempty"`
 }
@@ -102,6 +111,7 @@ func (a *Agent) Validate() []error {
 	}
 
 	errs = append(errs, a.Behavior.Validate()...)
+	errs = append(errs, a.Extensions.Validate()...)
 
 	return errs
 }

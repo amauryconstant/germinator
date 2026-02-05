@@ -15,26 +15,23 @@
 
 ## 2. Platform Adapters
 
-- [ ] 2.1 Create internal/adapters/ package structure
-- [ ] 2.2 Define Adapter interface with ToCanonical() and FromCanonical() methods
-- [ ] 2.3 Create internal/adapters/claude-code/ adapter implementation
-- [ ] 2.4 Implement ClaudeCodeAdapter.ToCanonical() (parse Claude Code YAML to canonical models)
-- [ ] 2.5 Implement ClaudeCodeAdapter.FromCanonical() (render canonical models to Claude Code format)
-- [ ] 2.6 Implement ClaudeCodeAdapter.PermissionPolicyToPlatform() (map canonical policies to Claude Code enum)
-- [ ] 2.7 Implement ClaudeCodeAdapter.ConvertToolNameCase() (lowercase → PascalCase)
-- [ ] 2.8 Create internal/adapters/opencode/ adapter implementation
-- [ ] 2.9 Implement OpenCodeAdapter.ToCanonical() (parse OpenCode YAML to canonical models)
-- [ ] 2.10 Implement OpenCodeAdapter.FromCanonical() (render canonical models to OpenCode format)
-- [ ] 2.11 Implement OpenCodeAdapter.PermissionPolicyToPlatform() (map canonical policies to permission objects)
-- [ ] 2.12 Implement OpenCodeAdapter.ConvertToolNameCase() (lowercase → lowercase, identity)
-- [ ] 2.13 Implement OpenCode adapter tool list splitting (tools array → tools map, disallowedTools → false values)
-- [ ] 2.14 Implement OpenCode adapter behavior flattening (behavior.mode → mode, behavior.maxSteps → maxSteps, etc.)
-- [ ] 2.15 Add shared helper functions (ToPascalCase, ToLowerCase) in adapters package
-- [ ] 2.16 Define permission mapping data structures (PermissionMapping, PermissionMap, PermissionAction)
-- [ ] 2.17 Initialize permission mapping table for all 5 policies (restrictive, balanced, permissive, analysis, unrestricted)
-- [ ] 2.18 Write unit tests for ClaudeCodeAdapter methods (ToCanonical, FromCanonical, PermissionPolicyToPlatform)
-- [ ] 2.19 Write unit tests for OpenCodeAdapter methods (ToCanonical, FromCanonical, PermissionPolicyToPlatform)
-- [ ] 2.20 Write unit tests for shared helper functions (case conversions)
+- [x] 2.1 Create internal/adapters/ package structure
+- [x] 2.2 Define Adapter interface with ToCanonical() and FromCanonical() methods
+- [x] 2.3 Create internal/adapters/claude-code/ adapter implementation
+- [x] 2.4 Implement ClaudeCodeAdapter.ToCanonical() (parse Claude Code YAML to canonical models)
+- [x] 2.5 Implement ClaudeCodeAdapter.FromCanonical() (render canonical models to Claude Code format)
+- [x] 2.6 Implement ClaudeCodeAdapter.PermissionPolicyToPlatform() (map canonical policies to Claude Code enum)
+- [x] 2.7 Implement ClaudeCodeAdapter.ConvertToolNameCase() (lowercase → PascalCase)
+- [x] 2.8 Create internal/adapters/opencode/ adapter implementation
+- [x] 2.9 Implement OpenCodeAdapter.ToCanonical() (parse OpenCode YAML to canonical models)
+- [x] 2.10 Implement OpenCodeAdapter.FromCanonical() (render canonical models to OpenCode format)
+- [x] 2.11 Implement OpenCodeAdapter.PermissionPolicyToPlatform() (map canonical policies to permission objects)
+- [x] 2.12 Implement OpenCodeAdapter.ConvertToolNameCase() (lowercase → lowercase, identity)
+- [x] 2.13 Implement OpenCode adapter tool list splitting (tools array → tools map, disallowedTools → false values)
+- [x] 2.14 Implement OpenCode adapter behavior flattening (behavior.mode → mode, behavior.maxSteps → maxSteps, etc.)
+- [x] 2.15 Add shared helper functions (ToPascalCase, ToLowerCase) in adapters package
+- [x] 2.16 Define permission mapping data structures (PermissionMapping, PermissionMap, PermissionAction)
+- [x] 2.17 Initialize permission mapping table for all 5 policies (restrictive, balanced, permissive, analysis, unrestricted)
 
 ## 3. Core Package Updates
 
@@ -49,8 +46,13 @@
 - [ ] 3.9 Remove platform-specific validation from services (OpenCode-specific validation now in adapters)
 - [ ] 3.10 Update internal/services/transformer.go to use adapters for conversion
 - [ ] 3.11 Remove ValidateOpenCode*() methods from services (validation moved to adapters)
-- [ ] 3.12 Remove Claude Code-based models from internal/models/ (Agent, Command, Memory, Skill)
-- [ ] 3.13 Remove Claude Code-specific validation (permissionMode enum, model aliases) from old Validate()
+- [ ] 3.12 Rename canonical AgentBehavior.MaxSteps field to Steps to match OpenCode platform field name
+- [ ] 3.13 Update OpenCode adapter to use Steps field directly (no conversion needed)
+- [ ] 3.14 Remove Claude Code-based models from internal/models/ (Agent, Command, Memory, Skill)
+- [ ] 3.15 Remove Claude Code-specific validation (permissionMode enum, model aliases) from old Validate()
+- [ ] 3.16 Write unit tests for ClaudeCodeAdapter methods (ToCanonical, FromCanonical, PermissionPolicyToPlatform)
+- [ ] 3.17 Write unit tests for OpenCodeAdapter methods (ToCanonical, FromCanonical, PermissionPolicyToPlatform)
+- [ ] 3.18 Write unit tests for shared helper functions (case conversions)
 
 ## 4. Templates
 
