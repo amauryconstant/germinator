@@ -29,7 +29,7 @@ Claude Code supports four primary document types: Skills, Agents (Subagents), Me
 | description              | string        | Recommended | -         | What skill does and when to use it                                           |
 | argument-hint            | string        | No          | -         | Hint shown during autocomplete, e.g., `[issue-number]`                       |
 | disable-model-invocation | boolean       | No          | `false`  | Prevent Claude from auto-loading                                              |
-| user-invocable           | boolean       | No          | `true`   | Hide from `/` menu                                                         |
+| user-invocable           | boolean       | No          | `true`   | Set to `false` to hide from `/` menu. Default: `true`                         |
 | allowed-tools            | array[string] | No          | -         | Tools Claude can use without approval                                        |
 | model                    | string        | No          | -         | Model to use when skill is active                                            |
 | context                  | string        | No          | -         | Set to `fork` to run in subagent context                                     |
@@ -59,7 +59,7 @@ When working in subdirectories, Claude Code automatically discovers skills from 
 
 Skills can include additional files in their directory:
 
-```
+```markdown
 my-skill/
 ├── SKILL.md (required - overview and navigation)
 ├── reference.md (detailed API docs - loaded when needed)
@@ -367,7 +367,7 @@ Hooks fire at specific points during Claude Code's lifecycle:
 
 **Plugin Structure:**
 
-```
+```markdown
 my-plugin/
 ├── .claude-plugin/
 │   └── plugin.json          # Required: plugin manifest

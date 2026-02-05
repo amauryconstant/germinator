@@ -523,6 +523,32 @@ Platform documentation for AI coding assistant configuration
 - `timeout`: Request timeout in ms (default: 300000, set to false to disable)
 - `setCacheKey`: Ensure cache key always set
 
+**Amazon Bedrock Options:**
+
+Amazon Bedrock supports AWS-specific configuration:
+
+```json
+{
+  "provider": {
+    "amazon-bedrock": {
+      "options": {
+        "region": "us-east-1",
+        "profile": "my-aws-profile",
+        "endpoint": "https://bedrock-runtime.us-east-1.vpce-xxxxx.amazonaws.com"
+      }
+    }
+  }
+}
+```
+
+- `region`: AWS region for Bedrock (defaults to `AWS_REGION` env var or `us-east-1`)
+- `profile`: AWS named profile from `~/.aws/credentials` (defaults to `AWS_PROFILE` env var)
+- `endpoint`: Custom endpoint URL for VPC endpoints. An alias for generic `baseURL` option using AWS-specific terminology. If both are specified, `endpoint` takes precedence.
+
+**small_model Option:**
+
+The `small_model` option configures a separate model for lightweight tasks like title generation. By default, OpenCode tries to use a cheaper model if one is available from your provider, otherwise it falls back to your main model.
+
 ---
 
 ## Config Schema
