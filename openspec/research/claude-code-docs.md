@@ -8,6 +8,8 @@ Platform reference for AI coding assistant configuration. Focuses on document ty
 - [Memory](https://code.claude.com/docs/en/memory.md) - Memory management with CLAUDE.md
 - [Sub-agents](https://code.claude.com/docs/en/sub-agents.md) - Custom subagents
 - [Settings](https://code.claude.com/docs/en/settings.md) - Configuration and permissions
+- [Hooks](https://code.claude.com/docs/en/hooks) - Lifecycle hooks and event handlers
+- [Plugins](https://code.claude.com/docs/en/plugins) - Plugin system and marketplace
 
 ---
 
@@ -253,6 +255,218 @@ The `.claude/rules/` directory supports symlinks for sharing rules across projec
 | ask          | array[string] | Permission rules to ask for confirmation     |
 | deny         | array[string] | Permission rules to deny                     |
 | defaultMode  | string        | Default permission mode                        |
+
+---
+
+## Hooks
+
+**File:** `.claude/hooks/hooks.json` (in plugins) or via `hooks` field in skills/agents/settings
+
+**Lifecycle Events:**
+
+Hooks fire at specific points during Claude Code's lifecycle:
+
+| Event                | When it fires                                                      | Matcher Support |
+| ------------------- | ----------------------------------------------------------------- | -------------- |
+| `SessionStart`       | When a session begins or resumes                                 | Session source type |
+| `UserPromptSubmit`   | When you submit a prompt, before Claude processes it              | No |
+| `PreToolUse`         | Before a tool call executes. Can block it                        | Tool name |
+| `PermissionRequest`  | When a permission dialog appears                                     | Tool name |
+| `PostToolUse`        | After a tool call succeeds                                           | Tool name |
+| `PostToolUseFailure` | After a tool call fails                                            | Tool name |
+| `Notification`       | When Claude Code sends a notification                            | Notification type |
+| `SubagentStart`      | When a subagent is spawned                                        | Agent type |
+| `SubagentStop`       | When a subagent finishes                                         | Agent type |
+| `Stop`               | When Claude finishes responding                                    | No |
+| `PreCompact`         | Before context compaction                                           | Compaction trigger |
+| `SessionEnd`         | When a session terminates                                        | Session end reason |
+
+**Configuration Format:**
+
+```json
+{
+  "hooks": {
+    "EventName": [
+      {
+        "matcher": "Bash|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/path/to/script.sh",
+            "timeout": 30,
+            "statusMessage": "Running hook..."
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Hook Locations:**
+
+| Location                                      | Scope                         | Shareable                          |
+| --------------------------------------------- | ----------------------------- | --------------------------------- |
+| `~/.claude/settings.json`                  | All your projects             | No, local to your machine          |
+| `.claude/settings.json`                    | Single project                | Yes, can be committed to repo  |
+| `.claude/settings.local.json`                | Single project                | No, gitignored                     |
+| Managed policy settings                          | Organization-wide             | Yes, admin-controlled              |
+| Plugin `hooks/hooks.json`                   | When plugin is enabled        | Yes, bundled with plugin       |
+| Skill or agent frontmatter (hooks field) | While component is active      | Yes, defined in component file |
+
+**Hook Types:**
+
+| Type     | Description                                                                                               |
+| --------- | --------------------------------------------------------------------------------------------------------- |
+| `command` | Execute shell commands. Receives JSON input on stdin, communicates via exit codes and stdout |
+| `prompt`  | Send prompt to LLM for single-turn evaluation. Uses `$ARGUMENTS` placeholder for input JSON      |
+| `agent`   | Spawn subagent that can use tools like Read, Grep, and Glob to verify conditions     |
+
+**Common Hook Fields:**
+
+| Field           | Required | Default | Description                                                                    |
+| -------------- | -------- | ------- | ------------------------------------------------------------------------------ |
+| `type`          | yes      | -       | `"command"`, `"prompt"`, or `"agent"`                                           |
+| `timeout`       | no       | 600/30/60 | Seconds before canceling. Defaults: 600 for command, 30 for prompt, 60 for agent |
+| `statusMessage` | no       | -       | Custom spinner message displayed while hook runs                          |
+| `once`          | no       | -       | If `true`, runs only once per session then is removed (skills only)          |
+
+**Command Hook Fields:**
+
+| Field     | Required | Description                                                                                     |
+| ---------- | -------- | ------------------------------------------------------------------------------------------------ |
+| `command` | yes      | Shell command to execute                                                                     |
+| `async`   | no       | If `true`, runs in background without blocking                                                |
+
+**Prompt/Agent Hook Fields:**
+
+| Field   | Required | Description                                                                               |
+| -------- | -------- | ---------------------------------------------------------------------------------------- |
+| `prompt` | yes      | Prompt text to send to model. Use `$ARGUMENTS` as placeholder for hook input JSON |
+| `model`  | no       | Model to use for evaluation. Defaults to a fast model                                     |
+
+**Environment Variables:**
+
+- `$CLAUDE_PROJECT_DIR`: Project root directory (wrap in quotes for paths with spaces)
+- `${CLAUDE_PLUGIN_ROOT}`: Plugin's root directory for bundled scripts
+- `$CLAUDE_CODE_REMOTE`: Set to `"true"` in remote web environments
+
+**Exit Code Behavior:**
+
+| Exit Code | Effect                                                                           |
+| ---------- | ----------------------------------------------------------------------------------------- |
+| `0`        | Success. Claude Code parses stdout for JSON output fields (decision control)                         |
+| `2`        | Blocking error. stderr shown to Claude, action blocked (varies by event type)              |
+| Other      | Non-blocking error. stderr shown in verbose mode, execution continues                       |
+
+---
+
+## Plugins
+
+**File:** `.claude-plugin/plugin.json`
+
+**Plugin Structure:**
+
+```
+my-plugin/
+├── .claude-plugin/
+│   └── plugin.json          # Required: plugin manifest
+├── commands/                   # Default command location
+├── agents/                     # Custom agent definitions
+├── skills/                     # Agent Skills (SKILL.md files)
+├── hooks/                      # Hook configurations (hooks.json)
+├── .mcp.json                    # MCP server definitions
+├── .lsp.json                    # LSP server configurations
+└── scripts/                     # Hook and utility scripts
+```
+
+**Plugin Manifest Fields:**
+
+| Field         | Type             | Required | Description                                                       |
+| ------------- | ---------------- | -------- | ----------------------------------------------------------------- |
+| `name`        | string           | Yes      | Unique identifier (kebab-case, no spaces). Skills are prefixed with this (e.g., `/my-plugin:skill-name`) |
+| `version`     | string           | Yes      | Semantic version (MAJOR.MINOR.PATCH) for tracking releases        |
+| `description`  | string           | Recommended | Brief explanation of plugin purpose, shown in plugin manager                |
+| `author`      | object           | No       | Author information (name, email, url)                                  |
+| `homepage`     | string           | No       | Documentation URL                                                          |
+| `repository`   | string           | No       | Source code URL                                                         |
+| `license`     | string           | No       | License identifier (e.g., "MIT", "Apache-2.0")                           |
+| `keywords`     | array[string]    | No       | Discovery tags for marketplace                                        |
+
+**Component Path Fields:**
+
+| Field           | Type             | Description                                                                                                                                          |
+| -------------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `commands`     | string|array      | Additional command files/directories (relative to plugin root, start with `./`)                |
+| `agents`       | string|array      | Additional agent files (relative to plugin root, start with `./`)                        |
+| `skills`       | string|array      | Additional skill directories (relative to plugin root, start with `./`)                      |
+| `hooks`        | string|object     | Hook config path (relative to plugin root) or inline configuration                          |
+| `mcpServers`   | string|object     | MCP config path (relative to plugin root) or inline configuration                           |
+| `lspServers`   | string|object     | LSP config path (relative to plugin root) or inline configuration                         |
+| `outputStyles` | string|array      | Additional output style files/directories                                         |
+
+**Plugin Scopes:**
+
+| Scope       | Settings file                 | Use case                                        |
+| ---------- | --------------------------- | --------------------------------------------- |
+| `user`    | `~/.claude/settings.json`     | Personal plugins available across all projects        |
+| `project`  | `.claude/settings.json`       | Team plugins shared via version control             |
+| `local`   | `.claude/settings.local.json`  | Project-specific plugins, gitignored                     |
+| `managed`  | `managed-settings.json`       | Managed plugins (read-only, update only)              |
+
+**Skill Naming in Plugins:**
+
+- Plugin skills are namespaced: `/plugin-name:skill-name`
+- Prevents conflicts when multiple plugins have skills with same name
+- To change namespace prefix, update `name` field in `plugin.json`
+
+**Migration from Standalone:**
+
+Standalone configuration (`.claude/` directory) can be converted to plugin structure:
+
+1. Create plugin directory with `.claude-plugin/plugin.json` manifest
+2. Copy existing `commands/`, `agents/`, `skills/`, `hooks/` to plugin root
+3. Migrate hooks from settings files to `hooks/hooks.json`
+4. Test with `--plugin-dir ./my-plugin`
+
+---
+
+## CLI Arguments
+
+**Configuration-Relevant Flags:**
+
+| Flag               | Description                                                                 |
+| ------------------- | --------------------------------------------------------------------------- |
+| `--allowedTools`     | Tools Claude can use without approval (comma-separated or multiple flags)   |
+| `--disallowedTools` | Tools to explicitly deny (comma-separated or multiple flags)              |
+| `--tools`            | Combined tool allow/deny list in JSON format                                   |
+| `--model`            | Override model selection for current session                                   |
+| `--agent`            | Start with specific agent (subagent)                                      |
+
+**Tool Configuration Priority:**
+
+1. CLI flags override all other sources
+2. Settings files override defaults
+3. Skill/agent frontmatter applies when component is active
+
+**Examples:**
+
+```bash
+# Allow specific tools
+claude --allowedTools Bash,Read,Grep
+
+# Disallow dangerous commands
+claude --disallowedTools "Bash(rm *)" "Bash(rm -rf *)"
+
+# JSON format for complex tool rules
+claude --tools '{"Bash": {"*": "allow", "curl *": "deny"}, "Read": {"*.env": "deny"}}'
+
+# Override model
+claude --model haiku
+
+# Start with specific subagent
+claude --agent Explore
+```
 
 ---
 

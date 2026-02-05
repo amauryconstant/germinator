@@ -9,6 +9,7 @@ Platform documentation for AI coding assistant configuration
 - [Permissions](https://opencode.ai/docs/permissions) - Permission system
 - [Commands](https://opencode.ai/docs/commands) - Custom commands
 - [Config](https://opencode.ai/docs/config) - Global configuration
+- [MCP Servers](https://opencode.ai/docs/mcp-servers) - Model Context Protocol integration
 
 ---
 
@@ -290,6 +291,189 @@ Platform documentation for AI coding assistant configuration
 
 ---
 
+## MCP Servers
+
+**Format:** JSON or JSONC configuration in `opencode.json`
+
+**Purpose:** Add external tools using Model Context Protocol (MCP). MCP tools are automatically available to LLM alongside built-in tools.
+
+**Configuration Location:** Within `mcp` object in config file
+
+```json
+{
+  "mcp": {
+    "server-name": {
+      // ... configuration
+    }
+  }
+}
+```
+
+### Local MCP Servers
+
+**Type:** `type: "local"`
+
+**Purpose:** Run MCP server as a local process (command or Node module)
+
+**Fields:**
+
+| Field       | Type          | Required | Default | Description                                               |
+| ---------- | ------------- | -------- | ------- | --------------------------------------------------------- |
+| `type`      | string        | Yes      | -       | Must be `"local"`                                           |
+| `command`   | array[string] | Yes      | -       | Command and arguments to run MCP server                 |
+| `enabled`   | boolean       | No       | `true`  | Enable or disable MCP server on startup                 |
+| `timeout`   | number        | No       | 5000    | Timeout in ms for fetching tools (defaults to 5000ms) |
+| `environment`| object        | No       | -       | Environment variables to set when running server         |
+
+**Example:**
+
+```json
+{
+  "mcp": {
+    "my-local-server": {
+      "type": "local",
+      "command": ["npx", "-y", "@modelcontextprotocol/server-everything"],
+      "enabled": true,
+      "environment": {
+        "MY_ENV_VAR": "my_env_var_value"
+      }
+    }
+  }
+}
+```
+
+### Remote MCP Servers
+
+**Type:** `type: "remote"`
+
+**Purpose:** Connect to MCP server over HTTP
+
+**Fields:**
+
+| Field   | Type          | Required | Default | Description                                                 |
+| -------- | ------------- | -------- | ------- | ------------------------------------------------------------ |
+| `type`   | string        | Yes      | -       | Must be `"remote"`                                      |
+| `url`    | string        | Yes      | -       | URL of remote MCP server                                |
+| `enabled`| boolean       | No       | `true`  | Enable or disable MCP server on startup                   |
+| `headers`| object        | No       | -       | Headers to send with request                              |
+| `oauth`  | object|false | No       | -       | OAuth authentication configuration (see below)            |
+| `timeout` | number        | No       | 5000    | Timeout in ms for fetching tools (defaults to 5000ms)     |
+
+**Example:**
+
+```json
+{
+  "mcp": {
+    "my-remote-server": {
+      "type": "remote",
+      "url": "https://mcp.example.com/mcp",
+      "enabled": true,
+      "headers": {
+        "Authorization": "Bearer MY_API_KEY"
+      }
+    }
+  }
+}
+```
+
+### OAuth Configuration
+
+**Purpose:** Automatic authentication for remote MCP servers using RFC 7591 Dynamic Client Registration
+
+**OAuth Fields:**
+
+| Field       | Type   | Required | Description                                                 |
+| ---------- | ------ | -------- | ----------------------------------------------------------- |
+| `clientId`  | string | No       | OAuth client ID. If not provided, dynamic registration attempted |
+| `clientSecret`| string | No       | OAuth client secret, if required by authorization server   |
+| `scope`      | string | No       | OAuth scopes to request during authorization            |
+
+**Example with OAuth:**
+
+```json
+{
+  "mcp": {
+    "my-oauth-server": {
+      "type": "remote",
+      "url": "https://mcp.example.com/mcp",
+      "oauth": {
+        "clientId": "{env:MY_MCP_CLIENT_ID}",
+        "clientSecret": "{env:MY_MCP_CLIENT_SECRET}",
+        "scope": "tools:read tools:execute"
+      }
+    }
+  }
+}
+```
+
+**Example disabling OAuth (use API keys instead):**
+
+```json
+{
+  "mcp": {
+    "my-api-key-server": {
+      "type": "remote",
+      "url": "https://mcp.example.com/mcp",
+      "oauth": false,
+      "headers": {
+        "Authorization": "Bearer {env:MY_API_KEY}"
+      }
+    }
+  }
+}
+```
+
+### MCP Tool Management
+
+**Global Disable:** Disable MCP tools globally in config
+
+```json
+{
+  "mcp": {
+    "my-mcp-server": {
+      "type": "local",
+      "command": ["bun", "x", "my-mcp-command"],
+      "enabled": true
+    }
+  },
+  "tools": {
+    "my-mcp*": false
+  }
+}
+```
+
+**Glob Patterns:** Disable all tools for specific server
+
+| Pattern | Matches                                   |
+| -------- | ------------------------------------------ |
+| `my-mcp*` | All tools from server named "my-mcp" |
+
+**Per-Agent Enable:** Enable MCP tools for specific agent only
+
+```json
+{
+  "mcp": {
+    "my-mcp": {
+      "type": "local",
+      "command": ["bun", "x", "my-mcp-command"],
+      "enabled": true
+    }
+  },
+  "tools": {
+    "my-mcp*": false
+  },
+  "agent": {
+    "my-agent": {
+      "tools": {
+        "my-mcp*": true
+      }
+    }
+  }
+}
+```
+
+---
+
 ## Models
 
 **Format:** `provider/model-id`
@@ -345,7 +529,32 @@ Platform documentation for AI coding assistant configuration
 
 **Format:** JSON or JSONC (JSON with Comments)
 
-**Schema Sections Relevant to Document Types:**
+**Schema:** Defined at https://opencode.ai/config.json
+
+### Configuration Precedence Order
+
+Config sources are merged (not replaced) in this order (later sources override earlier ones):
+
+1. **Remote config** (from `.well-known/opencode`) - Organizational defaults
+2. **Global config** (`~/.config/opencode/opencode.json`) - User preferences
+3. **Custom config** (`OPENCODE_CONFIG` env var) - Custom overrides
+4. **Project config** (`opencode.json` or `opencode.jsonc` in project) - Project-specific settings
+5. **`.opencode` directories** (agents/, commands/, plugins/, etc.) - Component definitions
+6. **Inline config** (`OPENCODE_CONFIG_CONTENT` env var) - Runtime overrides
+
+### Configuration Locations
+
+| Location                                      | Scope                     | Shareable                          |
+| --------------------------------------------- | -------------------------- | --------------------------------- |
+| `.well-known/opencode`                   | Organization (remote)    | Yes, server-provided               |
+| `~/.config/opencode/opencode.json`        | Global user                 | No, local to machine             |
+| `OPENCODE_CONFIG` env var                  | Custom path                | No, user-specified               |
+| `opencode.json` (project root)         | Project                    | Yes, can be committed to repo    |
+| `opencode.jsonc` (project root)        | Project                    | Yes, can be committed to repo    |
+| `.opencode/` directories                    | Component                  | Yes, can be committed to repo    |
+| `OPENCODE_CONFIG_CONTENT` env var          | Runtime override           | No, in-memory only               |
+
+### Schema Sections Relevant to Document Types
 
 | Section          | Description                                       |
 | ---------------- | ------------------------------------------------- |
@@ -354,6 +563,182 @@ Platform documentation for AI coding assistant configuration
 | permissions      | Permission rules                                  |
 | instructions     | Instruction files (CONTRIBUTING.md, etc.)         |
 | models           | Provider and model configuration                  |
+| mcp              | MCP server configurations                       |
+| tools            | Global tool overrides                          |
+| tui              | TUI-specific settings                           |
+| server           | Server configuration for `opencode serve`             |
+| themes           | Theme configuration                             |
+| agent            | Per-agent settings                            |
+| default_agent   | Default agent selection                          |
+| sharing          | Share feature configuration                    |
+| keybinds        | Custom keybindings                            |
+| formatters       | Code formatter configuration                     |
+| commands         | Custom commands (CLI slash commands)              |
+| compaction       | Context compaction behavior                     |
+| watcher          | File watcher ignore patterns                   |
+| plugins          | Plugin configuration (npm packages or paths)       |
+| instructions     | Instruction files (CONTRIBUTING.md, docs/*.md)     |
+| disabled_providers | Explicitly disabled providers                   |
+| enabled_providers  | Allowlist of enabled providers                |
+| experimental     | Experimental features                           |
+
+### Configuration Properties
+
+**`$schema`** - JSON schema URL for validation
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  ...
+}
+```
+
+**`tui`** - TUI-specific settings
+```json
+{
+  "tui": {
+    "scroll_speed": 3,
+    "scroll_acceleration": {
+      "enabled": true
+    },
+    "diff_style": "auto"
+  }
+}
+```
+- `scroll_speed`: Multiplier (default: 3, min: 1)
+- `scroll_acceleration.enabled`: Enable macOS-style acceleration
+- `diff_style`: `"auto"` or `"stacked"`
+
+**`server`** - Server configuration for `opencode serve`
+```json
+{
+  "server": {
+    "port": 4096,
+    "hostname": "0.0.0.0",
+    "mdns": true,
+    "mdnsDomain": "myproject.local",
+    "cors": ["http://localhost:5173"]
+  }
+}
+```
+
+**`tools`** - Global tool availability
+```json
+{
+  "tools": {
+    "write": false,
+    "bash": false
+  }
+}
+```
+
+**`themes`** - Theme selection
+```json
+{
+  "theme": "opencode"
+}
+```
+
+**`keybinds`** - Custom keybindings
+```json
+{
+  "keybinds": {}
+}
+```
+
+**`formatters`** - Code formatter configuration
+```json
+{
+  "formatter": {
+    "prettier": {
+      "disabled": true
+    },
+    "custom-prettier": {
+      "command": ["npx", "prettier", "--write", "$FILE"],
+      "environment": {
+        "NODE_ENV": "development"
+      },
+      "extensions": [".js", ".ts", ".jsx", ".tsx"]
+    }
+  }
+}
+```
+
+**`sharing`** - Share feature configuration
+```json
+{
+  "share": "manual"
+}
+```
+Values: `"manual"` (default), `"auto"`, `"disabled"`
+
+**`compaction`** - Context compaction
+```json
+{
+  "compaction": {
+    "auto": true,
+    "prune": true
+  }
+}
+```
+
+**`watcher`** - File watcher ignore patterns
+```json
+{
+  "watcher": {
+    "ignore": ["node_modules/**", "dist/**", ".git/**"]
+  }
+}
+```
+
+**`plugins`** - Plugin configuration
+```json
+{
+  "plugin": ["opencode-helicone-session", "@my-org/custom-plugin"]
+}
+```
+
+**`instructions`** - Instruction files
+```json
+{
+  "instructions": ["CONTRIBUTING.md", "docs/guidelines.md", ".cursor/rules/*.md"]
+}
+```
+
+**`disabled_providers`** - Explicitly disabled providers
+```json
+{
+  "disabled_providers": ["openai", "gemini"]
+}
+```
+
+**`enabled_providers`** - Allowlist of enabled providers
+```json
+{
+  "enabled_providers": ["anthropic", "openai"]
+}
+```
+
+**`experimental`** - Experimental features
+```json
+{
+  "experimental": {}
+}
+```
+
+**Variable Substitution:**
+
+Use `{env:VARIABLE_NAME}` for environment variables and `{file:path/to/file}` for file contents:
+
+```json
+{
+  "model": "{env:OPENCODE_MODEL}",
+  "provider": {
+    "anthropic": {
+      "apiKey": "{file:~/.secrets/opencode-key}"
+    }
+  }
+}
+```
 
 ---
 

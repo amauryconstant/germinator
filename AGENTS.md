@@ -132,6 +132,16 @@ See `config/AGENTS.md` for complete field mapping between Germinator format and 
 
 ---
 
+# Research Documentation Index
+
+[Platform Research Docs Index]|root: ./openspec/research
+|claude-code-docs.md:{Official Documentation Sources:5-15,Document Types:16-101,Pull request context:102-260,Hooks:261-363,Plugins:364-433,CLI Arguments:434-472,Permission System:473-542,Tool Configuration:543-554,Model Identifiers:555-592,YAML Examples:593-606,What I do:607-611,When to use me:612-682,Validation Constraints:683-708}
+|opencode-docs.md:{Official Documentation Sources:5-15,Document Types:16-167,Permissions:168-260,Tools:261-293,MCP Servers:294-476,Models:477-527,Config Schema:528-744,Permission System:745-772,Agent Modes:773-791,Validation Constraints:792-832,YAML/JSON Examples:833-917,What I do:918-922,When to use me:923-948,String Substitutions:949-969,Edge Cases and Special Behaviors:970-1003,Comparison with Claude Code:1004-1022,Validation Rules Summary:1023-1066}
+
+For detailed documentation maintenance tasks, invoke the research-update-skill.
+
+---
+
 # Pre-commit Hooks
 
 ```bash
