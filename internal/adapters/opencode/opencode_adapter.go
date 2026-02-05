@@ -110,7 +110,7 @@ func (a *OpenCodeAdapter) parseAgent(input map[string]interface{}) (*canonical.A
 		agent.Behavior.Temperature = &temperature
 	}
 	if maxSteps, ok := input["maxSteps"].(int); ok {
-		agent.Behavior.MaxSteps = maxSteps
+		agent.Behavior.Steps = maxSteps
 	}
 	if prompt, ok := input["prompt"].(string); ok {
 		agent.Behavior.Prompt = prompt
@@ -179,8 +179,8 @@ func (a *OpenCodeAdapter) renderAgent(agent *canonical.Agent) (map[string]interf
 	if agent.Behavior.Temperature != nil {
 		output["temperature"] = *agent.Behavior.Temperature
 	}
-	if agent.Behavior.MaxSteps > 0 {
-		output["maxSteps"] = agent.Behavior.MaxSteps
+	if agent.Behavior.Steps > 0 {
+		output["maxSteps"] = agent.Behavior.Steps
 	}
 	if agent.Behavior.Prompt != "" {
 		output["prompt"] = agent.Behavior.Prompt
@@ -466,19 +466,40 @@ func (a *OpenCodeAdapter) mapPermissionModeToPolicy(mode string) canonical.Permi
 }
 
 func (a *OpenCodeAdapter) mapPermissionObjectToPolicy(permission map[string]interface{}) canonical.PermissionPolicy {
-	analyzed := true
-	for _, toolPermissions := range permission {
+	editDenied := false
+	bashDenied := false
+	otherDeny := false
+	allAllow := true
+
+	for tool, toolPermissions := range permission {
 		if toolPerms, ok := toolPermissions.(map[string]interface{}); ok {
 			for _, action := range toolPerms {
-				if actionStr, ok := action.(string); ok && actionStr != "deny" {
-					analyzed = false
-					break
+				if actionStr, ok := action.(string); ok {
+					if actionStr != "allow" {
+						allAllow = false
+					}
+					if actionStr == "deny" {
+						if tool == "edit" || tool == "bash" {
+							if tool == "edit" {
+								editDenied = true
+							} else if tool == "bash" {
+								bashDenied = true
+							}
+						} else {
+							otherDeny = true
+						}
+					}
 				}
 			}
 		}
 	}
-	if analyzed {
+
+	if editDenied && bashDenied && !otherDeny {
 		return canonical.PermissionPolicyAnalysis
 	}
+	if allAllow {
+		return canonical.PermissionPolicyPermissive
+	}
+
 	return canonical.PermissionPolicyBalanced
 }

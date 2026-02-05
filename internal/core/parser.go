@@ -7,9 +7,33 @@ import (
 	"path/filepath"
 	"strings"
 
-	"gitlab.com/amoconst/germinator/internal/models"
+	"gitlab.com/amoconst/germinator/internal/models/canonical"
 	yaml "gopkg.in/yaml.v3"
 )
+
+// Wrapper structs to extend canonical models with FilePath and Content
+type CanonicalAgent struct {
+	canonical.Agent
+	FilePath string
+	Content  string
+}
+
+type CanonicalCommand struct {
+	canonical.Command
+	FilePath string
+	Content  string
+}
+
+type CanonicalSkill struct {
+	canonical.Skill
+	FilePath string
+	Content  string
+}
+
+type CanonicalMemory struct {
+	canonical.Memory
+	FilePath string
+}
 
 // ParseDocument parses a document file and returns the appropriate struct.
 func ParseDocument(filePath string, docType string) (interface{}, error) {
@@ -33,9 +57,11 @@ func ParseDocument(filePath string, docType string) (interface{}, error) {
 }
 
 func parseMemory(filePath string, content string) (interface{}, error) {
-	memory := &models.Memory{
+	memory := &CanonicalMemory{
+		Memory: canonical.Memory{
+			Content: content,
+		},
 		FilePath: filePath,
-		Content:  content,
 	}
 
 	lines := strings.Split(content, "\n")
@@ -111,8 +137,8 @@ func parseDocumentWithFrontmatter(filePath string, fileContent string, docType s
 	var doc interface{}
 	switch docType {
 	case "agent":
-		var agent models.Agent
-		if err := yaml.Unmarshal([]byte(yamlContent), &agent); err != nil {
+		var agent CanonicalAgent
+		if err := yaml.Unmarshal([]byte(yamlContent), &agent.Agent); err != nil {
 			return nil, fmt.Errorf("failed to parse agent: %w", err)
 		}
 		agent.FilePath = filePath
@@ -120,18 +146,17 @@ func parseDocumentWithFrontmatter(filePath string, fileContent string, docType s
 		doc = &agent
 
 	case "command":
-		var command models.Command
-		if err := yaml.Unmarshal([]byte(yamlContent), &command); err != nil {
+		var command CanonicalCommand
+		if err := yaml.Unmarshal([]byte(yamlContent), &command.Command); err != nil {
 			return nil, fmt.Errorf("failed to parse command: %w", err)
 		}
 		command.FilePath = filePath
 		command.Content = markdownBody
-		command.Name = extractCommandName(filePath)
 		doc = &command
 
 	case "skill":
-		var skill models.Skill
-		if err := yaml.Unmarshal([]byte(yamlContent), &skill); err != nil {
+		var skill CanonicalSkill
+		if err := yaml.Unmarshal([]byte(yamlContent), &skill.Skill); err != nil {
 			return nil, fmt.Errorf("failed to parse skill: %w", err)
 		}
 		skill.FilePath = filePath

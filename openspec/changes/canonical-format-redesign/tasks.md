@@ -35,24 +35,22 @@
 
 ## 3. Core Package Updates
 
-- [ ] 3.1 Update internal/core/parser.go to parse canonical YAML format
-- [ ] 3.2 Update internal/core/serializer.go to render canonical models to output
-- [ ] 3.3 Remove transformPermissionMode() function from internal/core/template_funcs.go
-- [ ] 3.4 Remove permission mode transformation template function calls from templates
-- [ ] 3.5 Update internal/core/loader.go to use canonical models instead of Claude Code models
-- [ ] 3.6 Update internal/models/constants.go to remove Claude Code platform constants (if any)
-- [ ] 3.7 Add PlatformConfig struct for Targets section (platform-specific configurations)
-- [ ] 3.8 Update internal/services/validator.go to validate canonical models
-- [ ] 3.9 Remove platform-specific validation from services (OpenCode-specific validation now in adapters)
-- [ ] 3.10 Update internal/services/transformer.go to use adapters for conversion
-- [ ] 3.11 Remove ValidateOpenCode*() methods from services (validation moved to adapters)
-- [ ] 3.12 Rename canonical AgentBehavior.MaxSteps field to Steps to match OpenCode platform field name
-- [ ] 3.13 Update OpenCode adapter to use Steps field directly (no conversion needed)
-- [ ] 3.14 Remove Claude Code-based models from internal/models/ (Agent, Command, Memory, Skill)
-- [ ] 3.15 Remove Claude Code-specific validation (permissionMode enum, model aliases) from old Validate()
-- [ ] 3.16 Write unit tests for ClaudeCodeAdapter methods (ToCanonical, FromCanonical, PermissionPolicyToPlatform)
-- [ ] 3.17 Write unit tests for OpenCodeAdapter methods (ToCanonical, FromCanonical, PermissionPolicyToPlatform)
-- [ ] 3.18 Write unit tests for shared helper functions (case conversions)
+- [x] 3.1 Update internal/core/parser.go to parse canonical YAML format
+- [x] 3.2 Update internal/core/serializer.go to render canonical models to output
+- [x] 3.3 Remove transformPermissionMode() function from internal/core/template_funcs.go
+- [x] 3.4 Remove permission mode transformation template function calls from templates
+- [x] 3.5 Update internal/core/loader.go to use canonical models instead of Claude Code models
+- [x] 3.6 Update internal/models/constants.go to remove Claude Code platform constants (if any)
+- [x] 3.7 Add PlatformConfig struct for Targets section (platform-specific configurations)
+- [x] 3.8 Update internal/services/validator.go to validate canonical models
+- [x] 3.9 Remove platform-specific validation from services (OpenCode-specific validation now in adapters)
+- [x] 3.10 Update internal/services/transformer.go to use adapters for conversion
+- [x] 3.11 Remove ValidateOpenCode*() methods from services (validation moved to adapters)
+- [x] 3.12 Rename canonical AgentBehavior.MaxSteps field to Steps to match OpenCode platform field name
+- [x] 3.13 Update OpenCode adapter to use Steps field directly (no conversion needed)
+- [x] 3.14 Write unit tests for ClaudeCodeAdapter methods (ToCanonical, FromCanonical, PermissionPolicyToPlatform)
+- [x] 3.15 Write unit tests for OpenCodeAdapter methods (ToCanonical, FromCanonical, PermissionPolicyToPlatform)
+- [x] 3.16 Write unit tests for shared helper functions (case conversions)
 
 ## 4. Templates
 
@@ -96,6 +94,8 @@
 - [ ] 6.9 Run mise run test to verify all tests pass
 - [ ] 6.10 Run mise run lint to verify code quality
 - [ ] 6.11 Run mise run check to verify all validation passes
+- [ ] 6.12 Remove Claude Code-based models from internal/models/ (Agent, Command, Memory, Skill)
+- [ ] 6.13 Remove Claude Code-specific validation (permissionMode enum, model aliases) from old Validate()
 
 ## 7. Documentation and Cleanup
 
@@ -108,7 +108,7 @@
 - [ ] 7.7 Update config/AGENTS.md with canonical template information
 - [ ] 7.8 Remove obsolete specs (opencode-*-transformation specs from openspec/specs/transformation/) - Add note that these specs are subsumed by platform-adapters capability
 - [ ] 7.9 Clarify OpenCode behavior flattening in design.md or create FAQ - Document why canonical behavior object is flattened to top level (OpenCode doesn't support nested behavior objects)
-- [ ] 7.9 Run go mod tidy after removing packages
+- [ ] 7.10 Run go mod tidy after removing packages
 
 ## 8. Verification
 

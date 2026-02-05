@@ -29,7 +29,7 @@ func (p PermissionPolicy) IsValid() bool {
 type AgentBehavior struct {
 	Mode        string   `yaml:"mode,omitempty" json:"mode,omitempty"`
 	Temperature *float64 `yaml:"temperature,omitempty" json:"temperature,omitempty"`
-	MaxSteps    int      `yaml:"maxSteps,omitempty" json:"maxSteps,omitempty"`
+	Steps       int      `yaml:"steps,omitempty" json:"steps,omitempty"`
 	Prompt      string   `yaml:"prompt,omitempty" json:"prompt,omitempty"`
 	Hidden      bool     `yaml:"hidden,omitempty" json:"hidden,omitempty"`
 	Disabled    bool     `yaml:"disabled,omitempty" json:"disabled,omitempty"`
@@ -55,8 +55,8 @@ func (b *AgentBehavior) Validate() []error {
 		}
 	}
 
-	if b.MaxSteps < 0 {
-		errs = append(errs, fmt.Errorf("behavior.maxSteps must be >= 0 (got: %d)", b.MaxSteps))
+	if b.Steps < 0 {
+		errs = append(errs, fmt.Errorf("behavior.steps must be >= 0 (got: %d)", b.Steps))
 	}
 
 	return errs

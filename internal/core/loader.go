@@ -4,8 +4,6 @@ package core
 import (
 	"fmt"
 	"regexp"
-
-	"gitlab.com/amoconst/germinator/internal/models"
 )
 
 // LoadDocument loads and validates a document from the given filepath.
@@ -22,14 +20,14 @@ func LoadDocument(filepath, platform string) (interface{}, error) {
 
 	var errs []error
 	switch d := doc.(type) {
-	case *models.Agent:
-		errs = d.Validate(platform)
-	case *models.Command:
-		errs = d.Validate(platform)
-	case *models.Memory:
-		errs = d.Validate(platform)
-	case *models.Skill:
-		errs = d.Validate(platform)
+	case *CanonicalAgent:
+		errs = d.Agent.Validate()
+	case *CanonicalCommand:
+		errs = d.Command.Validate()
+	case *CanonicalMemory:
+		errs = d.Memory.Validate()
+	case *CanonicalSkill:
+		errs = d.Skill.Validate()
 	}
 
 	if len(errs) > 0 {

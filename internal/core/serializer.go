@@ -9,7 +9,6 @@ import (
 	"text/template"
 
 	"github.com/Masterminds/sprig/v3"
-	"gitlab.com/amoconst/germinator/internal/models"
 )
 
 // RenderDocument renders a document using the platform-specific template.
@@ -47,23 +46,11 @@ func RenderDocument(doc interface{}, platform string) (string, error) {
 //
 // It combines Sprig's built-in functions with our custom functions:
 //   - Sprig provides string functions like lower, upper, trim, etc.
-//   - Custom functions:
-//   - transformPermissionMode: Converts Claude Code permissionMode enum to OpenCode permission object
 //
 // Returns:
 //   - map[string]interface{}: Template function map containing Sprig and custom functions
 func createTemplateFuncMap() map[string]interface{} {
-	funcMap := sprig.FuncMap()
-
-	customFuncs := map[string]interface{}{
-		"transformPermissionMode": transformPermissionMode,
-	}
-
-	for k, v := range customFuncs {
-		funcMap[k] = v
-	}
-
-	return funcMap
+	return sprig.FuncMap()
 }
 
 func getTemplatePath(platform string, filename string) (string, error) {
@@ -88,13 +75,13 @@ func getTemplatePath(platform string, filename string) (string, error) {
 
 func getDocType(doc interface{}) (string, error) {
 	switch d := doc.(type) {
-	case *models.Agent:
+	case *CanonicalAgent:
 		return "agent", nil
-	case *models.Command:
+	case *CanonicalCommand:
 		return "command", nil
-	case *models.Memory:
+	case *CanonicalMemory:
 		return "memory", nil
-	case *models.Skill:
+	case *CanonicalSkill:
 		return "skill", nil
 	default:
 		return "", fmt.Errorf("unknown document type: %T", d)

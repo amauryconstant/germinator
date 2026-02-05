@@ -96,6 +96,10 @@ func (a *ClaudeCodeAdapter) parseAgent(input map[string]interface{}) (*canonical
 				agent.Tools = append(agent.Tools, adapters.ToLowerCase(toolName))
 			}
 		}
+	} else if tools, ok := input["tools"].([]string); ok {
+		for _, toolName := range tools {
+			agent.Tools = append(agent.Tools, adapters.ToLowerCase(toolName))
+		}
 	}
 
 	if disallowedTools, ok := input["disallowedTools"].([]interface{}); ok {
@@ -103,6 +107,10 @@ func (a *ClaudeCodeAdapter) parseAgent(input map[string]interface{}) (*canonical
 			if toolName, ok := t.(string); ok {
 				agent.DisallowedTools = append(agent.DisallowedTools, adapters.ToLowerCase(toolName))
 			}
+		}
+	} else if disallowedTools, ok := input["disallowedTools"].([]string); ok {
+		for _, toolName := range disallowedTools {
+			agent.DisallowedTools = append(agent.DisallowedTools, adapters.ToLowerCase(toolName))
 		}
 	}
 
@@ -118,7 +126,7 @@ func (a *ClaudeCodeAdapter) parseAgent(input map[string]interface{}) (*canonical
 		agent.Behavior.Temperature = &temperature
 	}
 	if maxSteps, ok := input["maxSteps"].(int); ok {
-		agent.Behavior.MaxSteps = maxSteps
+		agent.Behavior.Steps = maxSteps
 	}
 	if prompt, ok := input["prompt"].(string); ok {
 		agent.Behavior.Prompt = prompt
@@ -204,8 +212,8 @@ func (a *ClaudeCodeAdapter) renderAgent(agent *canonical.Agent) (map[string]inte
 	if agent.Behavior.Temperature != nil {
 		output["temperature"] = *agent.Behavior.Temperature
 	}
-	if agent.Behavior.MaxSteps != 0 {
-		output["maxSteps"] = agent.Behavior.MaxSteps
+	if agent.Behavior.Steps != 0 {
+		output["maxSteps"] = agent.Behavior.Steps
 	}
 	if agent.Behavior.Prompt != "" {
 		output["prompt"] = agent.Behavior.Prompt
