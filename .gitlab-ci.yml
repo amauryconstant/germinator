@@ -247,6 +247,7 @@ mirror-to-github:
   stage: distribute
   variables:
     GIT_STRATEGY: fetch
+    GIT_DEPTH: 0
   script:
     - git remote add github "https://${GITHUB_ACCESS_TOKEN}@github.com/${GITHUB_REPO_URL}.git"
     - git fetch github
