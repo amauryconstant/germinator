@@ -1,52 +1,72 @@
 schema: spec-driven
 
 context: |
-  Domain: Configuration adapter transforming AI coding assistant documents (commands, memory, skills, agents) between platforms. Claude Code document standard as source format.``
-  
-  Tech stack: Go 1.25.5, Cobra CLI, JSON Schema (xeipuuv/gojsonschema)
-  Tooling: mise, golangci-lint
-  
+  Domain: Configuration adapter transforming AI coding assistant documents
+  (commands, memory, skills, agents) between platforms using canonical YAML format
+  as source, targeting Claude Code or OpenCode.
+
+  Architecture:
+  - Canonical models (internal/models/canonical/) - domain-driven, platform-agnostic
+  - Platform adapters (internal/adapters/) - bidirectional conversion
+  - Two-stage validation - structural + platform-specific
+  - Template-based rendering (config/templates/)
+
+  Key Concepts:
+  - PermissionPolicy enum (restrictive, balanced, permissive, analysis, unrestricted)
+  - Behavior object (mode, temperature, steps, prompt, hidden, disabled)
+  - Targets section for platform-specific overrides
+  - User-provided model IDs (no normalization)
+
+  Tech stack: Go 1.25.5, Cobra CLI, YAML (gopkg.in/yaml.v3), Templates (github.com/Masterminds/sprig/v3)
+  Tooling: mise, golangci-lint, pre-commit
+
   Code conventions:
   - NO comments in code unless explicitly requested
+  - Table-driven tests with fixtures
   - Use mise run <task> for all task operations
   - Run mise run check before committing
-  
+  - Platform-specific logic in adapters only
+
   Architecture patterns:
   - No predefined directory structure (CLI works with any input/output paths)
   - Platform differences handled automatically via adapters
   - Preserve source content, only adapt for target compatibility
   - No forced compatibility - omit unsupported features gracefully
-  
-  Testing: Table-driven tests with fixtures
-  
+
   Research documentation (openspec/research/):
-  - Purpose: Factual reference for AI agents understanding platform-specific features
+  - Purpose: Factual reference for platform-specific features
   - Usage: Consult when building/adapting platform adapters or validating configurations
   - Notes: Documents are concise overviews, not implementation guidance
 
-  Spec organization:
-  - specs/models/ - Core data structures
-  - specs/documents/ - Document lifecycle
-  - specs/transformation/ - Platform conversion
-  - specs/quality/ - Code quality enforcement
-  - specs/infrastructure/ - Infrastructure support and meta-specifications
-
-  Delta specs use the same nested structure as main specs. When a change is synced, delta spec paths determine where main specs are updated.
-
 rules:
   proposal:
-    - Focus on "Why", "What Changes", "Capabilities", "Impact"
-    - List all files affected by change
-    - Document new/modified capabilities with clear descriptions
-  
+    - Typically include: Why, What Changes, Capabilities, Impact
+    - Document breaking changes explicitly when applicable
+    - List all affected files organized by category
+    - Include Risks section with mitigations for significant changes
+    - Keep scope focused and well-defined
+
   specs:
-    - Use Given/When/Then/AND scenario format
-    - Each scenario should be testable
-  
+    - Use explicit SHALL statements in requirements
+    - Each scenario follows Given/When/Then/AND format
+    - Scenarios are concrete with specific inputs and expected outputs
+    - Include both positive and negative scenarios
+    - Requirements are grouped logically with clear purpose statements
+    - Scenarios are testable and verify specific behaviors
+
   design:
-    - Include technical decisions and rationale
-    - Document tradeoffs explicitly
-  
+    - Include Context (current state, constraints, assumptions)
+    - Goals state what will be achieved; Non-Goals state what is out of scope
+    - Decisions are numbered with Choice, Rationale, Alternatives considered
+    - Include Risks/Trade-offs section with specific mitigations
+    - Reference related specs, proposals, or design decisions
+    - Document constraints explicitly
+
   tasks:
-    - Break into small, clear, logically ordered steps
-    - Include verification steps (mise run check, lint, test)
+    - Group into logical sections (Setup, Implementation, Testing, Verification, Documentation)
+    - Use checkbox format for items
+    - Tasks are small, clear, and independently verifiable
+    - Include specific file paths and function/method names where applicable
+    - Add verification steps: mise run check, lint, test, test:coverage
+    - Mark completed items with [x]
+    - Tasks are ordered logically with dependencies clear
