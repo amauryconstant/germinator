@@ -116,9 +116,9 @@ func TestRenderDocumentSkill(t *testing.T) {
 func TestRenderDocumentMemory(t *testing.T) {
 	memory := &CanonicalMemory{
 		Memory: canonical.Memory{
-			Paths:   []string{"src/**/*.go", "README.md"},
-			Content: "Memory content\nWith multiple lines",
+			Paths: []string{"src/**/*.go", "README.md"},
 		},
+		Content: "Memory content\nWith multiple lines",
 	}
 
 	result, err := RenderDocument(memory, "claude-code")
@@ -610,5 +610,453 @@ func TestGetDocType(t *testing.T) {
 				t.Errorf("getDocType() = %q, want %q", docType, tt.wantType)
 			}
 		})
+	}
+}
+
+func TestMarshalCanonicalAgent(t *testing.T) {
+	tests := []struct {
+		name  string
+		agent *CanonicalAgent
+		check func(t *testing.T, output string)
+	}{
+		{
+			name: "agent with all fields",
+			agent: &CanonicalAgent{
+				Agent: canonical.Agent{
+					Name:             "test-agent",
+					Description:      "Test agent description",
+					Tools:            []string{"bash", "read", "grep"},
+					DisallowedTools:  []string{"write", "webfetch"},
+					PermissionPolicy: canonical.PermissionPolicyBalanced,
+					Behavior: canonical.AgentBehavior{
+						Mode:        "primary",
+						Temperature: float64Ptr(0.7),
+						Steps:       100,
+						Prompt:      "Test prompt",
+						Hidden:      true,
+						Disabled:    false,
+					},
+					Model: "claude-sonnet-4-5-20250929",
+					Targets: canonical.PlatformConfig{
+						"claude-code": map[string]interface{}{
+							"skills": []string{"skill1", "skill2"},
+						},
+					},
+					Extensions: canonical.AgentExtensions{
+						Hooks: map[string]string{
+							"SessionStart": "hook1",
+						},
+					},
+				},
+				Content: "Agent content here",
+			},
+			check: func(t *testing.T, output string) {
+				if !containsString(output, "name: test-agent") {
+					t.Error("Expected name field")
+				}
+				if !containsString(output, "description: Test agent description") {
+					t.Error("Expected description field")
+				}
+				if !containsString(output, "tools:") {
+					t.Error("Expected tools section")
+				}
+				if !containsString(output, "  - bash") {
+					t.Error("Expected bash tool")
+				}
+				if !containsString(output, "disallowedTools:") {
+					t.Error("Expected disallowedTools section")
+				}
+				if !containsString(output, "permissionPolicy: balanced") {
+					t.Error("Expected permissionPolicy field")
+				}
+				if !containsString(output, "behavior:") {
+					t.Error("Expected behavior section")
+				}
+				if !containsString(output, "mode: primary") {
+					t.Error("Expected mode field")
+				}
+				if !containsString(output, "temperature: 0.7") {
+					t.Error("Expected temperature field")
+				}
+				if !containsString(output, "steps: 100") {
+					t.Error("Expected steps field")
+				}
+				if !containsString(output, "prompt: Test prompt") {
+					t.Error("Expected prompt field")
+				}
+				if !containsString(output, "hidden: true") {
+					t.Error("Expected hidden field")
+				}
+				if containsString(output, "disabled: true") {
+					t.Error("Should not contain disabled field when false")
+				}
+				if !containsString(output, "model: claude-sonnet-4-5-20250929") {
+					t.Error("Expected model field")
+				}
+				if !containsString(output, "extensions:") {
+					t.Error("Expected extensions section")
+				}
+				if !containsString(output, "targets:") {
+					t.Error("Expected targets section")
+				}
+				if !containsString(output, "---") {
+					t.Error("Expected frontmatter delimiters")
+				}
+				if !containsString(output, "Agent content here") {
+					t.Error("Expected content after frontmatter")
+				}
+			},
+		},
+		{
+			name: "agent with minimal fields",
+			agent: &CanonicalAgent{
+				Agent: canonical.Agent{
+					Name:        "minimal-agent",
+					Description: "Minimal agent",
+				},
+				Content: "Minimal content",
+			},
+			check: func(t *testing.T, output string) {
+				if !containsString(output, "name: minimal-agent") {
+					t.Error("Expected name field")
+				}
+				if !containsString(output, "description: Minimal agent") {
+					t.Error("Expected description field")
+				}
+				if containsString(output, "tools:") {
+					t.Error("Should not contain tools section when empty")
+				}
+				if containsString(output, "permissionPolicy:") {
+					t.Error("Should not contain permissionPolicy when empty")
+				}
+				if containsString(output, "behavior:") {
+					t.Error("Should not contain behavior section when all empty")
+				}
+				if containsString(output, "model:") {
+					t.Error("Should not contain model field when empty")
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := MarshalCanonical(tt.agent)
+			if err != nil {
+				t.Fatalf("MarshalCanonical() failed: %v", err)
+			}
+			tt.check(t, result)
+		})
+	}
+}
+
+func TestMarshalCanonicalCommand(t *testing.T) {
+	tests := []struct {
+		name    string
+		command *CanonicalCommand
+		check   func(t *testing.T, output string)
+	}{
+		{
+			name: "command with all fields",
+			command: &CanonicalCommand{
+				Command: canonical.Command{
+					Name:        "test-command",
+					Description: "Test command",
+					Tools:       []string{"bash", "read"},
+					Execution: canonical.CommandExecution{
+						Context: "fork",
+						Subtask: true,
+						Agent:   "general-purpose",
+					},
+					Arguments: canonical.CommandArguments{
+						Hint: "[issue-number]",
+					},
+					Model: "claude-haiku-4-20250514",
+				},
+				Content: "Command content",
+			},
+			check: func(t *testing.T, output string) {
+				if !containsString(output, "name: test-command") {
+					t.Error("Expected name field")
+				}
+				if !containsString(output, "description: Test command") {
+					t.Error("Expected description field")
+				}
+				if !containsString(output, "tools:") {
+					t.Error("Expected tools section")
+				}
+				if !containsString(output, "execution:") {
+					t.Error("Expected execution section")
+				}
+				if !containsString(output, "context: fork") {
+					t.Error("Expected context field")
+				}
+				if !containsString(output, "subtask: true") {
+					t.Error("Expected subtask field")
+				}
+				if !containsString(output, "agent: general-purpose") {
+					t.Error("Expected agent field")
+				}
+				if !containsString(output, "arguments:") {
+					t.Error("Expected arguments section")
+				}
+				if !containsString(output, "hint: [issue-number]") {
+					t.Error("Expected hint field")
+				}
+				if !containsString(output, "model: claude-haiku-4-20250514") {
+					t.Error("Expected model field")
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := MarshalCanonical(tt.command)
+			if err != nil {
+				t.Fatalf("MarshalCanonical() failed: %v", err)
+			}
+			tt.check(t, result)
+		})
+	}
+}
+
+func TestMarshalCanonicalSkill(t *testing.T) {
+	tests := []struct {
+		name  string
+		skill *CanonicalSkill
+		check func(t *testing.T, output string)
+	}{
+		{
+			name: "skill with all fields",
+			skill: &CanonicalSkill{
+				Skill: canonical.Skill{
+					Name:        "test-skill",
+					Description: "Test skill",
+					Tools:       []string{"bash"},
+					Extensions: canonical.SkillExtensions{
+						License:       "MIT",
+						Compatibility: []string{"claude-code", "opencode"},
+						Metadata: map[string]string{
+							"author":  "test",
+							"version": "1.0.0",
+						},
+						Hooks: map[string]string{
+							"Load": "hook1",
+						},
+					},
+					Execution: canonical.SkillExecution{
+						Context:       "fork",
+						Agent:         "general-purpose",
+						UserInvocable: true,
+					},
+					Model: "claude-sonnet-4-5-20250929",
+				},
+				Content: "Skill content",
+			},
+			check: func(t *testing.T, output string) {
+				if !containsString(output, "name: test-skill") {
+					t.Error("Expected name field")
+				}
+				if !containsString(output, "description: Test skill") {
+					t.Error("Expected description field")
+				}
+				if !containsString(output, "tools:") {
+					t.Error("Expected tools section")
+				}
+				if !containsString(output, "extensions:") {
+					t.Error("Expected extensions section")
+				}
+				if !containsString(output, "license: MIT") {
+					t.Error("Expected license field")
+				}
+				if !containsString(output, "compatibility:") {
+					t.Error("Expected compatibility field")
+				}
+				if !containsString(output, "metadata:") {
+					t.Error("Expected metadata field")
+				}
+				if !containsString(output, "hooks:") {
+					t.Error("Expected hooks field")
+				}
+				if !containsString(output, "execution:") {
+					t.Error("Expected execution section")
+				}
+				if !containsString(output, "context: fork") {
+					t.Error("Expected context field")
+				}
+				if !containsString(output, "agent: general-purpose") {
+					t.Error("Expected agent field")
+				}
+				if !containsString(output, "userInvocable: true") {
+					t.Error("Expected userInvocable field")
+				}
+				if !containsString(output, "model: claude-sonnet-4-5-20250929") {
+					t.Error("Expected model field")
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := MarshalCanonical(tt.skill)
+			if err != nil {
+				t.Fatalf("MarshalCanonical() failed: %v", err)
+			}
+			tt.check(t, result)
+		})
+	}
+}
+
+func TestMarshalCanonicalMemory(t *testing.T) {
+	tests := []struct {
+		name   string
+		memory *CanonicalMemory
+		check  func(t *testing.T, output string)
+	}{
+		{
+			name: "memory with paths only",
+			memory: &CanonicalMemory{
+				Memory: canonical.Memory{
+					Paths: []string{"src/**/*.go", "README.md"},
+				},
+				Content: "",
+			},
+			check: func(t *testing.T, output string) {
+				if !containsString(output, "paths:") {
+					t.Error("Expected paths section")
+				}
+				if !containsString(output, "  - src/**/*.go") {
+					t.Error("Expected path entry")
+				}
+				if containsString(output, "content:") {
+					t.Error("Should not contain content field when empty and paths exist")
+				}
+				if !containsString(output, "---") {
+					t.Error("Expected frontmatter delimiter")
+				}
+			},
+		},
+		{
+			name: "memory with content only",
+			memory: &CanonicalMemory{
+				Memory: canonical.Memory{
+					Paths: []string{},
+				},
+				Content: "This is the memory content\nwith multiple lines",
+			},
+			check: func(t *testing.T, output string) {
+				if containsString(output, "paths:") {
+					t.Error("Should not contain paths section when empty")
+				}
+				if !containsString(output, "content: |") {
+					t.Error("Expected content with pipe syntax")
+				}
+				if !containsString(output, "This is the memory content") {
+					t.Error("Expected content text")
+				}
+			},
+		},
+		{
+			name: "memory with both paths and content",
+			memory: &CanonicalMemory{
+				Memory: canonical.Memory{
+					Paths: []string{"src/**/*.go"},
+				},
+				Content: "Additional context",
+			},
+			check: func(t *testing.T, output string) {
+				if !containsString(output, "paths:") {
+					t.Error("Expected paths section")
+				}
+				if !containsString(output, "content: |") {
+					t.Error("Expected content with pipe syntax")
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := MarshalCanonical(tt.memory)
+			if err != nil {
+				t.Fatalf("MarshalCanonical() failed: %v", err)
+			}
+			tt.check(t, result)
+		})
+	}
+}
+
+func TestMarshalCanonicalAllEmptyOptionalFields(t *testing.T) {
+	agent := &CanonicalAgent{
+		Agent: canonical.Agent{
+			Name:        "test-agent",
+			Description: "Test agent",
+		},
+		Content: "Content",
+	}
+
+	result, err := MarshalCanonical(agent)
+	if err != nil {
+		t.Fatalf("MarshalCanonical() failed: %v", err)
+	}
+
+	if containsString(result, "tools:") {
+		t.Error("Should not contain tools when empty")
+	}
+	if containsString(result, "disallowedTools:") {
+		t.Error("Should not contain disallowedTools when empty")
+	}
+	if containsString(result, "permissionPolicy:") {
+		t.Error("Should not contain permissionPolicy when empty")
+	}
+	if containsString(result, "behavior:") {
+		t.Error("Should not contain behavior when all fields empty")
+	}
+	if containsString(result, "model:") {
+		t.Error("Should not contain model when empty")
+	}
+	if containsString(result, "extensions:") {
+		t.Error("Should not contain extensions when empty")
+	}
+	if containsString(result, "targets:") {
+		t.Error("Should not contain targets when empty")
+	}
+}
+
+func TestMarshalCanonicalNoAdapterFieldAccess(t *testing.T) {
+	agent := &CanonicalAgent{
+		Agent: canonical.Agent{
+			Name:        "test-agent",
+			Description: "Test agent",
+			Tools:       []string{"bash"},
+		},
+		Content: "Content",
+	}
+
+	result, err := MarshalCanonical(agent)
+	if err != nil {
+		t.Fatalf("MarshalCanonical() failed: %v", err)
+	}
+
+	if containsString(result, ".Adapter") {
+		t.Error("Should not access Adapter field in canonical templates")
+	}
+	if containsString(result, "adapter.") {
+		t.Error("Should not access adapter methods in canonical templates")
+	}
+}
+
+func TestMarshalCanonicalUnknownType(t *testing.T) {
+	type UnknownType struct{}
+	doc := &UnknownType{}
+
+	_, err := MarshalCanonical(doc)
+	if err == nil {
+		t.Error("Expected error for unknown document type")
+	}
+	if !containsString(err.Error(), "unknown document type") {
+		t.Errorf("Expected unknown document type error, got: %v", err)
 	}
 }

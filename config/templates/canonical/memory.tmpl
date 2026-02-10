@@ -1,0 +1,13 @@
+---
+{{- if .Doc.Paths}}
+paths:
+{{- range .Doc.Paths}}
+  - {{.}}
+{{- end}}
+{{- end}}
+{{- if .Doc.Content}}
+content: |
+{{.Doc.Content}}
+{{- end}}
+---
+{{.Doc.Content}}

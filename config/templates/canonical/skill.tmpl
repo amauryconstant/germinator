@@ -1,0 +1,50 @@
+---
+name: {{.Doc.Name}}
+description: {{.Doc.Description}}
+{{- if .Doc.Tools}}
+tools:
+{{- range .Doc.Tools}}
+  - {{.}}
+{{- end}}
+{{- end}}
+{{- if or .Doc.Extensions.License (gt (len .Doc.Extensions.Compatibility) 0) (gt (len .Doc.Extensions.Metadata) 0) (gt (len .Doc.Extensions.Hooks) 0)}}
+extensions:
+{{- if .Doc.Extensions.License}}
+  license: {{.Doc.Extensions.License}}
+{{- end}}
+{{- if gt (len .Doc.Extensions.Compatibility) 0}}
+  compatibility:
+{{- range .Doc.Extensions.Compatibility}}
+    - {{.}}
+{{- end}}
+{{- end}}
+{{- if gt (len .Doc.Extensions.Metadata) 0}}
+  metadata:
+{{- range $key, $value := .Doc.Extensions.Metadata}}
+    {{$key}}: "{{$value}}"
+{{- end}}
+{{- end}}
+{{- if gt (len .Doc.Extensions.Hooks) 0}}
+  hooks:
+{{- range $key, $value := .Doc.Extensions.Hooks}}
+    {{$key}}: "{{$value}}"
+{{- end}}
+{{- end}}
+{{- end}}
+{{- if or .Doc.Execution.Context .Doc.Execution.Agent .Doc.Execution.UserInvocable}}
+execution:
+{{- if .Doc.Execution.Context}}
+  context: {{.Doc.Execution.Context}}
+{{- end}}
+{{- if .Doc.Execution.Agent}}
+  agent: {{.Doc.Execution.Agent}}
+{{- end}}
+{{- if .Doc.Execution.UserInvocable}}
+  userInvocable: true
+{{- end}}
+{{- end}}
+{{- if .Doc.Model}}
+model: {{.Doc.Model}}
+{{- end}}
+---
+{{.Doc.Content}}

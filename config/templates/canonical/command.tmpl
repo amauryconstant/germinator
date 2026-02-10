@@ -1,0 +1,30 @@
+---
+name: {{.Doc.Name}}
+description: {{.Doc.Description}}
+{{- if .Doc.Tools}}
+tools:
+{{- range .Doc.Tools}}
+  - {{.}}
+{{- end}}
+{{- end}}
+{{- if or .Doc.Execution.Context .Doc.Execution.Subtask .Doc.Execution.Agent}}
+execution:
+{{- if .Doc.Execution.Context}}
+  context: {{.Doc.Execution.Context}}
+{{- end}}
+{{- if .Doc.Execution.Subtask}}
+  subtask: true
+{{- end}}
+{{- if .Doc.Execution.Agent}}
+  agent: {{.Doc.Execution.Agent}}
+{{- end}}
+{{- end}}
+{{- if .Doc.Arguments.Hint}}
+arguments:
+  hint: {{.Doc.Arguments.Hint}}
+{{- end}}
+{{- if .Doc.Model}}
+model: {{.Doc.Model}}
+{{- end}}
+---
+{{.Doc.Content}}

@@ -1,0 +1,60 @@
+---
+name: {{.Doc.Name}}
+description: {{.Doc.Description}}
+{{- if .Doc.Tools}}
+tools:
+{{- range .Doc.Tools}}
+  - {{.}}
+{{- end}}
+{{- end}}
+{{- if .Doc.DisallowedTools}}
+disallowedTools:
+{{- range .Doc.DisallowedTools}}
+  - {{.}}
+{{- end}}
+{{- end}}
+{{- if .Doc.PermissionPolicy}}
+permissionPolicy: {{.Doc.PermissionPolicy}}
+{{- end}}
+{{- if or .Doc.Behavior.Mode .Doc.Behavior.Temperature (gt .Doc.Behavior.Steps 0) .Doc.Behavior.Prompt .Doc.Behavior.Hidden .Doc.Behavior.Disabled}}
+behavior:
+{{- if .Doc.Behavior.Mode}}
+  mode: {{.Doc.Behavior.Mode}}
+{{- end}}
+{{- if .Doc.Behavior.Temperature}}
+  temperature: {{.Doc.Behavior.Temperature}}
+{{- end}}
+{{- if gt .Doc.Behavior.Steps 0}}
+  steps: {{.Doc.Behavior.Steps}}
+{{- end}}
+{{- if .Doc.Behavior.Prompt}}
+  prompt: {{.Doc.Behavior.Prompt}}
+{{- end}}
+{{- if .Doc.Behavior.Hidden}}
+  hidden: true
+{{- end}}
+{{- if .Doc.Behavior.Disabled}}
+  disabled: true
+{{- end}}
+{{- end}}
+{{- if .Doc.Model}}
+model: {{.Doc.Model}}
+{{- end}}
+{{- if .Doc.Extensions.Hooks}}
+extensions:
+  hooks:
+{{- range $key, $value := .Doc.Extensions.Hooks}}
+    {{$key}}: "{{$value}}"
+{{- end}}
+{{- end}}
+{{- if .Doc.Targets}}
+targets:
+{{- range $platform, $config := .Doc.Targets}}
+  {{$platform}}:
+{{- range $key, $value := $config}}
+    {{$key}}: {{$value}}
+{{- end}}
+{{- end}}
+{{- end}}
+---
+{{.Doc.Content}}

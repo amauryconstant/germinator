@@ -21,6 +21,10 @@ type templateContext struct {
 	Adapter interface{}
 }
 
+type canonicalTemplateContext struct {
+	Doc interface{}
+}
+
 // RenderDocument renders a document using platform-specific template.
 func RenderDocument(doc interface{}, platform string) (string, error) {
 	docType, err := getDocType(doc)
@@ -189,4 +193,64 @@ func getDocType(doc interface{}) (string, error) {
 	default:
 		return "", fmt.Errorf("unknown document type: %T", d)
 	}
+}
+
+// MarshalCanonical serializes a canonical model to YAML string using canonical templates.
+func MarshalCanonical(doc interface{}) (string, error) {
+	docType, err := getDocType(doc)
+	if err != nil {
+		return "", fmt.Errorf("failed to determine document type: %w", err)
+	}
+
+	tmplPath, err := getCanonicalTemplatePath(docType + ".tmpl")
+	if err != nil {
+		return "", fmt.Errorf("failed to get template path: %w", err)
+	}
+
+	tmplContent, err := os.ReadFile(tmplPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read template file %s: %w", tmplPath, err)
+	}
+
+	ctx := canonicalTemplateContext{
+		Doc: doc,
+	}
+
+	tmpl, err := template.New(docType).Funcs(createCanonicalTemplateFuncMap()).Parse(string(tmplContent))
+	if err != nil {
+		return "", fmt.Errorf("failed to parse template: %w", err)
+	}
+
+	var sb strings.Builder
+	if err := tmpl.Execute(&sb, ctx); err != nil {
+		return "", fmt.Errorf("failed to execute template: %w", err)
+	}
+
+	return sb.String(), nil
+}
+
+// getCanonicalTemplatePath returns the absolute path to a canonical template file.
+func getCanonicalTemplatePath(filename string) (string, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+
+	relPath := filepath.Join("config", "templates", "canonical", filename)
+	tmplPath := filepath.Join(cwd, relPath)
+
+	if _, err := os.Stat(tmplPath); err != nil {
+		altPath := filepath.Join(filepath.Join(cwd, "..", ".."), relPath)
+		if _, err := os.Stat(altPath); err == nil {
+			return filepath.Abs(altPath)
+		}
+		return "", fmt.Errorf("canonical template file not found: %s", relPath)
+	}
+
+	return filepath.Abs(tmplPath)
+}
+
+// createCanonicalTemplateFuncMap creates and returns a FuncMap with minimal Sprig functions for canonical templates.
+func createCanonicalTemplateFuncMap() map[string]interface{} {
+	return sprig.FuncMap()
 }
