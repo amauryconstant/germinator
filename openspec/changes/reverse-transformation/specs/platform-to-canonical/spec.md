@@ -189,7 +189,7 @@ The system SHALL validate canonical models after platform parsing using existing
 - **GIVEN** a CanonicalAgent struct with name containing uppercase letters or spaces (e.g., "My Agent")
 - **WHEN** agent.Validate() is called
 - **THEN** function SHALL return error array with name regex error
-- **AND** error message SHALL indicate pattern ^[a-z0-9]+(-[a-z0-9]+)\*$ is required
+- **AND** error message SHALL indicate pattern ^[a-z0-9]+(-[a-z0-9]+)*$ is required
 - **AND** agent SHALL be considered invalid
 
 #### Scenario: Validate canonical agent with invalid permission policy
@@ -291,6 +291,24 @@ The system SHALL serialize canonical models to YAML strings using canonical temp
 - **AND** YAML SHALL contain content field if memory.Content is non-empty
 - **AND** YAML SHALL use pipe (|) syntax for content field to preserve multiline formatting
 - **AND** YAML SHALL omit content field if empty and paths exist
+
+#### Scenario: Serialize canonical memory with paths only
+
+- **GIVEN** a CanonicalMemory struct with paths array containing file references and empty content string
+- **WHEN** MarshalCanonical(memory) is called
+- **THEN** function SHALL return YAML string with paths array
+- **AND** YAML SHALL render each path on separate line with dash
+- **AND** YAML SHALL NOT contain content field
+- **AND** YAML SHALL end with ---
+
+#### Scenario: Serialize canonical memory with content only
+
+- **GIVEN** a CanonicalMemory struct with empty paths array and non-empty content string
+- **WHEN** MarshalCanonical(memory) is called
+- **THEN** function SHALL return YAML string with content field
+- **AND** YAML SHALL use pipe (|) syntax for content field to preserve multiline formatting
+- **AND** YAML SHALL NOT contain paths array
+- **AND** YAML SHALL end with ---
 
 #### Scenario: Serialize canonical model targets section
 
