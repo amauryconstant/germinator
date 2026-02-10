@@ -73,11 +73,23 @@ func DetectType(filepath string) string {
 	if matched, _ := regexp.MatchString(`.*-agent\.md$`, base); matched {
 		return "agent"
 	}
+	if matched, _ := regexp.MatchString(`agent-.*\.yaml$`, base); matched {
+		return "agent"
+	}
+	if matched, _ := regexp.MatchString(`.*-agent\.yaml$`, base); matched {
+		return "agent"
+	}
 
 	if matched, _ := regexp.MatchString(`command-.*\.md$`, base); matched {
 		return "command"
 	}
 	if matched, _ := regexp.MatchString(`.*-command\.md$`, base); matched {
+		return "command"
+	}
+	if matched, _ := regexp.MatchString(`command-.*\.yaml$`, base); matched {
+		return "command"
+	}
+	if matched, _ := regexp.MatchString(`.*-command\.yaml$`, base); matched {
 		return "command"
 	}
 
@@ -87,11 +99,23 @@ func DetectType(filepath string) string {
 	if matched, _ := regexp.MatchString(`.*-memory\.md$`, base); matched {
 		return "memory"
 	}
+	if matched, _ := regexp.MatchString(`memory-.*\.yaml$`, base); matched {
+		return "memory"
+	}
+	if matched, _ := regexp.MatchString(`.*-memory\.yaml$`, base); matched {
+		return "memory"
+	}
 
 	if matched, _ := regexp.MatchString(`skill-.*\.md$`, base); matched {
 		return "skill"
 	}
 	if matched, _ := regexp.MatchString(`.*-skill\.md$`, base); matched {
+		return "skill"
+	}
+	if matched, _ := regexp.MatchString(`skill-.*\.yaml$`, base); matched {
+		return "skill"
+	}
+	if matched, _ := regexp.MatchString(`.*-skill\.yaml$`, base); matched {
 		return "skill"
 	}
 

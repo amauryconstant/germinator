@@ -32,6 +32,7 @@ type CanonicalSkill struct {
 type CanonicalMemory struct {
 	canonical.Memory
 	FilePath string
+	Content  string
 }
 
 // ParseDocument parses a document file and returns the appropriate struct.
@@ -61,6 +62,7 @@ func parseMemory(filePath string, content string) (interface{}, error) {
 			Content: content,
 		},
 		FilePath: filePath,
+		Content:  "",
 	}
 
 	lines := strings.Split(content, "\n")
@@ -90,14 +92,21 @@ func parseMemory(filePath string, content string) (interface{}, error) {
 			}
 			if _, ok := frontmatter["content"].(string); ok {
 				memory.Content = extractContentFromYamlLines(yamlLines)
+				memory.Memory.Content = extractContentFromYamlLines(yamlLines)
 			} else if foundEnd {
 				memory.Content = strings.Join(bodyLines, "\n")
+				memory.Memory.Content = strings.Join(bodyLines, "\n")
 			} else {
 				memory.Content = ""
+				memory.Memory.Content = ""
 			}
 		} else if foundEnd {
 			memory.Content = strings.Join(bodyLines, "\n")
+			memory.Memory.Content = strings.Join(bodyLines, "\n")
 		}
+	} else {
+		memory.Content = content
+		memory.Memory.Content = content
 	}
 
 	return memory, nil
