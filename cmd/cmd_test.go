@@ -712,3 +712,263 @@ Command content`,
 		})
 	}
 }
+
+func TestCanonicalizeCommandWithAllFlags(t *testing.T) {
+	root, err := getProjectRoot()
+	if err != nil {
+		t.Fatalf("Failed to find project root: %v", err)
+	}
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(oldWd); err != nil {
+			t.Fatalf("Failed to restore working directory: %v", err)
+		}
+	}()
+	if err := os.Chdir(root); err != nil {
+		t.Fatalf("Failed to change to project root: %v", err)
+	}
+
+	tmpDir := t.TempDir()
+	inputFile := tmpDir + "/test-agent.md"
+	outputFile := tmpDir + "/canonical-agent.yaml"
+
+	content := `---
+name: test-agent
+description: A test agent
+tools:
+  - bash
+  - read
+---
+Agent content`
+
+	if err := os.WriteFile(inputFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	canonicalizePlatform = "claude-code"
+	canonicalizeDocType = "agent"
+	canonicalizeCmd.Run(canonicalizeCmd, []string{inputFile, outputFile})
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+
+	var buf strings.Builder
+	_, _ = io.Copy(&buf, r)
+
+	output := buf.String()
+	if !strings.Contains(output, "Successfully canonicalized document to:") {
+		t.Errorf("Expected success message, got: %s", output)
+	}
+
+	if _, err := os.Stat(outputFile); os.IsNotExist(err) {
+		t.Errorf("Expected output file to be created: %s", outputFile)
+	}
+
+	result, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatalf("Failed to read output file: %v", err)
+	}
+
+	resultStr := string(result)
+	if !strings.Contains(resultStr, "name: test-agent") {
+		t.Errorf("Expected output to contain name, got: %s", resultStr)
+	}
+	if !strings.Contains(resultStr, "description: A test agent") {
+		t.Errorf("Expected output to contain description, got: %s", resultStr)
+	}
+}
+
+func TestCanonicalizeCommandMissingPlatform(t *testing.T) {
+	tmpDir := t.TempDir()
+	inputFile := tmpDir + "/test-agent.md"
+
+	content := `---
+name: test-agent
+description: A test agent
+---
+Agent content`
+
+	if err := os.WriteFile(inputFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	err := services.CanonicalizeDocument(inputFile, tmpDir+"/output.yaml", "", "agent")
+	if err == nil {
+		t.Errorf("Expected error when platform is empty")
+	}
+
+	if !strings.Contains(err.Error(), "unsupported platform") {
+		t.Errorf("Expected unsupported platform error, got: %v", err)
+	}
+}
+
+func TestCanonicalizeCommandMissingType(t *testing.T) {
+	tmpDir := t.TempDir()
+	inputFile := tmpDir + "/test-agent.md"
+
+	content := `---
+name: test-agent
+description: A test agent
+---
+Agent content`
+
+	if err := os.WriteFile(inputFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	err := services.CanonicalizeDocument(inputFile, tmpDir+"/output.yaml", "claude-code", "")
+	if err == nil {
+		t.Errorf("Expected error when type is empty")
+	}
+
+	if !strings.Contains(err.Error(), "unknown document type") {
+		t.Errorf("Expected unknown document type error, got: %v", err)
+	}
+}
+
+func TestCanonicalizeCommandInvalidPlatform(t *testing.T) {
+	tmpDir := t.TempDir()
+	inputFile := tmpDir + "/test-agent.md"
+
+	content := `---
+name: test-agent
+description: A test agent
+---
+Agent content`
+
+	if err := os.WriteFile(inputFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	err := services.CanonicalizeDocument(inputFile, tmpDir+"/output.yaml", "invalid-platform", "agent")
+	if err == nil {
+		t.Errorf("Expected error when platform is invalid")
+	}
+
+	if !strings.Contains(err.Error(), "unsupported platform") {
+		t.Errorf("Expected unsupported platform error, got: %v", err)
+	}
+}
+
+func TestCanonicalizeCommandInvalidType(t *testing.T) {
+	tmpDir := t.TempDir()
+	inputFile := tmpDir + "/test-agent.md"
+
+	content := `---
+name: test-agent
+description: A test agent
+---
+Agent content`
+
+	if err := os.WriteFile(inputFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	err := services.CanonicalizeDocument(inputFile, tmpDir+"/output.yaml", "claude-code", "invalid-type")
+	if err == nil {
+		t.Errorf("Expected error when type is invalid")
+	}
+
+	if !strings.Contains(err.Error(), "unknown document type") {
+		t.Errorf("Expected unknown document type error, got: %v", err)
+	}
+}
+
+func TestCanonicalizeCommandFileNotFound(t *testing.T) {
+	tmpDir := t.TempDir()
+	inputFile := tmpDir + "/non-existent-file.md"
+
+	err := services.CanonicalizeDocument(inputFile, tmpDir+"/output.yaml", "claude-code", "agent")
+	if err == nil {
+		t.Errorf("Expected error when input file not found")
+	}
+
+	if !strings.Contains(err.Error(), "failed to read file") {
+		t.Errorf("Expected file read error, got: %v", err)
+	}
+}
+
+func TestCanonicalizeCommandSuccessfulConversion(t *testing.T) {
+	root, err := getProjectRoot()
+	if err != nil {
+		t.Fatalf("Failed to find project root: %v", err)
+	}
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(oldWd); err != nil {
+			t.Fatalf("Failed to restore working directory: %v", err)
+		}
+	}()
+	if err := os.Chdir(root); err != nil {
+		t.Fatalf("Failed to change to project root: %v", err)
+	}
+
+	tmpDir := t.TempDir()
+	inputFile := tmpDir + "/test-agent.md"
+	outputFile := tmpDir + "/canonical-agent.yaml"
+
+	content := `---
+name: test-agent
+description: A test agent
+tools:
+  - bash
+  - read
+permissionMode: default
+---
+Agent content`
+
+	if err := os.WriteFile(inputFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	canonicalizePlatform = "claude-code"
+	canonicalizeDocType = "agent"
+	canonicalizeCmd.Run(canonicalizeCmd, []string{inputFile, outputFile})
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+
+	var buf strings.Builder
+	_, _ = io.Copy(&buf, r)
+
+	output := buf.String()
+	if !strings.Contains(output, "Successfully canonicalized document to: "+outputFile) {
+		t.Errorf("Expected success message with output path, got: %s", output)
+	}
+
+	result, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatalf("Failed to read output file: %v", err)
+	}
+
+	resultStr := string(result)
+	if !strings.Contains(resultStr, "name: test-agent") {
+		t.Errorf("Expected output to contain name, got: %s", resultStr)
+	}
+	if !strings.Contains(resultStr, "description: A test agent") {
+		t.Errorf("Expected output to contain description, got: %s", resultStr)
+	}
+	if !strings.Contains(resultStr, "bash") && !strings.Contains(resultStr, "read") {
+		t.Errorf("Expected output to contain tools, got: %s", resultStr)
+	}
+	if !strings.Contains(resultStr, "permissionPolicy: restrictive") {
+		t.Errorf("Expected output to contain permissionPolicy, got: %s", resultStr)
+	}
+	if !strings.Contains(resultStr, "Agent content") {
+		t.Errorf("Expected output to contain content, got: %s", resultStr)
+	}
+}

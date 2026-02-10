@@ -1,0 +1,23 @@
+---
+paths:
+  - src/**/*.go
+  - cmd/**/*.go
+  - pkg/**/*.go
+  - go.mod
+  - go.sum
+content: |
+  This project is a configuration adapter for AI coding assistant documents.
+
+  ## Architecture
+  - `cmd/` - CLI entry points
+  - `internal/core/` - Document parsing and serialization
+  - `internal/services/` - Transformation services
+  - `internal/adapters/` - Platform-specific adapters
+  - `internal/models/` - Document models
+  - `config/templates/` - Platform templates
+
+  ## Key Concepts
+  - Canonical format is the source of truth
+  - Adapters transform between canonical and platform formats
+  - All validation happens on canonical models
+  - Templates control platform-specific output formatting
