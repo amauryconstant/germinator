@@ -1,82 +1,61 @@
 # germinator-source-format Specification
 
 ## Purpose
-Germinator source format serves as canonical input containing ALL fields for ALL platforms (Claude Code + OpenCode).
+Germinator source format serves as canonical source expressing configuration intent, not platform-specific fields.
 
 ## Requirements
 
 ### Requirement: Germinator format serves as canonical source
-The system SHALL use a single canonical YAML format containing ALL platform fields (Claude Code + OpenCode) as source of truth for transformations.
 
-#### Scenario: Source format contains all field types
-- **GIVEN** A Germinator source YAML file
+The system SHALL use a domain-driven canonical YAML format expressing configuration intent, NOT Claude Code format with platform-specific fields.
+
+#### Scenario: Canonical format uses domain-driven fields
+
+- **GIVEN** A canonical source YAML file
 - **WHEN** The file is parsed
 - **THEN** Common fields SHALL be present (Name, Description, Model, Content)
-- **AND** Claude Code-specific fields SHALL be parseable (Tools, PermissionMode, Skills)
-- **AND** OpenCode-specific fields SHALL be parseable (Mode, Temperature (*float64), MaxSteps, Hidden, Prompt, Disable)
+- **AND** PermissionPolicy enum SHALL be present (restrictive, balanced, permissive, analysis, unrestricted)
+- **AND** Behavior object SHALL group settings (mode, temperature, maxSteps, prompt, hidden, disabled)
+- **AND** Targets section SHALL contain platform-specific overrides
+- **AND** Claude Code-specific fields (permissionMode, skills) SHALL NOT be at top level
+- **AND** OpenCode-specific fields (mode, temperature, steps, hidden, prompt, disable) SHALL NOT be at top level (except in behavior)
 
-### Requirement: All platform fields MUST be parseable from YAML
-The system SHALL NOT use `yaml:"-"` tags to prevent parsing of platform-specific fields.
+#### Scenario: Tools use split lists with lowercase names
 
-#### Scenario: Platform fields parseable with proper YAML tags
-- **GIVEN** Models with platform-specific fields (OpenCode: Mode, Temperature; Claude Code: PermissionMode, Skills)
-- **WHEN** YAML is unmarshaled into structs
-- **THEN** All fields SHALL parse from their respective YAML keys (mode, temperature, permissionMode, skills)
-- **AND** All fields SHALL have `yaml:"field,omitempty"` tags (not `yaml:"-"`)
+- **GIVEN** A canonical source YAML file
+- **WHEN** The file is parsed
+- **THEN** Tools array SHALL contain lowercase tool names
+- **AND** DisallowedTools array SHALL contain lowercase tool names
 
-### Requirement: Transformation is unidirectional
-The system SHALL support unidirectional transformation from Germinator format to target platform formats (Claude Code OR OpenCode).
+#### Scenario: Model is simple string with full ID
 
-#### Scenario: Transform to Claude Code omits OpenCode fields
-- **GIVEN** A Germinator source with both Claude Code and OpenCode fields
-- **WHEN** RenderDocument is called with platform="claude-code"
-- **THEN** Claude Code-specific fields SHALL be included (permissionMode, skills)
-- **AND** OpenCode-specific fields SHALL be omitted (mode, temperature, steps, hidden, prompt, disable)
-- **AND** Common fields SHALL be included (name, description, model)
+- **GIVEN** A canonical source YAML file
+- **WHEN** The file is parsed
+- **THEN** Model SHALL be a string with provider/id format (e.g., "anthropic/claude-sonnet-4-20250514")
+- **AND** No alias resolution or normalization SHALL occur
+- **AND** Model ID SHALL be passed to output as-is
 
-#### Scenario: Transform to OpenCode omits Claude Code fields
-- **GIVEN** A Germinator source with both Claude Code and OpenCode fields
-- **WHEN** RenderDocument is called with platform="opencode"
-- **THEN** OpenCode-specific fields SHALL be included (mode, temperature, steps, hidden, prompt, disable)
-- **AND** Claude Code-specific fields SHALL be omitted (permissionMode, skills)
-- **AND** Common fields SHALL be included (name, description, model)
+#### Scenario: Targets section for platform overrides
 
-### Requirement: Templates filter platform-specific fields
-The system SHALL use Go templates to conditionally render platform-specific fields based on target platform.
+- **GIVEN** A canonical source YAML with targets section
+- **WHEN** The file is parsed
+- **THEN** targets.claude-code SHALL contain Claude Code-specific fields (skills array, disableModelInvocation bool)
+- **AND** targets.opencode SHALL contain OpenCode-specific overrides (can override behavior object fields)
+- **AND** Other platform keys in targets SHALL be supported for future extensibility
+- **AND** Empty targets section SHALL NOT cause parsing errors
 
-#### Scenario: Templates conditionally render fields
-- **GIVEN** A model with both Claude Code and OpenCode fields
-- **WHEN** A platform template is rendered
-- **THEN** Claude Code template SHALL use `{{if .PermissionMode}}` for Claude Code fields and NOT render OpenCode fields
-- **AND** OpenCode template SHALL use `{{if .Mode}}` for OpenCode fields and NOT render Claude Code fields
-- **AND** Both templates SHALL render common fields
+### Requirement: Temperature nil vs 0.0 distinction
 
-### Requirement: All model fields MUST have YAML and JSON tags
-The system SHALL ensure all fields in Agent, Command, Skill, and Memory models have both `yaml:"field,omitempty"` and `json:"field,omitempty"` tags.
+This requirement applies to behavior.temperature pointer field in canonical format. Same logic applies (nil vs 0.0 distinction).
 
-#### Scenario: Model fields have proper tags
-- **GIVEN** Model definitions (Agent, Command, Skill, Memory)
-- **WHEN** The structs are inspected
-- **THEN** All fields SHALL have `yaml:"field,omitempty"` tags
-- **AND** All fields SHALL have `json:"field,omitempty"` tags
-- **AND** No fields SHALL have `yaml:"-"` tags that prevent parsing
+#### Scenario: Behavior temperature nil vs 0.0
 
-### Requirement: Source YAML files can contain optional platform fields
-The system SHALL allow source YAML files to omit optional platform-specific fields that are not needed for target transformation.
-
-#### Scenario: Minimal agent with only common fields
-- **GIVEN** A Germinator source YAML with only common fields (name, description, model, content)
-- **WHEN** The file is parsed and transformed to OpenCode
-- **THEN** Common fields SHALL be parsed correctly
-- **AND** Empty platform fields SHALL be zero values (empty strings, nil pointers)
-- **AND** Mode field SHALL default to "all" in OpenCode output
-- **AND** Empty platform fields SHALL NOT be rendered
-
-#### Scenario: Temperature nil vs 0.0 distinction
-- **GIVEN** Agent model with Temperature field as *float64 pointer
-- **WHEN** Temperature is nil
-- **THEN** Temperature field SHALL NOT be rendered in OpenCode output (user didn't set it)
+- **GIVEN** Agent model with behavior.temperature as *float64 pointer
+- **WHEN** behavior.temperature is nil
+- **THEN** behavior.temperature field SHALL NOT be rendered in OpenCode output (user didn't set it)
 - **AND** OpenCode will use model's default temperature
-- **WHEN** Temperature is 0.0
-- **THEN** Temperature field SHALL be rendered as `temperature: 0.0` in OpenCode output
+- **WHEN** behavior.temperature is 0.0
+- **THEN** behavior.temperature field SHALL be rendered as `temperature: 0.0` in OpenCode output
 - **AND** User explicitly requested deterministic low-temperature behavior
+- **AND** Template rendering checks nil presence (not zero value)
+- **AND** Distinction between unset and explicitly set to 0.0 is preserved

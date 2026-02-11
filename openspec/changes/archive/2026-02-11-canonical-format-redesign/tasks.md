@@ -101,24 +101,22 @@
 
 ## 7. Documentation and Cleanup
 
-- [ ] 7.1 Update internal/models/canonical/doc.go with package documentation
-- [ ] 7.2 Update internal/adapters/claude-code/doc.go with adapter documentation
-- [ ] 7.3 Update internal/adapters/opencode/doc.go with adapter documentation
-- [ ] 7.4 Update AGENTS.md with canonical format examples
-- [ ] 7.5 Create migration guide document (old Claude Code format → canonical format)
-- [ ] 7.6 Document breaking change in release notes
-- [ ] 7.7 Update config/AGENTS.md with canonical template information
-- [ ] 7.8 Remove obsolete specs (opencode-*-transformation specs from openspec/specs/transformation/) - Add note that these specs are subsumed by platform-adapters capability
-- [ ] 7.9 Clarify OpenCode behavior flattening in design.md or create FAQ - Document why canonical behavior object is flattened to top level (OpenCode doesn't support nested behavior objects)
-- [ ] 7.10 Run go mod tidy after removing packages
+- [x] 7.1 Update internal/models/canonical/doc.go with package documentation
+- [x] 7.2 Update internal/adapters/claude-code/doc.go with adapter documentation
+- [x] 7.3 Update internal/adapters/opencode/doc.go with adapter documentation
+- [x] 7.4 Update AGENTS.md with canonical format examples
+- [x] 7.5 Update config/AGENTS.md with canonical template information
+- [x] 7.6 Remove obsolete specs (opencode-*-transformation specs from openspec/specs/transformation/) - Add note that these specs are subsumed by platform-adapters capability
+- [x] 7.7 Clarify OpenCode behavior flattening in design.md or create FAQ - Document why canonical behavior object is flattened to top level (OpenCode doesn't support nested behavior objects)
+- [x] 7.8 Run go mod tidy after removing packages
 
 ## 8. Verification
 
-- [ ] 8.1 Run mise run check to verify all validation passes
-- [ ] 8.2 Run mise run test:coverage to verify test coverage
-- [ ] 8.3 Test end-to-end workflow with sample canonical YAML files
-- [ ] 8.4 Verify both Claude Code and OpenCode adapters work correctly
-- [ ] 8.5 Verify permission policy mapping matches design documentation
-- [ ] 8.6 Confirm no Claude Code-specific enums remain in codebase
-- [ ] 8.7 Confirm transformPermissionMode() function removed from codebase
-- [ ] 8.8 Verify templates render canonical models correctly
+- [x] 8.1 Run mise run check to verify all validation passes
+- [x] 8.2 Run mise run test:coverage to verify test coverage
+- [x] 8.3 Test end-to-end workflow with sample canonical YAML files
+- [x] 8.4 Verify both Claude Code and OpenCode adapters work correctly
+- [x] 8.5 Verify permission policy mapping matches design documentation
+- [x] 8.6 Confirm no Claude Code-specific enums remain in codebase
+- [x] 8.7 Confirm transformPermissionMode() function removed from codebase
+- [x] 8.8 Verify templates render canonical models correctly

@@ -1,54 +1,102 @@
 # domain-models Specification
 
 ## Purpose
-Define document models representing AI coding assistant documents (Agent, Command, Memory, Skill) following Claude Code format.
+Define canonical document models (Agent, Command, Memory, Skill) with domain-driven field names independent of platform specifics.
 
 ## Requirements
 ### Requirement: Document Models
 
-The project SHALL define Agent, Command, Memory, and Skill structs with all frontmatter fields matching Claude Code document format.
+The project SHALL define canonical document models (Agent, Command, Memory, Skill) with domain-driven field names independent of platform specifics.
 
-#### Scenario: Agent struct has all required fields
-**Given** Agent struct is defined
-**When** a developer inspects the struct
-**Then** it SHALL have a Name string field with yaml tag "name"
-**And** it SHALL have a Description string field with yaml tag "description"
-**And** it SHALL have a Tools []string field with yaml tag "tools"
-**And** it SHALL have a DisallowedTools []string field with yaml tag "disallowedTools"
-**And** it SHALL have a Model string field with yaml tag "model"
-**And** it SHALL have a PermissionMode string field with yaml tag "permissionMode"
-**And** it SHALL have a Skills []string field with yaml tag "skills"
-**And** it SHALL have FilePath and Content string fields (ignored from YAML with `yaml:"-"`)
+#### Scenario: Canonical Agent struct
 
-#### Scenario: Command struct has all required fields
-**Given** Command struct is defined
-**When** a developer inspects the struct
-**Then** it SHALL have AllowedTools []string field with yaml tag "allowed-tools"
-**And** it SHALL have ArgumentHint string field with yaml tag "argument-hint"
-**And** it SHALL have Context string field with yaml tag "context"
-**And** it SHALL have Agent string field with yaml tag "agent"
-**And** it SHALL have Description string field with yaml tag "description"
-**And** it SHALL have Model string field with yaml tag "model"
-**And** it SHALL have DisableModelInvocation bool field with yaml tag "disable-model-invocation"
-**And** it SHALL have FilePath and Content string fields (ignored from YAML with `yaml:"-"`)
+- **GIVEN** Canonical Agent struct is defined
+- **WHEN** A developer inspects the struct
+- **THEN** it SHALL have Name string field with yaml tag "name"
+- **AND** it SHALL have Description string field with yaml tag "description"
+- **AND** it SHALL have Tools []string field with yaml tag "tools" (lowercase names)
+- **AND** it SHALL have DisallowedTools []string field with yaml tag "disallowedTools" (lowercase names)
+- **AND** it SHALL have PermissionPolicy PermissionPolicy enum field with yaml tag "permissionPolicy" (not string)
+- **AND** it SHALL have Behavior AgentBehavior struct field with yaml tag "behavior"
+- **AND** it SHALL have Model string field with yaml tag "model"
+- **AND** it SHALL have Targets map[string]PlatformConfig field with yaml tag "targets"
+- **AND** it SHALL have FilePath and Content string fields (ignored from YAML with `yaml:"-"`)
 
-#### Scenario: Memory struct has all required fields
-**Given** Memory struct is defined
-**When** a developer inspects the struct
-**Then** it SHALL have Paths []string field with yaml tag "paths"
-**And** it SHALL have FilePath and Content string fields (ignored from YAML with `yaml:"-"`)
+#### Scenario: Canonical AgentBehavior struct
 
-#### Scenario: Skill struct has all required fields
-**Given** Skill struct is defined
-**When** a developer inspects the struct
-**Then** it SHALL have Name string field with yaml tag "name"
-**And** it SHALL have Description string field with yaml tag "description"
-**And** it SHALL have AllowedTools []string field with yaml tag "allowed-tools"
-**And** it SHALL have Model string field with yaml tag "model"
-**And** it SHALL have Context string field with yaml tag "context"
-**And** it SHALL have Agent string field with yaml tag "agent"
-**And** it SHALL have UserInvocable bool field with yaml tag "user-invocable"
-**And** it SHALL have FilePath and Content string fields (ignored from YAML with `yaml:"-"`)
+- **GIVEN** Canonical AgentBehavior struct is defined
+- **WHEN** A developer inspects the struct
+- **THEN** it SHALL have Mode string field with yaml tag "mode" (values: primary, subagent, all)
+- **AND** it SHALL have Temperature *float64 field with yaml tag "temperature"
+- **AND** it SHALL have MaxSteps int field with yaml tag "maxSteps"
+- **AND** it SHALL have Prompt string field with yaml tag "prompt"
+- **AND** it SHALL have Hidden bool field with yaml tag "hidden"
+- **AND** it SHALL have Disabled bool field with yaml tag "disabled"
+
+#### Scenario: Canonical Command struct
+
+- **GIVEN** Canonical Command struct is defined
+- **WHEN** A developer inspects the struct
+- **THEN** it SHALL have Name string field with yaml tag "name"
+- **AND** it SHALL have Description string field with yaml tag "description"
+- **AND** it SHALL have Tools []string field with yaml tag "tools" (lowercase names)
+- **AND** it SHALL have Execution CommandExecution struct field with yaml tag "execution"
+- **AND** it SHALL have Arguments CommandArguments struct field with yaml tag "arguments"
+- **AND** it SHALL have Model string field with yaml tag "model"
+- **AND** it SHALL have Targets map[string]PlatformConfig field with yaml tag "targets"
+- **AND** it SHALL have FilePath and Content string fields (ignored from YAML with `yaml:"-"`)
+
+#### Scenario: Canonical CommandExecution struct
+
+- **GIVEN** Canonical CommandExecution struct is defined
+- **WHEN** A developer inspects the struct
+- **THEN** it SHALL have Context string field with yaml tag "context"
+- **AND** it SHALL have Subtask bool field with yaml tag "subtask"
+- **AND** it SHALL have Agent string field with yaml tag "agent"
+
+#### Scenario: Canonical CommandArguments struct
+
+- **GIVEN** Canonical CommandArguments struct is defined
+- **WHEN** A developer inspects the struct
+- **THEN** it SHALL have Hint string field with yaml tag "hint"
+
+#### Scenario: Canonical Memory struct
+
+- **GIVEN** Canonical Memory struct is defined
+- **WHEN** A developer inspects the struct
+- **THEN** it SHALL have Paths []string field with yaml tag "paths"
+- **AND** it SHALL have Content string field with yaml tag "content"
+- **AND** it SHALL have FilePath string field (ignored from YAML with `yaml:"-"`)
+
+#### Scenario: Canonical Skill struct
+
+- **GIVEN** Canonical Skill struct is defined
+- **WHEN** A developer inspects the struct
+- **THEN** it SHALL have Name string field with yaml tag "name"
+- **AND** it SHALL have Description string field with yaml tag "description"
+- **AND** it SHALL have Tools []string field with yaml tag "tools" (lowercase names)
+- **AND** it SHALL have Extensions SkillExtensions struct field with yaml tag "extensions"
+- **AND** it SHALL have Execution SkillExecution struct field with yaml tag "execution"
+- **AND** it SHALL have Model string field with yaml tag "model"
+- **AND** it SHALL have Targets map[string]PlatformConfig field with yaml tag "targets"
+- **AND** it SHALL have FilePath and Content string fields (ignored from YAML with `yaml:"-"`)
+
+#### Scenario: Canonical SkillExtensions struct
+
+- **GIVEN** Canonical SkillExtensions struct is defined
+- **WHEN** A developer inspects the struct
+- **THEN** it SHALL have License string field with yaml tag "license"
+- **AND** it SHALL have Compatibility []string field with yaml tag "compatibility"
+- **AND** it SHALL have Metadata map[string]string field with yaml tag "metadata"
+- **AND** it SHALL have Hooks map[string]string field with yaml tag "hooks"
+
+#### Scenario: Canonical SkillExecution struct
+
+- **GIVEN** Canonical SkillExecution struct is defined
+- **WHEN** A developer inspects the struct
+- **THEN** it SHALL have Context string field with yaml tag "context"
+- **AND** it SHALL have Agent string field with yaml tag "agent"
+- **AND** it SHALL have UserInvocable bool field with yaml tag "userInvocable"
 
 ---
 
@@ -62,13 +110,12 @@ Each document struct SHALL implement a Validate() method that checks struct fiel
 **Then** it SHALL return error if name is missing
 **And** it SHALL return error if name does not match regex `^[a-z-]+$`
 **And** it SHALL return error if description is missing
-**And** it SHALL return error if model is not one of: sonnet, opus, haiku, inherit
-**And** it SHALL return error if permissionMode is not one of: default, acceptEdits, dontAsk, bypassPermissions, plan
+**And** it SHALL return error if permissionPolicy is not one of: restrictive, balanced, permissive, analysis, unrestricted
 
 #### Scenario: Command Validate checks context field
 **Given** a Command struct
 **When** Command.Validate() is called
-**Then** it SHALL return error if context is specified and not "fork"
+**Then** it SHALL return error if execution.context is specified and not "fork"
 
 #### Scenario: Memory Validate is no-op
 **Given** a Memory struct
@@ -83,7 +130,7 @@ Each document struct SHALL implement a Validate() method that checks struct fiel
 **And** it SHALL return error if name does not match regex `^[a-z0-9-]+$`
 **And** it SHALL return error if description is missing
 **And** it SHALL return error if description exceeds 1024 characters
-**And** it SHALL return error if context is specified and not "fork"
+**And** it SHALL return error if execution.context is specified and not "fork"
 
 #### Scenario: Validate returns multiple errors
 **Given** a document with multiple validation failures
@@ -98,17 +145,17 @@ Each document struct SHALL implement a Validate() method that checks struct fiel
 The document models SHALL support YAML frontmatter parsing with correct field mapping.
 
 #### Scenario: Valid YAML unmarshals correctly
-**Given** a document with valid YAML frontmatter
-**When** YAML is unmarshaled into a document struct
-**Then** all fields SHALL be populated with correct values
-**And** type conversions SHALL be handled appropriately
-**And** kebab-case YAML keys SHALL map to camelCase struct fields
+- **GIVEN** A document with valid YAML frontmatter
+- **WHEN** YAML is unmarshaled into a document struct
+- **THEN** All fields SHALL be populated with correct values
+- **AND** Type conversions SHALL be handled appropriately
+- **AND** Kebab-case YAML keys SHALL map to camelCase struct fields
 
 #### Scenario: Invalid YAML returns error
-**Given** a document with invalid YAML frontmatter
-**When** YAML is unmarshaled into a document struct
-**Then** an error SHALL be returned
-**And** it SHALL indicate the line number of parse failure
+- **GIVEN** A document with invalid YAML frontmatter
+- **WHEN** YAML is unmarshaled into a document struct
+- **THEN** An error SHALL be returned
+- **AND** It SHALL indicate the line number of parse failure
 
 ---
 
@@ -117,15 +164,16 @@ The document models SHALL support YAML frontmatter parsing with correct field ma
 All document models SHALL be defined in the internal/models package.
 
 #### Scenario: Models file contains all document types
-**Given** `internal/models/models.go` file exists
-**When** the file is inspected
-**Then** it SHALL define Agent struct
-**And** it SHALL define Command struct
-**And** it SHALL define Memory struct
-**And** it SHALL define Skill struct
-**And** it SHALL have Validate() method for each struct
+- **GIVEN** `internal/models/models.go` file exists
+- **WHEN** The file is inspected
+- **THEN** It SHALL define Agent struct
+- **AND** It SHALL define Command struct
+- **AND** It SHALL define Memory struct
+- **AND** It SHALL define Skill struct
+- **AND** It SHALL have Validate() method for each struct
+- **AND** It SHALL define Behavior, Extensions, Execution structs as needed
 
 #### Scenario: Models package has documentation
-**Given** `internal/models/doc.go` file exists
-**When** the file is inspected
-**Then** it SHALL describe the package's purpose as containing document model definitions
+- **GIVEN** `internal/models/doc.go` file exists
+- **WHEN** The file is inspected
+- **THEN** It SHALL describe the package's purpose as containing canonical document model definitions

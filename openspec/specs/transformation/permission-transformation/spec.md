@@ -1,94 +1,127 @@
 # permission-transformation Specification
 
+> **UPDATED**: This spec was updated as part of the canonical format redesign. It now describes the permission policy mapping tables used in the platform-adapters capability. See `openspec/specs/transformation/platform-adapters/spec.md` for the full adapter implementation.
+
 ## Purpose
-Transformation logic for converting Claude Code permissionMode enum to OpenCode permission object format.
+Simple permission policy mapping tables converting canonical PermissionPolicy enum to platform-specific values, NOT complex transformation functions.
 
 ## Requirements
 
 ### Requirement: Claude Code to OpenCode Permission Transformation
-The system SHALL provide transformPermissionMode function to convert Claude Code permissionMode enum to OpenCode permission object format.
 
-#### Scenario: Transform "default" mode
-- **GIVEN** permissionMode is "default"
-- **WHEN** transformPermissionMode("default") is called
-- **THEN** it SHALL return {"edit": {"*": "ask"}, "bash": {"*": "ask"}}
+The system SHALL provide simple permission policy mapping tables converting canonical PermissionPolicy enum to platform-specific values, NOT complex transformation functions.
 
-#### Scenario: Transform "acceptEdits" mode
-- **GIVEN** permissionMode is "acceptEdits"
-- **WHEN** transformPermissionMode("acceptEdits") is called
-- **THEN** it SHALL return {"edit": {"*": "allow"}, "bash": {"*": "ask"}}
+#### Scenario: Map restrictive policy to Claude Code
 
-#### Scenario: Transform "dontAsk" mode
-- **GIVEN** permissionMode is "dontAsk"
-- **WHEN** transformPermissionMode("dontAsk") is called
-- **THEN** it SHALL return {"edit": {"*": "allow"}, "bash": {"*": "allow"}}
-- **AND** This preserves semantic meaning: "don't ask user" means allow without prompting
+- **GIVEN** Canonical PermissionPolicy value is "restrictive"
+- **WHEN** Adapter.PermissionPolicyToPlatform("claude-code") is called
+- **THEN** Output SHALL be "default" string
+- **AND** No complex logic SHALL be used
+- **AND** Mapping is table lookup: restrictve → default
 
-#### Scenario: Transform "bypassPermissions" mode
-- **GIVEN** permissionMode is "bypassPermissions"
-- **WHEN** transformPermissionMode("bypassPermissions") is called
-- **THEN** it SHALL return {"edit": {"*": "allow"}, "bash": {"*": "allow"}}
-- **AND** This preserves semantic meaning: "bypass permissions" means allow without restrictions}
+#### Scenario: Map restrictive policy to OpenCode
 
-#### Scenario: Transform "plan" mode
-- **GIVEN** permissionMode is "plan"
-- **WHEN** transformPermissionMode("plan") is called
-- **THEN** it SHALL return {"edit": {"*": "deny"}, "bash": {"*": "deny"}}
+- **GIVEN** Canonical PermissionPolicy value is "restrictive"
+- **WHEN** Adapter.PermissionPolicyToPlatform("opencode") is called
+- **THEN** Output SHALL be PermissionMap{Edit: Ask, Bash: Ask, Read: Ask, ...}
+- **AND** No complex logic SHALL be used
+- **AND** Mapping is table lookup: restrictve → permission map
 
-#### Scenario: Handle unknown permissionMode
-- **GIVEN** permissionMode is "unknown"
-- **WHEN** transformPermissionMode("unknown") is called
-- **THEN** it SHALL return nil
+#### Scenario: Map balanced policy to Claude Code
 
-### Requirement: Permission Transformation Limitations
-The permission transformation SHALL document its limitations due to fundamental differences between platforms.
+- **GIVEN** Canonical PermissionPolicy value is "balanced"
+- **WHEN** Adapter.PermissionPolicyToPlatform("claude-code") is called
+- **THEN** Output SHALL be "acceptEdits" string
+- **AND** Mapping is table lookup: balanced → acceptEdits
 
-#### Scenario: Eight tools are mapped for common permissions
-- **GIVEN** OpenCode supports 15+ permissionable tools (read, write, edit, grep, glob, list, bash, task, skill, lsp, todoread, todowrite, webfetch, websearch, codesearch, external_directory, doom_loop)
-- **WHEN** transformPermissionMode is called
-- **THEN** Eight tools SHALL be set in permission object: edit, bash, read, grep, glob, list, webfetch, websearch
-- **AND** Seven tools SHALL remain at undefined state: task, skill, lsp, todoread, todowrite, codesearch, external_directory, doom_loop
-- **AND** Limitation SHALL be documented prominently in field mapping tables
+#### Scenario: Map balanced policy to OpenCode
 
-#### Scenario: Command-level granularity not supported
-- **GIVEN** Claude Code permissionMode enum cannot represent command-specific rules
-- **WHEN** Transforming to OpenCode format
-- **THEN** Transformation SHALL use tool-specific wildcards only (e.g., `{"edit": {"*": "allow"}}`)
-- **AND** Command-level rules (e.g., `{"bash": {"git push": "deny"}}`) SHALL NOT be supported
-- **AND** Limitation SHALL be documented
+- **GIVEN** Canonical PermissionPolicy value is "balanced"
+- **WHEN** Adapter.PermissionPolicyToPlatform("opencode") is called
+- **THEN** Output SHALL be PermissionMap{Edit: Allow, Bash: Ask, Read: Allow, ...}
+- **AND** Mapping is table lookup: balanced → permission map
 
-#### Scenario: Basic approximation only
-- **GIVEN** permission systems are fundamentally different (enum vs. nested objects)
-- **WHEN** transforming permissions
-- **THEN** it SHALL provide basic approximation for top-level edit and bash permissions only
-- **AND** it SHALL NOT represent command-level granularity (e.g., "git push": "deny")
-- **AND** dontAsk and bypassPermissions map to allow/allow (preserves semantic intent)
+#### Scenario: Map permissive policy to Claude Code
 
-#### Scenario: No global wildcard support
-- **GIVEN** OpenCode doesn't support global wildcards
-- **WHEN** transforming to OpenCode format
-- **THEN** it SHALL use tool-specific wildcards (edit: {"*": "ask"})
+- **GIVEN** Canonical PermissionPolicy value is "permissive"
+- **WHEN** Adapter.PermissionPolicyToPlatform("claude-code") is called
+- **THEN** Output SHALL be "dontAsk" string
+- **AND** Mapping is table lookup: permissive → dontAsk
 
-### Requirement: Expanded Permission Coverage
-The system SHALL provide permission mappings for 8 common tools used in code development workflows.
+#### Scenario: Map permissive policy to OpenCode
 
-#### Scenario: Core code analysis tools mapped
-- **GIVEN** Claude Code permissionMode enum
-- **WHEN** transformPermissionMode is called
-- **THEN** read, grep, glob, list tools SHALL be mapped to appropriate permissions (ask/allow/deny) based on mode
-- **AND** These tools are commonly used in read-only analysis workflows
+- **GIVEN** Canonical PermissionPolicy value is "permissive"
+- **WHEN** Adapter.PermissionPolicyToPlatform("opencode") is called
+- **THEN** Output SHALL be PermissionMap{Edit: Allow, Bash: Allow, Read: Allow, ...}
+- **AND** Mapping is table lookup: permissive → permission map
 
-#### Scenario: Web tools mapped
-- **GIVEN** Claude Code permissionMode enum
-- **WHEN** transformPermissionMode is called
-- **THEN** webfetch, websearch tools SHALL be mapped to appropriate permissions (ask/allow/deny) based on mode
-- **AND** These tools enable web-based research capabilities
+#### Scenario: Map analysis policy to Claude Code
 
-### Requirement: Permission Transformation Testing
-Permission transformation functions SHALL have comprehensive test coverage.
+- **GIVEN** Canonical PermissionPolicy value is "analysis"
+- **WHEN** Adapter.PermissionPolicyToPlatform("claude-code") is called
+- **THEN** Output SHALL be "plan" string
+- **AND** Mapping is table lookup: analysis → plan
+- **AND** "analysis" maps to "plan" because both represent read-only exploration mode
 
-#### Scenario: Unit tests for all permission modes
-- **GIVEN** transformPermissionMode is tested
-- **WHEN** tests are run
-- **THEN** all 5 Claude Code modes SHALL be tested
-- **AND** unknown mode SHALL be tested
+#### Scenario: Map analysis policy to OpenCode
+
+- **GIVEN** Canonical PermissionPolicy value is "analysis"
+- **WHEN** Adapter.PermissionPolicyToPlatform("opencode") is called
+- **THEN** Output SHALL be PermissionMap{Edit: Deny, Bash: Deny, Read: Allow, ...}
+- **AND** Mapping is table lookup: analysis → permission map
+
+#### Scenario: Map unrestricted policy to Claude Code
+
+- **GIVEN** Canonical PermissionPolicy value is "unrestricted"
+- **WHEN** Adapter.PermissionPolicyToPlatform("claude-code") is called
+- **THEN** Output SHALL be "bypassPermissions" string
+- **AND** Mapping is table lookup: unrestricted → bypassPermissions
+- **AND** "unrestricted" maps to "bypassPermissions" because both represent "allow all without restrictions"
+
+#### Scenario: Map unrestricted policy to OpenCode
+
+- **GIVEN** Canonical PermissionPolicy value is "unrestricted"
+- **WHEN** Adapter.PermissionPolicyToPlatform("opencode") is called
+- **THEN** Output SHALL be PermissionMap{Edit: Allow, Bash: Allow, Read: Allow, ...}
+- **AND** Mapping is table lookup: unrestricted → permission map
+
+#### Scenario: Map unknown permission policy
+
+- **GIVEN** Canonical PermissionPolicy value is not valid enum value
+- **WHEN** Adapter.PermissionPolicyToPlatform(platform) is called for any platform
+- **THEN** Error SHALL be returned
+- **AND** Error message SHALL list valid policy values
+- **AND** Conversion SHALL NOT proceed
+
+### Requirement: PermissionAction Enum Definition
+
+The system SHALL define PermissionAction enum for type-safe permission values in OpenCode format.
+
+#### Scenario: PermissionAction enum has three values
+
+- **GIVEN** PermissionAction enum is defined
+- **WHEN** Inspected
+- **THEN** PermissionAction SHALL have three string constants: Allow, Ask, Deny
+- **AND** Values SHALL be used instead of string literals in code
+- **AND** Values SHALL match OpenCode permission action strings ("allow", "ask", "deny")
+
+### Requirement: Permission Transformation Uses Mapping Table
+
+Permission transformation SHALL use struct/map lookup tables instead of complex switch statements or YAML generation functions.
+
+#### Scenario: Mapping table structure
+
+- **GIVEN** PermissionPolicy mapping table is defined
+- **WHEN** Inspected
+- **THEN** Table SHALL be map[PermissionPolicy]PermissionMapping struct
+- **AND** PermissionMapping SHALL contain ClaudeCode string field
+- **AND** PermissionMapping SHALL contain OpenCode PermissionMap field (map[string]PermissionAction)
+- **AND** Mapping SHALL be initialized at package level
+
+#### Scenario: OpenCode permission map structure
+
+- **GIVEN** OpenCode PermissionMap is defined
+- **WHEN** Inspected
+- **THEN** Map SHALL contain all tool permissions (edit, bash, read, grep, glob, list, webfetch, websearch)
+- **AND** Values SHALL be PermissionAction enum (Allow, Ask, Deny)
+- **AND** Default action SHALL be provided for each policy
