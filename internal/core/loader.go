@@ -2,8 +2,10 @@
 package core
 
 import (
-	"fmt"
+	"errors"
 	"regexp"
+
+	gerrors "gitlab.com/amoconst/germinator/internal/errors"
 )
 
 const (
@@ -16,12 +18,12 @@ func validatePlatform(platform string) []error {
 	var errs []error
 
 	if platform == "" {
-		errs = append(errs, fmt.Errorf("platform is required (available: %s, %s)", PlatformClaudeCode, PlatformOpenCode))
+		errs = append(errs, gerrors.NewConfigError("platform", "", []string{PlatformClaudeCode, PlatformOpenCode}, "platform is required"))
 		return errs
 	}
 
 	if platform != PlatformClaudeCode && platform != PlatformOpenCode {
-		errs = append(errs, fmt.Errorf("unknown platform: %s (available: %s, %s)", platform, PlatformClaudeCode, PlatformOpenCode))
+		errs = append(errs, gerrors.NewConfigError("platform", platform, []string{PlatformClaudeCode, PlatformOpenCode}, "unknown platform"))
 		return errs
 	}
 
@@ -31,17 +33,21 @@ func validatePlatform(platform string) []error {
 // LoadDocument loads and validates a document from the given filepath.
 func LoadDocument(filepath, platform string) (interface{}, error) {
 	if errs := validatePlatform(platform); len(errs) > 0 {
-		return nil, fmt.Errorf("validation failed: %v", errs)
+		return nil, errs[0]
 	}
 
 	docType := DetectType(filepath)
 	if docType == "" {
-		return nil, fmt.Errorf("unrecognizable filename: %s (expected: agent-*.md, *-agent.md, etc.)", filepath)
+		return nil, gerrors.NewParseError(filepath, "unrecognizable filename (expected: agent-*.md, *-agent.md, etc.)", nil)
 	}
 
 	doc, err := ParseDocument(filepath, docType)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse document: %w", err)
+		var fileErr *gerrors.FileError
+		if errors.As(err, &fileErr) {
+			return nil, err
+		}
+		return nil, gerrors.NewParseError(filepath, "failed to parse document", err)
 	}
 
 	var errs []error
@@ -57,7 +63,7 @@ func LoadDocument(filepath, platform string) (interface{}, error) {
 	}
 
 	if len(errs) > 0 {
-		return doc, fmt.Errorf("validation failed: %v", errs)
+		return doc, gerrors.NewValidationError(errs[0].Error(), "", nil)
 	}
 
 	return doc, nil

@@ -2,30 +2,30 @@
 package services
 
 import (
-	"fmt"
 	"os"
 
 	"gitlab.com/amoconst/germinator/internal/core"
+	gerrors "gitlab.com/amoconst/germinator/internal/errors"
 )
 
 // CanonicalizeDocument converts a platform document to canonical YAML format.
 func CanonicalizeDocument(inputPath string, outputPath string, platform string, docType string) error {
 	doc, err := core.ParsePlatformDocument(inputPath, platform, docType)
 	if err != nil {
-		return fmt.Errorf("failed to parse platform document: %w", err)
+		return gerrors.NewParseError(inputPath, "failed to parse platform document", err)
 	}
 
 	if errs := validateCanonicalDoc(doc); len(errs) > 0 {
-		return fmt.Errorf("validation failed: %v", errs)
+		return gerrors.NewValidationError(errs[0].Error(), "", nil)
 	}
 
 	yamlBytes, err := core.MarshalCanonical(doc)
 	if err != nil {
-		return fmt.Errorf("failed to marshal canonical document: %w", err)
+		return gerrors.NewTransformError("marshal", platform, "failed to marshal canonical document", err)
 	}
 
 	if err := os.WriteFile(outputPath, []byte(yamlBytes), 0644); err != nil {
-		return fmt.Errorf("failed to write output file: %w", err)
+		return gerrors.NewFileError(outputPath, "write", "failed to write output file", err)
 	}
 
 	return nil
@@ -43,6 +43,6 @@ func validateCanonicalDoc(doc interface{}) []error {
 	case *core.CanonicalMemory:
 		return d.Validate()
 	default:
-		return []error{fmt.Errorf("unknown document type: %T", doc)}
+		return []error{gerrors.NewParseError("", "unknown document type", nil)}
 	}
 }

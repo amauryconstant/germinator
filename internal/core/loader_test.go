@@ -1,9 +1,12 @@
 package core
 
 import (
+	"errors"
 	"os"
 	"strings"
 	"testing"
+
+	gerrors "gitlab.com/amoconst/germinator/internal/errors"
 )
 
 func TestDetectTypeFromFilename(t *testing.T) {
@@ -361,8 +364,8 @@ Content`
 
 	if err != nil {
 		errMsg := err.Error()
-		if !strings.Contains(errMsg, "validation failed") {
-			t.Errorf("LoadDocument() error should mention validation failed, got: %s", errMsg)
+		if !strings.Contains(errMsg, "validation error") {
+			t.Errorf("LoadDocument() error should mention validation error, got: %s", errMsg)
 		}
 	}
 }
@@ -431,4 +434,129 @@ Skill content`,
 			}
 		})
 	}
+}
+
+func TestLoadDocumentReturnsTypedParseError(t *testing.T) {
+	t.Run("unrecognizable filename returns ParseError", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		testFile := tmpDir + "/unrecognizable.md"
+
+		content := `---
+name: test
+description: Test
+---
+Content`
+
+		if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
+			t.Fatalf("Failed to create test file: %v", err)
+		}
+
+		_, err := LoadDocument(testFile, "claude-code")
+
+		if err == nil {
+			t.Fatal("Expected error for unrecognizable filename")
+		}
+
+		var parseErr *gerrors.ParseError
+		if !errors.As(err, &parseErr) {
+			t.Errorf("Expected ParseError, got %T: %v", err, err)
+		} else {
+			if parseErr.Path != testFile {
+				t.Errorf("ParseError.Path = %q, want %q", parseErr.Path, testFile)
+			}
+			if !strings.Contains(parseErr.Message, "expected") {
+				t.Errorf("ParseError.Message should mention expected patterns, got: %q", parseErr.Message)
+			}
+		}
+	})
+
+	t.Run("invalid YAML returns ParseError", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		testFile := tmpDir + "/test-agent.md"
+
+		invalidYAML := `---
+name: "unclosed string
+---
+Content`
+
+		if err := os.WriteFile(testFile, []byte(invalidYAML), 0644); err != nil {
+			t.Fatalf("Failed to create test file: %v", err)
+		}
+
+		_, err := LoadDocument(testFile, "claude-code")
+
+		if err == nil {
+			t.Fatal("Expected error for invalid YAML")
+		}
+
+		var parseErr *gerrors.ParseError
+		if !errors.As(err, &parseErr) {
+			t.Errorf("Expected ParseError, got %T: %v", err, err)
+		} else {
+			if parseErr.Path != testFile {
+				t.Errorf("ParseError.Path = %q, want %q", parseErr.Path, testFile)
+			}
+			if parseErr.Cause == nil {
+				t.Error("ParseError.Cause should not be nil for YAML errors")
+			}
+		}
+	})
+}
+
+func TestLoadDocumentReturnsTypedFileError(t *testing.T) {
+	t.Run("file not found returns FileError", func(t *testing.T) {
+		nonExistentFile := "/nonexistent/path/test-agent.md"
+
+		_, err := LoadDocument(nonExistentFile, "claude-code")
+
+		if err == nil {
+			t.Fatal("Expected error for non-existent file")
+		}
+
+		var fileErr *gerrors.FileError
+		if !errors.As(err, &fileErr) {
+			t.Errorf("Expected FileError, got %T: %v", err, err)
+		} else {
+			if fileErr.Path != nonExistentFile {
+				t.Errorf("FileError.Path = %q, want %q", fileErr.Path, nonExistentFile)
+			}
+			if fileErr.Operation != "read" {
+				t.Errorf("FileError.Operation = %q, want 'read'", fileErr.Operation)
+			}
+			if !fileErr.IsNotFound() {
+				t.Error("FileError.IsNotFound() should return true")
+			}
+		}
+	})
+}
+
+func TestLoadDocumentReturnsTypedValidationError(t *testing.T) {
+	t.Run("missing required field returns ValidationError", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		testFile := tmpDir + "/test-agent.md"
+
+		content := `---
+description: Missing name field
+---
+Content`
+
+		if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
+			t.Fatalf("Failed to create test file: %v", err)
+		}
+
+		doc, err := LoadDocument(testFile, "claude-code")
+
+		if err == nil {
+			t.Fatal("Expected validation error")
+		}
+
+		var validationErr *gerrors.ValidationError
+		if !errors.As(err, &validationErr) {
+			t.Errorf("Expected ValidationError, got %T: %v", err, err)
+		}
+
+		if doc == nil {
+			t.Error("Document should be returned even with validation errors")
+		}
+	})
 }

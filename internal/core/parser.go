@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	gerrors "gitlab.com/amoconst/germinator/internal/errors"
 	"gitlab.com/amoconst/germinator/internal/models/canonical"
 	yaml "gopkg.in/yaml.v3"
 )
@@ -39,7 +40,7 @@ type CanonicalMemory struct {
 func ParseDocument(filePath string, docType string) (interface{}, error) {
 	content, err := os.ReadFile(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read file: %w", err)
+		return nil, gerrors.NewFileError(filePath, "read", "failed to read file", err)
 	}
 
 	fileContent := string(content)

@@ -17,6 +17,10 @@ Germinator source format and adapts it for target platforms like Claude Code and
 	},
 }
 
+func init() {
+	rootCmd.PersistentFlags().CountP("verbose", "v", "Increase verbosity (use -v or -vv)")
+}
+
 func main() {
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)

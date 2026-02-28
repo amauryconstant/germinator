@@ -1,12 +1,15 @@
 package main
 
 import (
+	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	gerrors "gitlab.com/amoconst/germinator/internal/errors"
 	"gitlab.com/amoconst/germinator/internal/services"
 )
 
@@ -87,7 +90,7 @@ This is test content`
 			name:        "invalid platform",
 			platform:    "invalid-platform",
 			expectError: true,
-			errorMsg:    "unknown platform: invalid-platform",
+			errorMsg:    "unknown platform",
 		},
 		{
 			name:        "valid claude-code platform",
@@ -273,7 +276,7 @@ This is valid content`
 			name:        "invalid platform",
 			platform:    "invalid-platform",
 			expectError: true,
-			errorMsg:    "unknown platform: invalid-platform",
+			errorMsg:    "unknown platform",
 		},
 		{
 			name:        "valid claude-code platform",
@@ -970,5 +973,742 @@ Agent content`
 	}
 	if !strings.Contains(resultStr, "Agent content") {
 		t.Errorf("Expected output to contain content, got: %s", resultStr)
+	}
+}
+
+// Verbose Flag E2E Tests
+
+func TestValidateCommandVerboseFlag(t *testing.T) {
+	root, err := getProjectRoot()
+	if err != nil {
+		t.Fatalf("Failed to find project root: %v", err)
+	}
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(oldWd); err != nil {
+			t.Fatalf("Failed to restore working directory: %v", err)
+		}
+	}()
+	if err := os.Chdir(root); err != nil {
+		t.Fatalf("Failed to change to project root: %v", err)
+	}
+
+	tmpDir := t.TempDir()
+	validFile := tmpDir + "/agent-test.md"
+
+	content := `---
+name: test-agent
+description: A test agent
+---
+Test content`
+
+	if err := os.WriteFile(validFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	tests := []struct {
+		name              string
+		verboseFlag       string
+		expectStderrEmpty bool
+		expectContains    []string
+	}{
+		{
+			name:              "no verbose flag",
+			verboseFlag:       "",
+			expectStderrEmpty: true,
+		},
+		{
+			name:           "level 1 verbose (-v)",
+			verboseFlag:    "-v",
+			expectContains: []string{"Validating file:", "Platform:"},
+		},
+		{
+			name:           "level 2 verbose (-vv)",
+			verboseFlag:    "-vv",
+			expectContains: []string{"Validating file:", "Loading document...", "Parsing document structure...", "Running validation..."},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			oldStdout := os.Stdout
+			oldStderr := os.Stderr
+			stdoutR, stdoutW, _ := os.Pipe()
+			stderrR, stderrW, _ := os.Pipe()
+			os.Stdout = stdoutW
+			os.Stderr = stderrW
+
+			args := []string{"validate", validFile, "--platform", "claude-code"}
+			if tt.verboseFlag != "" {
+				args = append([]string{tt.verboseFlag}, args...)
+			}
+
+			rootCmd.SetArgs(args)
+			_ = rootCmd.Flags().Set("verbose", "0")
+			_ = rootCmd.Execute()
+
+			_ = stdoutW.Close()
+			_ = stderrW.Close()
+			os.Stdout = oldStdout
+			os.Stderr = oldStderr
+
+			var stdoutBuf, stderrBuf bytes.Buffer
+			_, _ = io.Copy(&stdoutBuf, stdoutR)
+			_, _ = io.Copy(&stderrBuf, stderrR)
+
+			stderr := stderrBuf.String()
+
+			if tt.expectStderrEmpty && stderr != "" {
+				t.Errorf("Expected empty stderr, got: %q", stderr)
+			}
+
+			for _, want := range tt.expectContains {
+				if !strings.Contains(stderr, want) {
+					t.Errorf("Expected stderr to contain %q, got: %q", want, stderr)
+				}
+			}
+		})
+	}
+}
+
+func TestAdaptCommandVerboseFlag(t *testing.T) {
+	root, err := getProjectRoot()
+	if err != nil {
+		t.Fatalf("Failed to find project root: %v", err)
+	}
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(oldWd); err != nil {
+			t.Fatalf("Failed to restore working directory: %v", err)
+		}
+	}()
+	if err := os.Chdir(root); err != nil {
+		t.Fatalf("Failed to change to project root: %v", err)
+	}
+
+	tmpDir := t.TempDir()
+	inputFile := tmpDir + "/agent-test.md"
+	outputFile := tmpDir + "/output.md"
+
+	content := `---
+name: test-agent
+description: A test agent
+tools:
+  - bash
+---
+Test content`
+
+	if err := os.WriteFile(inputFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	tests := []struct {
+		name              string
+		verboseFlag       string
+		expectStderrEmpty bool
+		expectContains    []string
+	}{
+		{
+			name:              "no verbose flag",
+			verboseFlag:       "",
+			expectStderrEmpty: true,
+		},
+		{
+			name:           "level 1 verbose (-v)",
+			verboseFlag:    "-v",
+			expectContains: []string{"Transforming document...", "Output path:"},
+		},
+		{
+			name:           "level 2 verbose (-vv)",
+			verboseFlag:    "-vv",
+			expectContains: []string{"Transforming document...", "Loading source document...", "Rendering template", "Writing output file..."},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_ = os.Remove(outputFile)
+
+			oldStdout := os.Stdout
+			oldStderr := os.Stderr
+			stdoutR, stdoutW, _ := os.Pipe()
+			stderrR, stderrW, _ := os.Pipe()
+			os.Stdout = stdoutW
+			os.Stderr = stderrW
+
+			args := []string{"adapt", inputFile, outputFile, "--platform", "opencode"}
+			if tt.verboseFlag != "" {
+				args = append([]string{tt.verboseFlag}, args...)
+			}
+
+			rootCmd.SetArgs(args)
+			_ = rootCmd.Flags().Set("verbose", "0")
+			_ = rootCmd.Execute()
+
+			_ = stdoutW.Close()
+			_ = stderrW.Close()
+			os.Stdout = oldStdout
+			os.Stderr = oldStderr
+
+			var stdoutBuf, stderrBuf bytes.Buffer
+			_, _ = io.Copy(&stdoutBuf, stdoutR)
+			_, _ = io.Copy(&stderrBuf, stderrR)
+
+			stderr := stderrBuf.String()
+
+			if tt.expectStderrEmpty && stderr != "" {
+				t.Errorf("Expected empty stderr, got: %q", stderr)
+			}
+
+			for _, want := range tt.expectContains {
+				if !strings.Contains(stderr, want) {
+					t.Errorf("Expected stderr to contain %q, got: %q", want, stderr)
+				}
+			}
+		})
+	}
+}
+
+func TestCanonicalizeCommandVerboseFlag(t *testing.T) {
+	root, err := getProjectRoot()
+	if err != nil {
+		t.Fatalf("Failed to find project root: %v", err)
+	}
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(oldWd); err != nil {
+			t.Fatalf("Failed to restore working directory: %v", err)
+		}
+	}()
+	if err := os.Chdir(root); err != nil {
+		t.Fatalf("Failed to change to project root: %v", err)
+	}
+
+	tmpDir := t.TempDir()
+	inputFile := tmpDir + "/agent-test.md"
+	outputFile := tmpDir + "/output.yaml"
+
+	content := `---
+name: test-agent
+description: A test agent
+tools:
+  - bash
+---
+Test content`
+
+	if err := os.WriteFile(inputFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	tests := []struct {
+		name              string
+		verboseFlag       string
+		expectStderrEmpty bool
+		expectContains    []string
+	}{
+		{
+			name:              "no verbose flag",
+			verboseFlag:       "",
+			expectStderrEmpty: true,
+		},
+		{
+			name:           "level 1 verbose (-v)",
+			verboseFlag:    "-v",
+			expectContains: []string{"Canonicalizing document...", "Output path:"},
+		},
+		{
+			name:           "level 2 verbose (-vv)",
+			verboseFlag:    "-vv",
+			expectContains: []string{"Canonicalizing document...", "Parsing platform document...", "Validating document...", "Marshalling to canonical YAML..."},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_ = os.Remove(outputFile)
+
+			oldStdout := os.Stdout
+			oldStderr := os.Stderr
+			stdoutR, stdoutW, _ := os.Pipe()
+			stderrR, stderrW, _ := os.Pipe()
+			os.Stdout = stdoutW
+			os.Stderr = stderrW
+
+			args := []string{"canonicalize", inputFile, outputFile, "--platform", "claude-code", "--type", "agent"}
+			if tt.verboseFlag != "" {
+				args = append([]string{tt.verboseFlag}, args...)
+			}
+
+			rootCmd.SetArgs(args)
+			_ = rootCmd.Flags().Set("verbose", "0")
+			_ = rootCmd.Execute()
+
+			_ = stdoutW.Close()
+			_ = stderrW.Close()
+			os.Stdout = oldStdout
+			os.Stderr = oldStderr
+
+			var stdoutBuf, stderrBuf bytes.Buffer
+			_, _ = io.Copy(&stdoutBuf, stdoutR)
+			_, _ = io.Copy(&stderrBuf, stderrR)
+
+			stderr := stderrBuf.String()
+
+			if tt.expectStderrEmpty && stderr != "" {
+				t.Errorf("Expected empty stderr, got: %q", stderr)
+			}
+
+			for _, want := range tt.expectContains {
+				if !strings.Contains(stderr, want) {
+					t.Errorf("Expected stderr to contain %q, got: %q", want, stderr)
+				}
+			}
+		})
+	}
+}
+
+// Exit Code Tests
+
+func TestValidateCommandExitCodes(t *testing.T) {
+	root, err := getProjectRoot()
+	if err != nil {
+		t.Fatalf("Failed to find project root: %v", err)
+	}
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(oldWd); err != nil {
+			t.Fatalf("Failed to restore working directory: %v", err)
+		}
+	}()
+	if err := os.Chdir(root); err != nil {
+		t.Fatalf("Failed to change to project root: %v", err)
+	}
+
+	tmpDir := t.TempDir()
+
+	tests := []struct {
+		name           string
+		filename       string
+		content        string
+		platform       string
+		expectedCode   int
+		expectErrorMsg string
+	}{
+		{
+			name:         "unrecognizable filename - exit code 3",
+			filename:     "invalid-name.md",
+			content:      "",
+			platform:     "claude-code",
+			expectedCode: 3,
+		},
+		{
+			name:     "missing description - exit code 2",
+			filename: "agent-invalid.md",
+			content: `---
+name: test-agent
+---
+content`,
+			platform:     "opencode",
+			expectedCode: 2,
+		},
+		{
+			name:     "invalid platform - exit code 2",
+			filename: "agent-test.md",
+			content: `---
+name: test-agent
+description: test
+---
+content`,
+			platform:     "invalid-platform",
+			expectedCode: 2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testFile := tmpDir + "/" + tt.filename
+			if tt.content != "" {
+				if err := os.WriteFile(testFile, []byte(tt.content), 0644); err != nil {
+					t.Fatalf("Failed to create test file: %v", err)
+				}
+			}
+
+			errs, err := services.ValidateDocument(testFile, tt.platform)
+			if err != nil {
+				code := GetExitCodeForError(err)
+				if int(code) != tt.expectedCode {
+					t.Errorf("Expected exit code %d for error, got %d (error: %v)", tt.expectedCode, code, err)
+				}
+			} else if len(errs) > 0 {
+				code := GetExitCodeForError(gerrors.NewValidationError(errs[0].Error(), "", nil))
+				if int(code) != tt.expectedCode {
+					t.Errorf("Expected exit code %d for validation errors, got %d", tt.expectedCode, code)
+				}
+			} else {
+				t.Errorf("Expected error but got none")
+			}
+		})
+	}
+}
+
+func TestAdaptCommandExitCodes(t *testing.T) {
+	root, err := getProjectRoot()
+	if err != nil {
+		t.Fatalf("Failed to find project root: %v", err)
+	}
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(oldWd); err != nil {
+			t.Fatalf("Failed to restore working directory: %v", err)
+		}
+	}()
+	if err := os.Chdir(root); err != nil {
+		t.Fatalf("Failed to change to project root: %v", err)
+	}
+
+	tmpDir := t.TempDir()
+
+	tests := []struct {
+		name         string
+		inputFile    string
+		outputFile   string
+		content      string
+		platform     string
+		expectedCode int
+	}{
+		{
+			name:         "unrecognizable filename - exit code 3",
+			inputFile:    "invalid-name.md",
+			outputFile:   tmpDir + "/output.md",
+			content:      "",
+			platform:     "claude-code",
+			expectedCode: 3,
+		},
+		{
+			name:       "invalid platform - exit code 2",
+			inputFile:  "agent-test.md",
+			outputFile: tmpDir + "/output.md",
+			content: `---
+name: test-agent
+description: test
+---
+content`,
+			platform:     "invalid-platform",
+			expectedCode: 2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testFile := tmpDir + "/" + tt.inputFile
+			if tt.content != "" {
+				if err := os.WriteFile(testFile, []byte(tt.content), 0644); err != nil {
+					t.Fatalf("Failed to create test file: %v", err)
+				}
+			}
+
+			err := services.TransformDocument(testFile, tt.outputFile, tt.platform)
+			if err != nil {
+				code := GetExitCodeForError(err)
+				if int(code) != tt.expectedCode {
+					t.Errorf("Expected exit code %d, got %d (error: %v)", tt.expectedCode, code, err)
+				}
+			} else {
+				t.Errorf("Expected error but got none")
+			}
+		})
+	}
+}
+
+func TestExitCodeForErrorTypes(t *testing.T) {
+	tests := []struct {
+		name         string
+		err          error
+		expectedCode ExitCode
+	}{
+		{
+			name:         "ParseError returns exit code 3",
+			err:          gerrors.NewParseError("test.yaml", "parse failed", nil),
+			expectedCode: ExitCodeParse,
+		},
+		{
+			name:         "ValidationError returns exit code 2",
+			err:          gerrors.NewValidationError("invalid field", "name", nil),
+			expectedCode: ExitCodeUsage,
+		},
+		{
+			name:         "ConfigError returns exit code 2",
+			err:          gerrors.NewConfigError("platform", "invalid", []string{"claude-code"}, "unknown platform"),
+			expectedCode: ExitCodeUsage,
+		},
+		{
+			name:         "TransformError returns exit code 1",
+			err:          gerrors.NewTransformError("render", "opencode", "failed", nil),
+			expectedCode: ExitCodeError,
+		},
+		{
+			name:         "FileError returns exit code 1",
+			err:          gerrors.NewFileError("test.yaml", "read", "not found", nil),
+			expectedCode: ExitCodeError,
+		},
+		{
+			name:         "generic error returns exit code 1",
+			err:          fmt.Errorf("something went wrong"),
+			expectedCode: ExitCodeError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			code := GetExitCodeForError(tt.err)
+			if code != tt.expectedCode {
+				t.Errorf("GetExitCodeForError() = %d, want %d", code, tt.expectedCode)
+			}
+		})
+	}
+}
+
+func TestErrorCategorization(t *testing.T) {
+	tests := []struct {
+		name             string
+		err              error
+		expectedCategory ErrorCategory
+	}{
+		{
+			name:             "ParseError categorizes as CategoryParse",
+			err:              gerrors.NewParseError("test.yaml", "failed", nil),
+			expectedCategory: CategoryParse,
+		},
+		{
+			name:             "ValidationError categorizes as CategoryValidation",
+			err:              gerrors.NewValidationError("invalid", "field", nil),
+			expectedCategory: CategoryValidation,
+		},
+		{
+			name:             "TransformError categorizes as CategoryTransform",
+			err:              gerrors.NewTransformError("op", "platform", "failed", nil),
+			expectedCategory: CategoryTransform,
+		},
+		{
+			name:             "FileError categorizes as CategoryFile",
+			err:              gerrors.NewFileError("path", "read", "failed", nil),
+			expectedCategory: CategoryFile,
+		},
+		{
+			name:             "ConfigError categorizes as CategoryConfig",
+			err:              gerrors.NewConfigError("field", "value", nil, "invalid"),
+			expectedCategory: CategoryConfig,
+		},
+		{
+			name:             "generic error categorizes as CategoryGeneric",
+			err:              fmt.Errorf("generic error"),
+			expectedCategory: CategoryGeneric,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			category := CategorizeError(tt.err)
+			if category != tt.expectedCategory {
+				t.Errorf("CategorizeError() = %v, want %v", category, tt.expectedCategory)
+			}
+		})
+	}
+}
+
+func TestCommandConfigInitialization(t *testing.T) {
+	formatter := NewErrorFormatter()
+
+	tests := []struct {
+		name           string
+		verbosity      Verbosity
+		expectVerbose  bool
+		expectVeryVerb bool
+	}{
+		{
+			name:           "level 0",
+			verbosity:      0,
+			expectVerbose:  false,
+			expectVeryVerb: false,
+		},
+		{
+			name:           "level 1",
+			verbosity:      1,
+			expectVerbose:  true,
+			expectVeryVerb: false,
+		},
+		{
+			name:           "level 2",
+			verbosity:      2,
+			expectVerbose:  true,
+			expectVeryVerb: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &CommandConfig{
+				ErrorFormatter: formatter,
+				Verbosity:      tt.verbosity,
+			}
+
+			if cfg.ErrorFormatter == nil {
+				t.Error("CommandConfig.ErrorFormatter should not be nil")
+			}
+
+			if cfg.Verbosity.IsVerbose() != tt.expectVerbose {
+				t.Errorf("CommandConfig.Verbosity.IsVerbose() = %v, want %v", cfg.Verbosity.IsVerbose(), tt.expectVerbose)
+			}
+
+			if cfg.Verbosity.IsVeryVerbose() != tt.expectVeryVerb {
+				t.Errorf("CommandConfig.Verbosity.IsVeryVerbose() = %v, want %v", cfg.Verbosity.IsVeryVerbose(), tt.expectVeryVerb)
+			}
+		})
+	}
+}
+
+func TestCommandConfigContainsErrorFormatter(t *testing.T) {
+	root, err := getProjectRoot()
+	if err != nil {
+		t.Fatalf("Failed to find project root: %v", err)
+	}
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(oldWd); err != nil {
+			t.Fatalf("Failed to restore working directory: %v", err)
+		}
+	}()
+	if err := os.Chdir(root); err != nil {
+		t.Fatalf("Failed to change to project root: %v", err)
+	}
+
+	rootCmd.SetArgs([]string{"validate", "--help"})
+	_ = rootCmd.Flags().Set("verbose", "0")
+
+	cfg := NewCommandConfig(rootCmd)
+
+	if cfg.ErrorFormatter == nil {
+		t.Fatal("ErrorFormatter should not be nil")
+	}
+
+	testErr := gerrors.NewParseError("test.yaml", "test error", nil)
+	formatted := cfg.ErrorFormatter.Format(testErr)
+
+	if !strings.Contains(formatted, "Parse error:") {
+		t.Errorf("ErrorFormatter.Format() should format ParseError, got: %q", formatted)
+	}
+}
+
+func TestHandleErrorWritesToStderr(t *testing.T) {
+	oldStderr := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+
+	cfg := &CommandConfig{
+		ErrorFormatter: NewErrorFormatter(),
+		Verbosity:      0,
+	}
+
+	testErr := gerrors.NewConfigError("platform", "invalid", []string{"claude-code", "opencode"}, "unknown platform")
+
+	formatted := cfg.ErrorFormatter.Format(testErr)
+	exitCode := GetExitCodeForError(testErr)
+
+	_, _ = fmt.Fprintln(os.Stderr, formatted)
+	_ = w.Close()
+	os.Stderr = oldStderr
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	output := buf.String()
+
+	if !strings.Contains(output, "Config error:") {
+		t.Errorf("Expected stderr to contain 'Config error:', got: %q", output)
+	}
+
+	if !strings.Contains(strings.ToLower(output), "available") {
+		t.Errorf("Expected stderr to contain 'Available', got: %q", output)
+	}
+
+	if exitCode != ExitCodeUsage {
+		t.Errorf("GetExitCodeForError(ConfigError) = %d, want %d", exitCode, ExitCodeUsage)
+	}
+}
+
+func TestHandleErrorWithNilError(t *testing.T) {
+	exitCode := GetExitCodeForError(nil)
+	if exitCode != ExitCodeError {
+		t.Errorf("GetExitCodeForError(nil) = %d, want %d", exitCode, ExitCodeError)
+	}
+}
+
+func TestHandleErrorExitCodes(t *testing.T) {
+	tests := []struct {
+		name       string
+		err        error
+		expectCode ExitCode
+	}{
+		{
+			name:       "ParseError exits with code 3",
+			err:        gerrors.NewParseError("file.yaml", "parse failed", nil),
+			expectCode: ExitCodeParse,
+		},
+		{
+			name:       "ValidationError exits with code 2",
+			err:        gerrors.NewValidationError("invalid field", "name", nil),
+			expectCode: ExitCodeUsage,
+		},
+		{
+			name:       "ConfigError exits with code 2",
+			err:        gerrors.NewConfigError("platform", "bad", []string{"claude-code"}, "invalid"),
+			expectCode: ExitCodeUsage,
+		},
+		{
+			name:       "TransformError exits with code 1",
+			err:        gerrors.NewTransformError("render", "opencode", "failed", nil),
+			expectCode: ExitCodeError,
+		},
+		{
+			name:       "FileError exits with code 1",
+			err:        gerrors.NewFileError("file.yaml", "read", "not found", nil),
+			expectCode: ExitCodeError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &CommandConfig{
+				ErrorFormatter: NewErrorFormatter(),
+				Verbosity:      0,
+			}
+
+			formatted := cfg.ErrorFormatter.Format(tt.err)
+			if formatted == "" {
+				t.Error("ErrorFormatter.Format() should return non-empty string")
+			}
+
+			code := GetExitCodeForError(tt.err)
+			if code != tt.expectCode {
+				t.Errorf("GetExitCodeForError() = %d, want %d", code, tt.expectCode)
+			}
+		})
 	}
 }

@@ -1,9 +1,13 @@
 package services
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	gerrors "gitlab.com/amoconst/germinator/internal/errors"
 )
 
 func TestTransformDocumentSuccess(t *testing.T) {
@@ -357,4 +361,238 @@ Memory content`,
 			}
 		})
 	}
+}
+
+func TestTransformDocumentReturnsTypedParseError(t *testing.T) {
+	t.Run("invalid YAML returns ParseError", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		inputFile := filepath.Join(tmpDir, "test-agent.md")
+		outputFile := filepath.Join(tmpDir, "output.md")
+
+		invalidYAML := `---
+name: "unclosed string
+---
+Content`
+
+		if err := os.WriteFile(inputFile, []byte(invalidYAML), 0644); err != nil {
+			t.Fatalf("Failed to create input file: %v", err)
+		}
+
+		err := TransformDocument(inputFile, outputFile, "claude-code")
+
+		if err == nil {
+			t.Fatal("Expected error for invalid YAML")
+		}
+
+		var parseErr *gerrors.ParseError
+		if !errors.As(err, &parseErr) {
+			t.Errorf("Expected ParseError, got %T: %v", err, err)
+		} else {
+			if parseErr.Path != inputFile {
+				t.Errorf("ParseError.Path = %q, want %q", parseErr.Path, inputFile)
+			}
+		}
+
+		if _, err := os.Stat(outputFile); !os.IsNotExist(err) {
+			t.Error("Output file should not be created on parse error")
+		}
+	})
+
+	t.Run("unrecognizable filename returns ParseError", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		inputFile := filepath.Join(tmpDir, "unrecognizable.md")
+		outputFile := filepath.Join(tmpDir, "output.md")
+
+		content := `---
+name: test
+description: Test
+---
+Content`
+
+		if err := os.WriteFile(inputFile, []byte(content), 0644); err != nil {
+			t.Fatalf("Failed to create input file: %v", err)
+		}
+
+		err := TransformDocument(inputFile, outputFile, "claude-code")
+
+		if err == nil {
+			t.Fatal("Expected error for unrecognizable filename")
+		}
+
+		var parseErr *gerrors.ParseError
+		if !errors.As(err, &parseErr) {
+			t.Errorf("Expected ParseError, got %T: %v", err, err)
+		} else {
+			if !strings.Contains(parseErr.Message, "expected") {
+				t.Errorf("ParseError.Message should mention expected patterns, got: %q", parseErr.Message)
+			}
+		}
+	})
+}
+
+func TestTransformDocumentReturnsTypedConfigError(t *testing.T) {
+	t.Run("invalid platform returns ConfigError", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		inputFile := filepath.Join(tmpDir, "test-agent.md")
+		outputFile := filepath.Join(tmpDir, "output.md")
+
+		content := `---
+name: test-agent
+description: Test agent
+---
+Content`
+
+		if err := os.WriteFile(inputFile, []byte(content), 0644); err != nil {
+			t.Fatalf("Failed to create input file: %v", err)
+		}
+
+		err := TransformDocument(inputFile, outputFile, "invalid-platform")
+
+		if err == nil {
+			t.Fatal("Expected error for invalid platform")
+		}
+
+		var configErr *gerrors.ConfigError
+		if !errors.As(err, &configErr) {
+			t.Errorf("Expected ConfigError, got %T: %v", err, err)
+		} else {
+			if configErr.Field != "platform" {
+				t.Errorf("ConfigError.Field = %q, want 'platform'", configErr.Field)
+			}
+			if len(configErr.Available) == 0 {
+				t.Error("ConfigError.Available should list valid platforms")
+			}
+		}
+	})
+}
+
+func TestTransformDocumentReturnsTypedFileError(t *testing.T) {
+	t.Run("file not found returns FileError", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		nonExistentFile := filepath.Join(tmpDir, "nonexistent-agent.md")
+		outputFile := filepath.Join(tmpDir, "output.md")
+
+		err := TransformDocument(nonExistentFile, outputFile, "claude-code")
+
+		if err == nil {
+			t.Fatal("Expected error for non-existent file")
+		}
+
+		var fileErr *gerrors.FileError
+		if !errors.As(err, &fileErr) {
+			t.Errorf("Expected FileError, got %T: %v", err, err)
+		} else {
+			if fileErr.Path != nonExistentFile {
+				t.Errorf("FileError.Path = %q, want %q", fileErr.Path, nonExistentFile)
+			}
+			if fileErr.Operation != "read" {
+				t.Errorf("FileError.Operation = %q, want 'read'", fileErr.Operation)
+			}
+			if !fileErr.IsNotFound() {
+				t.Error("FileError.IsNotFound() should return true")
+			}
+		}
+	})
+
+	t.Run("write error returns FileError", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		inputFile := filepath.Join(tmpDir, "test-agent.md")
+		outputFile := "/nonexistent/directory/output.md"
+
+		content := `---
+name: test-agent
+description: Test agent
+---
+Content`
+
+		if err := os.WriteFile(inputFile, []byte(content), 0644); err != nil {
+			t.Fatalf("Failed to create input file: %v", err)
+		}
+
+		err := TransformDocument(inputFile, outputFile, "claude-code")
+
+		if err == nil {
+			t.Fatal("Expected error for non-existent output directory")
+		}
+
+		var fileErr *gerrors.FileError
+		if !errors.As(err, &fileErr) {
+			t.Errorf("Expected FileError, got %T: %v", err, err)
+		} else {
+			if fileErr.Operation != "write" {
+				t.Errorf("FileError.Operation = %q, want 'write'", fileErr.Operation)
+			}
+		}
+	})
+}
+
+func TestValidateDocumentReturnsTypedConfigError(t *testing.T) {
+	t.Run("invalid platform returns ConfigError", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		inputFile := filepath.Join(tmpDir, "test-agent.md")
+
+		content := `---
+name: test-agent
+description: Test agent
+---
+Content`
+
+		if err := os.WriteFile(inputFile, []byte(content), 0644); err != nil {
+			t.Fatalf("Failed to create input file: %v", err)
+		}
+
+		errs, err := ValidateDocument(inputFile, "invalid-platform")
+
+		if err != nil {
+			t.Fatalf("ValidateDocument should not return fatal error: %v", err)
+		}
+
+		if len(errs) == 0 {
+			t.Fatal("Expected validation errors for invalid platform")
+		}
+
+		foundConfigError := false
+		for _, e := range errs {
+			var configErr *gerrors.ConfigError
+			if errors.As(e, &configErr) {
+				foundConfigError = true
+				if configErr.Field != "platform" {
+					t.Errorf("ConfigError.Field = %q, want 'platform'", configErr.Field)
+				}
+				break
+			}
+		}
+
+		if !foundConfigError {
+			t.Error("Expected ConfigError in validation errors")
+		}
+	})
+}
+
+func TestValidateDocumentReturnsTypedParseError(t *testing.T) {
+	t.Run("unrecognizable filename returns ParseError", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		inputFile := filepath.Join(tmpDir, "unrecognizable.md")
+
+		content := `---
+name: test
+description: Test
+---
+Content`
+
+		if err := os.WriteFile(inputFile, []byte(content), 0644); err != nil {
+			t.Fatalf("Failed to create input file: %v", err)
+		}
+
+		_, err := ValidateDocument(inputFile, "claude-code")
+
+		if err == nil {
+			t.Fatal("Expected error for unrecognizable filename")
+		}
+
+		var parseErr *gerrors.ParseError
+		if !errors.As(err, &parseErr) {
+			t.Errorf("Expected ParseError, got %T: %v", err, err)
+		}
+	})
 }

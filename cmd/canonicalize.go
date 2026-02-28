@@ -3,9 +3,9 @@ package main
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
+	gerrors "gitlab.com/amoconst/germinator/internal/errors"
 	"gitlab.com/amoconst/germinator/internal/models"
 	"gitlab.com/amoconst/germinator/internal/services"
 )
@@ -31,39 +31,37 @@ Supported document types:
 Example:
   germinator canonicalize agent.md canonical-agent.yaml --platform %s --type agent`, models.PlatformClaudeCode, models.PlatformOpenCode, models.PlatformOpenCode),
 	Args: cobra.ExactArgs(2),
-	Run: func(_ *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, args []string) {
+		cfg := NewCommandConfig(cmd)
 		inputPath := args[0]
 		outputPath := args[1]
 
+		VerbosePrint(cfg, "Canonicalizing document...")
+		VerbosePrint(cfg, "Output path: %s", outputPath)
+
 		if canonicalizePlatform == "" {
-			fmt.Fprintf(os.Stderr, "Error: --platform flag is required (valid: %s, %s)\n", models.PlatformClaudeCode, models.PlatformOpenCode)
-			os.Exit(1)
+			HandleError(cfg, gerrors.NewConfigError("platform", "", []string{models.PlatformClaudeCode, models.PlatformOpenCode}, "--platform flag is required"))
 		}
 
 		if canonicalizeDocType == "" {
-			fmt.Fprintf(os.Stderr, "Error: --type flag is required (valid: agent, command, skill, memory)\n")
-			os.Exit(1)
+			HandleError(cfg, gerrors.NewConfigError("type", "", []string{"agent", "command", "skill", "memory"}, "--type flag is required"))
 		}
 
 		if canonicalizePlatform != models.PlatformClaudeCode && canonicalizePlatform != models.PlatformOpenCode {
-			fmt.Fprintf(os.Stderr, "Error: invalid platform '%s' (valid: %s, %s)\n", canonicalizePlatform, models.PlatformClaudeCode, models.PlatformOpenCode)
-			os.Exit(1)
+			HandleError(cfg, gerrors.NewConfigError("platform", canonicalizePlatform, []string{models.PlatformClaudeCode, models.PlatformOpenCode}, "invalid platform"))
 		}
 
 		if canonicalizeDocType != "agent" && canonicalizeDocType != "command" && canonicalizeDocType != "skill" && canonicalizeDocType != "memory" {
-			fmt.Fprintf(os.Stderr, "Error: invalid document type '%s' (valid: agent, command, skill, memory)\n", canonicalizeDocType)
-			os.Exit(1)
+			HandleError(cfg, gerrors.NewConfigError("type", canonicalizeDocType, []string{"agent", "command", "skill", "memory"}, "invalid document type"))
 		}
 
-		if _, err := os.Stat(inputPath); os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "Error: input file not found: %s\n", inputPath)
-			os.Exit(1)
-		}
+		VeryVerbosePrint(cfg, "Parsing platform document...")
+		VeryVerbosePrint(cfg, "Validating document...")
+		VeryVerbosePrint(cfg, "Marshalling to canonical YAML...")
 
 		err := services.CanonicalizeDocument(inputPath, outputPath, canonicalizePlatform, canonicalizeDocType)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
+			HandleError(cfg, err)
 		}
 
 		fmt.Printf("Successfully canonicalized document to: %s\n", outputPath)

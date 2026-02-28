@@ -2,10 +2,10 @@
 package services
 
 import (
-	"fmt"
 	"os"
 
 	"gitlab.com/amoconst/germinator/internal/core"
+	gerrors "gitlab.com/amoconst/germinator/internal/errors"
 )
 
 const (
@@ -18,12 +18,12 @@ func validatePlatform(platform string) []error {
 	var errs []error
 
 	if platform == "" {
-		errs = append(errs, fmt.Errorf("platform is required (available: %s, %s)", PlatformClaudeCode, PlatformOpenCode))
+		errs = append(errs, gerrors.NewConfigError("platform", "", []string{PlatformClaudeCode, PlatformOpenCode}, "platform is required"))
 		return errs
 	}
 
 	if platform != PlatformClaudeCode && platform != PlatformOpenCode {
-		errs = append(errs, fmt.Errorf("unknown platform: %s (available: %s, %s)", platform, PlatformClaudeCode, PlatformOpenCode))
+		errs = append(errs, gerrors.NewConfigError("platform", platform, []string{PlatformClaudeCode, PlatformOpenCode}, "unknown platform"))
 		return errs
 	}
 
@@ -34,16 +34,16 @@ func validatePlatform(platform string) []error {
 func TransformDocument(inputPath, outputPath, platform string) error {
 	doc, err := core.LoadDocument(inputPath, platform)
 	if err != nil {
-		return fmt.Errorf("failed to load document: %w", err)
+		return err
 	}
 
 	rendered, err := core.RenderDocument(doc, platform)
 	if err != nil {
-		return fmt.Errorf("failed to render document: %w", err)
+		return gerrors.NewTransformError("render", platform, "failed to render document", err)
 	}
 
 	if err := os.WriteFile(outputPath, []byte(rendered), 0644); err != nil {
-		return fmt.Errorf("failed to write output file: %w", err)
+		return gerrors.NewFileError(outputPath, "write", "failed to write output file", err)
 	}
 
 	return nil
@@ -57,12 +57,12 @@ func ValidateDocument(inputPath, platform string) ([]error, error) {
 
 	docType := core.DetectType(inputPath)
 	if docType == "" {
-		return nil, fmt.Errorf("unrecognizable filename: %s", inputPath)
+		return nil, gerrors.NewParseError(inputPath, "unrecognizable filename", nil)
 	}
 
 	doc, parseErr := core.ParseDocument(inputPath, docType)
 	if parseErr != nil {
-		return nil, fmt.Errorf("failed to parse document: %w", parseErr)
+		return nil, gerrors.NewParseError(inputPath, "failed to parse document", parseErr)
 	}
 
 	var errs []error
@@ -80,7 +80,7 @@ func ValidateDocument(inputPath, platform string) ([]error, error) {
 	case *core.CanonicalSkill:
 		errs = d.Validate()
 	default:
-		return nil, fmt.Errorf("unknown document type: %T", d)
+		return nil, gerrors.NewParseError(inputPath, "unknown document type", nil)
 	}
 
 	return errs, nil

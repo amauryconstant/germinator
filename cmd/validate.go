@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	gerrors "gitlab.com/amoconst/germinator/internal/errors"
 	"gitlab.com/amoconst/germinator/internal/models"
 	"gitlab.com/amoconst/germinator/internal/services"
 )
@@ -23,25 +24,31 @@ Supported platforms:
 Example:
   germinator validate agent.yaml --platform %s`, models.PlatformClaudeCode, models.PlatformOpenCode, models.PlatformOpenCode),
 	Args: cobra.ExactArgs(1),
-	Run: func(_ *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, args []string) {
+		cfg := NewCommandConfig(cmd)
 		filePath := args[0]
 
+		VerbosePrint(cfg, "Validating file: %s", filePath)
+		VerbosePrint(cfg, "Platform: %s", validatePlatform)
+
 		if validatePlatform == "" {
-			fmt.Fprintf(os.Stderr, "Error: --platform flag is required (available: %s, %s)\n", models.PlatformClaudeCode, models.PlatformOpenCode)
-			os.Exit(1)
+			HandleError(cfg, gerrors.NewConfigError("platform", "", []string{models.PlatformClaudeCode, models.PlatformOpenCode}, "--platform flag is required"))
 		}
+
+		VeryVerbosePrint(cfg, "Loading document...")
+		VeryVerbosePrint(cfg, "Parsing document structure...")
+		VeryVerbosePrint(cfg, "Running validation...")
 
 		errs, err := services.ValidateDocument(filePath, validatePlatform)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
+			HandleError(cfg, err)
 		}
 
 		if len(errs) > 0 {
 			for _, e := range errs {
-				fmt.Fprintf(os.Stderr, "%v\n", e)
+				fmt.Fprintln(os.Stderr, cfg.ErrorFormatter.Format(e))
 			}
-			os.Exit(1)
+			os.Exit(int(ExitCodeUsage))
 		}
 
 		fmt.Println("Document is valid")

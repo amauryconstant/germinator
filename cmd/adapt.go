@@ -3,9 +3,9 @@ package main
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
+	gerrors "gitlab.com/amoconst/germinator/internal/errors"
 	"gitlab.com/amoconst/germinator/internal/models"
 	"gitlab.com/amoconst/germinator/internal/services"
 )
@@ -24,19 +24,25 @@ Supported platforms:
 Example:
   germinator adapt agent.yaml opencode-agent.md --platform %s`, models.PlatformClaudeCode, models.PlatformOpenCode, models.PlatformOpenCode),
 	Args: cobra.ExactArgs(2),
-	Run: func(_ *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, args []string) {
+		cfg := NewCommandConfig(cmd)
 		inputPath := args[0]
 		outputPath := args[1]
 
+		VerbosePrint(cfg, "Transforming document...")
+		VerbosePrint(cfg, "Output path: %s", outputPath)
+
 		if platform == "" {
-			fmt.Fprintf(os.Stderr, "Error: --platform flag is required (available: %s, %s)\n", models.PlatformClaudeCode, models.PlatformOpenCode)
-			os.Exit(1)
+			HandleError(cfg, gerrors.NewConfigError("platform", "", []string{models.PlatformClaudeCode, models.PlatformOpenCode}, "--platform flag is required"))
 		}
+
+		VeryVerbosePrint(cfg, "Loading source document...")
+		VeryVerbosePrint(cfg, "Rendering template for %s...", platform)
+		VeryVerbosePrint(cfg, "Writing output file...")
 
 		err := services.TransformDocument(inputPath, outputPath, platform)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
+			HandleError(cfg, err)
 		}
 
 		fmt.Printf("Document transformed successfully to %s\n", outputPath)
