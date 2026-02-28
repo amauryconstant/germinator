@@ -141,31 +141,7 @@ tests := []struct {
 
 ## Table-Driven Test Pattern
 
-```go
-func TestFunctionName(t *testing.T) {
-    tests := []struct {
-        name     string
-        input    string
-        expected string
-        wantErr  bool
-    }{
-        {name: "descriptive test case name", input: "test input", expected: "expected output", wantErr: false},
-    }
-
-    for _, tt := range tests {
-        t.Run(tt.name, func(t *testing.T) {
-            got, err := FunctionUnderTest(tt.input)
-            if (err != nil) != tt.wantErr {
-                t.Errorf("error = %v, wantErr %v", err, tt.wantErr)
-                return
-            }
-            if got != tt.expected {
-                t.Errorf("got = %q, want %q", got, tt.expected)
-            }
-        })
-    }
-}
-```
+See Go testing documentation for standard table-driven test pattern.
 
 ## Error Counting Patterns
 

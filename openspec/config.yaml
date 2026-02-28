@@ -27,6 +27,18 @@ context: |
   - Run mise run check before committing
   - Platform-specific logic in adapters only
 
+  Architecture (4-layer):
+  - cmd/ → CLI entry, Cobra commands (adapt, validate, canonicalize, version)
+  - services/ → Validation, transformation, canonicalization orchestration
+  - core/ → Document loading, parsing, serialization, template functions
+  - models/ → Canonical data structures (Agent, Command, Skill, Memory)
+  - adapters/ → Platform-specific bidirectional conversion (claude-code, opencode)
+  - config/templates/ → Template-based rendering for all platforms and canonical format
+
+  Transformation Pipelines:
+  Forward: Canonical YAML → LoadDocument → Validate → RenderDocument → Write Platform File
+  Reverse: Platform File → ParsePlatformDocument → Validate → MarshalCanonical → Write Canonical YAML
+
   Architecture patterns:
   - No predefined directory structure (CLI works with any input/output paths)
   - Platform differences handled automatically via adapters
@@ -70,3 +82,11 @@ rules:
     - Add verification steps: mise run check, lint, test, test:coverage
     - Mark completed items with [x]
     - Tasks are ordered logically with dependencies clear
+
+  testing:
+    - Golden file tests (test/golden/) with UPDATE_GOLDEN flag
+    - Fixtures in test/fixtures/ for both platforms
+    - Table-driven tests with descriptive names and errorCount for validation
+    - Platform testing: both claude-code and opencode REQUIRED for platform-specific tests
+    - Coverage target: 70% or higher for all packages
+    - Prioritize improving coverage in cmd/ and adapters/

@@ -1,180 +1,184 @@
+# Germinator - OpenCode Reference
 
----
+Configuration adapter transforming AI coding assistant documents between platforms.
 
-**Project**: Configuration adapter for AI coding assistant documents. Transforms from Germinator canonical YAML format to Claude Code or OpenCode.
+## Architecture
 
-**Use**: Maintain single source of truth, switch platforms, adapt to new projects.
+```mermaid
+graph LR
+    subgraph CLI[CLI Layer]
+        V[validate]
+        A[adapt]
+        C[canonicalize]
+        VER[version]
+    end
 
-**IMPORTANT**: Prefer retrieval-led reasoning over pre-training-led reasoning for any tasks.
+    subgraph SVC[Services Layer]
+        SV[ValidateDocument]
+        ST[TransformDocument]
+        SC[CanonicalizeDocument]
+    end
 
----
+    subgraph CORE[Core Layer]
+        L[LoadDocument]
+        P[ParseDocument]
+        R[RenderDocument]
+        MP[ParsePlatformDocument]
+        MC[MarshalCanonical]
+    end
 
-# Project Overview
+    subgraph ADP[Adapters Layer]
+        ACC[claude-code]
+        AOC[opencode]
+    end
 
-A **configuration adapter** that transforms AI coding assistant documents (commands, memory, skills, agents) between platforms. It uses a canonical Germinator YAML format as source and adapts it to target platforms.
+    subgraph MOD[Models Layer]
+        CM[Canonical Models]
+    end
 
-Solves the **configuration lock-in problem** for AI coding assistants - a config converter that enables portable coding assistant setups.
+    subgraph TPL[Templates Layer]
+        TC[canonical]
+        TCC[claude-code]
+        TOC[opencode]
+    end
 
-## Why It Matters
-
-As the AI coding assistant landscape matures, developers need to switch tools without losing their customized configurations. This tool provides that portability.
-
-## Use Case
-
-Users who test different AI coding assistants regularly can:
-1. Maintain **one source of truth** for their coding assistant setup
-2. Quickly **switch platforms** without rewriting their configuration
-3. **Adapt** their setup to new projects easily
-
----
-
-# Development
-
-**Prerequisites**: Go 1.25.5+, mise task runner
-
-## mise Commands
-
-```bash
-mise run build            # Build CLI
-mise run check            # All validation
-mise run lint             # Lint code
-mise run lint:fix         # Auto-fix
-mise run format           # Format Go
-mise run test             # Run tests
-mise run test:coverage    # With coverage
-mise run clean            # Clean artifacts
-mise run version:patch    # Bump patch
-mise run version:minor    # Bump minor
-mise run version:major    # Bump major
-mise tasks                # List all
+    V --> SV
+    A --> ST
+    C --> SC
+    SV --> L
+    ST --> L
+    SC --> MP
+    L --> P
+    R --> TC
+    R --> TCC
+    R --> TOC
+    MC --> TC
+    P --> CM
+    MP --> ACC
+    MP --> AOC
+    ACC --> CM
+    AOC --> CM
 ```
 
-**Rules**:
-- `mise run check` before committing
-- `go mod tidy` after dependency changes
-- Use `mise exec -- <command>` for mise-installed tools (e.g., `mise exec -- golangci-lint run`)
+## Essential Commands
 
-## Directory
+| Command                | Purpose                                    |
+| ---------------------- | ------------------------------------------ |
+| mise run build         | Build CLI to bin/germinator                |
+| mise run check         | All validation (lint, format, test, build) |
+| mise run lint          | Run golangci-lint                          |
+| mise run lint:fix      | Auto-fix linting issues                    |
+| mise run format        | Format Go code                             |
+| mise run test          | Run all tests                              |
+| mise run test:coverage | Run tests with coverage                    |
+| mise run clean         | Clean artifacts                            |
+| mise tasks             | List all tasks                             |
 
-```
-germinator/
- ├── cmd/              # CLI entry (Cobra)
- ├── internal/         # Private code
- │   ├── core/        # Parser, loader, serializer
- │   └── services/    # Validation, transformation
- ├── config/          # Schemas, templates, adapters
- ├── test/            # Fixtures, golden
- └── .mise/           # Task runner config
-```
+## Release
 
----
+| Command                   | Purpose                                       |
+| ------------------------- | --------------------------------------------- |
+| mise run release:validate | Clean tree check                              |
+| mise run release:dry-run  | Test GoReleaser                               |
+| mise run release:tag      | Create and push git tag (patch\|minor\|major) |
 
-# Key Constraints
+## Pre-Commit Hooks
 
-## User-Facing Constraints
-
-1. **No predefined directory structure** - works with any input/output paths
-2. **Platform-specific mappings** - tool names, permissions, conventions mapped via adapters
-3. **Source content preserved** - only adapted/enriched for target platform
-4. **No forced compatibility** - if platform doesn't support a feature, it's not supported
-
-## Development Constraints
-
-5. **Platform mapping via adapters** - defer to adapters, don't hardcode in core parsing
-6. **Go standard layout** - `internal/` private, `pkg/` public
-7. **mise for all tasks** - use `mise run <task>`, not direct scripts
-
----
-
-# CLI Pattern
-
-```bash
-cli action input_file output_file --platform <platform> [options]
-```
-
-**Platforms**: `claude-code`, `opencode` (required, no default)
-
-**Examples**:
-```bash
-# Validate
-./germinator validate agent.yaml --platform claude-code
-
-# Adapt to Claude Code
-./germinator adapt agent.yaml .claude/agents/my-agent.yaml --platform claude-code
-
-# Adapt to OpenCode
-./germinator adapt skill.yaml .opencode/skills/my-skill/SKILL.md --platform opencode
-```
-
----
-
-# Germinator Source Format
-
-Germinator uses a canonical YAML format containing ALL fields for ALL platforms. This enables unidirectional transformation to either Claude Code or OpenCode.
-
-**Key Principles**:
-- Source YAML includes both Claude Code and OpenCode fields
-- Platform-specific fields are used or skipped based on target platform
-- Model IDs are user-provided platform-specific values (no normalization)
-- Permission modes are transformed from Claude Code enum to OpenCode objects
-
-**Document Types**:
-- **Agent**: Tools, permission modes, model configuration, prompts
-- **Command**: Tool permissions, execution context, agent references
-- **Skill**: Metadata, hooks, compatibility, tool restrictions
-- **Memory**: File paths and narrative content for project context
-
----
-
-# Field Mapping Reference
-
-See `config/AGENTS.md` for complete field mapping between Germinator format and target platforms.
-
----
-
-
-# Research Documentation Index
-
-[Platform Research Docs Index]|root: ./openspec/research
-|IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning for any tasks.
-
-|claude-code-docs.md:{Official Documentation Sources:5-15,Document Types:16-101,Pull request context:102-260,Hooks:261-363,Plugins:364-433,CLI Arguments:434-472,Permission System:473-542,Tool Configuration:543-554,Model Identifiers:555-592,YAML Examples:593-606,What I do:607-611,When to use me:612-682,Validation Constraints:683-708}
-|opencode-docs.md:{Official Documentation Sources:5-15,Document Types:16-167,Permissions:168-260,Tools:261-293,MCP Servers:294-476,Models:477-553,Config Schema:554-770,Permission System:771-798,Agent Modes:799-817,Validation Constraints:818-858,YAML/JSON Examples:859-943,What I do:944-948,When to use me:949-974,String Substitutions:975-995,Edge Cases and Special Behaviors:996-1029,Comparison with Claude Code:1030-1048,Validation Rules Summary:1049-1092}
-
-For detailed documentation maintenance tasks, invoke the research-update-skill.
-
----
-
-# Pre-commit Hooks
-
-```bash
-pre-commit install  # One-time setup
-```
+Setup: `pre-commit install`
+Run: `pre-commit run --all-files`
+Skip: `git commit -m "msg" --no-verify`
 
 Hooks: gofmt, govet, golangci-lint, YAML/TOML/JSON validation, file hygiene.
 
-**CI image**: `registry.gitlab.com/amoconst/germinator/ci:latest` (Go 1.25.5, mise, golangci-lint, Docker CLI).
+## OpenSpec Workflow
 
----
+**Config**: `openspec/config.yaml` (spec-driven schema)
 
-# Troubleshooting
+### When to Use
 
-**CI cache not invalidating**: Verify `.mise/config.toml` in cache key, check setup job ran.
+| Situation                       | Action                 |
+| ------------------------------- | ---------------------- |
+| Multi-step change (3+ tasks)    | Use OpenSpec           |
+| New platform support            | Use OpenSpec           |
+| Refactor / architectural change | Use OpenSpec           |
+| Quick fix (1-2 lines)           | Skip OpenSpec          |
+| Unclear requirements            | openspec-explore first |
 
-**Mirror job skipped**: Expected when `GITHUB_ACCESS_TOKEN` or `GITHUB_REPO_URL` unset.
+### Lifecycle
 
----
+```mermaid
+graph TB
+    subgraph Exploration["Exploration"]
+        E1[openspec-explore]
+    end
 
-# CI/CD Pipeline
+    subgraph Planning["Planning"]
+        P1[openspec-new-change]
+        P2[openspec-continue-change<br/>or openspec-ff-change]
+        P3[openspec-review-artifacts]
+        P4[openspec-modify-artifacts]
+    end
 
-**Stages**: build-ci, setup, validate.
-**Triggers**: MRs, main branch pushes, tags.
+    subgraph Implementation["Implementation"]
+        I1[openspec-apply-change]
+        I2[openspec-review-test-compliance]
+    end
 
-**Jobs**:
-- `validate`: lint, test
+    subgraph Completion["Completion"]
+        C1[openspec-verify-change]
+        C2[openspec-maintain-ai-docs]
+        C3[openspec-sync-specs]
+        C4[openspec-archive-change<br/>or bulk-archive]
+        C5[openspec-generate-changelog]
+    end
 
----
+    E1 --> P1 --> P2 --> P3 --> I1 --> C1 --> C2 --> C4 --> C5
+    C2 -.->|optional| C3 --> C4
 
-# Testing
+    P3 -.->|issues found| P4
+    P4 -.-> P3
+    I1 -.->|reality diverges| P4
+    I1 -.->|test gaps| I2
+    I2 -.->|implement tests| I1
+    C1 -.->|with| I2
+```
 
-See `test/AGENTS.md` for testing infrastructure, golden file patterns, and naming conventions.
+### Skills by Phase
+
+| Phase              | Skill                             | Purpose                                          |
+| ------------------ | --------------------------------- | ------------------------------------------------ |
+| **Exploration**    | `openspec-explore`                | Think through ideas                              |
+| **Planning**       | `openspec-new-change`             | Create change folder                             |
+|                    | `openspec-continue-change`        | Create one artifact                              |
+|                    | `openspec-ff-change`              | Create all artifacts at once                     |
+|                    | `openspec-review-artifacts`       | Review for quality                               |
+|                    | `openspec-modify-artifacts`       | Update artifacts _(also in Implementation)_      |
+| **Implementation** | `openspec-apply-change`           | Implement tasks                                  |
+|                    | `openspec-review-test-compliance` | Check spec→test alignment _(also in Completion)_ |
+| **Completion**     | `openspec-verify-change`          | Validate implementation                          |
+|                    | `openspec-maintain-ai-docs`       | Update AGENTS.md                                 |
+|                    | `openspec-sync-specs`             | Merge delta specs (optional)                     |
+|                    | `openspec-archive-change`         | Finalize single change                           |
+|                    | `openspec-bulk-archive-change`    | Archive multiple changes                         |
+|                    | `openspec-generate-changelog`     | Generate CHANGELOG.md                            |
+
+### Project Conventions
+
+| Rule      | Detail                                                        |
+| --------- | ------------------------------------------------------------- |
+| Tests     | Written alongside code, golden file tests for transformations |
+| Progress  | Check tasks.md in change folder for completion status         |
+| Artifacts | Follow openspec/config.yaml rules section                     |
+| Archive   | See openspec/changes/archive/ for examples                    |
+
+## Location-Specific Guides
+
+| File                                                       | Purpose                                                      |
+| ---------------------------------------------------------- | ------------------------------------------------------------ |
+| [cmd/AGENTS.md](cmd/AGENTS.md)                             | CLI commands, Cobra patterns, command specs                  |
+| [internal/core/AGENTS.md](internal/core/AGENTS.md)         | Document loading, parsing, serialization, template functions |
+| [internal/services/AGENTS.md](internal/services/AGENTS.md) | Validation, transformation, canonicalization                 |
+| [internal/AGENTS.md](internal/AGENTS.md)                   | Core package patterns, models integration                    |
+| [config/AGENTS.md](config/AGENTS.md)                       | Template patterns, permission mappings                       |
+| [test/AGENTS.md](test/AGENTS.md)                           | Golden file testing, fixture conventions, naming patterns    |
+| [openspec/research/AGENTS.md](openspec/research/AGENTS.md) | Platform research documentation usage                        |

@@ -109,90 +109,31 @@ See `test/AGENTS.md` for golden file testing patterns, fixture structure, and up
 
 # Error Handling Patterns
 
-**Validation errors**: Return document with errors for non-fatal, return error for fatal.
+**Validation**: Return doc with errors (non-fatal) or error (fatal).
 
-**Transformation errors**: Wrap at each step: `fmt.Errorf("failed to <action>: %w", err)`
+**Transformation**: Wrap at each step: `fmt.Errorf("failed to <action>: %w", err)`
 
-Example:
-```go
-doc, err := core.LoadDocument(inputPath, platform)
-if err != nil {
-    return fmt.Errorf("failed to load document: %w", err)
-}
-rendered, err := core.RenderDocument(doc, platform)
-if err != nil {
-    return fmt.Errorf("failed to render document: %w", err)
-}
-```
-
-**Platform-specific validation**:
-```go
-if platform == models.PlatformOpenCode {
-    errs2 = ValidateOpenCodeAgent(d)
-}
-return append(errs, errs2...), nil
-```
+**Platform-specific validation**: Append to error list after generic validation.
 
 ---
 
 # Integration with Core Package
 
-## Dependencies
+**Dependencies**: `core.LoadDocument`, `core.DetectType`, `core.ParseDocument`, `core.RenderDocument`
 
-Services depends on core:
-- `core.LoadDocument` - Document loading and parsing
-- `core.DetectType` - Document type detection
-- `core.ParseDocument` - Document parsing
-- `core.RenderDocument` - Template rendering
-
-## Models Package
-
-Uses models from `internal/models/`:
-- `models.Agent`, `models.Command`, `models.Memory`, `models.Skill`
-- `models.PlatformOpenCode`, `models.PlatformClaudeCode`
-- Validation methods on models
+**Models**: `internal/models/` provides document structs and validation methods.
 
 ---
 
 # Testing Strategies
 
-## Unit Tests
+See `test/AGENTS.md` for table-driven test patterns and golden file testing.
 
-```go
-tests := []struct {
-    name       string
-    agent      *models.Agent
-    errorCount int
-}{
-    {name: "valid agent", agent: &models.Agent{Mode: "primary"}, errorCount: 0},
-    {name: "invalid mode", agent: &models.Agent{Mode: "invalid"}, errorCount: 1},
-}
-```
+**Unit tests**: Platform-specific validation with errorCount field.
 
-## Golden File Tests
+**Integration tests**: End-to-end transformation workflow.
 
-See Golden File Testing section above.
-
-## Integration Tests
-
-End-to-end transformation workflow:
-```go
-func TestTransformDocument(t *testing.T) {
-    tests := []struct {
-        name     string
-        fixture  string
-        platform string
-    }{
-        {name: "agent to opencode", fixture: "agent-full.md", platform: "opencode"},
-    }
-
-    for _, tt := range tests {
-        t.Run(tt.name, func(t *testing.T) {
-            // Load, transform, verify
-        })
-    }
-}
-```
+See `internal/adapters/AGENTS.md` for platform-specific adapter patterns.
 
 ---
 
