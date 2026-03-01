@@ -1,10 +1,16 @@
 ---
 description: PHASE3 - Maintain Documentation
 agent: openspec-maintainer
-metadata:
-  generatedBy: "0.6.3"
-   version: "0.2.0"
 ---
+
+## Tools Available
+
+| Tool | Usage |
+|------|-------|
+| `osc-ctx` | `.opencode/scripts/lib/osc-ctx <change>` - load change context |
+| `osc-state` | `.opencode/scripts/lib/osc-state <change> <action>` - manage state |
+| `osc-log` | `.opencode/scripts/lib/osc-log <change> <action>` - decision log |
+| `osc-iterations` | `.opencode/scripts/lib/osc-iterations <change> <action>` - iteration history |
 
 # PHASE3: Maintain Documentation
 
@@ -13,7 +19,7 @@ Change: $1
 ## MANDATORY START
 
 1. Load context:
-  !`opencode/scripts/lib/osc-ctx "$1"`
+  !`.opencode/scripts/lib/osc-ctx "$1"`
 2. Confirm `phase` is PHASE3
 3. Review `history.iterations_recorded` for previous attempts
 4. Load skill: `.opencode/skills/openspec-concepts/SKILL.md` (reference only)

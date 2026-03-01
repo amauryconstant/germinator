@@ -1,10 +1,16 @@
 ---
 description: PHASE0 - Artifact Review
 agent: openspec-analyzer
-metadata:
-  generatedBy: "0.6.3"
-   version: "0.2.1"
 ---
+
+## Tools Available
+
+| Tool | Usage |
+|------|-------|
+| `osc-ctx` | `.opencode/scripts/lib/osc-ctx <change>` - load change context |
+| `osc-state` | `.opencode/scripts/lib/osc-state <change> <action>` - manage state |
+| `osc-log` | `.opencode/scripts/lib/osc-log <change> <action>` - decision log |
+| `osc-iterations` | `.opencode/scripts/lib/osc-iterations <change> <action>` - iteration history |
 
 # PHASE0: Artifact Review
 
@@ -13,7 +19,7 @@ Change: $1
 ## MANDATORY START
 
 1. Load context:
-  !`opencode/scripts/lib/osc-ctx "$1"`
+  !`.opencode/scripts/lib/osc-ctx "$1"`
 2. Confirm `phase` is PHASE0
 3. Review `history.iterations_recorded` for previous attempts
 4. Load skill: `.opencode/skills/openspec-concepts/SKILL.md` (reference only)
@@ -36,10 +42,11 @@ Ensure OpenSpec artifacts are excellent before implementation. Validate:
    - **SUGGESTION**: Nice to have, non-blocking
 
 4. IF CRITICAL or WARNING issues found:
-   a. For each issue, use `openspec-modify-artifacts` skill to fix it
+   **YOU MUST FIX THEM IMMEDIATELY IN THIS SAME INVOCATION - DO NOT WAIT FOR NEXT ITERATION**
+   a. For each issue, use `openspec-modify-artifacts` skill to fix it NOW
    b. Track iteration via `osc-log` and `osc-iterations`
-   c. After fixing all CRITICAL/WARNING issues, re-run review
-   d. Repeat until clean or max iterations (5) reached
+   c. After fixing all CRITICAL/WARNING issues, re-run review to verify fixes
+   d. Only report "Recommendation: Fix issues" if you are UNABLE to fix them
 
 5. IF CLEAN (no CRITICAL or WARNING issues):
    a. Log completion via `osc-log`

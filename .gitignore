@@ -39,10 +39,11 @@ go.work.sum
 
 # Gitlab CI folder
 .cache
+
 # BEGIN OpenSpec autonomous workflow state
 .openspec-baseline.json
 openspec/changes/**/state.json
 openspec/changes/**/complete.json
 openspec/changes/**/iterations.json
-openspec/changes/**/decision-log.md
+openspec/changes/**/decision-log.json
 # END OpenSpec autonomous workflow state

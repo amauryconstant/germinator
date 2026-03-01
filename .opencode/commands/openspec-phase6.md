@@ -1,10 +1,15 @@
 ---
 description: PHASE6 - Self-Reflection
 agent: openspec-analyzer
-metadata:
-  generatedBy: "0.6.3"
-   version: "0.2.0"
 ---
+
+## Tools Available
+
+| Tool | Usage |
+|------|-------|
+| `osc-ctx` | `.opencode/scripts/lib/osc-ctx <change>` - load change context |
+| `osc-log` | `.opencode/scripts/lib/osc-log <change> <action>` - decision log |
+| `osc-iterations` | `.opencode/scripts/lib/osc-iterations <change> <action>` - iteration history |
 
 # PHASE6: Self-Reflection
 
@@ -13,7 +18,7 @@ Change: $1
 ## MANDATORY START
 
 1. Load context:
-  !`opencode/scripts/lib/osc-ctx "$1"`
+  !`.opencode/scripts/lib/osc-ctx "$1"`
 2. Confirm `phase` is PHASE6
 3. Review full history via `osc-log get` to understand entire workflow
 4. Review `history.iterations_recorded` for iteration counts per phase

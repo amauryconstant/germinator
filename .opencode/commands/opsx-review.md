@@ -1,11 +1,14 @@
 ---
 description: Review OpenSpec artifacts for quality, completeness, and consistency
 license: MIT
-metadata:
-  generatedBy: "0.6.3"
-  author: openspec-extended
-  version: "0.2.0"
 ---
+
+## Tools Available
+
+| Tool | Type | Usage |
+|------|------|-------|
+| `openspec` | Upstream CLI | `openspec <command> [options]` - npm package |
+| `osc-ctx` | Local script | `.opencode/scripts/lib/osc-ctx <change>` - load change context |
 
 Review OpenSpec artifacts (proposal, design, tasks, specs) for quality and completeness.
 
@@ -36,10 +39,10 @@ Optionally specify `[change-name] [artifact-id]` after `/opsx-review`. If omitte
    Announce: "Reviewing change: <name>" and how to override.
 
 2. **Check status to understand schema**
-   ```bash
-   openspec status --change "<name>" --json
-   ```
-   Parse JSON for: schemaName, artifact list with statuses.
+    ```bash
+    .opencode/scripts/lib/osc-ctx "<name>"
+    ```
+    Parse JSON for: state (phase, iteration), artifacts with existence info.
 
 3. **Select artifact to review**
 
