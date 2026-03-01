@@ -109,9 +109,9 @@
 
 ## 14. Documentation
 
-- [ ] 14.1 Update `cmd/AGENTS.md` with verbose flag pattern documentation
-- [ ] 14.2 Update `cmd/AGENTS.md` with CommandConfig pattern documentation
-- [ ] 14.3 Update `cmd/AGENTS.md` with error handling pattern documentation
+- [x] 14.1 Update `cmd/AGENTS.md` with verbose flag pattern documentation
+- [x] 14.2 Update `cmd/AGENTS.md` with CommandConfig pattern documentation
+- [x] 14.3 Update `cmd/AGENTS.md` with error handling pattern documentation
 
 ## 15. Final Verification
 

@@ -1,7 +1,8 @@
 # cli-framework Specification
 
 ## Purpose
-Define Cobra CLI framework with validate, adapt, and version commands for document transformation.
+
+Define Cobra CLI framework with validate, adapt, and canonicalize commands for document transformation.
 
 ## Requirements
 ### Requirement: Cobra CLI Framework
@@ -25,7 +26,7 @@ The project SHALL use the Cobra framework for CLI command structure.
 
 ### Requirement: Root Command Structure
 
-The project SHALL have a root command named "germinator" with basic functionality.
+The project SHALL have a root command named "germinator" with basic functionality and persistent flags.
 
 #### Scenario: Root command exists
 **Given** the project has been initialized
@@ -37,6 +38,39 @@ The project SHALL have a root command named "germinator" with basic functionalit
 **Given** the root command exists
 **When** a developer runs `./germinator --help`
 **Then** the output SHALL include a description explaining the tool's purpose
+
+#### Scenario: Root command has persistent verbose flag
+**Given** the root command exists
+**When** a developer runs `./germinator --help`
+**Then** the output SHALL include a `-v` flag description
+**And** the flag SHALL be marked as persistent
+
+---
+
+### Requirement: CommandConfig Pattern
+
+The CLI SHALL use a CommandConfig struct for dependency injection.
+
+#### Scenario: CommandConfig initialization
+
+- **GIVEN** the root command is executed
+- **WHEN** PreRun or Run is called
+- **THEN** a CommandConfig SHALL be created with ErrorFormatter and Verbosity
+- **AND** CommandConfig SHALL be passed to command functions
+
+#### Scenario: CommandConfig contains ErrorFormatter
+
+- **GIVEN** a CommandConfig instance
+- **WHEN** ErrorFormatter field is accessed
+- **THEN** it SHALL be a valid ErrorFormatter instance
+- **AND** it SHALL be used for all error formatting in the command
+
+#### Scenario: CommandConfig contains Verbosity
+
+- **GIVEN** a CommandConfig instance
+- **WHEN** Verbosity field is accessed
+- **THEN** it SHALL reflect the current verbosity level from flags
+- **AND** it SHALL be used for verbose output decisions
 
 ---
 
@@ -69,14 +103,16 @@ The CLI SHALL provide a validate command that validates document files.
 **Then** the command SHALL parse the document
 **And** it SHALL validate the document
 **And** it SHALL display validation errors if any exist
-**And** it SHALL exit with code 0 if valid, non-zero if invalid
+**And** it SHALL exit with code 0 if valid
+**And** it SHALL exit with code 2 for validation errors
+**And** it SHALL exit with code 3 for parse errors
 
 #### Scenario: Validate displays clear error messages
 **Given** a document with validation errors
 **When** `germinator validate <file>` is run
 **Then** each error SHALL be displayed on a separate line
 **And** errors SHALL be clearly formatted for human reading
-**And** the output SHALL indicate the total number of errors
+**And** contextual hints SHALL be provided when available
 
 #### Scenario: Validate command help
 **Given** the validate command exists
@@ -87,8 +123,21 @@ The CLI SHALL provide a validate command that validates document files.
 #### Scenario: Validate handles missing file
 **Given** a file that doesn't exist
 **When** `germinator validate <file>` is run
-**Then** it SHALL display an error message indicating the file doesn't exist
-**And** it SHALL exit with a non-zero code
+**Then** it SHALL display a file error message
+**And** it SHALL exit with code 1
+
+#### Scenario: Validate handles invalid platform
+**Given** an invalid platform flag
+**When** `germinator validate <file> --platform invalid` is run
+**Then** it SHALL display a config error with valid platforms
+**And** it SHALL exit with code 2
+
+#### Scenario: Validate uses CommandConfig
+**Given** the validate command is run
+**When** execution begins
+**Then** it SHALL receive a CommandConfig with ErrorFormatter and Verbosity
+**And** it SHALL use CommandConfig.ErrorFormatter for error output
+**And** it SHALL use CommandConfig.Verbosity for verbose output
 
 ---
 
@@ -104,6 +153,7 @@ The CLI SHALL provide an adapt command that transforms documents to target platf
 **And** it SHALL serialize the document
 **And** it SHALL write to the output file
 **And** it SHALL display success message
+**And** it SHALL exit with code 0
 
 #### Scenario: Adapt fails on validation
 **Given** an invalid input document
@@ -111,8 +161,15 @@ The CLI SHALL provide an adapt command that transforms documents to target platf
 **Then** it SHALL parse the document
 **And** it SHALL detect validation errors
 **And** it SHALL NOT create the output file
-**And** it SHALL display validation errors
-**And** it SHALL exit with a non-zero code
+**And** it SHALL display validation errors with hints
+**And** it SHALL exit with code 2
+
+#### Scenario: Adapt fails on parse error
+**Given** a document with invalid YAML
+**When** `germinator adapt <input> <output> --platform <platform>` is run
+**Then** it SHALL NOT create the output file
+**And** it SHALL display parse error with file path
+**And** it SHALL exit with code 3
 
 #### Scenario: Adapt with Claude Code platform
 **Given** a valid input document and output file
@@ -131,15 +188,70 @@ The CLI SHALL provide an adapt command that transforms documents to target platf
 #### Scenario: Adapt handles read errors
 **Given** an input file that cannot be read (permission denied)
 **When** `germinator adapt <input> <output> --platform <platform>` is run
-**Then** it SHALL display an error message indicating the read failure
+**Then** it SHALL display a file error with path and operation
 **And** it SHALL NOT create the output file
-**And** it SHALL exit with a non-zero code
+**And** it SHALL exit with code 1
 
 #### Scenario: Adapt handles write errors
 **Given** a valid input document but output directory is read-only
 **When** `germinator adapt <input> <output> --platform <platform>` is run
-**Then** it SHALL display an error message indicating the write failure
-**And** it SHALL exit with a non-zero code
+**Then** it SHALL display a file error with path and operation
+**And** it SHALL exit with code 1
+
+#### Scenario: Adapt handles invalid platform
+**Given** an invalid platform flag
+**When** `germinator adapt <input> <output> --platform invalid` is run
+**Then** it SHALL display a config error with valid platforms
+**And** it SHALL exit with code 2
+
+#### Scenario: Adapt uses CommandConfig
+**Given** the adapt command is run
+**When** execution begins
+**Then** it SHALL receive a CommandConfig with ErrorFormatter and Verbosity
+**And** it SHALL use CommandConfig.ErrorFormatter for error output
+**And** it SHALL use CommandConfig.Verbosity for verbose output
+
+---
+
+### Requirement: Canonicalize Command
+
+The CLI SHALL provide a canonicalize command that converts platform documents to canonical format.
+
+#### Scenario: Canonicalize uses CommandConfig
+
+- **GIVEN** the canonicalize command is run
+- **WHEN** execution begins
+- **THEN** it SHALL receive a CommandConfig with ErrorFormatter and Verbosity
+- **AND** it SHALL use CommandConfig.ErrorFormatter for error output
+- **AND** it SHALL use CommandConfig.Verbosity for verbose output
+
+#### Scenario: Canonicalize handles errors with typed errors
+
+- **GIVEN** a platform document with errors
+- **WHEN** `germinator canonicalize <input> <output>` is run
+- **THEN** it SHALL display typed error messages
+- **AND** it SHALL exit with appropriate exit code
+
+---
+
+### Requirement: Central Error Handler
+
+The CLI SHALL provide a central error handler for consistent error processing.
+
+#### Scenario: HandleError processes all errors
+
+- **GIVEN** an error occurs in any command
+- **WHEN** HandleError is called with CommandConfig and the error
+- **THEN** it SHALL format the error using CommandConfig.ErrorFormatter
+- **AND** it SHALL write formatted output to stderr
+- **AND** it SHALL exit with the appropriate exit code
+
+#### Scenario: HandleError with nil error
+
+- **GIVEN** HandleError is called with nil
+- **WHEN** the function executes
+- **THEN** it SHALL exit with code 0
+- **AND** it SHALL NOT write to stderr
 
 ---
 
@@ -159,12 +271,19 @@ The CLI SHALL register all new subcommands with the root command.
 **Then** it SHALL have an "adapt" subcommand
 **And** the subcommand SHALL be accessible via `germinator adapt`
 
+#### Scenario: Register canonicalize command
+**Given** the CLI is initialized
+**When** the root command is inspected
+**Then** it SHALL have a "canonicalize" subcommand
+**And** the subcommand SHALL be accessible via `germinator canonicalize`
+
 #### Scenario: Commands appear in help
 **Given** the CLI is initialized
 **When** `germinator --help` is run
 **Then** the help output SHALL list all available commands
 **And** it SHALL include "validate" in the commands list
 **And** it SHALL include "adapt" in the commands list
+**And** it SHALL include "canonicalize" in the commands list
 
 ---
 
