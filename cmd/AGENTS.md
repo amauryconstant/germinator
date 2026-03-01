@@ -5,18 +5,29 @@
 
 # CLI Entry Points
 
-Cobra-based CLI with platform-specific validation.
+Cobra-based CLI with platform-specific validation, typed errors, and verbosity control.
 
 ## Commands
 
 - `root.go` - Entry point, runs help when no subcommand provided
 - `adapt` - Transform document to target platform format
 - `validate` - Validate document against platform rules
+- `canonicalize` - Convert platform document to canonical format
 - `version` - Display version, commit, build date
 
 ---
 
 # Command Pattern
+
+## CommandConfig Pattern
+
+Commands use `CommandConfig` for dependency injection:
+```go
+func(cmd *cobra.Command, args []string) {
+    cfg := NewCommandConfig(cmd)
+    // Use cfg.ErrorFormatter, cfg.Verbosity
+}
+```
 
 ## Required Flags
 
@@ -25,11 +36,12 @@ Both `adapt` and `validate` require `--platform` flag:
 _ = cmd.MarkFlagRequired("platform")
 ```
 
-Validation in Run function (not Cobra validation):
+Validation uses typed ConfigError:
 ```go
 if platform == "" {
-    fmt.Fprintf(os.Stderr, "Error: --platform flag is required (available: %s, %s)\n", ...)
-    os.Exit(1)
+    HandleError(cfg, gerrors.NewConfigError("platform", "", 
+        []string{models.PlatformClaudeCode, models.PlatformOpenCode}, 
+        "--platform flag is required"))
 }
 ```
 
@@ -42,21 +54,73 @@ Platform strings from `models.PlatformClaudeCode`, `models.PlatformOpenCode`.
 
 ---
 
-# Exit Codes
+# Verbosity Flag
 
-All commands use `os.Exit(1)` for errors:
-- Missing required flag → exit 1
-- Validation errors → exit 1
-- Transformation errors → exit 1
+Persistent `-v`/`-vv` flag on root command for all subcommands:
+```go
+rootCmd.PersistentFlags().CountP("verbose", "v", "Increase verbosity (use -v or -vv)")
+```
 
-Success: implicit exit 0 (no `os.Exit` call)
+Levels:
+- Level 0 (default): No verbose output
+- Level 1 (`-v`): Basic progress info
+- Level 2 (`-vv`): Detailed operation info
+
+Usage:
+```go
+VerbosePrint(cfg, "Processing file: %s", filePath)      // Level 1+
+VeryVerbosePrint(cfg, "Parsing YAML structure...")      // Level 2+
+```
+
+Output goes to stderr (stdout stays clean for piping).
 
 ---
 
-# Error Output
+# Exit Codes
 
-Use `fmt.Fprintf(os.Stderr, "Error: %v\n", err)` for error messages.
-Validation errors printed one per line to stderr.
+Semantic exit codes for programmatic handling:
+- `0` (Success) - Command completed successfully
+- `1` (Error) - General errors (transform, file, unexpected)
+- `2` (Usage) - Config/validation errors (invalid flags, missing args)
+- `3` (Parse) - Parse errors (malformed YAML, unrecognized document type)
+
+Error categorization via `CategorizeError()` using `errors.As` for type detection.
+
+---
+
+# Error Handling
+
+## Central Error Handler
+
+```go
+func HandleError(cfg *CommandConfig, err error) {
+    fmt.Fprintln(os.Stderr, cfg.ErrorFormatter.Format(err))
+    os.Exit(int(GetExitCodeForError(err)))
+}
+```
+
+## Error Formatter
+
+Type-specific formatting with contextual hints:
+- ParseError → "Parse error: <message> File: <path>"
+- ValidationError → "Validation error: <message>" + "Hint:" lines
+- TransformError → "Transform error (<operation> for <platform>): <message>"
+- FileError → "File error (<operation>): <message> Path: <path>"
+- ConfigError → "Config error: <message>" + "Available: <options>"
+
+## Typed Errors
+
+Import from `internal/errors`:
+```go
+import gerrors "gitlab.com/amoconst/germinator/internal/errors"
+
+// Constructors
+gerrors.NewParseError(path, message, cause)
+gerrors.NewValidationError(message, field, suggestions)
+gerrors.NewTransformError(operation, platform, message, cause)
+gerrors.NewFileError(path, operation, message, cause)
+gerrors.NewConfigError(field, value, available, message)
+```
 
 ---
 
@@ -81,3 +145,7 @@ Example: `germinator v0.3.20 (abc123def) 2026-02-04`
 
 `cmd_test.go` contains integration tests for CLI workflows.
 Test both platforms when testing platform-specific commands.
+
+New test files:
+- `verbose_test.go` - Verbosity type and helper function tests
+- `error_formatter_test.go` - Error formatting tests

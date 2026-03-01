@@ -8,6 +8,7 @@
 ## Structure
 
 - `core/` - Document parsing, loading, serialization, template functions
+- `errors/` - Typed domain errors (ParseError, ValidationError, TransformError, FileError, ConfigError)
 - `models/` - Document data models and validation
 - `services/` - Platform-specific transformation (see `internal/services/AGENTS.md`)
 
@@ -83,7 +84,18 @@ See `test/AGENTS.md` for golden file testing patterns.
 
 # Error Handling
 
-Validation: Non-fatal returns doc with errors, fatal aborts. Parse/template errors wrapped with `failed to <action>: %w`. See `core/AGENTS.md` for details.
+**Typed errors** in `internal/errors/`:
+| Type | Fields | Use Case |
+|------|--------|----------|
+| ParseError | Path, Message, Cause | Malformed YAML, unrecognized document type |
+| ValidationError | Message, Field, Suggestions | Invalid field values |
+| TransformError | Operation, Platform, Message, Cause | Template/render failures |
+| FileError | Path, Operation, Message, Cause | File read/write errors |
+| ConfigError | Field, Value, Available, Message | Invalid configuration |
+
+Constructors: `NewParseError`, `NewValidationError`, `NewTransformError`, `NewFileError`, `NewConfigError`
+
+All types implement `Unwrap()` for `errors.As` chains. FileError has `IsNotFound()` helper.
 
 ---
 
