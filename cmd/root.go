@@ -1,28 +1,29 @@
-package main
+package cmd
 
 import (
-	"os"
-
 	"github.com/spf13/cobra"
 )
 
-var rootCmd = &cobra.Command{
-	Use:   "germinator",
-	Short: "A configuration adapter for AI coding assistant documents",
-	Long: `Germinator is a configuration adapter that transforms AI coding assistant
+// NewRootCommand creates the root command with all subcommands registered.
+func NewRootCommand(cfg *CommandConfig) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "germinator",
+		Short: "A configuration adapter for AI coding assistant documents",
+		Long: `Germinator is a configuration adapter that transforms AI coding assistant
 documents (commands, memory, skills, agents) between platforms. It uses a canonical
 Germinator source format and adapts it for target platforms like Claude Code and OpenCode.`,
-	Run: func(c *cobra.Command, _ []string) {
-		_ = c.Help()
-	},
-}
-
-func init() {
-	rootCmd.PersistentFlags().CountP("verbose", "v", "Increase verbosity (use -v or -vv)")
-}
-
-func main() {
-	if err := rootCmd.Execute(); err != nil {
-		os.Exit(1)
+		Run: func(c *cobra.Command, _ []string) {
+			_ = c.Help()
+		},
 	}
+
+	cmd.PersistentFlags().CountP("verbose", "v", "Increase verbosity (use -v or -vv)")
+
+	// Register subcommands
+	cmd.AddCommand(NewValidateCommand(cfg))
+	cmd.AddCommand(NewAdaptCommand(cfg))
+	cmd.AddCommand(NewCanonicalizeCommand(cfg))
+	cmd.AddCommand(NewVersionCommand(cfg))
+
+	return cmd
 }

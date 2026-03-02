@@ -1,5 +1,4 @@
-// Package main provides CLI for germinator tool.
-package main
+package cmd
 
 import (
 	"fmt"
@@ -10,13 +9,15 @@ import (
 	"gitlab.com/amoconst/germinator/internal/services"
 )
 
-var canonicalizePlatform string
-var canonicalizeDocType string
+// NewCanonicalizeCommand creates the canonicalize command with dependency injection.
+func NewCanonicalizeCommand(cfg *CommandConfig) *cobra.Command {
+	var canonicalizePlatform string
+	var canonicalizeDocType string
 
-var canonicalizeCmd = &cobra.Command{
-	Use:   "canonicalize <input> <output>",
-	Short: "Convert a platform document to canonical format",
-	Long: fmt.Sprintf(`Convert a platform document to canonical YAML format.
+	cmd := &cobra.Command{
+		Use:   "canonicalize <input> <output>",
+		Short: "Convert a platform document to canonical format",
+		Long: fmt.Sprintf(`Convert a platform document to canonical YAML format.
 
 Supported platforms:
   %s - Claude Code document format
@@ -30,48 +31,51 @@ Supported document types:
 
 Example:
   germinator canonicalize agent.md canonical-agent.yaml --platform %s --type agent`, models.PlatformClaudeCode, models.PlatformOpenCode, models.PlatformOpenCode),
-	Args: cobra.ExactArgs(2),
-	Run: func(cmd *cobra.Command, args []string) {
-		cfg := NewCommandConfig(cmd)
-		inputPath := args[0]
-		outputPath := args[1]
+		Args: cobra.ExactArgs(2),
+		Run: func(c *cobra.Command, args []string) {
+			// Extract verbosity from command flags at runtime
+			verbosity, _ := c.Flags().GetCount("verbose")
+			cfg.Verbosity = Verbosity(verbosity)
 
-		VerbosePrint(cfg, "Canonicalizing document...")
-		VerbosePrint(cfg, "Output path: %s", outputPath)
+			inputPath := args[0]
+			outputPath := args[1]
 
-		if canonicalizePlatform == "" {
-			HandleError(cfg, gerrors.NewConfigError("platform", "", []string{models.PlatformClaudeCode, models.PlatformOpenCode}, "--platform flag is required"))
-		}
+			VerbosePrint(cfg, "Canonicalizing document...")
+			VerbosePrint(cfg, "Output path: %s", outputPath)
 
-		if canonicalizeDocType == "" {
-			HandleError(cfg, gerrors.NewConfigError("type", "", []string{"agent", "command", "skill", "memory"}, "--type flag is required"))
-		}
+			if canonicalizePlatform == "" {
+				HandleError(cfg, gerrors.NewConfigError("platform", "", []string{models.PlatformClaudeCode, models.PlatformOpenCode}, "--platform flag is required"))
+			}
 
-		if canonicalizePlatform != models.PlatformClaudeCode && canonicalizePlatform != models.PlatformOpenCode {
-			HandleError(cfg, gerrors.NewConfigError("platform", canonicalizePlatform, []string{models.PlatformClaudeCode, models.PlatformOpenCode}, "invalid platform"))
-		}
+			if canonicalizeDocType == "" {
+				HandleError(cfg, gerrors.NewConfigError("type", "", []string{"agent", "command", "skill", "memory"}, "--type flag is required"))
+			}
 
-		if canonicalizeDocType != "agent" && canonicalizeDocType != "command" && canonicalizeDocType != "skill" && canonicalizeDocType != "memory" {
-			HandleError(cfg, gerrors.NewConfigError("type", canonicalizeDocType, []string{"agent", "command", "skill", "memory"}, "invalid document type"))
-		}
+			if canonicalizePlatform != models.PlatformClaudeCode && canonicalizePlatform != models.PlatformOpenCode {
+				HandleError(cfg, gerrors.NewConfigError("platform", canonicalizePlatform, []string{models.PlatformClaudeCode, models.PlatformOpenCode}, "invalid platform"))
+			}
 
-		VeryVerbosePrint(cfg, "Parsing platform document...")
-		VeryVerbosePrint(cfg, "Validating document...")
-		VeryVerbosePrint(cfg, "Marshalling to canonical YAML...")
+			if canonicalizeDocType != "agent" && canonicalizeDocType != "command" && canonicalizeDocType != "skill" && canonicalizeDocType != "memory" {
+				HandleError(cfg, gerrors.NewConfigError("type", canonicalizeDocType, []string{"agent", "command", "skill", "memory"}, "invalid document type"))
+			}
 
-		err := services.CanonicalizeDocument(inputPath, outputPath, canonicalizePlatform, canonicalizeDocType)
-		if err != nil {
-			HandleError(cfg, err)
-		}
+			VeryVerbosePrint(cfg, "Parsing platform document...")
+			VeryVerbosePrint(cfg, "Validating document...")
+			VeryVerbosePrint(cfg, "Marshalling to canonical YAML...")
 
-		fmt.Printf("Successfully canonicalized document to: %s\n", outputPath)
-	},
-}
+			err := services.CanonicalizeDocument(inputPath, outputPath, canonicalizePlatform, canonicalizeDocType)
+			if err != nil {
+				HandleError(cfg, err)
+			}
 
-func init() {
-	canonicalizeCmd.Flags().StringVar(&canonicalizePlatform, "platform", "", fmt.Sprintf("Source platform (required: %s, %s)", models.PlatformClaudeCode, models.PlatformOpenCode))
-	_ = canonicalizeCmd.MarkFlagRequired("platform")
-	canonicalizeCmd.Flags().StringVar(&canonicalizeDocType, "type", "", "Document type (required: agent, command, skill, memory)")
-	_ = canonicalizeCmd.MarkFlagRequired("type")
-	rootCmd.AddCommand(canonicalizeCmd)
+			fmt.Printf("Successfully canonicalized document to: %s\n", outputPath)
+		},
+	}
+
+	cmd.Flags().StringVar(&canonicalizePlatform, "platform", "", fmt.Sprintf("Source platform (required: %s, %s)", models.PlatformClaudeCode, models.PlatformOpenCode))
+	_ = cmd.MarkFlagRequired("platform")
+	cmd.Flags().StringVar(&canonicalizeDocType, "type", "", "Document type (required: agent, command, skill, memory)")
+	_ = cmd.MarkFlagRequired("type")
+
+	return cmd
 }

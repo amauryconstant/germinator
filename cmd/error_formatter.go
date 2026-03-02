@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"errors"
@@ -10,6 +10,7 @@ import (
 
 type formatterFunc func(error) string
 
+// ErrorFormatter formats errors based on their type.
 type ErrorFormatter struct {
 	formatters []struct {
 		match     func(error) bool
@@ -17,12 +18,14 @@ type ErrorFormatter struct {
 	}
 }
 
+// NewErrorFormatter creates a new ErrorFormatter with default formatters registered.
 func NewErrorFormatter() *ErrorFormatter {
 	f := &ErrorFormatter{}
 	f.registerDefaultFormatters()
 	return f
 }
 
+// Format returns a formatted string for the given error.
 func (f *ErrorFormatter) Format(err error) string {
 	for _, entry := range f.formatters {
 		if entry.match(err) {

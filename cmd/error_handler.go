@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"errors"
@@ -8,8 +8,10 @@ import (
 	gerrors "gitlab.com/amoconst/germinator/internal/errors"
 )
 
+// ExitCode represents the process exit code.
 type ExitCode int
 
+// Exit codes for different error categories.
 const (
 	ExitCodeSuccess ExitCode = 0
 	ExitCodeError   ExitCode = 1
@@ -17,8 +19,10 @@ const (
 	ExitCodeParse   ExitCode = 3
 )
 
+// ErrorCategory represents the category of an error.
 type ErrorCategory int
 
+// Error categories for classification.
 const (
 	CategoryCobra ErrorCategory = iota
 	CategoryConfig
@@ -29,6 +33,7 @@ const (
 	CategoryGeneric
 )
 
+// CategorizeError determines the error category based on error type.
 func CategorizeError(err error) ErrorCategory {
 	var parseErr *gerrors.ParseError
 	var validationErr *gerrors.ValidationError
@@ -55,6 +60,7 @@ func CategorizeError(err error) ErrorCategory {
 	return CategoryGeneric
 }
 
+// GetExitCodeForError returns the appropriate exit code for an error.
 func GetExitCodeForError(err error) ExitCode {
 	category := CategorizeError(err)
 
@@ -70,6 +76,7 @@ func GetExitCodeForError(err error) ExitCode {
 	}
 }
 
+// HandleError formats and outputs the error, then exits with the appropriate code.
 func HandleError(cfg *CommandConfig, err error) {
 	fmt.Fprintln(os.Stderr, cfg.ErrorFormatter.Format(err))
 	os.Exit(int(GetExitCodeForError(err)))
