@@ -28,7 +28,7 @@ builds:
       - -X gitlab.com/amoconst/germinator/internal/version.Version={{.Version}}
       - -X gitlab.com/amoconst/germinator/internal/version.Commit={{.Commit}}
       - -X gitlab.com/amoconst/germinator/internal/version.Date={{.Date}}
-    main: ./cmd
+    main: .
     binary: germinator
     mod_timestamp: '{{ .CommitTimestamp }}'
 
