@@ -69,4 +69,37 @@ var _ = Describe("Adapt Command", func() {
 			cli.ShouldErrorOutput(session, "error")
 		})
 	})
+
+	Describe("adapting a valid document with claude-code platform", func() {
+		var outputPath string
+
+		BeforeEach(func() {
+			var err error
+			outputPath, err = fixtures.TempOutputFile("adapt-claude-code")
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		AfterEach(func() {
+			os.Remove(outputPath)
+		})
+
+		It("should succeed with exit code 0, create output file, and display success message", func() {
+			session := cli.Run("adapt", fixtures.ValidDocument(), outputPath, "--platform", "claude-code")
+			cli.ShouldSucceed(session)
+			cli.ShouldOutput(session, "transformed successfully")
+			Expect(fixtures.FileExists(outputPath)).To(BeTrue(), "Output file should be created")
+		})
+	})
+
+	Describe("adapting a nonexistent file with claude-code platform", func() {
+		It("should fail with exit code > 0 and show file error", func() {
+			outputPath, err := fixtures.TempOutputFile("adapt-nonexistent-claude-code")
+			Expect(err).NotTo(HaveOccurred())
+			defer os.Remove(outputPath)
+
+			session := cli.Run("adapt", fixtures.NonexistentFile(), outputPath, "--platform", "claude-code")
+			Expect(session.ExitCode()).To(BeNumerically(">", 0))
+			cli.ShouldErrorOutput(session, "error")
+		})
+	})
 })

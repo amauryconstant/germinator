@@ -68,4 +68,28 @@ var _ = Describe("Validate Command", func() {
 			cli.ShouldErrorOutput(session, "Error")
 		})
 	})
+
+	Describe("validating a valid document with claude-code platform", func() {
+		It("should succeed with exit code 0 and display success message", func() {
+			session := cli.Run("validate", fixtures.ValidDocument(), "--platform", "claude-code")
+			cli.ShouldSucceed(session)
+			cli.ShouldOutput(session, "Document is valid")
+		})
+	})
+
+	Describe("validating a nonexistent file with claude-code platform", func() {
+		It("should fail with exit code > 0 and show file error", func() {
+			session := cli.Run("validate", fixtures.NonexistentFile(), "--platform", "claude-code")
+			Expect(session.ExitCode()).To(BeNumerically(">", 0))
+			cli.ShouldErrorOutput(session, "error")
+		})
+	})
+
+	Describe("validating an invalid document with claude-code platform", func() {
+		It("should fail with exit code > 0 and show validation errors", func() {
+			session := cli.Run("validate", fixtures.InvalidDocument(), "--platform", "claude-code")
+			Expect(session.ExitCode()).To(BeNumerically(">", 0))
+			cli.ShouldErrorOutput(session, "Error")
+		})
+	})
 })
