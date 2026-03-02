@@ -9,6 +9,49 @@
 
 - `fixtures/` - Test fixtures (Germinator format inputs)
 - `golden/` - Golden files (expected outputs)
+- `e2e/` - E2E tests (CLI behavior validation)
+
+---
+
+## E2E Testing
+
+**Stack**: Ginkgo v2, Gomega, gexec  
+**Build tag**: `//go:build e2e` (excluded from `go test ./...`)
+
+### Running E2E Tests
+
+```bash
+mise run test:e2e          # E2E tests only
+mise run test:full         # All tests (unit + E2E)
+go test -tags=e2e ./test/e2e/... -run TestValidate -v  # Specific test
+```
+
+### E2E Test Structure
+
+| File | Purpose |
+|------|---------|
+| `e2e_suite_test.go` | Suite setup, builds binary in BeforeSuite |
+| `helpers/cli_helper.go` | CLI runner utilities |
+| `fixtures/` | E2E-specific test fixtures |
+| `*_test.go` | Test cases by command |
+
+### CLI Helper Pattern
+
+```go
+cli := helpers.NewGerminatorCLI(e2e.BinaryPath())
+session := cli.Run("validate", fixturePath, "--platform", "opencode")
+cli.ShouldSucceed(session)
+cli.ShouldOutput(session, "Document is valid")
+```
+
+### Adding E2E Tests
+
+1. Create test file in `test/e2e/` with `//go:build e2e` tag
+2. Use `e2e.BinaryPath()` for built binary path
+3. Use `helpers.NewGerminatorCLI()` for CLI operations
+4. Add fixtures to `test/e2e/fixtures/` if needed
+
+---
 
 ## Golden File Testing
 

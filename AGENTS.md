@@ -69,7 +69,9 @@ graph LR
 | mise run lint          | Run golangci-lint                          |
 | mise run lint:fix      | Auto-fix linting issues                    |
 | mise run format        | Format Go code                             |
-| mise run test          | Run all tests                              |
+| mise run test          | Run unit tests                             |
+| mise run test:e2e      | Run E2E tests (Ginkgo v2)                  |
+| mise run test:full     | Run all tests (unit + E2E)                 |
 | mise run test:coverage | Run tests with coverage                    |
 | mise run clean         | Clean artifacts                            |
 | mise tasks             | List all tasks                             |
@@ -164,12 +166,12 @@ graph TB
 
 ### Project Conventions
 
-| Rule      | Detail                                                        |
-| --------- | ------------------------------------------------------------- |
-| Tests     | Written alongside code, golden file tests for transformations |
-| Progress  | Check tasks.md in change folder for completion status         |
-| Artifacts | Follow openspec/config.yaml rules section                     |
-| Archive   | See openspec/changes/archive/ for examples                    |
+| Rule      | Detail                                                                             |
+| --------- | ---------------------------------------------------------------------------------- |
+| Tests     | Unit tests alongside code, golden file tests for transformations, E2E for CLI      |
+| Progress  | Check tasks.md in change folder for completion status                              |
+| Artifacts | Follow openspec/config.yaml rules section                                          |
+| Archive   | See openspec/changes/archive/ for examples                                         |
 
 ## Location-Specific Guides
 
@@ -180,5 +182,5 @@ graph TB
 | [internal/services/AGENTS.md](internal/services/AGENTS.md) | Validation, transformation, canonicalization                 |
 | [internal/AGENTS.md](internal/AGENTS.md)                   | Core package patterns, models integration                    |
 | [config/AGENTS.md](config/AGENTS.md)                       | Template patterns, permission mappings                       |
-| [test/AGENTS.md](test/AGENTS.md)                           | Golden file testing, fixture conventions, naming patterns    |
+| [test/AGENTS.md](test/AGENTS.md)                           | Golden file testing, E2E testing, fixture conventions      |
 | [openspec/research/AGENTS.md](openspec/research/AGENTS.md) | Platform research documentation usage                        |
