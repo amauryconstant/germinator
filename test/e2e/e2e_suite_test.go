@@ -25,7 +25,7 @@ var _ = BeforeSuite(func() {
 
 	// Build the germinator binary for E2E tests
 	By("Building germinator-e2e binary")
-	germinatorPath, err = gexec.Build("gitlab.com/amoconst/germinator/cmd")
+	germinatorPath, err = gexec.Build("gitlab.com/amoconst/germinator")
 	Expect(err).NotTo(HaveOccurred(), "Failed to build germinator binary")
 	Expect(germinatorPath).To(BeAnExistingFile())
 
