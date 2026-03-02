@@ -48,6 +48,14 @@ run = "go test ./..."
 description = "Run tests with coverage"
 run = "go test ./... -cover -v"
 
+[tasks."test:e2e"]
+description = "Run E2E tests with verbose output"
+run = "go test -tags=e2e ./test/e2e/... -v"
+
+[tasks."test:full"]
+description = "Run all tests (unit tests + E2E tests)"
+depends = ["test", "test:e2e"]
+
 [tasks.check]
 description = "Run all validation checks"
 depends = ["lint", "format", "test", "build"]
