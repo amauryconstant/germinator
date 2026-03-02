@@ -24,6 +24,8 @@ Germinator source format and adapts it for target platforms like Claude Code and
 	cmd.AddCommand(NewAdaptCommand(cfg))
 	cmd.AddCommand(NewCanonicalizeCommand(cfg))
 	cmd.AddCommand(NewVersionCommand(cfg))
+	cmd.AddCommand(NewLibraryCommand(cfg))
+	cmd.AddCommand(NewInitCommand(cfg))
 
 	return cmd
 }

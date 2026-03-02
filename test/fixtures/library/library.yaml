@@ -1,0 +1,33 @@
+version: "1"
+resources:
+  skill:
+    commit:
+      path: skills/skill-commit.md
+      description: Git commit best practices
+    merge-request:
+      path: skills/skill-merge-request.md
+      description: Generate merge request descriptions
+  agent:
+    reviewer:
+      path: agents/agent-reviewer.md
+      description: Code review agent
+  command:
+    test:
+      path: commands/command-test.md
+      description: Run tests command
+  memory:
+    context:
+      path: memory/memory-context.md
+      description: Project context memory
+
+presets:
+  git-workflow:
+    description: Git workflow tools
+    resources:
+      - skill/commit
+      - skill/merge-request
+  code-review:
+    description: Code review tools
+    resources:
+      - agent/reviewer
+      - skill/merge-request
