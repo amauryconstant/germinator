@@ -7,29 +7,79 @@
 
 Cobra-based CLI with platform-specific validation, typed errors, and verbosity control.
 
-## Commands
+## Files
 
-- `root.go` - Entry point, runs help when no subcommand provided
-- `adapt` - Transform document to target platform format
-- `validate` - Validate document against platform rules
-- `canonicalize` - Convert platform document to canonical format
-- `version` - Display version, commit, build date
+| File | Purpose |
+|------|---------|
+| `main.go` | Composition root - wires ServiceContainer and executes CLI |
+| `container.go` | ServiceContainer for dependency injection |
+| `root.go` | Root command with subcommand registration |
+| `adapt.go` | Transform document to target platform format |
+| `validate.go` | Validate document against platform rules |
+| `canonicalize.go` | Convert platform document to canonical format |
+| `version.go` | Display version, commit, build date |
 
 ---
 
-# Command Pattern
+# Dependency Injection
 
-## CommandConfig Pattern
+## ServiceContainer
 
-Commands use `CommandConfig` for dependency injection:
+Services passed through command tree via `ServiceContainer`:
 ```go
-func(cmd *cobra.Command, args []string) {
-    cfg := NewCommandConfig(cmd)
-    // Use cfg.ErrorFormatter, cfg.Verbosity
+type ServiceContainer struct {
+    // Services added as application grows
+}
+
+services := cmd.NewServiceContainer()
+```
+
+## Composition Root
+
+`main.go` wires all dependencies:
+```go
+services := cmd.NewServiceContainer()
+cfg := &cmd.CommandConfig{
+    Services:       services,
+    ErrorFormatter: cmd.NewErrorFormatter(),
+    Verbosity:      0,
+}
+rootCmd := cmd.NewRootCommand(cfg)
+```
+
+## Constructor Pattern
+
+Commands use `NewXCommand(cfg *CommandConfig)` constructors:
+```go
+func NewValidateCommand(cfg *CommandConfig) *cobra.Command {
+    cmd := &cobra.Command{...}
+    cmd.Run = func(c *cobra.Command, args []string) {
+        verbosity, _ := c.Flags().GetCount("verbose")
+        cfg.Verbosity = Verbosity(verbosity)
+        // Use cfg.Services, cfg.ErrorFormatter
+    }
+    return cmd
 }
 ```
 
-## Required Flags
+No `init()` functions or global command variables.
+
+---
+
+# CommandConfig
+
+Holds configuration and services for command execution:
+```go
+type CommandConfig struct {
+    Services       *ServiceContainer
+    ErrorFormatter *ErrorFormatter
+    Verbosity      Verbosity
+}
+```
+
+---
+
+# Required Flags
 
 Both `adapt` and `validate` require `--platform` flag:
 ```go
