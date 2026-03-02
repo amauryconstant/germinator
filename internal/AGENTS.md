@@ -7,6 +7,7 @@
 
 ## Structure
 
+- `config/` - Configuration loading, XDG paths, TOML parsing (Koanf-based)
 - `core/` - Document parsing, loading, serialization, template functions
 - `errors/` - Typed domain errors (ParseError, ValidationError, TransformError, FileError, ConfigError)
 - `models/` - Document data models and validation

@@ -27,13 +27,17 @@ graph LR
         MC[MarshalCanonical]
     end
 
+    subgraph CFG[Config Layer]
+        CM[ConfigManager]
+    end
+
     subgraph ADP[Adapters Layer]
         ACC[claude-code]
         AOC[opencode]
     end
 
     subgraph MOD[Models Layer]
-        CM[Canonical Models]
+        MD[Canonical Models]
     end
 
     subgraph TPL[Templates Layer]
@@ -53,11 +57,12 @@ graph LR
     R --> TCC
     R --> TOC
     MC --> TC
-    P --> CM
+    P --> MD
     MP --> ACC
     MP --> AOC
-    ACC --> CM
-    AOC --> CM
+    ACC --> MD
+    AOC --> MD
+    CM -.->|library path| L
 ```
 
 ## Essential Commands
@@ -178,9 +183,10 @@ graph TB
 | File                                                       | Purpose                                                      |
 | ---------------------------------------------------------- | ------------------------------------------------------------ |
 | [cmd/AGENTS.md](cmd/AGENTS.md)                             | CLI commands, Cobra patterns, command specs                  |
+| [internal/config/AGENTS.md](internal/config/AGENTS.md)     | Configuration loading, XDG paths, TOML parsing               |
 | [internal/core/AGENTS.md](internal/core/AGENTS.md)         | Document loading, parsing, serialization, template functions |
 | [internal/services/AGENTS.md](internal/services/AGENTS.md) | Validation, transformation, canonicalization                 |
 | [internal/AGENTS.md](internal/AGENTS.md)                   | Core package patterns, models integration                    |
 | [config/AGENTS.md](config/AGENTS.md)                       | Template patterns, permission mappings                       |
-| [test/AGENTS.md](test/AGENTS.md)                           | Golden file testing, E2E testing, fixture conventions      |
+| [test/AGENTS.md](test/AGENTS.md)                           | Golden file testing, E2E testing, fixture conventions        |
 | [openspec/research/AGENTS.md](openspec/research/AGENTS.md) | Platform research documentation usage                        |
