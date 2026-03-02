@@ -9,9 +9,15 @@ Platform-specific business logic for document transformation and validation.
 
 ## Files
 
-- `transformer.go` - Document transformation pipeline
-- `transformer_golden_test.go` - Golden file tests
-- `transformer_test.go` - Unit tests
+| File | Purpose |
+|------|---------|
+| `transformer.go` | Document transformation pipeline |
+| `initializer.go` | Resource installation from library |
+| `canonicalizer.go` | Platform document to canonical conversion |
+| `transformer_golden_test.go` | Golden file tests |
+| `transformer_test.go` | Unit tests |
+| `initializer_test.go` | Initializer tests |
+| `canonicalizer_test.go` | Canonicalizer tests |
 
 ---
 
@@ -28,6 +34,34 @@ core.LoadDocument → core.RenderDocument → WriteFile
 **Error handling**: Returns wrapped errors at each step.
 
 **File permissions**: `0644` (rw-r--r--)
+
+---
+
+# Initialization Pipeline
+
+## InitializeResources
+
+Batch transformation of library resources to platform-specific output files.
+
+```
+library.ResolveResource → core.LoadDocument → core.RenderDocument → WriteFile
+```
+
+**Parameters**:
+- `lib *library.Library` - Loaded library instance
+- `refs []string` - Resource references in `type/name` format
+- `platform string` - Target platform
+- `outputDir string` - Output directory
+- `dryRun bool` - Preview without writing
+- `force bool` - Overwrite existing files
+
+**Error handling**: Fail-fast - stops on first error.
+
+**File permissions**: `0644` (rw-r--r--)
+
+**Dry-run mode**: Prints what would be written without creating files.
+
+**Force mode**: Overwrites existing files; otherwise returns error if file exists.
 
 ---
 
@@ -120,6 +154,8 @@ See `test/AGENTS.md` for golden file testing patterns, fixture structure, and up
 # Integration with Core Package
 
 **Dependencies**: `core.LoadDocument`, `core.DetectType`, `core.ParseDocument`, `core.RenderDocument`
+
+**Library**: `internal/library/` provides resource loading, resolution, and output path derivation.
 
 **Models**: `internal/models/` provides document structs and validation methods.
 
