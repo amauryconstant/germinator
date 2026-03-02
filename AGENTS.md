@@ -11,16 +11,26 @@ graph LR
         A[adapt]
         C[canonicalize]
         VER[version]
+        L[library]
+        I[init]
     end
 
     subgraph SVC[Services Layer]
         SV[ValidateDocument]
         ST[TransformDocument]
         SC[CanonicalizeDocument]
+        IN[InitializeResources]
+    end
+
+    subgraph LIB[Library Layer]
+        LL[LoadLibrary]
+        LR[ResolveResource]
+        LS[ListResources]
+        LD[FindLibrary]
     end
 
     subgraph CORE[Core Layer]
-        L[LoadDocument]
+        LDc[LoadDocument]
         P[ParseDocument]
         R[RenderDocument]
         MP[ParsePlatformDocument]
@@ -49,10 +59,17 @@ graph LR
     V --> SV
     A --> ST
     C --> SC
-    SV --> L
-    ST --> L
+    I --> IN
+    L --> LL
+    L --> LS
+    SV --> LDc
+    ST --> LDc
     SC --> MP
-    L --> P
+    IN --> LDc
+    IN --> LR
+    LR --> LL
+    LL --> LD
+    LDc --> P
     R --> TC
     R --> TCC
     R --> TOC
@@ -62,7 +79,7 @@ graph LR
     MP --> AOC
     ACC --> MD
     AOC --> MD
-    CM -.->|library path| L
+    CM -.->|library path| LDc
 ```
 
 ## Essential Commands
@@ -185,6 +202,7 @@ graph TB
 | [cmd/AGENTS.md](cmd/AGENTS.md)                             | CLI commands, Cobra patterns, command specs                  |
 | [internal/config/AGENTS.md](internal/config/AGENTS.md)     | Configuration loading, XDG paths, TOML parsing               |
 | [internal/core/AGENTS.md](internal/core/AGENTS.md)         | Document loading, parsing, serialization, template functions |
+| [internal/library/AGENTS.md](internal/library/AGENTS.md)   | Library system, resource management, preset grouping         |
 | [internal/services/AGENTS.md](internal/services/AGENTS.md) | Validation, transformation, canonicalization                 |
 | [internal/AGENTS.md](internal/AGENTS.md)                   | Core package patterns, models integration                    |
 | [config/AGENTS.md](config/AGENTS.md)                       | Template patterns, permission mappings                       |

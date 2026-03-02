@@ -18,6 +18,8 @@ Cobra-based CLI with platform-specific validation, typed errors, and verbosity c
 | `validate.go` | Validate document against platform rules |
 | `canonicalize.go` | Convert platform document to canonical format |
 | `version.go` | Display version, commit, build date |
+| `library.go` | Library management commands (resources, presets, show) |
+| `init.go` | Install resources from library to project |
 
 ---
 
@@ -199,3 +201,117 @@ Test both platforms when testing platform-specific commands.
 New test files:
 - `verbose_test.go` - Verbosity type and helper function tests
 - `error_formatter_test.go` - Error formatting tests
+- `library_test.go` - Library and init command tests
+
+---
+
+# Library Command
+
+Manage the canonical resource library containing skills, agents, commands, and memory.
+
+## Subcommands
+
+| Command | Description |
+|---------|-------------|
+| `library resources` | List all resources in library (grouped by type) |
+| `library presets` | List all presets in library |
+| `library show <ref>` | Display resource or preset details |
+
+## Library Path Discovery
+
+Priority: `--library` flag > `GERMINATOR_LIBRARY` env > `~/.config/germinator/library/`
+
+```bash
+# Use default path
+germinator library resources
+
+# Use custom path via flag
+germinator library resources --library /path/to/library
+
+# Use custom path via environment
+GERMINATOR_LIBRARY=/path/to/library germinator library resources
+```
+
+## Resource References
+
+Format: `type/name` (e.g., `skill/commit`, `agent/reviewer`)
+
+Valid types: `skill`, `agent`, `command`, `memory`
+
+## Output Format
+
+`library resources` outputs grouped sections:
+```
+Skills:
+  skill/commit - Git commit best practices
+  skill/merge-request - Generate merge request descriptions
+
+Agents:
+  agent/reviewer - Code review agent
+```
+
+`library presets` outputs preset details with resources:
+```
+git-workflow - Git workflow tools
+  - skill/commit
+  - skill/merge-request
+```
+
+---
+
+# Init Command
+
+Install resources from the library to a target project directory.
+
+## Required Flags
+
+- `--platform` (required): Target platform (`opencode` or `claude-code`)
+- `--resources` OR `--preset` (one required): Resources to install
+
+## Optional Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--library` | XDG default | Path to library directory |
+| `--output` | `.` | Output directory |
+| `--dry-run` | false | Preview changes without writing |
+| `--force` | false | Overwrite existing files |
+
+## Mutually Exclusive
+
+`--resources` and `--preset` are mutually exclusive.
+
+## Output Path Derivation
+
+| Type | OpenCode | Claude Code |
+|------|----------|-------------|
+| skill | `.opencode/skills/<name>/SKILL.md` | `.claude/skills/<name>/SKILL.md` |
+| agent | `.opencode/agents/<name>.md` | `.claude/agents/<name>.md` |
+| command | `.opencode/commands/<name>.md` | `.claude/commands/<name>.md` |
+| memory | `.opencode/memory/<name>.md` | `.claude/memory/<name>.md` |
+
+## Examples
+
+```bash
+# Install specific resources
+germinator init --platform opencode --resources skill/commit,skill/merge-request
+
+# Install from preset
+germinator init --platform opencode --preset git-workflow
+
+# Preview changes
+germinator init --platform opencode --preset git-workflow --dry-run
+
+# Overwrite existing files
+germinator init --platform opencode --resources skill/commit --force
+
+# Install to custom directory
+germinator init --platform opencode --preset git-workflow --output /project
+```
+
+## Error Handling
+
+- Fail-fast: Stops on first error
+- File exists error without `--force`
+- Resource not found error for missing resources
+- Preset not found error for missing presets

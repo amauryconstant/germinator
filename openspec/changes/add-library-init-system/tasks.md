@@ -108,12 +108,12 @@
 
 ## 12. Documentation
 
-- [ ] 12.1 Update `cmd/AGENTS.md` with library and init command documentation
-- [ ] 12.2 Create `internal/library/AGENTS.md` with package documentation
-- [ ] 12.3 Update root `AGENTS.md` with init command in Essential Commands
+- [x] 12.1 Update `cmd/AGENTS.md` with library and init command documentation
+- [x] 12.2 Create `internal/library/AGENTS.md` with package documentation
+- [x] 12.3 Update root `AGENTS.md` with init command in Essential Commands
 
 ## 13. Verification
 
-- [ ] 13.1 Run `mise run check` (lint, format, test, build)
-- [ ] 13.2 Run `mise run test:coverage` and verify 70%+ coverage for `internal/library/`
-- [ ] 13.3 Verify all spec scenarios are covered by tests
+- [x] 13.1 Run `mise run check` (lint, format, test, build)
+- [x] 13.2 Run `mise run test:coverage` and verify 70%+ coverage for `internal/library/`
+- [x] 13.3 Verify all spec scenarios are covered by tests
