@@ -1,0 +1,18 @@
+{
+  "phase": "PHASE6",
+  "phase_name": "ARCHIVE",
+  "iteration": 1,
+  "phase_complete": true,
+  "total_invocations": 6,
+  "phase_iterations": {
+    "PHASE0": 1,
+    "PHASE1": 2,
+    "PHASE2": 1,
+    "PHASE3": 1,
+    "PHASE4": 1,
+    "PHASE5": 1,
+    "PHASE6": 1
+  },
+  "started_at": "2026-03-03T18:32:00Z",
+  "last_updated": "2026-03-03T18:32:00Z"
+}
