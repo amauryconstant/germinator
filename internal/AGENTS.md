@@ -7,11 +7,12 @@
 
 ## Structure
 
+- `application/` - Service interfaces and DTOs for dependency injection (see `internal/application/AGENTS.md`)
 - `config/` - Configuration loading, XDG paths, TOML parsing (Koanf-based)
 - `core/` - Document parsing, loading, serialization, template functions
 - `errors/` - Typed domain errors (ParseError, ValidationError, TransformError, FileError, ConfigError)
 - `models/` - Document data models and validation
-- `services/` - Platform-specific transformation (see `internal/services/AGENTS.md`)
+- `services/` - Service implementations (see `internal/services/AGENTS.md`)
 
 ---
 

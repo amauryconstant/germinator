@@ -5,31 +5,56 @@
 
 # Services Package
 
-Platform-specific business logic for document transformation and validation.
+Service implementations for `internal/application` interfaces.
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `transformer.go` | Document transformation pipeline |
-| `initializer.go` | Resource installation from library |
-| `canonicalizer.go` | Platform document to canonical conversion |
-| `transformer_golden_test.go` | Golden file tests |
-| `transformer_test.go` | Unit tests |
-| `initializer_test.go` | Initializer tests |
-| `canonicalizer_test.go` | Canonicalizer tests |
+| `transformer.go` | Implements `application.Transformer` |
+| `validator.go` | Implements `application.Validator` |
+| `initializer.go` | Implements `application.Initializer` |
+| `canonicalizer.go` | Implements `application.Canonicalizer` |
+| `*_test.go` | Unit tests for each service |
+
+---
+
+# Interface Implementation
+
+Each service is a struct with methods implementing `application` interfaces:
+
+```go
+type transformer struct{}
+
+func NewTransformer() application.Transformer {
+    return &transformer{}
+}
+
+func (t *transformer) Transform(ctx context.Context, req *application.TransformRequest) (*application.TransformResult, error) {
+    // Implementation
+}
+
+// Compile-time interface check
+var _ application.Transformer = (*transformer)(nil)
+```
+
+**Constructors**: `NewTransformer()`, `NewValidator()`, `NewCanonicalizer()`, `NewInitializer()`
+
+**Pattern**: Constructor returns interface type, implementation is private struct.
 
 ---
 
 # Transformation Pipeline
 
-## TransformDocument
+## Transformer.Transform
 
 ```
 core.LoadDocument → core.RenderDocument → WriteFile
 ```
 
-**Parameters**: `inputPath`, `outputPath`, `platform` (claude-code or opencode)
+**Request**: `TransformRequest{InputPath, OutputPath, Platform}`
+
+**Result**: `TransformResult{OutputPath}`
 
 **Error handling**: Returns wrapped errors at each step.
 
@@ -39,7 +64,7 @@ core.LoadDocument → core.RenderDocument → WriteFile
 
 # Initialization Pipeline
 
-## InitializeResources
+## Initializer.Initialize
 
 Batch transformation of library resources to platform-specific output files.
 
@@ -47,13 +72,9 @@ Batch transformation of library resources to platform-specific output files.
 library.ResolveResource → core.LoadDocument → core.RenderDocument → WriteFile
 ```
 
-**Parameters**:
-- `lib *library.Library` - Loaded library instance
-- `refs []string` - Resource references in `type/name` format
-- `platform string` - Target platform
-- `outputDir string` - Output directory
-- `dryRun bool` - Preview without writing
-- `force bool` - Overwrite existing files
+**Request**: `InitializeRequest{Library, Platform, OutputDir, Refs, DryRun, Force}`
+
+**Result**: `[]InitializeResult` - Per-resource results with Ref, InputPath, OutputPath, Error
 
 **Error handling**: Fail-fast - stops on first error.
 
@@ -67,13 +88,17 @@ library.ResolveResource → core.LoadDocument → core.RenderDocument → WriteF
 
 # Validation Pipeline
 
-## ValidateDocument
+## Validator.Validate
 
 Two-stage validation:
 
 ```
 core.DetectType → core.ParseDocument → Validate(platform) → ValidateOpenCodeType()
 ```
+
+**Request**: `ValidateRequest{InputPath, Platform}`
+
+**Result**: `ValidateResult{Errors []error}` with `Valid() bool` method
 
 **Stage 1**: Generic platform validation via model's `Validate(platform)`
 
@@ -82,6 +107,8 @@ core.DetectType → core.ParseDocument → Validate(platform) → ValidateOpenCo
 - `ValidateOpenCodeCommand` - Command constraints
 - `ValidateOpenCodeMemory` - Memory constraints
 - `ValidateOpenCodeSkill` - Skill constraints
+
+**Dual-return pattern**: `error` = fatal (couldn't validate), `result.Errors` = validation issues.
 
 ---
 

@@ -30,7 +30,10 @@ Cobra-based CLI with platform-specific validation, typed errors, and verbosity c
 Services passed through command tree via `ServiceContainer`:
 ```go
 type ServiceContainer struct {
-    // Services added as application grows
+    Transformer   application.Transformer
+    Validator     application.Validator
+    Canonicalizer application.Canonicalizer
+    Initializer   application.Initializer
 }
 
 services := cmd.NewServiceContainer()
@@ -47,6 +50,17 @@ cfg := &cmd.CommandConfig{
     Verbosity:      0,
 }
 rootCmd := cmd.NewRootCommand(cfg)
+```
+
+## Calling Services
+
+Commands access services through interfaces:
+```go
+result, err := cfg.Services.Transformer.Transform(ctx, &application.TransformRequest{
+    InputPath:  args[0],
+    OutputPath: args[1],
+    Platform:   platform,
+})
 ```
 
 ## Constructor Pattern

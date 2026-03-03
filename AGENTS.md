@@ -15,11 +15,18 @@ graph LR
         I[init]
     end
 
+    subgraph APP[Application Layer]
+        IT[Transformer]
+        IV[Validator]
+        IC[Canonicalizer]
+        II[Initializer]
+    end
+
     subgraph SVC[Services Layer]
-        SV[ValidateDocument]
-        ST[TransformDocument]
-        SC[CanonicalizeDocument]
-        IN[InitializeResources]
+        ST[transformer]
+        SV[validator]
+        SC[canonicalizer]
+        IN[initializer]
     end
 
     subgraph LIB[Library Layer]
@@ -56,14 +63,18 @@ graph LR
         TOC[opencode]
     end
 
-    V --> SV
-    A --> ST
-    C --> SC
-    I --> IN
+    V --> IV
+    A --> IT
+    C --> IC
+    I --> II
     L --> LL
     L --> LS
-    SV --> LDc
+    IT --> ST
+    IV --> SV
+    IC --> SC
+    II --> IN
     ST --> LDc
+    SV --> LDc
     SC --> MP
     IN --> LDc
     IN --> LR
@@ -200,10 +211,11 @@ graph TB
 | File                                                       | Purpose                                                      |
 | ---------------------------------------------------------- | ------------------------------------------------------------ |
 | [cmd/AGENTS.md](cmd/AGENTS.md)                             | CLI commands, Cobra patterns, command specs                  |
+| [internal/application/AGENTS.md](internal/application/AGENTS.md) | Service interfaces, request/result types for DI |
 | [internal/config/AGENTS.md](internal/config/AGENTS.md)     | Configuration loading, XDG paths, TOML parsing               |
 | [internal/core/AGENTS.md](internal/core/AGENTS.md)         | Document loading, parsing, serialization, template functions |
 | [internal/library/AGENTS.md](internal/library/AGENTS.md)   | Library system, resource management, preset grouping         |
-| [internal/services/AGENTS.md](internal/services/AGENTS.md) | Validation, transformation, canonicalization                 |
+| [internal/services/AGENTS.md](internal/services/AGENTS.md) | Service implementations (Transformer, Validator, etc.)       |
 | [internal/AGENTS.md](internal/AGENTS.md)                   | Core package patterns, models integration                    |
 | [config/AGENTS.md](config/AGENTS.md)                       | Template patterns, permission mappings                       |
 | [test/AGENTS.md](test/AGENTS.md)                           | Golden file testing, E2E testing, fixture conventions        |
