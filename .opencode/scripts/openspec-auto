@@ -6,40 +6,50 @@
 set -euo pipefail
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/osc-common"
 readonly SCRIPT_VERSION=$(jq -r '.resources.scripts["openspec-auto"].version // "unknown"' \
   "$SCRIPT_DIR/../manifest.json" 2>/dev/null || echo "unknown")
 readonly DEFAULT_TIMEOUT=1800
 readonly DEFAULT_MAX_ITERATIONS=10
 
-declare -A PHASE_NAMES=(
-  ["PHASE0"]="ARTIFACT REVIEW"
-  ["PHASE1"]="IMPLEMENTATION"
-  ["PHASE2"]="REVIEW"
-  ["PHASE3"]="MAINTAIN-DOCS"
-  ["PHASE4"]="SYNC"
-  ["PHASE5"]="SELF-REFLECTION"
-  ["PHASE6"]="ARCHIVE"
-)
+get_phase_name() {
+  case "$1" in
+    PHASE0) echo "ARTIFACT REVIEW" ;;
+    PHASE1) echo "IMPLEMENTATION" ;;
+    PHASE2) echo "REVIEW" ;;
+    PHASE3) echo "MAINTAIN DOCS" ;;
+    PHASE4) echo "SYNC" ;;
+    PHASE5) echo "SELF-REFLECTION" ;;
+    PHASE6) echo "ARCHIVE" ;;
+    *)      echo "UNKNOWN" ;;
+  esac
+}
 
-declare -A PHASE_COMMANDS=(
-  ["PHASE0"]="openspec-phase0"
-  ["PHASE1"]="openspec-phase1"
-  ["PHASE2"]="openspec-phase2"
-  ["PHASE3"]="openspec-phase3"
-  ["PHASE4"]="openspec-phase4"
-  ["PHASE5"]="openspec-phase5"
-  ["PHASE6"]="openspec-phase6"
-)
+get_phase_command() {
+  case "$1" in
+    PHASE0) echo "openspec-phase0" ;;
+    PHASE1) echo "openspec-phase1" ;;
+    PHASE2) echo "openspec-phase2" ;;
+    PHASE3) echo "openspec-phase3" ;;
+    PHASE4) echo "openspec-phase4" ;;
+    PHASE5) echo "openspec-phase5" ;;
+    PHASE6) echo "openspec-phase6" ;;
+    *)      echo "" ;;
+  esac
+}
 
-declare -A PHASE_AGENTS=(
-  ["PHASE0"]="openspec-analyzer"
-  ["PHASE1"]="openspec-builder"
-  ["PHASE2"]="openspec-analyzer"
-  ["PHASE3"]="openspec-maintainer"
-  ["PHASE4"]="openspec-maintainer"
-  ["PHASE5"]="openspec-analyzer"
-  ["PHASE6"]="openspec-maintainer"
-)
+get_phase_agent() {
+  case "$1" in
+    PHASE0) echo "openspec-analyzer" ;;
+    PHASE1) echo "openspec-builder" ;;
+    PHASE2) echo "openspec-analyzer" ;;
+    PHASE3) echo "openspec-maintainer" ;;
+    PHASE4) echo "openspec-maintainer" ;;
+    PHASE5) echo "openspec-analyzer" ;;
+    PHASE6) echo "openspec-maintainer" ;;
+    *)      echo "" ;;
+  esac
+}
 
 readonly REQUIRED_SKILLS=(
   "openspec-concepts"
@@ -505,15 +515,30 @@ write_state() {
   local phase="$1"
   local iteration="${2:-1}"
   local phase_complete="${3:-false}"
+  local is_new_iteration="${4:-true}"
+
+  local phase_iterations="{}"
+
+  if [[ -f "$CHANGE_DIR/state.json" ]]; then
+    phase_iterations=$(jq -c '.phase_iterations // {}' "$CHANGE_DIR/state.json" 2>/dev/null || echo "{}")
+  fi
+
+  if [[ "$is_new_iteration" == "true" ]]; then
+    local current_count
+    current_count=$(echo "$phase_iterations" | jq -r ".\"$phase\" // 0")
+    local new_count=$((current_count + 1))
+    phase_iterations=$(echo "$phase_iterations" | jq -c --arg phase "$phase" --argjson count "$new_count" '.[$phase] = $count')
+  fi
 
   local state_json
   state_json=$(cat <<EOF
 {
   "phase": "$phase",
-  "phase_name": "${PHASE_NAMES[$phase]}",
+  "phase_name": "$(get_phase_name "$phase")",
   "iteration": $iteration,
   "phase_complete": $phase_complete,
   "total_invocations": $TOTAL_INVOCATIONS,
+  "phase_iterations": $phase_iterations,
   "started_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
   "last_updated": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
@@ -647,9 +672,9 @@ run_agent() {
 
   log "Agent invocation #$TOTAL_INVOCATIONS for $phase"
 
-  local cmd_name="${PHASE_COMMANDS[$phase]}"
-  local agent_name="${PHASE_AGENTS[$phase]}"
-  local title="OpenSpec: ${PHASE_NAMES[$phase]} - $CHANGE_ID"
+  local cmd_name=$(get_phase_command "$phase")
+  local agent_name=$(get_phase_agent "$phase")
+  local title="OpenSpec: $CHANGE_ID - $(get_phase_name "$phase")"
 
   if [[ "$VERBOSE" == true ]]; then
     log "Using command: /$cmd_name"
@@ -696,7 +721,7 @@ run_agent() {
 
 run_phase() {
   local phase="$1"
-  log "${PHASE_NAMES[$phase]}"
+  log "$(get_phase_name "$phase")"
 
   local iteration=1
 
@@ -707,6 +732,10 @@ run_phase() {
 
     if ! run_agent "$phase"; then
       return 1
+    fi
+
+    if [[ "$phase" == "PHASE6" ]]; then
+      update_change_dir_if_archived
     fi
 
     if check_phase_complete; then
@@ -744,6 +773,22 @@ advance_phase() {
   fi
 }
 
+cleanup_state_files() {
+  local state_dir="$CHANGE_DIR"
+
+  if [[ -f "$state_dir/state.json" ]]; then
+    rm "$state_dir/state.json" || log_warning "Failed to remove state.json"
+  fi
+  if [[ -f "$state_dir/complete.json" ]]; then
+    rm "$state_dir/complete.json" || log_warning "Failed to remove complete.json"
+  fi
+  if [[ -f ".openspec-baseline.json" ]]; then
+    rm ".openspec-baseline.json" || log_warning "Failed to remove .openspec-baseline.json"
+  fi
+
+  log "State files cleaned up"
+}
+
 validate_archive() {
   local result
   result=$(run_lib_script "osc-validate" "$CHANGE_ID" archive)
@@ -757,6 +802,25 @@ validate_archive() {
   archive_path=$(echo "$result" | jq -r '.archive // ""')
   log_success "Archive found: $archive_path"
   return 0
+}
+
+update_change_dir_if_archived() {
+  if [[ -d "$CHANGE_DIR" ]]; then
+    return 0
+  fi
+
+  local new_dir
+  new_dir=$(osc_find_change_dir "$CHANGE_ID") || return 1
+
+  if [[ -n "$new_dir" ]] && [[ -d "$new_dir" ]]; then
+    CHANGE_DIR="$new_dir"
+    if [[ "$VERBOSE" == true ]]; then
+      log "CHANGE_DIR updated to: $CHANGE_DIR"
+    fi
+    return 0
+  fi
+
+  return 1
 }
 
 validate_iterations() {
@@ -797,7 +861,7 @@ show_progress() {
 
   local current_phase
   if current_phase=$(get_current_phase); then
-    echo "Current phase: $current_phase - ${PHASE_NAMES[$current_phase]}"
+    echo "Current phase: $current_phase - $(get_phase_name "$current_phase")"
     local iteration
     iteration=$(get_phase_iteration)
     echo "Phase iteration: $iteration"
@@ -814,16 +878,24 @@ show_progress() {
   local seconds=$((elapsed % 60))
   echo "Elapsed time: ${minutes}m ${seconds}s"
 
-  if [[ -f "$CHANGE_DIR/iterations.json" ]]; then
+  if [[ -f "$CHANGE_DIR/state.json" ]]; then
     echo ""
     echo "Iterations by phase:"
-    echo "  PHASE0 (ARTIFACT REVIEW): $(jq 'map(select(.phase == "ARTIFACT_REVIEW")) | length' "$CHANGE_DIR/iterations.json")"
-    echo "  PHASE1 (IMPLEMENTATION): $(jq 'map(select(.phase == "IMPLEMENTATION")) | length' "$CHANGE_DIR/iterations.json")"
-    echo "  PHASE2 (REVIEW): $(jq 'map(select(.phase == "REVIEW")) | length' "$CHANGE_DIR/iterations.json")"
-    echo "  PHASE3 (MAINTAIN-DOCS): $(jq 'map(select(.phase == "MAINTAIN-DOCS")) | length' "$CHANGE_DIR/iterations.json")"
-    echo "  PHASE4 (SYNC): $(jq 'map(select(.phase == "SYNC")) | length' "$CHANGE_DIR/iterations.json")"
-    echo "  PHASE5 (ARCHIVE): $(jq 'map(select(.phase == "ARCHIVE")) | length' "$CHANGE_DIR/iterations.json")"
-    echo "  PHASE6 (SELF-REFLECTION): $(jq 'map(select(.phase == "SELF-REFLECTION")) | length' "$CHANGE_DIR/iterations.json")"
+    local p0 p1 p2 p3 p4 p5 p6
+    p0=$(jq -r '.phase_iterations.PHASE0 // 0' "$CHANGE_DIR/state.json")
+    p1=$(jq -r '.phase_iterations.PHASE1 // 0' "$CHANGE_DIR/state.json")
+    p2=$(jq -r '.phase_iterations.PHASE2 // 0' "$CHANGE_DIR/state.json")
+    p3=$(jq -r '.phase_iterations.PHASE3 // 0' "$CHANGE_DIR/state.json")
+    p4=$(jq -r '.phase_iterations.PHASE4 // 0' "$CHANGE_DIR/state.json")
+    p5=$(jq -r '.phase_iterations.PHASE5 // 0' "$CHANGE_DIR/state.json")
+    p6=$(jq -r '.phase_iterations.PHASE6 // 0' "$CHANGE_DIR/state.json")
+    echo "  PHASE0 (ARTIFACT REVIEW): $p0"
+    echo "  PHASE1 (IMPLEMENTATION): $p1"
+    echo "  PHASE2 (REVIEW): $p2"
+    echo "  PHASE3 (MAINTAIN DOCS): $p3"
+    echo "  PHASE4 (SYNC): $p4"
+    echo "  PHASE5 (SELF-REFLECTION): $p5"
+    echo "  PHASE6 (ARCHIVE): $p6"
   fi
 
   echo "================================"
@@ -921,6 +993,12 @@ main() {
     exit 1
   fi
 
+  if [[ "$CHANGE_DIR" == *"/archive/"* ]] && [[ ! -f "$CHANGE_DIR/state.json" ]]; then
+    log_success "Change '$CHANGE_ID' is already archived and complete"
+    log "Archive location: $CHANGE_DIR"
+    exit 0
+  fi
+
   START_TIME=$(date +%s)
 
   echo "================================"
@@ -968,7 +1046,7 @@ main() {
     local current_phase
     current_phase=$(get_current_phase)
 
-    log "Resuming from phase: $current_phase - ${PHASE_NAMES[$current_phase]}"
+    log "Resuming from phase: $current_phase - $(get_phase_name "$current_phase")"
 
     if [[ "$FORCE" == false ]] && [[ -t 0 ]]; then
       echo ""
@@ -993,7 +1071,7 @@ main() {
   while true; do
     if [[ "$started" == false ]] && [[ -n "$FROM_PHASE" ]]; then
       current_phase="$FROM_PHASE"
-      log "Starting from phase: $current_phase - ${PHASE_NAMES[$current_phase]}"
+      log "Starting from phase: $current_phase - $(get_phase_name "$current_phase")"
       started=true
     elif current_phase=$(get_current_phase); then
       :
@@ -1026,7 +1104,7 @@ main() {
     fi
 
     case "$current_phase" in
-      PHASE0|PHASE1|PHASE2|PHASE3|PHASE4|PHASE5|PHASE6)
+      PHASE0|PHASE1|PHASE2|PHASE3|PHASE4|PHASE5)
         if ! run_phase "$current_phase"; then
           log_error "$current_phase failed"
           exit 1
@@ -1037,44 +1115,42 @@ main() {
         next_phase=$(advance_phase "$current_phase")
         log "Phase transition: $current_phase → $next_phase"
 
-        # After PHASE6 completes, validate archive and exit
-        if [[ "$current_phase" == "PHASE6" ]] && [[ "$next_phase" == "COMPLETE" ]]; then
-          if validate_archive; then
-            log ""
-            log "================================"
-            log_success "Implementation completed successfully!"
-            log "================================"
-
-            if [[ -f "$CHANGE_DIR/state.json" ]]; then
-              rm "$CHANGE_DIR/state.json" || log_warning "Failed to remove state.json"
-            fi
-            if [[ -f "$CHANGE_DIR/complete.json" ]]; then
-              rm "$CHANGE_DIR/complete.json" || log_warning "Failed to remove complete.json"
-            fi
-            if [[ -f ".openspec-baseline.json" ]]; then
-              rm ".openspec-baseline.json" || log_warning "Failed to remove .openspec-baseline.json"
-            fi
-
-            log "State files cleaned up"
-
-            if [[ "$VERBOSE" == true ]]; then
-              show_progress
-            fi
-
-            exit 0
-          else
-            log ""
-            log_error "Archive validation failed"
-            log "State files preserved for investigation"
-            exit 1
-          fi
-        fi
-
         current_phase="$next_phase"
         ;;
+
+      PHASE6)
+        if ! run_phase "$current_phase"; then
+          log_error "$current_phase failed"
+          exit 1
+        fi
+        show_progress
+
+        # PHASE6 is terminal - validate archive and exit without calling advance_phase
+        if validate_archive; then
+          log ""
+          log "================================"
+          log_success "Implementation completed successfully!"
+          log "================================"
+
+          cleanup_state_files
+
+          if [[ "$VERBOSE" == true ]]; then
+            show_progress
+          fi
+
+          exit 0
+        else
+          log ""
+          log_error "Archive validation failed"
+          log "State files preserved for investigation"
+          exit 1
+        fi
+        ;;
+
       COMPLETE)
         log "All phases complete, validating..."
         ;;
+
       *)
         log_error "Unknown phase: $current_phase"
         exit 1

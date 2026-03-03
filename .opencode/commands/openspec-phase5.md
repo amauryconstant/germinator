@@ -55,7 +55,7 @@ Answer each with 2-4 sentences minimum, including specific examples:
 
 **5. How did completion phases work?**
    - Were phase transitions smooth?
-   - Did MAINTAIN-DOCS provide value?
+   - Did MAINTAIN DOCS provide value?
    - Did SYNC complete successfully?
 
 **6. How was commit behavior?**
@@ -68,6 +68,9 @@ Answer each with 2-4 sentences minimum, including specific examples:
    - Documentation improvements?
 
 **8. What would improve for future changes?**
+   - Review suggestions.md for any quick wins
+   - Were any suggestions actually blockers in disguise?
+   - Should any suggestions become new OpenSpec changes?
    - Artifact quality improvements?
    - Missing checkpoints?
    - Better progress tracking?
