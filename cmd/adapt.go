@@ -1,12 +1,13 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"gitlab.com/amoconst/germinator/internal/application"
 	gerrors "gitlab.com/amoconst/germinator/internal/errors"
 	"gitlab.com/amoconst/germinator/internal/models"
-	"gitlab.com/amoconst/germinator/internal/services"
 )
 
 // NewAdaptCommand creates the adapt command with dependency injection.
@@ -44,7 +45,11 @@ Example:
 			VeryVerbosePrint(cfg, "Rendering template for %s...", platform)
 			VeryVerbosePrint(cfg, "Writing output file...")
 
-			err := services.TransformDocument(inputPath, outputPath, platform)
+			_, err := cfg.Services.Transformer.Transform(context.Background(), &application.TransformRequest{
+				InputPath:  inputPath,
+				OutputPath: outputPath,
+				Platform:   platform,
+			})
 			if err != nil {
 				HandleError(cfg, err)
 			}

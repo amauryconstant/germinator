@@ -2,9 +2,12 @@ package services
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"gitlab.com/amoconst/germinator/internal/application"
 )
 
 // To update golden files: go test ./internal/services -update-golden
@@ -141,6 +144,7 @@ func TestGoldenFiles(t *testing.T) {
 		},
 	}
 
+	tr := NewTransformer()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create temporary output file
@@ -148,9 +152,13 @@ func TestGoldenFiles(t *testing.T) {
 			outputFile := filepath.Join(tmpDir, "output.md")
 
 			// Transform document
-			err := TransformDocument(tt.fixture, outputFile, tt.platform)
+			_, err := tr.Transform(context.Background(), &application.TransformRequest{
+				InputPath:  tt.fixture,
+				OutputPath: outputFile,
+				Platform:   tt.platform,
+			})
 			if err != nil {
-				t.Fatalf("TransformDocument failed: %v", err)
+				t.Fatalf("Transform failed: %v", err)
 			}
 
 			// Read actual output
@@ -223,14 +231,19 @@ func TestGoldenFileUpdate(t *testing.T) {
 		},
 	}
 
+	tr := NewTransformer()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
 			outputFile := filepath.Join(tmpDir, "output.md")
 
-			err := TransformDocument(tt.fixture, outputFile, tt.platform)
+			_, err := tr.Transform(context.Background(), &application.TransformRequest{
+				InputPath:  tt.fixture,
+				OutputPath: outputFile,
+				Platform:   tt.platform,
+			})
 			if err != nil {
-				t.Fatalf("TransformDocument failed: %v", err)
+				t.Fatalf("Transform failed: %v", err)
 			}
 
 			actual, err := os.ReadFile(outputFile)

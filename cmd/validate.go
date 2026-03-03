@@ -1,13 +1,14 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
+	"gitlab.com/amoconst/germinator/internal/application"
 	gerrors "gitlab.com/amoconst/germinator/internal/errors"
 	"gitlab.com/amoconst/germinator/internal/models"
-	"gitlab.com/amoconst/germinator/internal/services"
 )
 
 // NewValidateCommand creates the validate command with dependency injection.
@@ -44,13 +45,16 @@ Example:
 			VeryVerbosePrint(cfg, "Parsing document structure...")
 			VeryVerbosePrint(cfg, "Running validation...")
 
-			errs, err := services.ValidateDocument(filePath, validatePlatform)
+			result, err := cfg.Services.Validator.Validate(context.Background(), &application.ValidateRequest{
+				InputPath: filePath,
+				Platform:  validatePlatform,
+			})
 			if err != nil {
 				HandleError(cfg, err)
 			}
 
-			if len(errs) > 0 {
-				for _, e := range errs {
+			if !result.Valid() {
+				for _, e := range result.Errors {
 					fmt.Fprintln(os.Stderr, cfg.ErrorFormatter.Format(e))
 				}
 				os.Exit(int(ExitCodeUsage))

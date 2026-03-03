@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -9,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"gitlab.com/amoconst/germinator/internal/application"
 	gerrors "gitlab.com/amoconst/germinator/internal/errors"
-	"gitlab.com/amoconst/germinator/internal/services"
 )
 
 func getProjectRoot() (string, error) {
@@ -32,7 +33,6 @@ func getProjectRoot() (string, error) {
 	return "", os.ErrNotExist
 }
 
-// newTestConfig creates a CommandConfig for testing.
 func newTestConfig() *CommandConfig {
 	return &CommandConfig{
 		Services:       NewServiceContainer(),
@@ -55,13 +55,17 @@ This is valid content`
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	errs, err := services.ValidateDocument(validFile, "claude-code")
+	cfg := newTestConfig()
+	result, err := cfg.Services.Validator.Validate(context.Background(), &application.ValidateRequest{
+		InputPath: validFile,
+		Platform:  "claude-code",
+	})
 	if err != nil {
-		t.Fatalf("ValidateDocument failed: %v", err)
+		t.Fatalf("Validate failed: %v", err)
 	}
 
-	if len(errs) != 0 {
-		t.Errorf("Expected no validation errors, got %d: %v", len(errs), errs)
+	if !result.Valid() {
+		t.Errorf("Expected no validation errors, got %d: %v", len(result.Errors), result.Errors)
 	}
 }
 
@@ -117,8 +121,13 @@ This is test content`
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			cfg := newTestConfig()
 			if tt.expectError {
-				err := services.TransformDocument(inputFile, outputFile, tt.platform)
+				_, err := cfg.Services.Transformer.Transform(context.Background(), &application.TransformRequest{
+					InputPath:  inputFile,
+					OutputPath: outputFile,
+					Platform:   tt.platform,
+				})
 				if err == nil {
 					t.Errorf("Expected error but got none")
 				}
@@ -128,7 +137,11 @@ This is test content`
 					}
 				}
 			} else {
-				err := services.TransformDocument(inputFile, outputFile, tt.platform)
+				_, err := cfg.Services.Transformer.Transform(context.Background(), &application.TransformRequest{
+					InputPath:  inputFile,
+					OutputPath: outputFile,
+					Platform:   tt.platform,
+				})
 				if err != nil {
 					t.Errorf("Unexpected error: %v", err)
 				}
@@ -162,13 +175,17 @@ Command content`
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			errs, err := services.ValidateDocument(validFile, tt.platform)
+			cfg := newTestConfig()
+			result, err := cfg.Services.Validator.Validate(context.Background(), &application.ValidateRequest{
+				InputPath: validFile,
+				Platform:  tt.platform,
+			})
 			if err != nil {
-				t.Errorf("ValidateDocument failed for %s: %v", tt.platform, err)
+				t.Errorf("Validate failed for %s: %v", tt.platform, err)
 			}
 
-			if len(errs) != 0 {
-				t.Errorf("Expected no validation errors for %s, got %d: %v", tt.platform, len(errs), errs)
+			if !result.Valid() {
+				t.Errorf("Expected no validation errors for %s, got %d: %v", tt.platform, len(result.Errors), result.Errors)
 			}
 		})
 	}
@@ -230,17 +247,19 @@ This is valid content`
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	errs, err := services.ValidateDocument(validFile, "claude-code")
+	cfg := newTestConfig()
+	result, err := cfg.Services.Validator.Validate(context.Background(), &application.ValidateRequest{
+		InputPath: validFile,
+		Platform:  "claude-code",
+	})
 	if err != nil {
-		t.Fatalf("ValidateDocument failed: %v", err)
+		t.Fatalf("Validate failed: %v", err)
 	}
 
-	if len(errs) != 0 {
-		t.Errorf("Expected no validation errors, got %d: %v", len(errs), errs)
+	if !result.Valid() {
+		t.Errorf("Expected no validation errors, got %d: %v", len(result.Errors), result.Errors)
 	}
 }
-
-// CLI Integration Tests - Platform Flag Validation
 
 func TestCLIPlatformFlagValidation(t *testing.T) {
 	root, err := getProjectRoot()
@@ -305,19 +324,23 @@ This is valid content`
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			errs, err := services.ValidateDocument(validFile, tt.platform)
+			cfg := newTestConfig()
+			result, err := cfg.Services.Validator.Validate(context.Background(), &application.ValidateRequest{
+				InputPath: validFile,
+				Platform:  tt.platform,
+			})
 			if err != nil {
-				t.Errorf("ValidateDocument failed: %v", err)
+				t.Errorf("Validate failed: %v", err)
 			}
-			if tt.expectError && len(errs) == 0 {
+			if tt.expectError && result.Valid() {
 				t.Errorf("Expected validation errors for platform %s but got none", tt.platform)
 			}
-			if !tt.expectError && len(errs) > 0 {
-				t.Errorf("Unexpected validation errors for platform %s: %v", tt.platform, errs)
+			if !tt.expectError && !result.Valid() {
+				t.Errorf("Unexpected validation errors for platform %s: %v", tt.platform, result.Errors)
 			}
-			if tt.errorMsg != "" && len(errs) > 0 {
+			if tt.errorMsg != "" && !result.Valid() {
 				var errMsgs strings.Builder
-				for _, e := range errs {
+				for _, e := range result.Errors {
 					errMsgs.WriteString(e.Error())
 					errMsgs.WriteString("; ")
 				}
@@ -418,16 +441,20 @@ Test content`,
 				t.Fatalf("Failed to create test file: %v", err)
 			}
 
-			errs, err := services.ValidateDocument(testFile, tt.platform)
+			cfg := newTestConfig()
+			result, err := cfg.Services.Validator.Validate(context.Background(), &application.ValidateRequest{
+				InputPath: testFile,
+				Platform:  tt.platform,
+			})
 			if err != nil {
-				t.Fatalf("ValidateDocument failed: %v", err)
+				t.Fatalf("Validate failed: %v", err)
 			}
-			if tt.expectError && len(errs) == 0 {
+			if tt.expectError && result.Valid() {
 				t.Errorf("Expected validation errors but got none")
 			}
-			if tt.expectError && len(errs) > 0 {
+			if tt.expectError && !result.Valid() {
 				var errMsgs strings.Builder
-				for _, e := range errs {
+				for _, e := range result.Errors {
 					errMsgs.WriteString(e.Error())
 					errMsgs.WriteString("; ")
 				}
@@ -605,7 +632,12 @@ content: |
 				t.Fatalf("Failed to create input file: %v", err)
 			}
 
-			err := services.TransformDocument(inputFile, outputFile, tt.platform)
+			cfg := newTestConfig()
+			_, err := cfg.Services.Transformer.Transform(context.Background(), &application.TransformRequest{
+				InputPath:  inputFile,
+				OutputPath: outputFile,
+				Platform:   tt.platform,
+			})
 
 			if tt.expectError {
 				if err == nil {
@@ -615,7 +647,7 @@ content: |
 			}
 
 			if err != nil {
-				t.Fatalf("TransformDocument failed: %v", err)
+				t.Fatalf("Transform failed: %v", err)
 			}
 
 			output, err := os.ReadFile(outputFile)
@@ -714,16 +746,20 @@ Command content`,
 				t.Fatalf("Failed to create test file: %v", err)
 			}
 
-			errs, err := services.ValidateDocument(testFile, tt.platform)
+			cfg := newTestConfig()
+			result, err := cfg.Services.Validator.Validate(context.Background(), &application.ValidateRequest{
+				InputPath: testFile,
+				Platform:  tt.platform,
+			})
 			if err != nil {
-				t.Fatalf("ValidateDocument failed: %v", err)
+				t.Fatalf("Validate failed: %v", err)
 			}
 
-			if tt.expectError && len(errs) != tt.errorCount {
-				t.Errorf("Expected %d errors, got %d: %v", tt.errorCount, len(errs), errs)
+			if tt.expectError && len(result.Errors) != tt.errorCount {
+				t.Errorf("Expected %d errors, got %d: %v", tt.errorCount, len(result.Errors), result.Errors)
 			}
-			if !tt.expectError && len(errs) > 0 {
-				t.Errorf("Expected no errors, got %d: %v", len(errs), errs)
+			if !tt.expectError && !result.Valid() {
+				t.Errorf("Expected no errors, got %d: %v", len(result.Errors), result.Errors)
 			}
 		})
 	}
@@ -768,21 +804,26 @@ Agent content`
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	// Use service directly since we need to test the functionality
-	err = services.CanonicalizeDocument(inputFile, outputFile, "claude-code", "agent")
+	cfg := newTestConfig()
+	_, err = cfg.Services.Canonicalizer.Canonicalize(context.Background(), &application.CanonicalizeRequest{
+		InputPath:  inputFile,
+		OutputPath: outputFile,
+		Platform:   "claude-code",
+		DocType:    "agent",
+	})
 
 	_ = w.Close()
 	os.Stdout = oldStdout
 
 	if err != nil {
-		t.Fatalf("CanonicalizeDocument failed: %v", err)
+		t.Fatalf("Canonicalize failed: %v", err)
 	}
 
 	var buf strings.Builder
 	_, _ = io.Copy(&buf, r)
 
 	output := buf.String()
-	_ = output // We're using service directly, output won't have CLI message
+	_ = output
 
 	if _, err := os.Stat(outputFile); os.IsNotExist(err) {
 		t.Errorf("Expected output file to be created: %s", outputFile)
@@ -816,7 +857,13 @@ Agent content`
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	err := services.CanonicalizeDocument(inputFile, tmpDir+"/output.yaml", "", "agent")
+	cfg := newTestConfig()
+	_, err := cfg.Services.Canonicalizer.Canonicalize(context.Background(), &application.CanonicalizeRequest{
+		InputPath:  inputFile,
+		OutputPath: tmpDir + "/output.yaml",
+		Platform:   "",
+		DocType:    "agent",
+	})
 	if err == nil {
 		t.Errorf("Expected error when platform is empty")
 	}
@@ -840,7 +887,13 @@ Agent content`
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	err := services.CanonicalizeDocument(inputFile, tmpDir+"/output.yaml", "claude-code", "")
+	cfg := newTestConfig()
+	_, err := cfg.Services.Canonicalizer.Canonicalize(context.Background(), &application.CanonicalizeRequest{
+		InputPath:  inputFile,
+		OutputPath: tmpDir + "/output.yaml",
+		Platform:   "claude-code",
+		DocType:    "",
+	})
 	if err == nil {
 		t.Errorf("Expected error when type is empty")
 	}
@@ -864,7 +917,13 @@ Agent content`
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	err := services.CanonicalizeDocument(inputFile, tmpDir+"/output.yaml", "invalid-platform", "agent")
+	cfg := newTestConfig()
+	_, err := cfg.Services.Canonicalizer.Canonicalize(context.Background(), &application.CanonicalizeRequest{
+		InputPath:  inputFile,
+		OutputPath: tmpDir + "/output.yaml",
+		Platform:   "invalid-platform",
+		DocType:    "agent",
+	})
 	if err == nil {
 		t.Errorf("Expected error when platform is invalid")
 	}
@@ -888,7 +947,13 @@ Agent content`
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	err := services.CanonicalizeDocument(inputFile, tmpDir+"/output.yaml", "claude-code", "invalid-type")
+	cfg := newTestConfig()
+	_, err := cfg.Services.Canonicalizer.Canonicalize(context.Background(), &application.CanonicalizeRequest{
+		InputPath:  inputFile,
+		OutputPath: tmpDir + "/output.yaml",
+		Platform:   "claude-code",
+		DocType:    "invalid-type",
+	})
 	if err == nil {
 		t.Errorf("Expected error when type is invalid")
 	}
@@ -902,7 +967,13 @@ func TestCanonicalizeCommandFileNotFound(t *testing.T) {
 	tmpDir := t.TempDir()
 	inputFile := tmpDir + "/non-existent-file.md"
 
-	err := services.CanonicalizeDocument(inputFile, tmpDir+"/output.yaml", "claude-code", "agent")
+	cfg := newTestConfig()
+	_, err := cfg.Services.Canonicalizer.Canonicalize(context.Background(), &application.CanonicalizeRequest{
+		InputPath:  inputFile,
+		OutputPath: tmpDir + "/output.yaml",
+		Platform:   "claude-code",
+		DocType:    "agent",
+	})
 	if err == nil {
 		t.Errorf("Expected error when input file not found")
 	}
@@ -948,9 +1019,15 @@ Agent content`
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	err = services.CanonicalizeDocument(inputFile, outputFile, "claude-code", "agent")
+	cfg := newTestConfig()
+	_, err = cfg.Services.Canonicalizer.Canonicalize(context.Background(), &application.CanonicalizeRequest{
+		InputPath:  inputFile,
+		OutputPath: outputFile,
+		Platform:   "claude-code",
+		DocType:    "agent",
+	})
 	if err != nil {
-		t.Fatalf("CanonicalizeDocument failed: %v", err)
+		t.Fatalf("Canonicalize failed: %v", err)
 	}
 
 	result, err := os.ReadFile(outputFile)
@@ -975,8 +1052,6 @@ Agent content`
 		t.Errorf("Expected output to contain content, got: %s", resultStr)
 	}
 }
-
-// Verbose Flag E2E Tests
 
 func TestValidateCommandVerboseFlag(t *testing.T) {
 	root, err := getProjectRoot()
@@ -1279,8 +1354,6 @@ Test content`
 	}
 }
 
-// Exit Code Tests
-
 func TestValidateCommandExitCodes(t *testing.T) {
 	root, err := getProjectRoot()
 	if err != nil {
@@ -1348,14 +1421,18 @@ content`,
 				}
 			}
 
-			errs, err := services.ValidateDocument(testFile, tt.platform)
+			cfg := newTestConfig()
+			result, err := cfg.Services.Validator.Validate(context.Background(), &application.ValidateRequest{
+				InputPath: testFile,
+				Platform:  tt.platform,
+			})
 			if err != nil {
 				code := GetExitCodeForError(err)
 				if int(code) != tt.expectedCode {
 					t.Errorf("Expected exit code %d for error, got %d (error: %v)", tt.expectedCode, code, err)
 				}
-			} else if len(errs) > 0 {
-				code := GetExitCodeForError(gerrors.NewValidationError(errs[0].Error(), "", nil))
+			} else if !result.Valid() {
+				code := GetExitCodeForError(gerrors.NewValidationError(result.Errors[0].Error(), "", nil))
 				if int(code) != tt.expectedCode {
 					t.Errorf("Expected exit code %d for validation errors, got %d", tt.expectedCode, code)
 				}
@@ -1425,7 +1502,12 @@ content`,
 				}
 			}
 
-			err := services.TransformDocument(testFile, tt.outputFile, tt.platform)
+			cfg := newTestConfig()
+			_, err := cfg.Services.Transformer.Transform(context.Background(), &application.TransformRequest{
+				InputPath:  testFile,
+				OutputPath: tt.outputFile,
+				Platform:   tt.platform,
+			})
 			if err != nil {
 				code := GetExitCodeForError(err)
 				if int(code) != tt.expectedCode {

@@ -2,16 +2,19 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 
+	"gitlab.com/amoconst/germinator/internal/application"
 	"gitlab.com/amoconst/germinator/internal/core"
 	gerrors "gitlab.com/amoconst/germinator/internal/errors"
 	"gitlab.com/amoconst/germinator/internal/library"
 )
 
 // InitOptions contains options for the initialization process.
+// Deprecated: Use application.InitializeRequest instead.
 type InitOptions struct {
 	// Library is the loaded library.
 	Library *library.Library
@@ -25,28 +28,24 @@ type InitOptions struct {
 	Force bool
 }
 
-// InitResult contains the result of initializing a single resource.
-type InitResult struct {
-	// Ref is the resource reference (e.g., "skill/commit").
-	Ref string
-	// InputPath is the source file path.
-	InputPath string
-	// OutputPath is the destination file path.
-	OutputPath string
-	// Error is any error that occurred during initialization.
-	Error error
+// initializer implements the application.Initializer interface.
+type initializer struct{}
+
+// NewInitializer creates a new Initializer instance.
+func NewInitializer() application.Initializer {
+	return &initializer{}
 }
 
-// InitializeResources installs resources from the library to the target directory.
+// Initialize installs resources from the library to the target directory.
 // It uses fail-fast error handling - stops on first error.
-func InitializeResources(opts InitOptions, refs []string) ([]InitResult, error) {
-	results := make([]InitResult, 0, len(refs))
+func (i *initializer) Initialize(ctx context.Context, req *application.InitializeRequest) ([]application.InitializeResult, error) {
+	results := make([]application.InitializeResult, 0, len(req.Refs))
 
-	for _, ref := range refs {
-		result := InitResult{Ref: ref}
+	for _, ref := range req.Refs {
+		result := application.InitializeResult{Ref: ref}
 
 		// Resolve resource to file path
-		inputPath, err := library.ResolveResource(opts.Library, ref)
+		inputPath, err := library.ResolveResource(req.Library, ref)
 		if err != nil {
 			result.Error = err
 			results = append(results, result)
@@ -62,7 +61,7 @@ func InitializeResources(opts InitOptions, refs []string) ([]InitResult, error) 
 			return results, err
 		}
 
-		outputPath, err := library.GetOutputPath(typ, name, opts.Platform, opts.OutputDir)
+		outputPath, err := library.GetOutputPath(typ, name, req.Platform, req.OutputDir)
 		if err != nil {
 			result.Error = err
 			results = append(results, result)
@@ -71,7 +70,7 @@ func InitializeResources(opts InitOptions, refs []string) ([]InitResult, error) 
 		result.OutputPath = outputPath
 
 		// Check if file exists (unless force or dry-run)
-		if !opts.DryRun && !opts.Force {
+		if !req.DryRun && !req.Force {
 			if _, err := os.Stat(outputPath); err == nil {
 				result.Error = fmt.Errorf("file exists: %s (use --force to overwrite)", outputPath)
 				results = append(results, result)
@@ -80,13 +79,13 @@ func InitializeResources(opts InitOptions, refs []string) ([]InitResult, error) 
 		}
 
 		// In dry-run mode, just record what would happen
-		if opts.DryRun {
+		if req.DryRun {
 			results = append(results, result)
 			continue
 		}
 
 		// Load the document
-		doc, err := core.LoadDocument(inputPath, opts.Platform)
+		doc, err := core.LoadDocument(inputPath, req.Platform)
 		if err != nil {
 			result.Error = err
 			results = append(results, result)
@@ -94,7 +93,7 @@ func InitializeResources(opts InitOptions, refs []string) ([]InitResult, error) 
 		}
 
 		// Render the document
-		rendered, err := core.RenderDocument(doc, opts.Platform)
+		rendered, err := core.RenderDocument(doc, req.Platform)
 		if err != nil {
 			result.Error = err
 			results = append(results, result)
@@ -122,14 +121,20 @@ func InitializeResources(opts InitOptions, refs []string) ([]InitResult, error) 
 	return results, nil
 }
 
-// InitializeFromPreset installs all resources from a preset.
-func InitializeFromPreset(opts InitOptions, presetName string) ([]InitResult, error) {
-	refs, err := library.ResolvePreset(opts.Library, presetName)
-	if err != nil {
-		return nil, err
-	}
+// Compile-time interface satisfaction check.
+var _ application.Initializer = (*initializer)(nil)
 
-	return InitializeResources(opts, refs)
+// InitResult contains the result of initializing a single resource.
+// Deprecated: Use application.InitializeResult instead.
+type InitResult struct {
+	// Ref is the resource reference (e.g., "skill/commit").
+	Ref string
+	// InputPath is the source file path.
+	InputPath string
+	// OutputPath is the destination file path.
+	OutputPath string
+	// Error is any error that occurred during initialization.
+	Error error
 }
 
 // FormatDryRunOutput formats the results for dry-run display.

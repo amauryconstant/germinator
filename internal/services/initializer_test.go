@@ -1,10 +1,12 @@
 package services
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"gitlab.com/amoconst/germinator/internal/application"
 	"gitlab.com/amoconst/germinator/internal/library"
 )
 
@@ -24,18 +26,17 @@ func TestInitializeResources_DryRun(t *testing.T) {
 	// Create temp output directory
 	outputDir := t.TempDir()
 
-	opts := InitOptions{
+	init := NewInitializer()
+	results, err := init.Initialize(context.Background(), &application.InitializeRequest{
 		Library:   lib,
 		Platform:  "opencode",
 		OutputDir: outputDir,
+		Refs:      []string{"skill/commit"},
 		DryRun:    true,
 		Force:     false,
-	}
-
-	refs := []string{"skill/commit"}
-	results, err := InitializeResources(opts, refs)
+	})
 	if err != nil {
-		t.Fatalf("InitializeResources() error = %v", err)
+		t.Fatalf("Initialize() error = %v", err)
 	}
 
 	if len(results) != 1 {
@@ -73,18 +74,17 @@ func TestInitializeResources_FileExists(t *testing.T) {
 		t.Fatalf("Failed to write existing file: %v", err)
 	}
 
-	opts := InitOptions{
+	init := NewInitializer()
+	_, err = init.Initialize(context.Background(), &application.InitializeRequest{
 		Library:   lib,
 		Platform:  "opencode",
 		OutputDir: outputDir,
+		Refs:      []string{"skill/commit"},
 		DryRun:    false,
 		Force:     false,
-	}
-
-	refs := []string{"skill/commit"}
-	_, err = InitializeResources(opts, refs)
+	})
 	if err == nil {
-		t.Error("InitializeResources() should return error when file exists without force")
+		t.Error("Initialize() should return error when file exists without force")
 	}
 }
 
@@ -112,18 +112,17 @@ func TestInitializeResources_ForceOverwrite(t *testing.T) {
 		t.Fatalf("Failed to write existing file: %v", err)
 	}
 
-	opts := InitOptions{
+	init := NewInitializer()
+	results, err := init.Initialize(context.Background(), &application.InitializeRequest{
 		Library:   lib,
 		Platform:  "opencode",
 		OutputDir: outputDir,
+		Refs:      []string{"skill/commit"},
 		DryRun:    false,
 		Force:     true,
-	}
-
-	refs := []string{"skill/commit"}
-	results, err := InitializeResources(opts, refs)
+	})
 	if err != nil {
-		t.Fatalf("InitializeResources() error = %v", err)
+		t.Fatalf("Initialize() error = %v", err)
 	}
 
 	if len(results) != 1 {
@@ -146,22 +145,21 @@ func TestInitializeResources_ResourceNotFound(t *testing.T) {
 		Resources: map[string]map[string]library.Resource{},
 	}
 
-	opts := InitOptions{
+	init := NewInitializer()
+	_, err := init.Initialize(context.Background(), &application.InitializeRequest{
 		Library:   lib,
 		Platform:  "opencode",
 		OutputDir: t.TempDir(),
+		Refs:      []string{"skill/nonexistent"},
 		DryRun:    false,
 		Force:     false,
-	}
-
-	refs := []string{"skill/nonexistent"}
-	_, err := InitializeResources(opts, refs)
+	})
 	if err == nil {
-		t.Error("InitializeResources() should return error for missing resource")
+		t.Error("Initialize() should return error for missing resource")
 	}
 }
 
-func TestInitializeFromPreset(t *testing.T) {
+func TestInitialize_WithPresetRefs(t *testing.T) {
 	// Load test library
 	fixturePath := filepath.Join("..", "..", "test", "fixtures", "library")
 	absPath, err := filepath.Abs(fixturePath)
@@ -176,17 +174,23 @@ func TestInitializeFromPreset(t *testing.T) {
 
 	outputDir := t.TempDir()
 
-	opts := InitOptions{
+	// Resolve preset refs (this would happen in command layer)
+	refs, err := library.ResolvePreset(lib, "git-workflow")
+	if err != nil {
+		t.Fatalf("ResolvePreset() error = %v", err)
+	}
+
+	init := NewInitializer()
+	results, err := init.Initialize(context.Background(), &application.InitializeRequest{
 		Library:   lib,
 		Platform:  "opencode",
 		OutputDir: outputDir,
+		Refs:      refs,
 		DryRun:    true,
 		Force:     false,
-	}
-
-	results, err := InitializeFromPreset(opts, "git-workflow")
+	})
 	if err != nil {
-		t.Fatalf("InitializeFromPreset() error = %v", err)
+		t.Fatalf("Initialize() error = %v", err)
 	}
 
 	if len(results) != 2 {
@@ -194,21 +198,16 @@ func TestInitializeFromPreset(t *testing.T) {
 	}
 }
 
-func TestInitializeFromPreset_PresetNotFound(t *testing.T) {
+func TestInitialize_PresetNotFound(t *testing.T) {
 	lib := &library.Library{
 		RootPath: t.TempDir(),
 		Presets:  map[string]library.Preset{},
 	}
 
-	opts := InitOptions{
-		Library:   lib,
-		Platform:  "opencode",
-		OutputDir: t.TempDir(),
-	}
-
-	_, err := InitializeFromPreset(opts, "nonexistent")
+	// Resolve preset refs (this would happen in command layer)
+	_, err := library.ResolvePreset(lib, "nonexistent")
 	if err == nil {
-		t.Error("InitializeFromPreset() should return error for missing preset")
+		t.Error("ResolvePreset() should return error for missing preset")
 	}
 }
 

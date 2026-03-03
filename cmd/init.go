@@ -1,11 +1,13 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
+	"gitlab.com/amoconst/germinator/internal/application"
 	gerrors "gitlab.com/amoconst/germinator/internal/errors"
 	"gitlab.com/amoconst/germinator/internal/library"
 	"gitlab.com/amoconst/germinator/internal/services"
@@ -94,7 +96,7 @@ Examples:
 				HandleError(cfg, err)
 			}
 
-			// Resolve preset if specified
+			// Resolve preset if specified (preset resolution happens in command layer)
 			if preset != "" {
 				refs, err = library.ResolvePreset(lib, preset)
 				if err != nil {
@@ -104,16 +106,15 @@ Examples:
 
 			VeryVerbosePrint(cfg, "Installing resources: %s", strings.Join(refs, ", "))
 
-			// Initialize resources
-			opts := services.InitOptions{
+			// Initialize resources using the service interface
+			results, err := cfg.Services.Initializer.Initialize(context.Background(), &application.InitializeRequest{
 				Library:   lib,
 				Platform:  platform,
 				OutputDir: outputDir,
+				Refs:      refs,
 				DryRun:    dryRun,
 				Force:     force,
-			}
-
-			results, err := services.InitializeResources(opts, refs)
+			})
 			if err != nil {
 				// Print any partial results
 				for _, r := range results {
@@ -124,12 +125,23 @@ Examples:
 				HandleError(cfg, err)
 			}
 
+			// Convert results to legacy format for output formatting
+			legacyResults := make([]services.InitResult, len(results))
+			for i, r := range results {
+				legacyResults[i] = services.InitResult{
+					Ref:        r.Ref,
+					InputPath:  r.InputPath,
+					OutputPath: r.OutputPath,
+					Error:      r.Error,
+				}
+			}
+
 			// Output results
 			if dryRun {
-				_, _ = fmt.Fprint(c.OutOrStdout(), services.FormatDryRunOutput(results))
+				_, _ = fmt.Fprint(c.OutOrStdout(), services.FormatDryRunOutput(legacyResults))
 				_, _ = fmt.Fprintln(c.OutOrStdout(), "\nDry run complete. No files were written.")
 			} else {
-				_, _ = fmt.Fprint(c.OutOrStdout(), services.FormatSuccessOutput(results))
+				_, _ = fmt.Fprint(c.OutOrStdout(), services.FormatSuccessOutput(legacyResults))
 				_, _ = fmt.Fprintf(c.OutOrStdout(), "\nSuccessfully installed %d resource(s).\n", len(results))
 			}
 		},

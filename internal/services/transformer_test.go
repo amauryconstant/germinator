@@ -1,12 +1,14 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"gitlab.com/amoconst/germinator/internal/application"
 	gerrors "gitlab.com/amoconst/germinator/internal/errors"
 )
 
@@ -29,9 +31,14 @@ This is test content
 		t.Fatalf("Failed to create input file: %v", err)
 	}
 
-	err := TransformDocument(inputFile, outputFile, "claude-code")
+	tr := NewTransformer()
+	_, err := tr.Transform(context.Background(), &application.TransformRequest{
+		InputPath:  inputFile,
+		OutputPath: outputFile,
+		Platform:   "claude-code",
+	})
 	if err != nil {
-		t.Fatalf("TransformDocument failed: %v", err)
+		t.Fatalf("Transform failed: %v", err)
 	}
 
 	if _, err := os.Stat(outputFile); os.IsNotExist(err) {
@@ -62,7 +69,12 @@ content`
 		t.Fatalf("Failed to create input file: %v", err)
 	}
 
-	err := TransformDocument(inputFile, outputFile, "claude-code")
+	tr := NewTransformer()
+	_, err := tr.Transform(context.Background(), &application.TransformRequest{
+		InputPath:  inputFile,
+		OutputPath: outputFile,
+		Platform:   "claude-code",
+	})
 	if err == nil {
 		t.Error("Expected error for invalid YAML")
 	}
@@ -87,7 +99,12 @@ content`
 		t.Fatalf("Failed to create input file: %v", err)
 	}
 
-	err := TransformDocument(inputFile, outputFile, "claude-code")
+	tr := NewTransformer()
+	_, err := tr.Transform(context.Background(), &application.TransformRequest{
+		InputPath:  inputFile,
+		OutputPath: outputFile,
+		Platform:   "claude-code",
+	})
 	if err == nil {
 		t.Error("Expected error for non-existent output directory")
 	}
@@ -107,13 +124,17 @@ content`
 		t.Fatalf("Failed to create input file: %v", err)
 	}
 
-	errs, err := ValidateDocument(inputFile, "claude-code")
+	v := NewValidator()
+	result, err := v.Validate(context.Background(), &application.ValidateRequest{
+		InputPath: inputFile,
+		Platform:  "claude-code",
+	})
 	if err != nil {
-		t.Fatalf("ValidateDocument failed: %v", err)
+		t.Fatalf("Validate failed: %v", err)
 	}
 
-	if len(errs) != 0 {
-		t.Errorf("Expected no validation errors, got %d: %v", len(errs), errs)
+	if !result.Valid() {
+		t.Errorf("Expected no validation errors, got %d: %v", len(result.Errors), result.Errors)
 	}
 }
 
@@ -131,12 +152,16 @@ content`
 		t.Fatalf("Failed to create input file: %v", err)
 	}
 
-	errs, err := ValidateDocument(inputFile, "claude-code")
+	v := NewValidator()
+	result, err := v.Validate(context.Background(), &application.ValidateRequest{
+		InputPath: inputFile,
+		Platform:  "claude-code",
+	})
 	if err != nil {
-		t.Fatalf("ValidateDocument failed: %v", err)
+		t.Fatalf("Validate failed: %v", err)
 	}
 
-	if len(errs) == 0 {
+	if result.Valid() {
 		t.Error("Expected validation errors")
 	}
 }
@@ -144,7 +169,11 @@ content`
 func TestValidateDocumentMissingFile(t *testing.T) {
 	nonExistentFile := "/nonexistent/file.md"
 
-	_, err := ValidateDocument(nonExistentFile, "claude-code")
+	v := NewValidator()
+	_, err := v.Validate(context.Background(), &application.ValidateRequest{
+		InputPath: nonExistentFile,
+		Platform:  "claude-code",
+	})
 	if err == nil {
 		t.Error("Expected error for non-existent file")
 	}
@@ -173,12 +202,17 @@ Reviews code changes and provides constructive feedback.
 		t.Fatalf("Failed to create input file: %v", err)
 	}
 
+	tr := NewTransformer()
 	for _, platform := range []string{"claude-code", "opencode"} {
 		t.Run(platform, func(t *testing.T) {
 			platformOutputFile := filepath.Join(tmpDir, "output-"+platform+".md")
-			err := TransformDocument(inputFile, platformOutputFile, platform)
+			_, err := tr.Transform(context.Background(), &application.TransformRequest{
+				InputPath:  inputFile,
+				OutputPath: platformOutputFile,
+				Platform:   platform,
+			})
 			if err != nil {
-				t.Fatalf("TransformDocument failed: %v", err)
+				t.Fatalf("Transform failed: %v", err)
 			}
 
 			output, err := os.ReadFile(platformOutputFile)
@@ -244,6 +278,7 @@ Content`,
 		},
 	}
 
+	v := NewValidator()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
@@ -259,16 +294,19 @@ Content`,
 				t.Fatalf("Failed to create input file: %v", err)
 			}
 
-			errs, err := ValidateDocument(inputFile, tt.platform)
+			result, err := v.Validate(context.Background(), &application.ValidateRequest{
+				InputPath: inputFile,
+				Platform:  tt.platform,
+			})
 			if err != nil {
-				t.Fatalf("ValidateDocument failed: %v", err)
+				t.Fatalf("Validate failed: %v", err)
 			}
 
-			if tt.expectError && len(errs) == 0 {
+			if tt.expectError && result.Valid() {
 				t.Error("Expected validation errors, got none")
 			}
-			if !tt.expectError && len(errs) > 0 {
-				t.Errorf("Expected no validation errors, got %d: %v", len(errs), errs)
+			if !tt.expectError && !result.Valid() {
+				t.Errorf("Expected no validation errors, got %d: %v", len(result.Errors), result.Errors)
 			}
 		})
 	}
@@ -328,6 +366,7 @@ Memory content`,
 		},
 	}
 
+	tr := NewTransformer()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			for _, platform := range []string{"claude-code", "opencode"} {
@@ -349,9 +388,13 @@ Memory content`,
 						t.Fatalf("Failed to create input file: %v", err)
 					}
 
-					err := TransformDocument(inputFile, outputFile, platform)
+					_, err := tr.Transform(context.Background(), &application.TransformRequest{
+						InputPath:  inputFile,
+						OutputPath: outputFile,
+						Platform:   platform,
+					})
 					if err != nil {
-						t.Fatalf("TransformDocument failed: %v", err)
+						t.Fatalf("Transform failed: %v", err)
 					}
 
 					if _, err := os.Stat(outputFile); os.IsNotExist(err) {
@@ -364,6 +407,7 @@ Memory content`,
 }
 
 func TestTransformDocumentReturnsTypedParseError(t *testing.T) {
+	tr := NewTransformer()
 	t.Run("invalid YAML returns ParseError", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		inputFile := filepath.Join(tmpDir, "test-agent.md")
@@ -378,7 +422,11 @@ Content`
 			t.Fatalf("Failed to create input file: %v", err)
 		}
 
-		err := TransformDocument(inputFile, outputFile, "claude-code")
+		_, err := tr.Transform(context.Background(), &application.TransformRequest{
+			InputPath:  inputFile,
+			OutputPath: outputFile,
+			Platform:   "claude-code",
+		})
 
 		if err == nil {
 			t.Fatal("Expected error for invalid YAML")
@@ -413,7 +461,11 @@ Content`
 			t.Fatalf("Failed to create input file: %v", err)
 		}
 
-		err := TransformDocument(inputFile, outputFile, "claude-code")
+		_, err := tr.Transform(context.Background(), &application.TransformRequest{
+			InputPath:  inputFile,
+			OutputPath: outputFile,
+			Platform:   "claude-code",
+		})
 
 		if err == nil {
 			t.Fatal("Expected error for unrecognizable filename")
@@ -431,6 +483,7 @@ Content`
 }
 
 func TestTransformDocumentReturnsTypedConfigError(t *testing.T) {
+	tr := NewTransformer()
 	t.Run("invalid platform returns ConfigError", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		inputFile := filepath.Join(tmpDir, "test-agent.md")
@@ -446,7 +499,11 @@ Content`
 			t.Fatalf("Failed to create input file: %v", err)
 		}
 
-		err := TransformDocument(inputFile, outputFile, "invalid-platform")
+		_, err := tr.Transform(context.Background(), &application.TransformRequest{
+			InputPath:  inputFile,
+			OutputPath: outputFile,
+			Platform:   "invalid-platform",
+		})
 
 		if err == nil {
 			t.Fatal("Expected error for invalid platform")
@@ -467,12 +524,17 @@ Content`
 }
 
 func TestTransformDocumentReturnsTypedFileError(t *testing.T) {
+	tr := NewTransformer()
 	t.Run("file not found returns FileError", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		nonExistentFile := filepath.Join(tmpDir, "nonexistent-agent.md")
 		outputFile := filepath.Join(tmpDir, "output.md")
 
-		err := TransformDocument(nonExistentFile, outputFile, "claude-code")
+		_, err := tr.Transform(context.Background(), &application.TransformRequest{
+			InputPath:  nonExistentFile,
+			OutputPath: outputFile,
+			Platform:   "claude-code",
+		})
 
 		if err == nil {
 			t.Fatal("Expected error for non-existent file")
@@ -509,7 +571,11 @@ Content`
 			t.Fatalf("Failed to create input file: %v", err)
 		}
 
-		err := TransformDocument(inputFile, outputFile, "claude-code")
+		_, err := tr.Transform(context.Background(), &application.TransformRequest{
+			InputPath:  inputFile,
+			OutputPath: outputFile,
+			Platform:   "claude-code",
+		})
 
 		if err == nil {
 			t.Fatal("Expected error for non-existent output directory")
@@ -527,6 +593,7 @@ Content`
 }
 
 func TestValidateDocumentReturnsTypedConfigError(t *testing.T) {
+	v := NewValidator()
 	t.Run("invalid platform returns ConfigError", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		inputFile := filepath.Join(tmpDir, "test-agent.md")
@@ -541,18 +608,21 @@ Content`
 			t.Fatalf("Failed to create input file: %v", err)
 		}
 
-		errs, err := ValidateDocument(inputFile, "invalid-platform")
+		result, err := v.Validate(context.Background(), &application.ValidateRequest{
+			InputPath: inputFile,
+			Platform:  "invalid-platform",
+		})
 
 		if err != nil {
-			t.Fatalf("ValidateDocument should not return fatal error: %v", err)
+			t.Fatalf("Validate should not return fatal error: %v", err)
 		}
 
-		if len(errs) == 0 {
+		if result.Valid() {
 			t.Fatal("Expected validation errors for invalid platform")
 		}
 
 		foundConfigError := false
-		for _, e := range errs {
+		for _, e := range result.Errors {
 			var configErr *gerrors.ConfigError
 			if errors.As(e, &configErr) {
 				foundConfigError = true
@@ -570,6 +640,7 @@ Content`
 }
 
 func TestValidateDocumentReturnsTypedParseError(t *testing.T) {
+	v := NewValidator()
 	t.Run("unrecognizable filename returns ParseError", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		inputFile := filepath.Join(tmpDir, "unrecognizable.md")
@@ -584,7 +655,10 @@ Content`
 			t.Fatalf("Failed to create input file: %v", err)
 		}
 
-		_, err := ValidateDocument(inputFile, "claude-code")
+		_, err := v.Validate(context.Background(), &application.ValidateRequest{
+			InputPath: inputFile,
+			Platform:  "claude-code",
+		})
 
 		if err == nil {
 			t.Fatal("Expected error for unrecognizable filename")

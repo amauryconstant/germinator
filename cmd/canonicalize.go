@@ -1,12 +1,13 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"gitlab.com/amoconst/germinator/internal/application"
 	gerrors "gitlab.com/amoconst/germinator/internal/errors"
 	"gitlab.com/amoconst/germinator/internal/models"
-	"gitlab.com/amoconst/germinator/internal/services"
 )
 
 // NewCanonicalizeCommand creates the canonicalize command with dependency injection.
@@ -63,7 +64,12 @@ Example:
 			VeryVerbosePrint(cfg, "Validating document...")
 			VeryVerbosePrint(cfg, "Marshalling to canonical YAML...")
 
-			err := services.CanonicalizeDocument(inputPath, outputPath, canonicalizePlatform, canonicalizeDocType)
+			_, err := cfg.Services.Canonicalizer.Canonicalize(context.Background(), &application.CanonicalizeRequest{
+				InputPath:  inputPath,
+				OutputPath: outputPath,
+				Platform:   canonicalizePlatform,
+				DocType:    canonicalizeDocType,
+			})
 			if err != nil {
 				HandleError(cfg, err)
 			}
