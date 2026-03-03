@@ -9,18 +9,19 @@
 
 - [ ] 2.1 Create `internal/services/validator.go` with `type validator struct{}` and `NewValidator()` constructor
 - [ ] 2.2 Implement `Validate(ctx, req)` method on validator struct
-- [ ] 2.3 Update `internal/services/transformer.go` with `type transformer struct{}` and `NewTransformer()` constructor
-- [ ] 2.4 Implement `Transform(ctx, req)` method on transformer struct
-- [ ] 2.5 Keep existing `TransformDocument()` function as wrapper calling method
-- [ ] 2.6 Create `internal/services/canonicalizer.go` with `type canonicalizer struct{}` and `NewCanonicalizer()` constructor
-- [ ] 2.7 Implement `Canonicalize(ctx, req)` method on canonicalizer struct
-- [ ] 2.8 Keep existing `CanonicalizeDocument()` function as wrapper calling method
-- [ ] 2.9 Update `internal/services/initializer.go`: rename `InitOptions` to `InitializeRequest` (add `Refs` field), rename `InitResult` to `InitializeResult` (moves to `internal/application/results.go`)
-- [ ] 2.10 Create `type initializer struct{}` and `NewInitializer()` constructor
-- [ ] 2.11 Implement `Initialize(ctx, req)` method on initializer struct
-- [ ] 2.12 Keep existing `InitializeResources()` function as wrapper calling method
-- [ ] 2.13 Remove `InitializeFromPreset()` function (logic moves to command)
-- [ ] 2.14 Add compile-time interface satisfaction checks in each service file (e.g., `var _ application.Transformer = (*transformer)(nil)`)
+- [ ] 2.3 Keep existing `ValidateDocument()` function in `internal/services/transformer.go` as wrapper calling method
+- [ ] 2.4 Update `internal/services/transformer.go` with `type transformer struct{}` and `NewTransformer()` constructor
+- [ ] 2.5 Implement `Transform(ctx, req)` method on transformer struct
+- [ ] 2.6 Keep existing `TransformDocument()` function as wrapper calling method
+- [ ] 2.7 Create `internal/services/canonicalizer.go` with `type canonicalizer struct{}` and `NewCanonicalizer()` constructor
+- [ ] 2.8 Implement `Canonicalize(ctx, req)` method on canonicalizer struct
+- [ ] 2.9 Keep existing `CanonicalizeDocument()` function as wrapper calling method
+- [ ] 2.10 Update `internal/services/initializer.go`: rename `InitOptions` to `InitializeRequest` (add `Refs` field), rename `InitResult` to `InitializeResult` (moves to `internal/application/results.go`)
+- [ ] 2.11 Create `type initializer struct{}` and `NewInitializer()` constructor
+- [ ] 2.12 Implement `Initialize(ctx, req)` method on initializer struct
+- [ ] 2.13 Keep existing `InitializeResources()` function as wrapper calling method
+- [ ] 2.14 Remove `InitializeFromPreset()` function (logic moves to command)
+- [ ] 2.15 Add compile-time interface satisfaction checks in each service file (e.g., `var _ application.Transformer = (*transformer)(nil)`)
 
 ## 3. Wire ServiceContainer
 
