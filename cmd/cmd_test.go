@@ -1432,7 +1432,7 @@ content`,
 					t.Errorf("Expected exit code %d for error, got %d (error: %v)", tt.expectedCode, code, err)
 				}
 			} else if !result.Valid() {
-				code := GetExitCodeForError(gerrors.NewValidationError(result.Errors[0].Error(), "", nil))
+				code := GetExitCodeForError(gerrors.NewValidationError("", "", "", result.Errors[0].Error()))
 				if int(code) != tt.expectedCode {
 					t.Errorf("Expected exit code %d for validation errors, got %d", tt.expectedCode, code)
 				}
@@ -1533,7 +1533,7 @@ func TestExitCodeForErrorTypes(t *testing.T) {
 		},
 		{
 			name:         "ValidationError returns exit code 2",
-			err:          gerrors.NewValidationError("invalid field", "name", nil),
+			err:          gerrors.NewValidationError("", "name", "", "invalid field"),
 			expectedCode: ExitCodeUsage,
 		},
 		{
@@ -1581,7 +1581,7 @@ func TestErrorCategorization(t *testing.T) {
 		},
 		{
 			name:             "ValidationError categorizes as CategoryValidation",
-			err:              gerrors.NewValidationError("invalid", "field", nil),
+			err:              gerrors.NewValidationError("", "field", "", "invalid"),
 			expectedCategory: CategoryValidation,
 		},
 		{
@@ -1736,7 +1736,7 @@ func TestHandleErrorExitCodes(t *testing.T) {
 		},
 		{
 			name:       "ValidationError exits with code 2",
-			err:        gerrors.NewValidationError("invalid field", "name", nil),
+			err:        gerrors.NewValidationError("", "name", "", "invalid field"),
 			expectCode: ExitCodeUsage,
 		},
 		{

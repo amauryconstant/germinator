@@ -22,21 +22,116 @@ func (e *ParseError) Unwrap() error {
 	return e.Cause
 }
 
+// ValidationError represents a validation failure with immutable builders for fluent construction.
 type ValidationError struct {
-	Message        string
-	Field          string
-	suggestionList []string
+	request     string
+	field       string
+	value       string
+	message     string
+	suggestions []string
+	context     string
 }
 
-func (e *ValidationError) Error() string {
-	if e.Field != "" {
-		return fmt.Sprintf("validation error: %s (field: %s)", e.Message, e.Field)
+// NewValidationError creates a new ValidationError with the given parameters.
+func NewValidationError(request, field, value, message string) *ValidationError {
+	return &ValidationError{
+		request:     request,
+		field:       field,
+		value:       value,
+		message:     message,
+		suggestions: nil,
+		context:     "",
 	}
-	return fmt.Sprintf("validation error: %s", e.Message)
 }
 
+// WithSuggestions returns a new ValidationError with the given suggestions (immutable builder).
+func (e *ValidationError) WithSuggestions(suggestions []string) *ValidationError {
+	return &ValidationError{
+		request:     e.request,
+		field:       e.field,
+		value:       e.value,
+		message:     e.message,
+		suggestions: suggestions,
+		context:     e.context,
+	}
+}
+
+// WithContext returns a new ValidationError with the given context (immutable builder).
+func (e *ValidationError) WithContext(context string) *ValidationError {
+	return &ValidationError{
+		request:     e.request,
+		field:       e.field,
+		value:       e.value,
+		message:     e.message,
+		suggestions: e.suggestions,
+		context:     context,
+	}
+}
+
+// Field returns the field name that failed validation.
+func (e *ValidationError) Field() string {
+	return e.field
+}
+
+// Value returns the invalid value that failed validation.
+func (e *ValidationError) Value() string {
+	return e.value
+}
+
+// Message returns the validation error message.
+func (e *ValidationError) Message() string {
+	return e.message
+}
+
+// Request returns the request type context.
+func (e *ValidationError) Request() string {
+	return e.request
+}
+
+// Suggestions returns a copy of the suggestions slice.
 func (e *ValidationError) Suggestions() []string {
-	return e.suggestionList
+	if e.suggestions == nil {
+		return nil
+	}
+	result := make([]string, len(e.suggestions))
+	copy(result, e.suggestions)
+	return result
+}
+
+// Context returns additional context information.
+func (e *ValidationError) Context() string {
+	return e.context
+}
+
+// Error formats the validation error as a string.
+func (e *ValidationError) Error() string {
+	var parts []string
+
+	if e.request != "" && e.field != "" {
+		parts = append(parts, fmt.Sprintf("validation failed for %s.%s", e.request, e.field))
+	} else if e.field != "" {
+		parts = append(parts, fmt.Sprintf("validation failed for field '%s'", e.field))
+	} else {
+		parts = append(parts, "validation failed")
+	}
+
+	if e.message != "" {
+		parts = append(parts, e.message)
+	}
+
+	result := strings.Join(parts, ": ")
+
+	if e.value != "" {
+		result += fmt.Sprintf(" (value: %s)", e.value)
+	}
+
+	if len(e.suggestions) > 0 {
+		for _, suggestion := range e.suggestions {
+			result += fmt.Sprintf("\n💡 %s", suggestion)
+		}
+	}
+
+	return result
 }
 
 type TransformError struct {
@@ -115,14 +210,6 @@ func NewParseError(path, message string, cause error) *ParseError {
 		Path:    path,
 		Message: message,
 		Cause:   cause,
-	}
-}
-
-func NewValidationError(message, field string, suggestions []string) *ValidationError {
-	return &ValidationError{
-		Message:        message,
-		Field:          field,
-		suggestionList: suggestions,
 	}
 }
 

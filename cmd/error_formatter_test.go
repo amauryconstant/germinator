@@ -23,12 +23,12 @@ func TestErrorFormatter_Format(t *testing.T) {
 		},
 		{
 			name:     "ValidationError with suggestions",
-			err:      gerrors.NewValidationError("invalid value", "permission", []string{"try read", "try write"}),
+			err:      gerrors.NewValidationError("", "permission", "", "invalid value").WithSuggestions([]string{"try read", "try write"}),
 			contains: []string{"Validation error:", "invalid value", "field: permission", "Hint: try read", "Hint: try write"},
 		},
 		{
 			name:     "ValidationError without suggestions",
-			err:      gerrors.NewValidationError("missing field", "model", nil),
+			err:      gerrors.NewValidationError("", "model", "", "missing field"),
 			contains: []string{"Validation error:", "missing field", "field: model"},
 		},
 		{
@@ -112,7 +112,7 @@ func TestNewErrorFormatterReadyToUse(t *testing.T) {
 		},
 		{
 			name:  "ValidationError formatted",
-			err:   gerrors.NewValidationError("invalid", "field", nil),
+			err:   gerrors.NewValidationError("", "field", "", "invalid"),
 			check: "Validation error:",
 		},
 		{
@@ -145,8 +145,8 @@ func TestNewErrorFormatterReadyToUse(t *testing.T) {
 func TestFormatMultipleErrors(t *testing.T) {
 	formatter := NewErrorFormatter()
 
-	err1 := gerrors.NewValidationError("missing name", "name", nil)
-	err2 := gerrors.NewValidationError("invalid temperature", "temperature", []string{"0.0 - 1.0"})
+	err1 := gerrors.NewValidationError("", "name", "", "missing name")
+	err2 := gerrors.NewValidationError("", "temperature", "", "invalid temperature").WithSuggestions([]string{"0.0 - 1.0"})
 
 	var formatted strings.Builder
 	for i, err := range []error{err1, err2} {
@@ -170,10 +170,11 @@ func TestFormatValidationErrorWithMultipleSuggestions(t *testing.T) {
 	formatter := NewErrorFormatter()
 
 	err := gerrors.NewValidationError(
-		"invalid mode",
+		"",
 		"mode",
-		[]string{"primary", "subagent", "all"},
-	)
+		"",
+		"invalid mode",
+	).WithSuggestions([]string{"primary", "subagent", "all"})
 
 	got := formatter.Format(err)
 

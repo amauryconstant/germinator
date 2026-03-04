@@ -364,8 +364,8 @@ Content`
 
 	if err != nil {
 		errMsg := err.Error()
-		if !strings.Contains(errMsg, "validation error") {
-			t.Errorf("LoadDocument() error should mention validation error, got: %s", errMsg)
+		if !strings.Contains(errMsg, "validation") {
+			t.Errorf("LoadDocument() error should mention validation, got: %s", errMsg)
 		}
 	}
 }

@@ -51,24 +51,50 @@ func TestValidationError(t *testing.T) {
 		err             *ValidationError
 		wantMsg         string
 		wantSuggestions []string
+		wantField       string
+		wantValue       string
+		wantMessage     string
+		wantRequest     string
 	}{
 		{
-			name:            "with field and suggestions",
-			err:             NewValidationError("invalid value", "permission", []string{"read", "write"}),
-			wantMsg:         "validation error: invalid value (field: permission)",
+			name:            "with all fields and suggestions",
+			err:             NewValidationError("Agent", "permission", "invalid", "invalid permission value").WithSuggestions([]string{"read", "write"}),
+			wantMsg:         "validation failed for Agent.permission: invalid permission value (value: invalid)\n💡 read\n💡 write",
 			wantSuggestions: []string{"read", "write"},
+			wantField:       "permission",
+			wantValue:       "invalid",
+			wantMessage:     "invalid permission value",
+			wantRequest:     "Agent",
 		},
 		{
 			name:            "without field",
-			err:             NewValidationError("missing required field", "", nil),
-			wantMsg:         "validation error: missing required field",
+			err:             NewValidationError("Agent", "", "", "missing required field"),
+			wantMsg:         "validation failed: missing required field",
 			wantSuggestions: nil,
+			wantField:       "",
+			wantValue:       "",
+			wantMessage:     "missing required field",
+			wantRequest:     "Agent",
 		},
 		{
 			name:            "with field no suggestions",
-			err:             NewValidationError("invalid format", "model", nil),
-			wantMsg:         "validation error: invalid format (field: model)",
+			err:             NewValidationError("Command", "model", "invalid-model", "invalid format"),
+			wantMsg:         "validation failed for Command.model: invalid format (value: invalid-model)",
 			wantSuggestions: nil,
+			wantField:       "model",
+			wantValue:       "invalid-model",
+			wantMessage:     "invalid format",
+			wantRequest:     "Command",
+		},
+		{
+			name:            "with context",
+			err:             NewValidationError("Skill", "name", "", "name is required").WithContext("additional context"),
+			wantMsg:         "validation failed for Skill.name: name is required",
+			wantSuggestions: nil,
+			wantField:       "name",
+			wantValue:       "",
+			wantMessage:     "name is required",
+			wantRequest:     "Skill",
 		},
 	}
 
@@ -81,8 +107,66 @@ func TestValidationError(t *testing.T) {
 			if len(got) != len(tt.wantSuggestions) {
 				t.Errorf("ValidationError.Suggestions() = %v, want %v", got, tt.wantSuggestions)
 			}
+			if tt.err.Field() != tt.wantField {
+				t.Errorf("ValidationError.Field() = %q, want %q", tt.err.Field(), tt.wantField)
+			}
+			if tt.err.Value() != tt.wantValue {
+				t.Errorf("ValidationError.Value() = %q, want %q", tt.err.Value(), tt.wantValue)
+			}
+			if tt.err.Message() != tt.wantMessage {
+				t.Errorf("ValidationError.Message() = %q, want %q", tt.err.Message(), tt.wantMessage)
+			}
+			if tt.err.Request() != tt.wantRequest {
+				t.Errorf("ValidationError.Request() = %q, want %q", tt.err.Request(), tt.wantRequest)
+			}
 		})
 	}
+}
+
+func TestValidationErrorImmutableBuilders(t *testing.T) {
+	t.Run("WithSuggestions returns new instance", func(t *testing.T) {
+		err1 := NewValidationError("Agent", "name", "", "name is required")
+		err2 := err1.WithSuggestions([]string{"try this"})
+
+		if err1 == err2 {
+			t.Error("WithSuggestions should return a new instance")
+		}
+
+		if len(err1.Suggestions()) != 0 {
+			t.Error("original error should not have suggestions")
+		}
+
+		if len(err2.Suggestions()) != 1 || err2.Suggestions()[0] != "try this" {
+			t.Error("new error should have suggestions")
+		}
+	})
+
+	t.Run("WithContext returns new instance", func(t *testing.T) {
+		err1 := NewValidationError("Agent", "name", "", "name is required")
+		err2 := err1.WithContext("additional info")
+
+		if err1 == err2 {
+			t.Error("WithContext should return a new instance")
+		}
+
+		if err1.Context() != "" {
+			t.Error("original error should not have context")
+		}
+
+		if err2.Context() != "additional info" {
+			t.Error("new error should have context")
+		}
+	})
+
+	t.Run("Suggestions returns copy", func(t *testing.T) {
+		err := NewValidationError("Agent", "name", "", "name is required").WithSuggestions([]string{"suggestion1", "suggestion2"})
+		suggestions1 := err.Suggestions()
+		suggestions2 := err.Suggestions()
+
+		if &suggestions1[0] == &suggestions2[0] {
+			t.Error("Suggestions should return a copy, not the original slice")
+		}
+	})
 }
 
 func TestTransformError(t *testing.T) {
@@ -244,13 +328,13 @@ func TestErrorsAsDetection(t *testing.T) {
 	})
 
 	t.Run("ValidationError", func(t *testing.T) {
-		err := NewValidationError("invalid", "field", nil)
+		err := NewValidationError("Agent", "field", "", "invalid")
 		var target *ValidationError
 		if !errors.As(err, &target) {
 			t.Error("errors.As failed to detect ValidationError")
 		}
-		if target.Message != "invalid" {
-			t.Errorf("target.Message = %q, want %q", target.Message, "invalid")
+		if target.Message() != "invalid" {
+			t.Errorf("target.Message() = %q, want %q", target.Message(), "invalid")
 		}
 	})
 

@@ -26,7 +26,7 @@ func (c *canonicalizer) Canonicalize(ctx context.Context, req *application.Canon
 	}
 
 	if errs := validateCanonicalDoc(doc); len(errs) > 0 {
-		return nil, gerrors.NewValidationError(errs[0].Error(), "", nil)
+		return nil, gerrors.NewValidationError("", "", "", errs[0].Error())
 	}
 
 	yamlBytes, err := core.MarshalCanonical(doc)

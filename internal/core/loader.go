@@ -63,7 +63,7 @@ func LoadDocument(filepath, platform string) (interface{}, error) {
 	}
 
 	if len(errs) > 0 {
-		return doc, gerrors.NewValidationError(errs[0].Error(), "", nil)
+		return doc, gerrors.NewValidationError("", "", "", errs[0].Error())
 	}
 
 	return doc, nil

@@ -99,10 +99,10 @@ func formatValidationError(err error) string {
 	}
 
 	var sb strings.Builder
-	if validationErr.Field != "" {
-		sb.WriteString(fmt.Sprintf("Validation error: %s (field: %s)\n", validationErr.Message, validationErr.Field))
+	if validationErr.Field() != "" {
+		sb.WriteString(fmt.Sprintf("Validation error: %s (field: %s)\n", validationErr.Message(), validationErr.Field()))
 	} else {
-		sb.WriteString(fmt.Sprintf("Validation error: %s\n", validationErr.Message))
+		sb.WriteString(fmt.Sprintf("Validation error: %s\n", validationErr.Message()))
 	}
 
 	for _, suggestion := range validationErr.Suggestions() {
