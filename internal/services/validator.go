@@ -7,6 +7,8 @@ import (
 	"gitlab.com/amoconst/germinator/internal/application"
 	"gitlab.com/amoconst/germinator/internal/core"
 	gerrors "gitlab.com/amoconst/germinator/internal/errors"
+	"gitlab.com/amoconst/germinator/internal/validation"
+	"gitlab.com/amoconst/germinator/internal/validation/opencode"
 )
 
 // validator implements the application.Validator interface.
@@ -37,16 +39,36 @@ func (v *validator) Validate(ctx context.Context, req *application.ValidateReque
 
 	switch d := doc.(type) {
 	case *core.CanonicalAgent:
-		errs = d.Validate()
+		if result := validation.ValidateAgent(&d.Agent); result.IsError() {
+			errs = append(errs, unwrapErrors(result.Error)...)
+		}
 		if req.Platform == PlatformOpenCode {
-			errs = append(errs, validateOpenCodeAgent(*d)...)
+			if result := opencode.ValidateAgentOpenCode(&d.Agent); result.IsError() {
+				errs = append(errs, unwrapErrors(result.Error)...)
+			}
 		}
 	case *core.CanonicalCommand:
-		errs = d.Validate()
+		if result := validation.ValidateCommand(&d.Command); result.IsError() {
+			errs = append(errs, unwrapErrors(result.Error)...)
+		}
+		if req.Platform == PlatformOpenCode {
+			if result := opencode.ValidateCommandOpenCode(&d.Command); result.IsError() {
+				errs = append(errs, unwrapErrors(result.Error)...)
+			}
+		}
 	case *core.CanonicalMemory:
-		errs = d.Validate()
+		if result := validation.ValidateMemory(&d.Memory); result.IsError() {
+			errs = append(errs, unwrapErrors(result.Error)...)
+		}
 	case *core.CanonicalSkill:
-		errs = d.Validate()
+		if result := validation.ValidateSkill(&d.Skill); result.IsError() {
+			errs = append(errs, unwrapErrors(result.Error)...)
+		}
+		if req.Platform == PlatformOpenCode {
+			if result := opencode.ValidateSkillOpenCode(&d.Skill); result.IsError() {
+				errs = append(errs, unwrapErrors(result.Error)...)
+			}
+		}
 	default:
 		return nil, gerrors.NewParseError(req.InputPath, "unknown document type", nil)
 	}
@@ -54,11 +76,24 @@ func (v *validator) Validate(ctx context.Context, req *application.ValidateReque
 	return &application.ValidateResult{Errors: errs}, nil
 }
 
-// validateOpenCodeAgent performs OpenCode-specific validation on an agent.
-// Note: Temperature and mode validation are already in AgentBehavior.Validate()
-func validateOpenCodeAgent(agent core.CanonicalAgent) []error {
-	// No OpenCode-specific validation needed beyond what's already in AgentBehavior.Validate()
-	return nil
+// unwrapErrors unwraps a joined error into individual errors.
+// If the error is not a joined error, returns a slice with just that error.
+func unwrapErrors(err error) []error {
+	if err == nil {
+		return nil
+	}
+
+	// Try to unwrap as joined error using the Unwrap() []error interface
+	type multipleUnwrapper interface {
+		Unwrap() []error
+	}
+
+	if unwrapper, ok := err.(multipleUnwrapper); ok {
+		return unwrapper.Unwrap()
+	}
+
+	// Not a joined error, return as single-element slice
+	return []error{err}
 }
 
 // Compile-time interface satisfaction check.

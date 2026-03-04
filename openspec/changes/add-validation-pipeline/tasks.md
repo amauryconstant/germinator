@@ -33,11 +33,11 @@
 
 ## 3. Wire Validators into Service (Phase 2)
 
-- [ ] 3.1 Update `internal/services/validator.go` to import `internal/validation` and `internal/validation/opencode`
-- [ ] 3.2 Update `validator.Validate()` method to call `validation.ValidateAgent()` etc. instead of `doc.Validate()`
-- [ ] 3.3 Add platform-specific validation: if platform == "opencode", call `opencode.ValidateAgentOpenCode()` etc.
-- [ ] 3.4 Convert `Result[bool]` to `[]error` for `ValidateResult.Errors` field
-- [ ] 3.5 Remove `validateOpenCodeAgent()` function from transformer.go
+- [x] 3.1 Update `internal/services/validator.go` to import `internal/validation` and `internal/validation/opencode`
+- [x] 3.2 Update `validator.Validate()` method to call `validation.ValidateAgent()` etc. instead of `doc.Validate()`
+- [x] 3.3 Add platform-specific validation: if platform == "opencode", call `opencode.ValidateAgentOpenCode()` etc.
+- [x] 3.4 Convert `Result[bool]` to `[]error` for `ValidateResult.Errors` field
+- [x] 3.5 Remove `validateOpenCodeAgent()` function from transformer.go
 - [ ] 3.6 Remove `validatePlatform()` function from transformer.go (move to validation package if needed)
 - [ ] 3.7 Update `internal/services/canonicalizer.go` to use validation pipelines in `validateCanonicalDoc()`
 

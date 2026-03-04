@@ -2,6 +2,7 @@ package validation
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -73,7 +74,7 @@ func TestValidationPipeline_Validate(t *testing.T) {
 		}
 	})
 
-	t.Run("exits early on first error", func(t *testing.T) {
+	t.Run("collects all errors", func(t *testing.T) {
 		callCount := 0
 		v1 := func(s string) Result[bool] {
 			callCount++
@@ -81,11 +82,11 @@ func TestValidationPipeline_Validate(t *testing.T) {
 		}
 		v2 := func(s string) Result[bool] {
 			callCount++
-			return NewErrorResult[bool](errors.New("validation failed"))
+			return NewErrorResult[bool](errors.New("validation failed 1"))
 		}
 		v3 := func(s string) Result[bool] {
 			callCount++
-			return NewResult(true)
+			return NewErrorResult[bool](errors.New("validation failed 2"))
 		}
 
 		pipeline := NewValidationPipeline(v1, v2, v3)
@@ -94,8 +95,8 @@ func TestValidationPipeline_Validate(t *testing.T) {
 		if !result.IsError() {
 			t.Error("expected pipeline to return error when validator fails")
 		}
-		if callCount != 2 {
-			t.Errorf("expected only 2 validators to be called (early exit), got %d calls", callCount)
+		if callCount != 3 {
+			t.Errorf("expected all 3 validators to be called (collect all errors), got %d calls", callCount)
 		}
 	})
 
@@ -111,14 +112,14 @@ func TestValidationPipeline_Validate(t *testing.T) {
 		}
 	})
 
-	t.Run("stops on first failure and returns error", func(t *testing.T) {
-		testErr := errors.New("validation failed")
+	t.Run("collects multiple failures", func(t *testing.T) {
+		testErr1 := errors.New("validation failed 1")
+		testErr2 := errors.New("validation failed 2")
 		v1 := func(s string) Result[bool] {
-			return NewErrorResult[bool](testErr)
+			return NewErrorResult[bool](testErr1)
 		}
 		v2 := func(s string) Result[bool] {
-			t.Error("second validator should not be called after first failure")
-			return NewResult(true)
+			return NewErrorResult[bool](testErr2)
 		}
 
 		pipeline := NewValidationPipeline(v1, v2)
@@ -127,8 +128,13 @@ func TestValidationPipeline_Validate(t *testing.T) {
 		if !result.IsError() {
 			t.Error("expected error result")
 		}
-		if result.Error != testErr {
-			t.Errorf("expected error %v, got %v", testErr, result.Error)
+		// Check that the error contains both messages
+		errMsg := result.Error.Error()
+		if !strings.Contains(errMsg, "validation failed 1") {
+			t.Errorf("expected error to contain 'validation failed 1', got: %v", errMsg)
+		}
+		if !strings.Contains(errMsg, "validation failed 2") {
+			t.Errorf("expected error to contain 'validation failed 2', got: %v", errMsg)
 		}
 	})
 }
