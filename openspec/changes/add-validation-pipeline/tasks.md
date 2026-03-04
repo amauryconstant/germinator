@@ -5,17 +5,17 @@
 - [x] 1.3 Create `internal/validation/result_test.go` with tests for all Result[T] functionality
 - [x] 1.4 Create `internal/validation/pipeline.go` with `ValidationFunc[T any]` type, `ValidationPipeline[T]` struct, `NewValidationPipeline[T]()`, `Validate()` method
 - [x] 1.5 Create `internal/validation/pipeline_test.go` with tests for pipeline composition and early exit
-- [ ] 1.6 Create `internal/validation/validators.go` with generic validators:
+- [x] 1.6 Create `internal/validation/validators.go` with generic validators:
   - `ValidateAgentName()`, `ValidateAgentDescription()`, `ValidateAgentPermissionPolicy()`, `ValidateAgent()`
   - `ValidateCommandName()`, `ValidateCommandDescription()`, `ValidateCommandExecution()`, `ValidateCommand()`
   - `ValidateSkillName()`, `ValidateSkillDescription()`, `ValidateSkillExecution()`, `ValidateSkill()`
   - `ValidateMemory()`
-- [ ] 1.7 Create `internal/validation/validators_test.go` with tests for all validators
+- [x] 1.7 Create `internal/validation/validators_test.go` with tests for all validators
 - [x] 1.8 Create `internal/validation/opencode/` directory
-- [ ] 1.9 Create `internal/validation/opencode/validators.go` with OpenCode-specific validators:
+- [x] 1.9 Create `internal/validation/opencode/validators.go` with OpenCode-specific validators:
   - `ValidateAgentMode()`, `ValidateAgentTemperature()`, `ValidateAgentOpenCode()`
   - `ValidateCommandOpenCode()`, `ValidateSkillOpenCode()`
-- [ ] 1.10 Create `internal/validation/opencode/validators_test.go` with tests for OpenCode validators
+- [x] 1.10 Create `internal/validation/opencode/validators_test.go` with tests for OpenCode validators
 
 ## 2. Replace ValidationError (Phase 1b)
 
