@@ -188,13 +188,21 @@ func (r Result[T]) IsError() bool
 - `Validator` interface exists in `internal/application/`
 - ServiceContainer has `Validator` field wired
 
-**Phase 1: Add validation package (no behavior change)**
+**Phase 1a: Add validation package (no behavior change)**
 1. Create `internal/validation/result.go` with Result[T]
 2. Create `internal/validation/pipeline.go` with ValidationFunc, ValidationPipeline
 3. Create `internal/validation/validators.go` with generic validators
 4. Create `internal/validation/opencode/validators.go` with platform validators
-5. Replace `internal/errors/types.go` ValidationError with enhanced version
-6. Add tests for all new types
+5. Add tests for all new types
+
+**Phase 1b: Replace ValidationError (breaking change - update all callers)**
+1. Replace `internal/errors/types.go` ValidationError with enhanced version
+2. Update all 17 callers of `NewValidationError()` to use new signature `(request, field, value, message string)`
+   - `cmd/cmd_test.go` (4 usages)
+   - `cmd/error_formatter_test.go` (6 usages)
+   - `internal/errors/types_test.go` (5 usages)
+   - `internal/services/canonicalizer.go` (1 usage)
+   - `internal/core/loader.go` (1 usage)
 
 **Phase 2: Wire validators into service**
 1. Update `internal/services/validator.go` to use pipelines

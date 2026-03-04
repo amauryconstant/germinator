@@ -1,4 +1,4 @@
-## 1. Create Validation Package (Phase 1)
+## 1. Create Validation Package (Phase 1a)
 
 - [ ] 1.1 Create `internal/validation/` directory
 - [ ] 1.2 Create `internal/validation/result.go` with `Result[T any]` struct, `NewResult[T]()`, `NewErrorResult[T]()`, `IsSuccess()`, `IsError()` methods
@@ -17,7 +17,7 @@
   - `ValidateCommandOpenCode()`, `ValidateSkillOpenCode()`
 - [ ] 1.10 Create `internal/validation/opencode/validators_test.go` with tests for OpenCode validators
 
-## 2. Replace ValidationError (Phase 1)
+## 2. Replace ValidationError (Phase 1b)
 
 - [ ] 2.1 Replace `internal/errors/types.go` ValidationError with new implementation (private fields: request, field, value, message, suggestions, context)
 - [ ] 2.2 Update `NewValidationError()` signature to `(request, field, value, message string)`
@@ -25,6 +25,11 @@
 - [ ] 2.4 Add getter methods: `Field()`, `Value()`, `Message()`, `Request()`, `Suggestions()`, `Context()`
 - [ ] 2.5 Update `Error()` method to include suggestions with 💡 prefix
 - [ ] 2.6 Update `internal/errors/types_test.go` with tests for new ValidationError
+- [ ] 2.7 Update all callers of old `NewValidationError(message, field, suggestions)` signature:
+  - `cmd/cmd_test.go`: 4 usages - add request context (e.g., "Agent", "Command")
+  - `cmd/error_formatter_test.go`: 6 usages - add request context and value
+  - `internal/services/canonicalizer.go`: 1 usage - add request context
+  - `internal/core/loader.go`: 1 usage - add request context
 
 ## 3. Wire Validators into Service (Phase 2)
 
@@ -53,7 +58,6 @@
 
 - [ ] 5.1 Remove any remaining validation helper functions from services package
 - [ ] 5.2 Ensure all imports are correct after removing model methods
-- [ ] 5.3 Update any remaining callers of old ValidationError constructor signature
 
 ## 6. Verification
 
