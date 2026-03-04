@@ -44,6 +44,13 @@ graph LR
         MC[MarshalCanonical]
     end
 
+    subgraph VAL[Validation Layer]
+        RS[Result T]
+        VP[ValidationPipeline]
+        GV[Generic Validators]
+        PV[Platform Validators]
+    end
+
     subgraph CFG[Config Layer]
         CM[ConfigManager]
     end
@@ -75,6 +82,9 @@ graph LR
     II --> IN
     ST --> LDc
     SV --> LDc
+    SV --> VP
+    VP --> GV
+    VP --> PV
     SC --> MP
     IN --> LDc
     IN --> LR
@@ -216,6 +226,7 @@ graph TB
 | [internal/core/AGENTS.md](internal/core/AGENTS.md)         | Document loading, parsing, serialization, template functions |
 | [internal/library/AGENTS.md](internal/library/AGENTS.md)   | Library system, resource management, preset grouping         |
 | [internal/services/AGENTS.md](internal/services/AGENTS.md) | Service implementations (Transformer, Validator, etc.)       |
+| [internal/validation/AGENTS.md](internal/validation/AGENTS.md) | Validation pipeline, Result[T], composable validators |
 | [internal/AGENTS.md](internal/AGENTS.md)                   | Core package patterns, models integration                    |
 | [config/AGENTS.md](config/AGENTS.md)                       | Template patterns, permission mappings                       |
 | [test/AGENTS.md](test/AGENTS.md)                           | Golden file testing, E2E testing, fixture conventions        |

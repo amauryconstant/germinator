@@ -11,8 +11,9 @@
 - `config/` - Configuration loading, XDG paths, TOML parsing (Koanf-based)
 - `core/` - Document parsing, loading, serialization, template functions
 - `errors/` - Typed domain errors (ParseError, ValidationError, TransformError, FileError, ConfigError)
-- `models/` - Document data models and validation
+- `models/` - Document data models (validation moved to `internal/validation/`)
 - `services/` - Service implementations (see `internal/services/AGENTS.md`)
+- `validation/` - Functional validation pipeline with `Result[T]` (see `internal/validation/AGENTS.md`)
 
 ---
 
@@ -72,7 +73,13 @@ Serialization: `getDocType → getTemplatePath → template.Execute()`
 
 ## Validation
 
-Platform-specific validation rules in `services/AGENTS.md`. Returns `[]error` for multiple issues. Use `errorCount` in tests for exact verification.
+**Moved to `internal/validation/`**: Standalone validator functions with `Result[T]` pattern.
+
+See `internal/validation/AGENTS.md` for:
+- `Result[T]` type for functional error handling
+- `ValidationPipeline[T]` for composable validation
+- Generic validators: `ValidateAgent()`, `ValidateCommand()`, `ValidateSkill()`, `ValidateMemory()`
+- OpenCode validators: `ValidateAgentOpenCode()`, etc.
 
 ---
 
@@ -90,12 +97,23 @@ See `test/AGENTS.md` for golden file testing patterns.
 | Type | Fields | Use Case |
 |------|--------|----------|
 | ParseError | Path, Message, Cause | Malformed YAML, unrecognized document type |
-| ValidationError | Message, Field, Suggestions | Invalid field values |
+| ValidationError | request, field, value, message, suggestions, context | Invalid field values |
 | TransformError | Operation, Platform, Message, Cause | Template/render failures |
 | FileError | Path, Operation, Message, Cause | File read/write errors |
 | ConfigError | Field, Value, Available, Message | Invalid configuration |
 
 Constructors: `NewParseError`, `NewValidationError`, `NewTransformError`, `NewFileError`, `NewConfigError`
+
+**ValidationError signature**: `NewValidationError(request, field, value, message string)`
+
+**Immutable builders** (return copy):
+```go
+err := errors.NewValidationError("Agent", "name", "", "name is required")
+err.WithSuggestions([]string{"Use lowercase with hyphens"})
+err.WithContext("agent definition file")
+```
+
+**Getters**: `Field()`, `Value()`, `Message()`, `Request()`, `Suggestions()`, `Context()`
 
 All types implement `Unwrap()` for `errors.As` chains. FileError has `IsNotFound()` helper.
 

@@ -90,47 +90,37 @@ library.ResolveResource → core.LoadDocument → core.RenderDocument → WriteF
 
 ## Validator.Validate
 
-Two-stage validation:
+Two-stage validation using `internal/validation/` package:
 
 ```
-core.DetectType → core.ParseDocument → Validate(platform) → ValidateOpenCodeType()
+core.DetectType → core.ParseDocument → validation.ValidateAgent() → opencode.ValidateAgentOpenCode()
 ```
 
 **Request**: `ValidateRequest{InputPath, Platform}`
 
 **Result**: `ValidateResult{Errors []error}` with `Valid() bool` method
 
-**Stage 1**: Generic platform validation via model's `Validate(platform)`
+**Stage 1**: Generic validation via `validation.ValidateAgent()`, `ValidateCommand()`, etc.
 
-**Stage 2**: OpenCode-specific validation:
-- `ValidateOpenCodeAgent` - Agent constraints
-- `ValidateOpenCodeCommand` - Command constraints
-- `ValidateOpenCodeMemory` - Memory constraints
-- `ValidateOpenCodeSkill` - Skill constraints
+**Stage 2**: Platform-specific validation via `validation/opencode.ValidateAgentOpenCode()`, etc.
 
 **Dual-return pattern**: `error` = fatal (couldn't validate), `result.Errors` = validation issues.
+
+See `internal/validation/AGENTS.md` for Result[T] pattern and validator composition.
 
 ---
 
 # OpenCode-Specific Validation
 
-## ValidateOpenCodeAgent
+OpenCode validators located in `internal/validation/opencode/`:
 
-- `mode`: Must be `primary`, `subagent`, or `all` (if specified)
-- `temperature`: Must be in range [0.0, 1.0] (if specified)
-- `maxSteps`: Must be >= 1 (if specified)
+| Function | Rules |
+|----------|-------|
+| `ValidateAgentMode()` | Mode: `primary`, `subagent`, or `all` |
+| `ValidateAgentTemperature()` | Range [0.0, 1.0] |
+| `ValidateAgentOpenCode()` | Composes mode + temperature |
 
-## ValidateOpenCodeCommand
-
-- `content` (template): Required field
-
-## ValidateOpenCodeMemory
-
-- `paths`: Must have at least one path or content specified
-
-## ValidateOpenCodeSkill
-
-- `name`: Required field
+See `internal/validation/AGENTS.md` for complete validator reference.
 
 ---
 
@@ -184,7 +174,9 @@ See `test/AGENTS.md` for golden file testing patterns, fixture structure, and up
 
 **Library**: `internal/library/` provides resource loading, resolution, and output path derivation.
 
-**Models**: `internal/models/` provides document structs and validation methods.
+**Validation**: `internal/validation/` provides `Result[T]` pattern and composable validators.
+
+**Models**: `internal/models/canonical/` provides document structs (validation methods removed).
 
 ---
 
