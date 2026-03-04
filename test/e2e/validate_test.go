@@ -65,7 +65,7 @@ var _ = Describe("Validate Command", func() {
 			session := cli.Run("validate", fixtures.InvalidDocument(), "--platform", "opencode")
 			// CLI returns exit code 2 for validation errors
 			Expect(session.ExitCode()).To(BeNumerically(">", 0))
-			cli.ShouldErrorOutput(session, "Error")
+			cli.ShouldErrorOutput(session, "error")
 		})
 	})
 
@@ -89,7 +89,7 @@ var _ = Describe("Validate Command", func() {
 		It("should fail with exit code > 0 and show validation errors", func() {
 			session := cli.Run("validate", fixtures.InvalidDocument(), "--platform", "claude-code")
 			Expect(session.ExitCode()).To(BeNumerically(">", 0))
-			cli.ShouldErrorOutput(session, "Error")
+			cli.ShouldErrorOutput(session, "error")
 		})
 	})
 })
