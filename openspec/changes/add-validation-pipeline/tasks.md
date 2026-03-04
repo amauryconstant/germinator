@@ -43,25 +43,25 @@
 
 ## 4. Remove Model Validate Methods (Phase 3)
 
-- [ ] 4.1 Remove `Validate() []error` method from `internal/models/canonical/models.go` Agent struct
-- [ ] 4.2 Remove `Validate() []error` method from `internal/models/canonical/models.go` AgentBehavior struct
-- [ ] 4.3 Remove `Validate() []error` method from `internal/models/canonical/models.go` Command struct
-- [ ] 4.4 Remove `Validate() []error` method from `internal/models/canonical/models.go` CommandExecution struct
-- [ ] 4.5 Remove `Validate() []error` method from `internal/models/canonical/models.go` Memory struct
-- [ ] 4.6 Remove `Validate() []error` method from `internal/models/canonical/models.go` Skill struct
-- [ ] 4.7 Remove `Validate() []error` method from `internal/models/canonical/models.go` SkillExecution struct
-- [ ] 4.8 Remove `Validate() []error` method from `internal/models/canonical/models.go` SkillExtensions struct
-- [ ] 4.9 Remove `Validate() []error` method from `internal/models/canonical/models.go` AgentExtensions struct
-- [ ] 4.10 Update `internal/models/canonical/models_test.go` to use `validation.ValidateAgent()` etc. instead of model methods
+- [x] 4.1 Remove `Validate() []error` method from `internal/models/canonical/models.go` Agent struct
+- [x] 4.2 Remove `Validate() []error` method from `internal/models/canonical/models.go` AgentBehavior struct
+- [x] 4.3 Remove `Validate() []error` method from `internal/models/canonical/models.go` Command struct
+- [x] 4.4 Remove `Validate() []error` method from `internal/models/canonical/models.go` CommandExecution struct
+- [x] 4.5 Remove `Validate() []error` method from `internal/models/canonical/models.go` Memory struct
+- [x] 4.6 Remove `Validate() []error` method from `internal/models/canonical/models.go` Skill struct
+- [x] 4.7 Remove `Validate() []error` method from `internal/models/canonical/models.go` SkillExecution struct
+- [x] 4.8 Remove `Validate() []error` method from `internal/models/canonical/models.go` SkillExtensions struct
+- [x] 4.9 Remove `Validate() []error` method from `internal/models/canonical/models.go` AgentExtensions struct
+- [x] 4.10 Update `internal/models/canonical/models_test.go` to use `validation.ValidateAgent()` etc. instead of model methods
 
 ## 5. Cleanup (Phase 4)
 
-- [ ] 5.1 Remove any remaining validation helper functions from services package
-- [ ] 5.2 Ensure all imports are correct after removing model methods
+- [x] 5.1 Remove any remaining validation helper functions from services package
+- [x] 5.2 Ensure all imports are correct after removing model methods
 
 ## 6. Verification
 
-- [ ] 6.1 Run `mise run check` (lint, format, test, build)
-- [ ] 6.2 Verify all existing tests still pass
-- [ ] 6.3 Verify CLI commands work as expected (manual smoke test: `germinator validate`, `germinator adapt`)
-- [ ] 6.4 Verify error messages still display correctly with suggestions
+- [x] 6.1 Run `mise run check` (lint, format, test, build)
+- [x] 6.2 Verify all existing tests still pass
+- [x] 6.3 Verify CLI commands work as expected (manual smoke test: `germinator validate`, `germinator adapt`)
+- [x] 6.4 Verify error messages still display correctly with suggestions

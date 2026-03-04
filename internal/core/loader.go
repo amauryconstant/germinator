@@ -50,22 +50,8 @@ func LoadDocument(filepath, platform string) (interface{}, error) {
 		return nil, gerrors.NewParseError(filepath, "failed to parse document", err)
 	}
 
-	var errs []error
-	switch d := doc.(type) {
-	case *CanonicalAgent:
-		errs = d.Validate()
-	case *CanonicalCommand:
-		errs = d.Validate()
-	case *CanonicalMemory:
-		errs = d.Validate()
-	case *CanonicalSkill:
-		errs = d.Validate()
-	}
-
-	if len(errs) > 0 {
-		return doc, gerrors.NewValidationError("", "", "", errs[0].Error())
-	}
-
+	// Validation is now handled by the validation package in services layer
+	// No need to call Validate() here anymore
 	return doc, nil
 }
 

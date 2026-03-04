@@ -339,7 +339,7 @@ Content`
 	}
 }
 
-func TestLoadDocumentValidationErrors(t *testing.T) {
+func TestLoadDocumentParsesWithoutValidation(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := tmpDir + "/test-agent.md"
 
@@ -354,19 +354,12 @@ Content`
 
 	doc, err := LoadDocument(testFile, "claude-code")
 
-	if err == nil {
-		t.Errorf("LoadDocument() expected error for validation failure, got nil")
+	if err != nil {
+		t.Errorf("LoadDocument() unexpected error: %v", err)
 	}
 
 	if doc == nil {
-		t.Errorf("LoadDocument() expected document even with validation errors, got nil")
-	}
-
-	if err != nil {
-		errMsg := err.Error()
-		if !strings.Contains(errMsg, "validation") {
-			t.Errorf("LoadDocument() error should mention validation, got: %s", errMsg)
-		}
+		t.Errorf("LoadDocument() expected document, got nil")
 	}
 }
 
@@ -530,8 +523,8 @@ func TestLoadDocumentReturnsTypedFileError(t *testing.T) {
 	})
 }
 
-func TestLoadDocumentReturnsTypedValidationError(t *testing.T) {
-	t.Run("missing required field returns ValidationError", func(t *testing.T) {
+func TestLoadDocumentParsesInvalidFields(t *testing.T) {
+	t.Run("missing required field still parses", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		testFile := tmpDir + "/test-agent.md"
 
@@ -546,17 +539,12 @@ Content`
 
 		doc, err := LoadDocument(testFile, "claude-code")
 
-		if err == nil {
-			t.Fatal("Expected validation error")
-		}
-
-		var validationErr *gerrors.ValidationError
-		if !errors.As(err, &validationErr) {
-			t.Errorf("Expected ValidationError, got %T: %v", err, err)
+		if err != nil {
+			t.Fatalf("LoadDocument should parse without error: %v", err)
 		}
 
 		if doc == nil {
-			t.Error("Document should be returned even with validation errors")
+			t.Error("Document should be returned")
 		}
 	})
 }

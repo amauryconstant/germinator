@@ -110,13 +110,15 @@ func TestLoadDocumentIntegration(t *testing.T) {
 			checkContent: true,
 		},
 		{
-			name:        "load invalid agent",
-			filepath:    filepath.Join(fixturesDir, "agent-invalid.md"),
-			platform:    "claude-code",
-			expectError: true,
+			name:         "load agent with invalid fields (parses successfully)",
+			filepath:     filepath.Join(fixturesDir, "agent-invalid.md"),
+			platform:     "claude-code",
+			expectError:  false,
+			expectedType: &CanonicalAgent{},
+			checkContent: false,
 		},
 		{
-			name:        "load invalid command",
+			name:        "load command with parse error",
 			filepath:    filepath.Join(fixturesDir, "command-invalid.md"),
 			platform:    "claude-code",
 			expectError: true,
@@ -152,14 +154,16 @@ func TestLoadDocumentIntegration(t *testing.T) {
 					t.Errorf("LoadDocument() expected *CanonicalAgent, got %T", doc)
 					return
 				}
-				if agent.Name != "code-reviewer" {
-					t.Errorf("LoadDocument() agent.Name = %v, want code-reviewer", agent.Name)
-				}
 				if agent.FilePath != tt.filepath {
 					t.Errorf("LoadDocument() agent.FilePath = %v, want %v", agent.FilePath, tt.filepath)
 				}
-				if tt.checkContent && !strings.Contains(agent.Content, "test agent document") {
-					t.Errorf("LoadDocument() agent.Content missing expected content")
+				if tt.checkContent {
+					if agent.Name != "code-reviewer" {
+						t.Errorf("LoadDocument() agent.Name = %v, want code-reviewer", agent.Name)
+					}
+					if !strings.Contains(agent.Content, "test agent document") {
+						t.Errorf("LoadDocument() agent.Content missing expected content")
+					}
 				}
 
 			case *CanonicalCommand:
@@ -168,14 +172,16 @@ func TestLoadDocumentIntegration(t *testing.T) {
 					t.Errorf("LoadDocument() expected *CanonicalCommand, got %T", doc)
 					return
 				}
-				if command.Name != "security-review" {
-					t.Errorf("LoadDocument() command.Name = %v, want security-review", command.Name)
-				}
 				if command.FilePath != tt.filepath {
 					t.Errorf("LoadDocument() command.FilePath = %v, want %v", command.FilePath, tt.filepath)
 				}
-				if tt.checkContent && !strings.Contains(command.Content, "test command document") {
-					t.Errorf("LoadDocument() command.Content missing expected content")
+				if tt.checkContent {
+					if command.Name != "security-review" {
+						t.Errorf("LoadDocument() command.Name = %v, want security-review", command.Name)
+					}
+					if !strings.Contains(command.Content, "test command document") {
+						t.Errorf("LoadDocument() command.Content missing expected content")
+					}
 				}
 
 			case *CanonicalMemory:
@@ -197,14 +203,16 @@ func TestLoadDocumentIntegration(t *testing.T) {
 					t.Errorf("LoadDocument() expected *CanonicalSkill, got %T", doc)
 					return
 				}
-				if skill.Name != "explaining-code" {
-					t.Errorf("LoadDocument() skill.Name = %v, want explaining-code", skill.Name)
-				}
 				if skill.FilePath != tt.filepath {
 					t.Errorf("LoadDocument() skill.FilePath = %v, want %v", skill.FilePath, tt.filepath)
 				}
-				if tt.checkContent && !strings.Contains(skill.Content, "test skill document") {
-					t.Errorf("LoadDocument() skill.Content missing expected content")
+				if tt.checkContent {
+					if skill.Name != "explaining-code" {
+						t.Errorf("LoadDocument() skill.Name = %v, want explaining-code", skill.Name)
+					}
+					if !strings.Contains(skill.Content, "test skill document") {
+						t.Errorf("LoadDocument() skill.Content missing expected content")
+					}
 				}
 			}
 		})
