@@ -8,6 +8,7 @@ import (
 	"gitlab.com/amoconst/germinator/internal/application"
 	"gitlab.com/amoconst/germinator/internal/core"
 	gerrors "gitlab.com/amoconst/germinator/internal/errors"
+	"gitlab.com/amoconst/germinator/internal/validation"
 )
 
 // canonicalizer implements the application.Canonicalizer interface.
@@ -45,16 +46,25 @@ func (c *canonicalizer) Canonicalize(ctx context.Context, req *application.Canon
 func validateCanonicalDoc(doc interface{}) []error {
 	switch d := doc.(type) {
 	case *core.CanonicalAgent:
-		return d.Validate()
+		if result := validation.ValidateAgent(&d.Agent); result.IsError() {
+			return unwrapErrors(result.Error)
+		}
 	case *core.CanonicalCommand:
-		return d.Validate()
+		if result := validation.ValidateCommand(&d.Command); result.IsError() {
+			return unwrapErrors(result.Error)
+		}
 	case *core.CanonicalSkill:
-		return d.Validate()
+		if result := validation.ValidateSkill(&d.Skill); result.IsError() {
+			return unwrapErrors(result.Error)
+		}
 	case *core.CanonicalMemory:
-		return d.Validate()
+		if result := validation.ValidateMemory(&d.Memory); result.IsError() {
+			return unwrapErrors(result.Error)
+		}
 	default:
 		return []error{gerrors.NewParseError("", "unknown document type", nil)}
 	}
+	return nil
 }
 
 // Compile-time interface satisfaction check.

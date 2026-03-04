@@ -38,8 +38,8 @@
 - [x] 3.3 Add platform-specific validation: if platform == "opencode", call `opencode.ValidateAgentOpenCode()` etc.
 - [x] 3.4 Convert `Result[bool]` to `[]error` for `ValidateResult.Errors` field
 - [x] 3.5 Remove `validateOpenCodeAgent()` function from transformer.go
-- [ ] 3.6 Remove `validatePlatform()` function from transformer.go (move to validation package if needed)
-- [ ] 3.7 Update `internal/services/canonicalizer.go` to use validation pipelines in `validateCanonicalDoc()`
+- [x] 3.6 Remove `validatePlatform()` function from transformer.go (move to validation package if needed)
+- [x] 3.7 Update `internal/services/canonicalizer.go` to use validation pipelines in `validateCanonicalDoc()`
 
 ## 4. Remove Model Validate Methods (Phase 3)
 
