@@ -97,5 +97,4 @@
 - [ ] 5.6 Verify all error types are immutable (builders return new instances)
 - [ ] 5.7 Verify error_formatter.go uses getters consistently
 - [ ] 5.8 Verify no direct field access remains (rg '\.(Path|Message|Cause|Field|Value|Available|Operation|Platform)\b' internal/ cmd/ should only show types.go)
-- [ ] 5.9 Update AGENTS.md if error handling patterns changed
-- [ ] 5.10 Create commit with descriptive message
+- [ ] 5.9 Create commit with descriptive message
