@@ -45,19 +45,19 @@ Example:
 			VerbosePrint(cfg, "Output path: %s", outputPath)
 
 			if canonicalizePlatform == "" {
-				HandleError(cfg, gerrors.NewConfigError("platform", "", []string{models.PlatformClaudeCode, models.PlatformOpenCode}, "--platform flag is required"))
+				HandleError(cfg, gerrors.NewConfigError("platform", "", "--platform flag is required").WithSuggestions([]string{models.PlatformClaudeCode, models.PlatformOpenCode}))
 			}
 
 			if canonicalizeDocType == "" {
-				HandleError(cfg, gerrors.NewConfigError("type", "", []string{"agent", "command", "skill", "memory"}, "--type flag is required"))
+				HandleError(cfg, gerrors.NewConfigError("type", "", "--type flag is required").WithSuggestions([]string{"agent", "command", "skill", "memory"}))
 			}
 
 			if canonicalizePlatform != models.PlatformClaudeCode && canonicalizePlatform != models.PlatformOpenCode {
-				HandleError(cfg, gerrors.NewConfigError("platform", canonicalizePlatform, []string{models.PlatformClaudeCode, models.PlatformOpenCode}, "invalid platform"))
+				HandleError(cfg, gerrors.NewConfigError("platform", canonicalizePlatform, "invalid platform").WithSuggestions([]string{models.PlatformClaudeCode, models.PlatformOpenCode}))
 			}
 
 			if canonicalizeDocType != "agent" && canonicalizeDocType != "command" && canonicalizeDocType != "skill" && canonicalizeDocType != "memory" {
-				HandleError(cfg, gerrors.NewConfigError("type", canonicalizeDocType, []string{"agent", "command", "skill", "memory"}, "invalid document type"))
+				HandleError(cfg, gerrors.NewConfigError("type", canonicalizeDocType, "invalid document type").WithSuggestions([]string{"agent", "command", "skill", "memory"}))
 			}
 
 			VeryVerbosePrint(cfg, "Parsing platform document...")

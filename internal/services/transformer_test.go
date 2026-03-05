@@ -436,8 +436,8 @@ Content`
 		if !errors.As(err, &parseErr) {
 			t.Errorf("Expected ParseError, got %T: %v", err, err)
 		} else {
-			if parseErr.Path != inputFile {
-				t.Errorf("ParseError.Path = %q, want %q", parseErr.Path, inputFile)
+			if parseErr.Path() != inputFile {
+				t.Errorf("ParseError.Path() = %q, want %q", parseErr.Path(), inputFile)
 			}
 		}
 
@@ -475,8 +475,8 @@ Content`
 		if !errors.As(err, &parseErr) {
 			t.Errorf("Expected ParseError, got %T: %v", err, err)
 		} else {
-			if !strings.Contains(parseErr.Message, "expected") {
-				t.Errorf("ParseError.Message should mention expected patterns, got: %q", parseErr.Message)
+			if !strings.Contains(parseErr.Message(), "expected") {
+				t.Errorf("ParseError.Message() should mention expected patterns, got: %q", parseErr.Message())
 			}
 		}
 	})
@@ -513,11 +513,11 @@ Content`
 		if !errors.As(err, &configErr) {
 			t.Errorf("Expected ConfigError, got %T: %v", err, err)
 		} else {
-			if configErr.Field != "platform" {
-				t.Errorf("ConfigError.Field = %q, want 'platform'", configErr.Field)
+			if configErr.Field() != "platform" {
+				t.Errorf("ConfigError.Field() = %q, want 'platform'", configErr.Field())
 			}
-			if len(configErr.Available) == 0 {
-				t.Error("ConfigError.Available should list valid platforms")
+			if len(configErr.Suggestions()) == 0 {
+				t.Error("ConfigError.Suggestions() should list valid platforms")
 			}
 		}
 	})
@@ -544,11 +544,11 @@ func TestTransformDocumentReturnsTypedFileError(t *testing.T) {
 		if !errors.As(err, &fileErr) {
 			t.Errorf("Expected FileError, got %T: %v", err, err)
 		} else {
-			if fileErr.Path != nonExistentFile {
-				t.Errorf("FileError.Path = %q, want %q", fileErr.Path, nonExistentFile)
+			if fileErr.Path() != nonExistentFile {
+				t.Errorf("FileError.Path() = %q, want %q", fileErr.Path(), nonExistentFile)
 			}
-			if fileErr.Operation != "read" {
-				t.Errorf("FileError.Operation = %q, want 'read'", fileErr.Operation)
+			if fileErr.Operation() != "read" {
+				t.Errorf("FileError.Operation() = %q, want 'read'", fileErr.Operation())
 			}
 			if !fileErr.IsNotFound() {
 				t.Error("FileError.IsNotFound() should return true")
@@ -585,8 +585,8 @@ Content`
 		if !errors.As(err, &fileErr) {
 			t.Errorf("Expected FileError, got %T: %v", err, err)
 		} else {
-			if fileErr.Operation != "write" {
-				t.Errorf("FileError.Operation = %q, want 'write'", fileErr.Operation)
+			if fileErr.Operation() != "write" {
+				t.Errorf("FileError.Operation() = %q, want 'write'", fileErr.Operation())
 			}
 		}
 	})
@@ -626,8 +626,8 @@ Content`
 			var configErr *gerrors.ConfigError
 			if errors.As(e, &configErr) {
 				foundConfigError = true
-				if configErr.Field != "platform" {
-					t.Errorf("ConfigError.Field = %q, want 'platform'", configErr.Field)
+				if configErr.Field() != "platform" {
+					t.Errorf("ConfigError.Field() = %q, want 'platform'", configErr.Field())
 				}
 				break
 			}

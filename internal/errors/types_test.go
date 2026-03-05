@@ -25,6 +25,24 @@ func TestParseError(t *testing.T) {
 			wantMsg:    "parse error in agent.md: unrecognized document type",
 			wantUnwrap: nil,
 		},
+		{
+			name:       "with suggestions",
+			err:        NewParseError("test.yaml", "invalid YAML", nil).WithSuggestions([]string{"Check indentation", "Verify quotes"}),
+			wantMsg:    "parse error in test.yaml: invalid YAML\n💡 Check indentation\n💡 Verify quotes",
+			wantUnwrap: nil,
+		},
+		{
+			name:       "with context",
+			err:        NewParseError("test.yaml", "invalid YAML", nil).WithContext("while parsing agent definition"),
+			wantMsg:    "parse error in test.yaml: invalid YAML",
+			wantUnwrap: nil,
+		},
+		{
+			name:       "with suggestions and cause",
+			err:        NewParseError("test.yaml", "invalid YAML", fmt.Errorf("yaml: line 5")).WithSuggestions([]string{"Check indentation"}),
+			wantMsg:    "parse error in test.yaml: invalid YAML: yaml: line 5\n💡 Check indentation",
+			wantUnwrap: fmt.Errorf("yaml: line 5"),
+		},
 	}
 
 	for _, tt := range tests {
@@ -43,6 +61,127 @@ func TestParseError(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestParseErrorGetters(t *testing.T) {
+	cause := fmt.Errorf("underlying error")
+	err := NewParseError("test.yaml", "invalid format", cause).
+		WithSuggestions([]string{"Try this", "Or that"}).
+		WithContext("additional context")
+
+	t.Run("Path", func(t *testing.T) {
+		if got := err.Path(); got != "test.yaml" {
+			t.Errorf("Path() = %q, want %q", got, "test.yaml")
+		}
+	})
+
+	t.Run("Message", func(t *testing.T) {
+		if got := err.Message(); got != "invalid format" {
+			t.Errorf("Message() = %q, want %q", got, "invalid format")
+		}
+	})
+
+	t.Run("Cause", func(t *testing.T) {
+		if got := err.Cause(); got != cause {
+			t.Errorf("Cause() = %v, want %v", got, cause)
+		}
+	})
+
+	t.Run("Suggestions", func(t *testing.T) {
+		got := err.Suggestions()
+		if len(got) != 2 || got[0] != "Try this" || got[1] != "Or that" {
+			t.Errorf("Suggestions() = %v, want [Try this Or that]", got)
+		}
+		// Verify it returns a copy
+		got[0] = "modified"
+		if err.Suggestions()[0] == "modified" {
+			t.Error("Suggestions() should return a copy")
+		}
+	})
+
+	t.Run("Context", func(t *testing.T) {
+		if got := err.Context(); got != "additional context" {
+			t.Errorf("Context() = %q, want %q", got, "additional context")
+		}
+	})
+
+	t.Run("empty suggestions and context", func(t *testing.T) {
+		err := NewParseError("test.yaml", "error", nil)
+		if got := err.Suggestions(); got != nil {
+			t.Errorf("Suggestions() = %v, want nil", got)
+		}
+		if got := err.Context(); got != "" {
+			t.Errorf("Context() = %q, want empty", got)
+		}
+	})
+}
+
+func TestParseErrorImmutableBuilders(t *testing.T) {
+	t.Run("WithSuggestions returns new instance", func(t *testing.T) {
+		err1 := NewParseError("test.yaml", "error", nil)
+		err2 := err1.WithSuggestions([]string{"try this"})
+
+		if err1 == err2 {
+			t.Error("WithSuggestions should return a new instance")
+		}
+
+		if len(err1.Suggestions()) != 0 {
+			t.Error("original error should not have suggestions")
+		}
+
+		if len(err2.Suggestions()) != 1 || err2.Suggestions()[0] != "try this" {
+			t.Error("new error should have suggestions")
+		}
+	})
+
+	t.Run("WithContext returns new instance", func(t *testing.T) {
+		err1 := NewParseError("test.yaml", "error", nil)
+		err2 := err1.WithContext("context info")
+
+		if err1 == err2 {
+			t.Error("WithContext should return a new instance")
+		}
+
+		if err1.Context() != "" {
+			t.Error("original error should not have context")
+		}
+
+		if err2.Context() != "context info" {
+			t.Error("new error should have context")
+		}
+	})
+
+	t.Run("builders preserve existing fields", func(t *testing.T) {
+		cause := fmt.Errorf("cause")
+		err1 := NewParseError("test.yaml", "error", cause).WithSuggestions([]string{"hint1"})
+		err2 := err1.WithContext("context info")
+
+		if err2.Path() != "test.yaml" {
+			t.Error("Path should be preserved")
+		}
+		if err2.Message() != "error" {
+			t.Error("Message should be preserved")
+		}
+		if err2.Cause() != cause {
+			t.Error("Cause should be preserved")
+		}
+		if len(err2.Suggestions()) != 1 || err2.Suggestions()[0] != "hint1" {
+			t.Error("Suggestions should be preserved")
+		}
+	})
+
+	t.Run("chained builders", func(t *testing.T) {
+		err := NewParseError("test.yaml", "error", nil).
+			WithSuggestions([]string{"hint1"}).
+			WithContext("context")
+
+		if len(err.Suggestions()) != 1 {
+			t.Error("Suggestions should be set")
+		}
+		if err.Context() != "context" {
+			t.Error("Context should be set")
+		}
+	})
 }
 
 func TestValidationError(t *testing.T) {
@@ -200,6 +339,18 @@ func TestTransformError(t *testing.T) {
 			wantMsg:    "transform error (validate): invalid state",
 			wantUnwrap: nil,
 		},
+		{
+			name:       "with suggestions",
+			err:        NewTransformError("render", "opencode", "template failed", nil).WithSuggestions([]string{"Check template path"}),
+			wantMsg:    "transform error (render for opencode): template failed\n💡 Check template path",
+			wantUnwrap: nil,
+		},
+		{
+			name:       "with suggestions and cause",
+			err:        NewTransformError("render", "opencode", "template failed", fmt.Errorf("missing field")).WithSuggestions([]string{"Check syntax"}),
+			wantMsg:    "transform error (render for opencode): template failed: missing field\n💡 Check syntax",
+			wantUnwrap: fmt.Errorf("missing field"),
+		},
 	}
 
 	for _, tt := range tests {
@@ -218,6 +369,136 @@ func TestTransformError(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestTransformErrorGetters(t *testing.T) {
+	cause := fmt.Errorf("underlying error")
+	err := NewTransformError("render", "opencode", "template failed", cause).
+		WithSuggestions([]string{"Try this", "Or that"}).
+		WithContext("additional context")
+
+	t.Run("Operation", func(t *testing.T) {
+		if got := err.Operation(); got != "render" {
+			t.Errorf("Operation() = %q, want %q", got, "render")
+		}
+	})
+
+	t.Run("Platform", func(t *testing.T) {
+		if got := err.Platform(); got != "opencode" {
+			t.Errorf("Platform() = %q, want %q", got, "opencode")
+		}
+	})
+
+	t.Run("Message", func(t *testing.T) {
+		if got := err.Message(); got != "template failed" {
+			t.Errorf("Message() = %q, want %q", got, "template failed")
+		}
+	})
+
+	t.Run("Cause", func(t *testing.T) {
+		if got := err.Cause(); got != cause {
+			t.Errorf("Cause() = %v, want %v", got, cause)
+		}
+	})
+
+	t.Run("Suggestions", func(t *testing.T) {
+		got := err.Suggestions()
+		if len(got) != 2 || got[0] != "Try this" || got[1] != "Or that" {
+			t.Errorf("Suggestions() = %v, want [Try this Or that]", got)
+		}
+		// Verify it returns a copy
+		got[0] = "modified"
+		if err.Suggestions()[0] == "modified" {
+			t.Error("Suggestions() should return a copy")
+		}
+	})
+
+	t.Run("Context", func(t *testing.T) {
+		if got := err.Context(); got != "additional context" {
+			t.Errorf("Context() = %q, want %q", got, "additional context")
+		}
+	})
+
+	t.Run("empty suggestions and context", func(t *testing.T) {
+		err := NewTransformError("render", "opencode", "error", nil)
+		if got := err.Suggestions(); got != nil {
+			t.Errorf("Suggestions() = %v, want nil", got)
+		}
+		if got := err.Context(); got != "" {
+			t.Errorf("Context() = %q, want empty", got)
+		}
+	})
+}
+
+func TestTransformErrorImmutableBuilders(t *testing.T) {
+	t.Run("WithSuggestions returns new instance", func(t *testing.T) {
+		err1 := NewTransformError("render", "opencode", "error", nil)
+		err2 := err1.WithSuggestions([]string{"try this"})
+
+		if err1 == err2 {
+			t.Error("WithSuggestions should return a new instance")
+		}
+
+		if len(err1.Suggestions()) != 0 {
+			t.Error("original error should not have suggestions")
+		}
+
+		if len(err2.Suggestions()) != 1 || err2.Suggestions()[0] != "try this" {
+			t.Error("new error should have suggestions")
+		}
+	})
+
+	t.Run("WithContext returns new instance", func(t *testing.T) {
+		err1 := NewTransformError("render", "opencode", "error", nil)
+		err2 := err1.WithContext("context info")
+
+		if err1 == err2 {
+			t.Error("WithContext should return a new instance")
+		}
+
+		if err1.Context() != "" {
+			t.Error("original error should not have context")
+		}
+
+		if err2.Context() != "context info" {
+			t.Error("new error should have context")
+		}
+	})
+
+	t.Run("builders preserve existing fields", func(t *testing.T) {
+		cause := fmt.Errorf("cause")
+		err1 := NewTransformError("render", "opencode", "error", cause).WithSuggestions([]string{"hint1"})
+		err2 := err1.WithContext("context info")
+
+		if err2.Operation() != "render" {
+			t.Error("Operation should be preserved")
+		}
+		if err2.Platform() != "opencode" {
+			t.Error("Platform should be preserved")
+		}
+		if err2.Message() != "error" {
+			t.Error("Message should be preserved")
+		}
+		if err2.Cause() != cause {
+			t.Error("Cause should be preserved")
+		}
+		if len(err2.Suggestions()) != 1 || err2.Suggestions()[0] != "hint1" {
+			t.Error("Suggestions should be preserved")
+		}
+	})
+
+	t.Run("chained builders", func(t *testing.T) {
+		err := NewTransformError("render", "opencode", "error", nil).
+			WithSuggestions([]string{"hint1"}).
+			WithContext("context")
+
+		if len(err.Suggestions()) != 1 {
+			t.Error("Suggestions should be set")
+		}
+		if err.Context() != "context" {
+			t.Error("Context should be set")
+		}
+	})
 }
 
 func TestFileError(t *testing.T) {
@@ -258,6 +539,19 @@ func TestFileError(t *testing.T) {
 			wantMsg:      "file error (write output.md): disk full",
 			wantNotFound: false,
 		},
+		{
+			name:         "with suggestions",
+			err:          NewFileError("test.yaml", "read", "failed", nil).WithSuggestions([]string{"Check file permissions"}),
+			wantMsg:      "file error (read test.yaml): failed\n💡 Check file permissions",
+			wantNotFound: false,
+		},
+		{
+			name:         "with suggestions and cause",
+			err:          NewFileError("test.yaml", "read", "failed", fmt.Errorf("permission denied")).WithSuggestions([]string{"Check permissions"}),
+			wantMsg:      "file error (read test.yaml): failed: permission denied\n💡 Check permissions",
+			wantUnwrap:   fmt.Errorf("permission denied"),
+			wantNotFound: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -283,6 +577,136 @@ func TestFileError(t *testing.T) {
 	}
 }
 
+func TestFileErrorGetters(t *testing.T) {
+	cause := fmt.Errorf("underlying error")
+	err := NewFileError("test.yaml", "read", "failed to read", cause).
+		WithSuggestions([]string{"Try this", "Or that"}).
+		WithContext("additional context")
+
+	t.Run("Path", func(t *testing.T) {
+		if got := err.Path(); got != "test.yaml" {
+			t.Errorf("Path() = %q, want %q", got, "test.yaml")
+		}
+	})
+
+	t.Run("Operation", func(t *testing.T) {
+		if got := err.Operation(); got != "read" {
+			t.Errorf("Operation() = %q, want %q", got, "read")
+		}
+	})
+
+	t.Run("Message", func(t *testing.T) {
+		if got := err.Message(); got != "failed to read" {
+			t.Errorf("Message() = %q, want %q", got, "failed to read")
+		}
+	})
+
+	t.Run("Cause", func(t *testing.T) {
+		if got := err.Cause(); got != cause {
+			t.Errorf("Cause() = %v, want %v", got, cause)
+		}
+	})
+
+	t.Run("Suggestions", func(t *testing.T) {
+		got := err.Suggestions()
+		if len(got) != 2 || got[0] != "Try this" || got[1] != "Or that" {
+			t.Errorf("Suggestions() = %v, want [Try this Or that]", got)
+		}
+		// Verify it returns a copy
+		got[0] = "modified"
+		if err.Suggestions()[0] == "modified" {
+			t.Error("Suggestions() should return a copy")
+		}
+	})
+
+	t.Run("Context", func(t *testing.T) {
+		if got := err.Context(); got != "additional context" {
+			t.Errorf("Context() = %q, want %q", got, "additional context")
+		}
+	})
+
+	t.Run("empty suggestions and context", func(t *testing.T) {
+		err := NewFileError("test.yaml", "read", "error", nil)
+		if got := err.Suggestions(); got != nil {
+			t.Errorf("Suggestions() = %v, want nil", got)
+		}
+		if got := err.Context(); got != "" {
+			t.Errorf("Context() = %q, want empty", got)
+		}
+	})
+}
+
+func TestFileErrorImmutableBuilders(t *testing.T) {
+	t.Run("WithSuggestions returns new instance", func(t *testing.T) {
+		err1 := NewFileError("test.yaml", "read", "error", nil)
+		err2 := err1.WithSuggestions([]string{"try this"})
+
+		if err1 == err2 {
+			t.Error("WithSuggestions should return a new instance")
+		}
+
+		if len(err1.Suggestions()) != 0 {
+			t.Error("original error should not have suggestions")
+		}
+
+		if len(err2.Suggestions()) != 1 || err2.Suggestions()[0] != "try this" {
+			t.Error("new error should have suggestions")
+		}
+	})
+
+	t.Run("WithContext returns new instance", func(t *testing.T) {
+		err1 := NewFileError("test.yaml", "read", "error", nil)
+		err2 := err1.WithContext("context info")
+
+		if err1 == err2 {
+			t.Error("WithContext should return a new instance")
+		}
+
+		if err1.Context() != "" {
+			t.Error("original error should not have context")
+		}
+
+		if err2.Context() != "context info" {
+			t.Error("new error should have context")
+		}
+	})
+
+	t.Run("builders preserve existing fields", func(t *testing.T) {
+		cause := fmt.Errorf("cause")
+		err1 := NewFileError("test.yaml", "read", "error", cause).WithSuggestions([]string{"hint1"})
+		err2 := err1.WithContext("context info")
+
+		if err2.Path() != "test.yaml" {
+			t.Error("Path should be preserved")
+		}
+		if err2.Operation() != "read" {
+			t.Error("Operation should be preserved")
+		}
+		if err2.Message() != "error" {
+			t.Error("Message should be preserved")
+		}
+		if err2.Cause() != cause {
+			t.Error("Cause should be preserved")
+		}
+		if len(err2.Suggestions()) != 1 || err2.Suggestions()[0] != "hint1" {
+			t.Error("Suggestions should be preserved")
+		}
+	})
+
+	t.Run("chained builders", func(t *testing.T) {
+		err := NewFileError("test.yaml", "read", "error", nil).
+			WithSuggestions([]string{"hint1"}).
+			WithContext("context")
+
+		if len(err.Suggestions()) != 1 {
+			t.Error("Suggestions should be set")
+		}
+		if err.Context() != "context" {
+			t.Error("Context should be set")
+		}
+	})
+}
+
 func TestConfigError(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -290,19 +714,24 @@ func TestConfigError(t *testing.T) {
 		wantMsg string
 	}{
 		{
-			name:    "with available options",
-			err:     NewConfigError("platform", "invalid", []string{"claude-code", "opencode"}, "unknown platform"),
-			wantMsg: "config error: unknown platform (available: claude-code, opencode)",
+			name:    "with suggestions",
+			err:     NewConfigError("platform", "invalid", "unknown platform").WithSuggestions([]string{"claude-code", "opencode"}),
+			wantMsg: "config error: invalid platform 'invalid': unknown platform\n💡 claude-code\n💡 opencode",
 		},
 		{
 			name:    "with field and value",
-			err:     NewConfigError("type", "invalid", nil, "must be one of the supported types"),
+			err:     NewConfigError("type", "invalid", "must be one of the supported types"),
 			wantMsg: "config error: invalid type 'invalid': must be one of the supported types",
 		},
 		{
 			name:    "message only",
-			err:     NewConfigError("", "", nil, "missing required configuration"),
+			err:     NewConfigError("", "", "missing required configuration"),
 			wantMsg: "config error: missing required configuration",
+		},
+		{
+			name:    "with context",
+			err:     NewConfigError("platform", "", "platform is required").WithContext("use --platform flag"),
+			wantMsg: "config error: platform is required",
 		},
 	}
 
@@ -315,6 +744,125 @@ func TestConfigError(t *testing.T) {
 	}
 }
 
+func TestConfigErrorGetters(t *testing.T) {
+	err := NewConfigError("platform", "invalid", "unknown platform").
+		WithSuggestions([]string{"claude-code", "opencode"}).
+		WithContext("use --platform flag")
+
+	t.Run("Field", func(t *testing.T) {
+		if got := err.Field(); got != "platform" {
+			t.Errorf("Field() = %q, want %q", got, "platform")
+		}
+	})
+
+	t.Run("Value", func(t *testing.T) {
+		if got := err.Value(); got != "invalid" {
+			t.Errorf("Value() = %q, want %q", got, "invalid")
+		}
+	})
+
+	t.Run("Message", func(t *testing.T) {
+		if got := err.Message(); got != "unknown platform" {
+			t.Errorf("Message() = %q, want %q", got, "unknown platform")
+		}
+	})
+
+	t.Run("Suggestions", func(t *testing.T) {
+		got := err.Suggestions()
+		if len(got) != 2 || got[0] != "claude-code" || got[1] != "opencode" {
+			t.Errorf("Suggestions() = %v, want [claude-code opencode]", got)
+		}
+		// Verify it returns a copy
+		got[0] = "modified"
+		if err.Suggestions()[0] == "modified" {
+			t.Error("Suggestions() should return a copy")
+		}
+	})
+
+	t.Run("Context", func(t *testing.T) {
+		if got := err.Context(); got != "use --platform flag" {
+			t.Errorf("Context() = %q, want %q", got, "use --platform flag")
+		}
+	})
+
+	t.Run("empty suggestions and context", func(t *testing.T) {
+		err := NewConfigError("field", "value", "error")
+		if got := err.Suggestions(); got != nil {
+			t.Errorf("Suggestions() = %v, want nil", got)
+		}
+		if got := err.Context(); got != "" {
+			t.Errorf("Context() = %q, want empty", got)
+		}
+	})
+}
+
+func TestConfigErrorImmutableBuilders(t *testing.T) {
+	t.Run("WithSuggestions returns new instance", func(t *testing.T) {
+		err1 := NewConfigError("platform", "invalid", "unknown")
+		err2 := err1.WithSuggestions([]string{"claude-code"})
+
+		if err1 == err2 {
+			t.Error("WithSuggestions should return a new instance")
+		}
+
+		if len(err1.Suggestions()) != 0 {
+			t.Error("original error should not have suggestions")
+		}
+
+		if len(err2.Suggestions()) != 1 || err2.Suggestions()[0] != "claude-code" {
+			t.Error("new error should have suggestions")
+		}
+	})
+
+	t.Run("WithContext returns new instance", func(t *testing.T) {
+		err1 := NewConfigError("platform", "invalid", "unknown")
+		err2 := err1.WithContext("context info")
+
+		if err1 == err2 {
+			t.Error("WithContext should return a new instance")
+		}
+
+		if err1.Context() != "" {
+			t.Error("original error should not have context")
+		}
+
+		if err2.Context() != "context info" {
+			t.Error("new error should have context")
+		}
+	})
+
+	t.Run("builders preserve existing fields", func(t *testing.T) {
+		err1 := NewConfigError("platform", "invalid", "unknown").WithSuggestions([]string{"claude-code"})
+		err2 := err1.WithContext("context info")
+
+		if err2.Field() != "platform" {
+			t.Error("Field should be preserved")
+		}
+		if err2.Value() != "invalid" {
+			t.Error("Value should be preserved")
+		}
+		if err2.Message() != "unknown" {
+			t.Error("Message should be preserved")
+		}
+		if len(err2.Suggestions()) != 1 || err2.Suggestions()[0] != "claude-code" {
+			t.Error("Suggestions should be preserved")
+		}
+	})
+
+	t.Run("chained builders", func(t *testing.T) {
+		err := NewConfigError("platform", "invalid", "unknown").
+			WithSuggestions([]string{"claude-code"}).
+			WithContext("context")
+
+		if len(err.Suggestions()) != 1 {
+			t.Error("Suggestions should be set")
+		}
+		if err.Context() != "context" {
+			t.Error("Context should be set")
+		}
+	})
+}
+
 func TestErrorsAsDetection(t *testing.T) {
 	t.Run("ParseError", func(t *testing.T) {
 		err := NewParseError("test.yaml", "failed", nil)
@@ -322,8 +870,8 @@ func TestErrorsAsDetection(t *testing.T) {
 		if !errors.As(err, &target) {
 			t.Error("errors.As failed to detect ParseError")
 		}
-		if target.Path != "test.yaml" {
-			t.Errorf("target.Path = %q, want %q", target.Path, "test.yaml")
+		if target.Path() != "test.yaml" {
+			t.Errorf("target.Path() = %q, want %q", target.Path(), "test.yaml")
 		}
 	})
 
@@ -344,8 +892,8 @@ func TestErrorsAsDetection(t *testing.T) {
 		if !errors.As(err, &target) {
 			t.Error("errors.As failed to detect TransformError")
 		}
-		if target.Operation != "op" {
-			t.Errorf("target.Operation = %q, want %q", target.Operation, "op")
+		if target.Operation() != "op" {
+			t.Errorf("target.Operation() = %q, want %q", target.Operation(), "op")
 		}
 	})
 
@@ -355,19 +903,19 @@ func TestErrorsAsDetection(t *testing.T) {
 		if !errors.As(err, &target) {
 			t.Error("errors.As failed to detect FileError")
 		}
-		if target.Path != "path" {
-			t.Errorf("target.Path = %q, want %q", target.Path, "path")
+		if target.Path() != "path" {
+			t.Errorf("target.Path() = %q, want %q", target.Path(), "path")
 		}
 	})
 
 	t.Run("ConfigError", func(t *testing.T) {
-		err := NewConfigError("field", "value", nil, "invalid")
+		err := NewConfigError("field", "value", "invalid")
 		var target *ConfigError
 		if !errors.As(err, &target) {
 			t.Error("errors.As failed to detect ConfigError")
 		}
-		if target.Field != "field" {
-			t.Errorf("target.Field = %q, want %q", target.Field, "field")
+		if target.Field() != "field" {
+			t.Errorf("target.Field() = %q, want %q", target.Field(), "field")
 		}
 	})
 }

@@ -84,10 +84,16 @@ func formatParseError(err error) string {
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Parse error: %s\n", parseErr.Message))
-	sb.WriteString(fmt.Sprintf("  File: %s\n", parseErr.Path))
-	if parseErr.Cause != nil {
-		sb.WriteString(fmt.Sprintf("  Cause: %s\n", parseErr.Cause.Error()))
+	sb.WriteString(fmt.Sprintf("Parse error: %s\n", parseErr.Message()))
+	sb.WriteString(fmt.Sprintf("  File: %s\n", parseErr.Path()))
+	if parseErr.Cause() != nil {
+		sb.WriteString(fmt.Sprintf("  Cause: %s\n", parseErr.Cause().Error()))
+	}
+	for _, suggestion := range parseErr.Suggestions() {
+		sb.WriteString(fmt.Sprintf("  Hint: %s\n", suggestion))
+	}
+	if parseErr.Context() != "" {
+		sb.WriteString(fmt.Sprintf("  Context: %s\n", parseErr.Context()))
 	}
 	return sb.String()
 }
@@ -118,13 +124,19 @@ func formatTransformError(err error) string {
 	}
 
 	var sb strings.Builder
-	if transformErr.Platform != "" {
-		sb.WriteString(fmt.Sprintf("Transform error (%s for %s): %s\n", transformErr.Operation, transformErr.Platform, transformErr.Message))
+	if transformErr.Platform() != "" {
+		sb.WriteString(fmt.Sprintf("Transform error (%s for %s): %s\n", transformErr.Operation(), transformErr.Platform(), transformErr.Message()))
 	} else {
-		sb.WriteString(fmt.Sprintf("Transform error (%s): %s\n", transformErr.Operation, transformErr.Message))
+		sb.WriteString(fmt.Sprintf("Transform error (%s): %s\n", transformErr.Operation(), transformErr.Message()))
 	}
-	if transformErr.Cause != nil {
-		sb.WriteString(fmt.Sprintf("  Cause: %s\n", transformErr.Cause.Error()))
+	if transformErr.Cause() != nil {
+		sb.WriteString(fmt.Sprintf("  Cause: %s\n", transformErr.Cause().Error()))
+	}
+	for _, suggestion := range transformErr.Suggestions() {
+		sb.WriteString(fmt.Sprintf("  Hint: %s\n", suggestion))
+	}
+	if transformErr.Context() != "" {
+		sb.WriteString(fmt.Sprintf("  Context: %s\n", transformErr.Context()))
 	}
 	return sb.String()
 }
@@ -136,10 +148,16 @@ func formatFileError(err error) string {
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("File error (%s): %s\n", fileErr.Operation, fileErr.Message))
-	sb.WriteString(fmt.Sprintf("  Path: %s\n", fileErr.Path))
-	if fileErr.Cause != nil {
-		sb.WriteString(fmt.Sprintf("  Cause: %s\n", fileErr.Cause.Error()))
+	sb.WriteString(fmt.Sprintf("File error (%s): %s\n", fileErr.Operation(), fileErr.Message()))
+	sb.WriteString(fmt.Sprintf("  Path: %s\n", fileErr.Path()))
+	if fileErr.Cause() != nil {
+		sb.WriteString(fmt.Sprintf("  Cause: %s\n", fileErr.Cause().Error()))
+	}
+	for _, suggestion := range fileErr.Suggestions() {
+		sb.WriteString(fmt.Sprintf("  Hint: %s\n", suggestion))
+	}
+	if fileErr.Context() != "" {
+		sb.WriteString(fmt.Sprintf("  Context: %s\n", fileErr.Context()))
 	}
 	return sb.String()
 }
@@ -151,12 +169,15 @@ func formatConfigError(err error) string {
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Config error: %s\n", configErr.Message))
-	if len(configErr.Available) > 0 {
-		sb.WriteString(fmt.Sprintf("  Available: %s\n", strings.Join(configErr.Available, ", ")))
+	sb.WriteString(fmt.Sprintf("Config error: %s\n", configErr.Message()))
+	if len(configErr.Suggestions()) > 0 {
+		sb.WriteString(fmt.Sprintf("  Hint: %s\n", strings.Join(configErr.Suggestions(), ", ")))
 	}
-	if configErr.Field != "" && configErr.Value != "" {
-		sb.WriteString(fmt.Sprintf("  Field: %s, Value: %s\n", configErr.Field, configErr.Value))
+	if configErr.Field() != "" && configErr.Value() != "" {
+		sb.WriteString(fmt.Sprintf("  Field: %s, Value: %s\n", configErr.Field(), configErr.Value()))
+	}
+	if configErr.Context() != "" {
+		sb.WriteString(fmt.Sprintf("  Context: %s\n", configErr.Context()))
 	}
 	return sb.String()
 }

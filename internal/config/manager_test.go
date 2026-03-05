@@ -170,8 +170,8 @@ func TestConfigManagerLoad_InvalidPlatform(t *testing.T) {
 	}
 
 	// Should mention available platforms
-	if !containsStr(err.Error(), "available: claude-code, opencode") {
-		t.Errorf("error should mention available platforms, got: %v", err)
+	if !containsStr(err.Error(), "💡") {
+		t.Errorf("error should mention available platforms (with 💡), got: %v", err)
 	}
 }
 

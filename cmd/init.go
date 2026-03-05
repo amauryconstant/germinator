@@ -54,18 +54,29 @@ Examples:
 
 			// Validate platform
 			if platform == "" {
-				HandleError(cfg, gerrors.NewConfigError("platform", "", library.ValidPlatforms(), "--platform flag is required"))
+				HandleError(cfg, gerrors.NewConfigError("platform", "", "--platform flag is required").WithSuggestions(library.ValidPlatforms()))
 			}
 			if !library.IsValidPlatform(platform) {
-				HandleError(cfg, gerrors.NewConfigError("platform", platform, library.ValidPlatforms(), "unknown platform"))
+				HandleError(cfg, gerrors.NewConfigError("platform", platform, "unknown platform").WithSuggestions(library.ValidPlatforms()))
 			}
 
 			// Validate resources or preset (mutually exclusive)
 			if resources != "" && preset != "" {
-				HandleError(cfg, gerrors.NewConfigError("resources/preset", "", nil, "--resources and --preset are mutually exclusive"))
+				HandleError(cfg, gerrors.NewConfigError("resources/preset", "", "--resources and --preset are mutually exclusive"))
 			}
 			if resources == "" && preset == "" {
-				HandleError(cfg, gerrors.NewConfigError("resources/preset", "", nil, "either --resources or --preset is required"))
+				HandleError(cfg, gerrors.NewConfigError("resources/preset", "", "either --resources or --preset is required"))
+			}
+			if !library.IsValidPlatform(platform) {
+				HandleError(cfg, gerrors.NewConfigError("platform", platform, "unknown platform").WithSuggestions(library.ValidPlatforms()))
+			}
+
+			// Validate resources or preset (mutually exclusive)
+			if resources != "" && preset != "" {
+				HandleError(cfg, gerrors.NewConfigError("resources/preset", "", "--resources and --preset are mutually exclusive"))
+			}
+			if resources == "" && preset == "" {
+				HandleError(cfg, gerrors.NewConfigError("resources/preset", "", "either --resources or --preset is required"))
 			}
 
 			// Parse resource list

@@ -38,7 +38,7 @@ Example:
 			VerbosePrint(cfg, "Output path: %s", outputPath)
 
 			if platform == "" {
-				HandleError(cfg, gerrors.NewConfigError("platform", "", []string{models.PlatformClaudeCode, models.PlatformOpenCode}, "--platform flag is required"))
+				HandleError(cfg, gerrors.NewConfigError("platform", "", "--platform flag is required").WithSuggestions([]string{models.PlatformClaudeCode, models.PlatformOpenCode}))
 			}
 
 			VeryVerbosePrint(cfg, "Loading source document...")

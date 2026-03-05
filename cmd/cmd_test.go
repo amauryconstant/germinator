@@ -430,7 +430,7 @@ description: Test agent
 Test content`,
 			platform:    "unknown-platform",
 			expectError: true,
-			errorMsg:    "available: claude-code, opencode",
+			errorMsg:    "💡",
 		},
 	}
 
@@ -1538,7 +1538,7 @@ func TestExitCodeForErrorTypes(t *testing.T) {
 		},
 		{
 			name:         "ConfigError returns exit code 2",
-			err:          gerrors.NewConfigError("platform", "invalid", []string{"claude-code"}, "unknown platform"),
+			err:          gerrors.NewConfigError("platform", "invalid", "unknown platform").WithSuggestions([]string{"claude-code"}),
 			expectedCode: ExitCodeUsage,
 		},
 		{
@@ -1596,7 +1596,7 @@ func TestErrorCategorization(t *testing.T) {
 		},
 		{
 			name:             "ConfigError categorizes as CategoryConfig",
-			err:              gerrors.NewConfigError("field", "value", nil, "invalid"),
+			err:              gerrors.NewConfigError("field", "value", "invalid"),
 			expectedCategory: CategoryConfig,
 		},
 		{
@@ -1690,7 +1690,7 @@ func TestHandleErrorWritesToStderr(t *testing.T) {
 
 	cfg := newTestConfig()
 
-	testErr := gerrors.NewConfigError("platform", "invalid", []string{"claude-code", "opencode"}, "unknown platform")
+	testErr := gerrors.NewConfigError("platform", "invalid", "unknown platform").WithSuggestions([]string{"claude-code", "opencode"})
 
 	formatted := cfg.ErrorFormatter.Format(testErr)
 	exitCode := GetExitCodeForError(testErr)
@@ -1707,8 +1707,8 @@ func TestHandleErrorWritesToStderr(t *testing.T) {
 		t.Errorf("Expected stderr to contain 'Config error:', got: %q", output)
 	}
 
-	if !strings.Contains(strings.ToLower(output), "available") {
-		t.Errorf("Expected stderr to contain 'Available', got: %q", output)
+	if !strings.Contains(output, "Hint:") {
+		t.Errorf("Expected stderr to contain 'Hint:', got: %q", output)
 	}
 
 	if exitCode != ExitCodeUsage {
@@ -1741,7 +1741,7 @@ func TestHandleErrorExitCodes(t *testing.T) {
 		},
 		{
 			name:       "ConfigError exits with code 2",
-			err:        gerrors.NewConfigError("platform", "bad", []string{"claude-code"}, "invalid"),
+			err:        gerrors.NewConfigError("platform", "bad", "invalid").WithSuggestions([]string{"claude-code"}),
 			expectCode: ExitCodeUsage,
 		},
 		{

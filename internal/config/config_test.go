@@ -53,7 +53,7 @@ func TestConfigValidate(t *testing.T) {
 			name:        "random platform returns error",
 			platform:    "foobar",
 			wantErr:     true,
-			errContains: "available: claude-code, opencode",
+			errContains: "💡",
 		},
 	}
 

@@ -38,9 +38,8 @@ func (c *Config) Validate() error {
 		return gerrors.NewConfigError(
 			"platform",
 			c.Platform,
-			[]string{models.PlatformClaudeCode, models.PlatformOpenCode},
 			"unknown platform",
-		)
+		).WithSuggestions([]string{models.PlatformClaudeCode, models.PlatformOpenCode})
 	}
 
 	return nil
@@ -66,7 +65,7 @@ func expandTilde(path string) (string, error) {
 	if len(path) >= 2 && path[:2] == "~/" {
 		homeDir, err := os.UserHomeDir()
 		if err != nil {
-			return "", gerrors.NewConfigError("path", path, nil, "cannot determine home directory")
+			return "", gerrors.NewConfigError("path", path, "cannot determine home directory")
 		}
 		return filepath.Join(homeDir, path[2:]), nil
 	}

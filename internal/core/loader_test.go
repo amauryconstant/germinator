@@ -454,11 +454,11 @@ Content`
 		if !errors.As(err, &parseErr) {
 			t.Errorf("Expected ParseError, got %T: %v", err, err)
 		} else {
-			if parseErr.Path != testFile {
-				t.Errorf("ParseError.Path = %q, want %q", parseErr.Path, testFile)
+			if parseErr.Path() != testFile {
+				t.Errorf("ParseError.Path() = %q, want %q", parseErr.Path(), testFile)
 			}
-			if !strings.Contains(parseErr.Message, "expected") {
-				t.Errorf("ParseError.Message should mention expected patterns, got: %q", parseErr.Message)
+			if !strings.Contains(parseErr.Message(), "expected") {
+				t.Errorf("ParseError.Message() should mention expected patterns, got: %q", parseErr.Message())
 			}
 		}
 	})
@@ -486,11 +486,11 @@ Content`
 		if !errors.As(err, &parseErr) {
 			t.Errorf("Expected ParseError, got %T: %v", err, err)
 		} else {
-			if parseErr.Path != testFile {
-				t.Errorf("ParseError.Path = %q, want %q", parseErr.Path, testFile)
+			if parseErr.Path() != testFile {
+				t.Errorf("ParseError.Path() = %q, want %q", parseErr.Path(), testFile)
 			}
-			if parseErr.Cause == nil {
-				t.Error("ParseError.Cause should not be nil for YAML errors")
+			if parseErr.Cause() == nil {
+				t.Error("ParseError.Cause() should not be nil for YAML errors")
 			}
 		}
 	})
@@ -510,11 +510,11 @@ func TestLoadDocumentReturnsTypedFileError(t *testing.T) {
 		if !errors.As(err, &fileErr) {
 			t.Errorf("Expected FileError, got %T: %v", err, err)
 		} else {
-			if fileErr.Path != nonExistentFile {
-				t.Errorf("FileError.Path = %q, want %q", fileErr.Path, nonExistentFile)
+			if fileErr.Path() != nonExistentFile {
+				t.Errorf("FileError.Path() = %q, want %q", fileErr.Path(), nonExistentFile)
 			}
-			if fileErr.Operation != "read" {
-				t.Errorf("FileError.Operation = %q, want 'read'", fileErr.Operation)
+			if fileErr.Operation() != "read" {
+				t.Errorf("FileError.Operation() = %q, want 'read'", fileErr.Operation())
 			}
 			if !fileErr.IsNotFound() {
 				t.Error("FileError.IsNotFound() should return true")

@@ -20,12 +20,12 @@ func validatePlatform(platform string) []error {
 	var errs []error
 
 	if platform == "" {
-		errs = append(errs, gerrors.NewConfigError("platform", "", []string{PlatformClaudeCode, PlatformOpenCode}, "platform is required"))
+		errs = append(errs, gerrors.NewConfigError("platform", "", "platform is required").WithSuggestions([]string{PlatformClaudeCode, PlatformOpenCode}))
 		return errs
 	}
 
 	if platform != PlatformClaudeCode && platform != PlatformOpenCode {
-		errs = append(errs, gerrors.NewConfigError("platform", platform, []string{PlatformClaudeCode, PlatformOpenCode}, "unknown platform"))
+		errs = append(errs, gerrors.NewConfigError("platform", platform, "unknown platform").WithSuggestions([]string{PlatformClaudeCode, PlatformOpenCode}))
 		return errs
 	}
 

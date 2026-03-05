@@ -43,8 +43,8 @@ func TestErrorFormatter_Format(t *testing.T) {
 		},
 		{
 			name:     "ConfigError with available",
-			err:      gerrors.NewConfigError("platform", "invalid", []string{"claude-code", "opencode"}, "unknown platform"),
-			contains: []string{"Config error", "unknown platform", "Available:", "claude-code, opencode"},
+			err:      gerrors.NewConfigError("platform", "invalid", "unknown platform").WithSuggestions([]string{"claude-code", "opencode"}),
+			contains: []string{"Config error", "unknown platform", "Hint:", "claude-code, opencode"},
 		},
 		{
 			name:     "Generic error",
@@ -127,7 +127,7 @@ func TestNewErrorFormatterReadyToUse(t *testing.T) {
 		},
 		{
 			name:  "ConfigError formatted",
-			err:   gerrors.NewConfigError("field", "value", nil, "invalid"),
+			err:   gerrors.NewConfigError("field", "value", "invalid"),
 			check: "Config error",
 		},
 	}
