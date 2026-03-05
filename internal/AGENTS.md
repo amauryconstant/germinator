@@ -93,27 +93,24 @@ See `test/AGENTS.md` for golden file testing patterns.
 
 # Error Handling
 
-**Typed errors** in `internal/errors/`:
-| Type | Fields | Use Case |
-|------|--------|----------|
-| ParseError | Path, Message, Cause | Malformed YAML, unrecognized document type |
-| ValidationError | request, field, value, message, suggestions, context | Invalid field values |
-| TransformError | Operation, Platform, Message, Cause | Template/render failures |
-| FileError | Path, Operation, Message, Cause | File read/write errors |
-| ConfigError | Field, Value, Available, Message | Invalid configuration |
+**Typed errors** in `internal/errors/` with immutable builder pattern:
 
-Constructors: `NewParseError`, `NewValidationError`, `NewTransformError`, `NewFileError`, `NewConfigError`
+| Type | Constructor | Use Case |
+|------|-------------|----------|
+| ParseError | `NewParseError(path, message string, cause error)` | Malformed YAML, unrecognized document type |
+| ValidationError | `NewValidationError(request, field, value, message string)` | Invalid field values |
+| TransformError | `NewTransformError(operation, platform, message string, cause error)` | Template/render failures |
+| FileError | `NewFileError(path, operation, message string, cause error)` | File read/write errors |
+| ConfigError | `NewConfigError(field, value, message string)` | Invalid configuration |
 
-**ValidationError signature**: `NewValidationError(request, field, value, message string)`
-
-**Immutable builders** (return copy):
+**All types** have immutable builders that return a copy:
 ```go
-err := errors.NewValidationError("Agent", "name", "", "name is required")
-err.WithSuggestions([]string{"Use lowercase with hyphens"})
-err.WithContext("agent definition file")
+err := errors.NewParseError("agent.yaml", "invalid YAML", cause).
+    WithSuggestions([]string{"Check indentation", "Validate syntax"}).
+    WithContext("agent definition file")
 ```
 
-**Getters**: `Field()`, `Value()`, `Message()`, `Request()`, `Suggestions()`, `Context()`
+**All types** have getters: `Message()`, `Cause()`, `Suggestions()`, `Context()` (plus type-specific: `Path()`, `Operation()`, `Platform()`, `Field()`, `Value()`, `Request()`)
 
 All types implement `Unwrap()` for `errors.As` chains. FileError has `IsNotFound()` helper.
 
