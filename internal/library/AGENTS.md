@@ -14,7 +14,7 @@ Manage canonical resource libraries with indexed storage and preset grouping.
 | `library.go` | Types (Library, Resource, Preset, ResourceType) |
 | `loader.go` | LoadLibrary, library.yaml parsing |
 | `resolver.go` | ResolveResource, ResolvePreset, GetOutputPath |
-| `lister.go` | ListResources, ListPresets, formatting |
+| `lister.go` | ListResources, ListPresets, ResourceInfo |
 | `discovery.go` | FindLibrary, DefaultLibraryPath |
 
 ---
@@ -176,15 +176,6 @@ resources := ListResources(lib)
 ```go
 presets := ListPresets(lib)
 // Returns []Preset sorted by name
-```
-
-## Formatting
-
-```go
-output := FormatResourcesList(lib)  // CLI-friendly output
-output := FormatPresetsList(lib)    // CLI-friendly output
-output, err := FormatResourceDetails(lib, "skill/commit")
-output, err := FormatPresetDetails(lib, "git-workflow")
 ```
 
 ---

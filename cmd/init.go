@@ -10,7 +10,6 @@ import (
 	"gitlab.com/amoconst/germinator/internal/application"
 	gerrors "gitlab.com/amoconst/germinator/internal/errors"
 	"gitlab.com/amoconst/germinator/internal/library"
-	"gitlab.com/amoconst/germinator/internal/services"
 )
 
 // NewInitCommand creates the init command for installing resources.
@@ -125,23 +124,12 @@ Examples:
 				HandleError(cfg, err)
 			}
 
-			// Convert results to legacy format for output formatting
-			legacyResults := make([]services.InitResult, len(results))
-			for i, r := range results {
-				legacyResults[i] = services.InitResult{
-					Ref:        r.Ref,
-					InputPath:  r.InputPath,
-					OutputPath: r.OutputPath,
-					Error:      r.Error,
-				}
-			}
-
 			// Output results
 			if dryRun {
-				_, _ = fmt.Fprint(c.OutOrStdout(), services.FormatDryRunOutput(legacyResults))
+				_, _ = fmt.Fprint(c.OutOrStdout(), formatDryRunOutput(results))
 				_, _ = fmt.Fprintln(c.OutOrStdout(), "\nDry run complete. No files were written.")
 			} else {
-				_, _ = fmt.Fprint(c.OutOrStdout(), services.FormatSuccessOutput(legacyResults))
+				_, _ = fmt.Fprint(c.OutOrStdout(), formatSuccessOutput(results))
 				_, _ = fmt.Fprintf(c.OutOrStdout(), "\nSuccessfully installed %d resource(s).\n", len(results))
 			}
 		},

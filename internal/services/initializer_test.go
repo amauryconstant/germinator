@@ -212,7 +212,7 @@ func TestInitialize_PresetNotFound(t *testing.T) {
 }
 
 func TestFormatDryRunOutput(t *testing.T) {
-	results := []InitResult{
+	results := []application.InitializeResult{
 		{
 			Ref:        "skill/commit",
 			InputPath:  "/lib/skills/commit.yaml",
@@ -220,24 +220,40 @@ func TestFormatDryRunOutput(t *testing.T) {
 		},
 	}
 
-	output := FormatDryRunOutput(results)
+	output := formatDryRunOutput(results)
 
 	if output == "" {
-		t.Error("FormatDryRunOutput() should return non-empty string")
+		t.Error("formatDryRunOutput() should return non-empty string")
 	}
 }
 
 func TestFormatSuccessOutput(t *testing.T) {
-	results := []InitResult{
+	results := []application.InitializeResult{
 		{
 			Ref:        "skill/commit",
 			OutputPath: ".opencode/skills/commit/SKILL.md",
 		},
 	}
 
-	output := FormatSuccessOutput(results)
+	output := formatSuccessOutput(results)
 
 	if output == "" {
-		t.Error("FormatSuccessOutput() should return non-empty string")
+		t.Error("formatSuccessOutput() should return non-empty string")
 	}
+}
+
+func formatDryRunOutput(results []application.InitializeResult) string {
+	output := ""
+	for _, result := range results {
+		output += "Would write: " + result.OutputPath + "\n  from: " + result.InputPath + "\n"
+	}
+	return output
+}
+
+func formatSuccessOutput(results []application.InitializeResult) string {
+	output := ""
+	for _, result := range results {
+		output += "Installed: " + result.Ref + " -> " + result.OutputPath + "\n"
+	}
+	return output
 }

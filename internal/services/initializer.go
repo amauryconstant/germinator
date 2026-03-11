@@ -3,7 +3,6 @@ package services
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -12,21 +11,6 @@ import (
 	gerrors "gitlab.com/amoconst/germinator/internal/errors"
 	"gitlab.com/amoconst/germinator/internal/library"
 )
-
-// InitOptions contains options for the initialization process.
-// Deprecated: Use application.InitializeRequest instead.
-type InitOptions struct {
-	// Library is the loaded library.
-	Library *library.Library
-	// Platform is the target platform (opencode or claude-code).
-	Platform string
-	// OutputDir is the base output directory.
-	OutputDir string
-	// DryRun indicates whether to preview changes without writing.
-	DryRun bool
-	// Force indicates whether to overwrite existing files.
-	Force bool
-}
 
 // initializer implements the application.Initializer interface.
 type initializer struct{}
@@ -123,34 +107,3 @@ func (i *initializer) Initialize(ctx context.Context, req *application.Initializ
 
 // Compile-time interface satisfaction check.
 var _ application.Initializer = (*initializer)(nil)
-
-// InitResult contains the result of initializing a single resource.
-// Deprecated: Use application.InitializeResult instead.
-type InitResult struct {
-	// Ref is the resource reference (e.g., "skill/commit").
-	Ref string
-	// InputPath is the source file path.
-	InputPath string
-	// OutputPath is the destination file path.
-	OutputPath string
-	// Error is any error that occurred during initialization.
-	Error error
-}
-
-// FormatDryRunOutput formats the results for dry-run display.
-func FormatDryRunOutput(results []InitResult) string {
-	var output string
-	for _, result := range results {
-		output += fmt.Sprintf("Would write: %s\n  from: %s\n", result.OutputPath, result.InputPath)
-	}
-	return output
-}
-
-// FormatSuccessOutput formats the results for success display.
-func FormatSuccessOutput(results []InitResult) string {
-	var output string
-	for _, result := range results {
-		output += fmt.Sprintf("Installed: %s -> %s\n", result.Ref, result.OutputPath)
-	}
-	return output
-}

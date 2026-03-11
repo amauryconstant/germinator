@@ -20,6 +20,12 @@ Cobra-based CLI with platform-specific validation, typed errors, and verbosity c
 | `version.go` | Display version, commit, build date |
 | `library.go` | Library management commands (resources, presets, show) |
 | `init.go` | Install resources from library to project |
+| `formatters.go` | Init command output formatting (dry-run, success) |
+| `library_formatters.go` | Library command output formatting |
+| `error_handler.go` | Error categorization and exit code handling |
+| `error_formatter.go` | Typed error formatting with contextual hints |
+| `verbose.go` | Verbosity levels and output helpers |
+| `config.go` | CommandConfig struct for DI |
 
 ---
 

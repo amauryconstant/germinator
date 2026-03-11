@@ -68,7 +68,7 @@ Example:
 			}
 
 			// List resources
-			output := library.FormatResourcesList(lib)
+			output := formatResourcesList(lib)
 			_, _ = fmt.Fprint(c.OutOrStdout(), output)
 		},
 	}
@@ -102,7 +102,7 @@ Example:
 			}
 
 			// List presets
-			output := library.FormatPresetsList(lib)
+			output := formatPresetsList(lib)
 			_, _ = fmt.Fprint(c.OutOrStdout(), output)
 		},
 	}
@@ -144,7 +144,7 @@ Examples:
 			// Check if it's a preset reference
 			if len(ref) > 7 && ref[:7] == "preset/" {
 				presetName := ref[7:]
-				output, err := library.FormatPresetDetails(lib, presetName)
+				output, err := formatPresetDetails(lib, presetName)
 				if err != nil {
 					HandleError(cfg, err)
 				}
@@ -158,7 +158,7 @@ Examples:
 			}
 
 			// Show resource details
-			output, err := library.FormatResourceDetails(lib, ref)
+			output, err := formatResourceDetails(lib, ref)
 			if err != nil {
 				HandleError(cfg, err)
 			}
