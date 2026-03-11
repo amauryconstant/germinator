@@ -93,26 +93,13 @@ See `test/AGENTS.md` for golden file testing patterns.
 
 # Error Handling
 
-**Typed errors** in `internal/errors/` with immutable builder pattern:
+**Typed errors** in `internal/errors/` with immutable builder pattern.
 
-| Type | Constructor | Use Case |
-|------|-------------|----------|
-| ParseError | `NewParseError(path, message string, cause error)` | Malformed YAML, unrecognized document type |
-| ValidationError | `NewValidationError(request, field, value, message string)` | Invalid field values |
-| TransformError | `NewTransformError(operation, platform, message string, cause error)` | Template/render failures |
-| FileError | `NewFileError(path, operation, message string, cause error)` | File read/write errors |
-| ConfigError | `NewConfigError(field, value, message string)` | Invalid configuration |
-
-**All types** have immutable builders that return a copy:
-```go
-err := errors.NewParseError("agent.yaml", "invalid YAML", cause).
-    WithSuggestions([]string{"Check indentation", "Validate syntax"}).
-    WithContext("agent definition file")
-```
-
-**All types** have getters: `Message()`, `Cause()`, `Suggestions()`, `Context()` (plus type-specific: `Path()`, `Operation()`, `Platform()`, `Field()`, `Value()`, `Request()`)
-
-All types implement `Unwrap()` for `errors.As` chains. FileError has `IsNotFound()` helper.
+See `internal/errors/AGENTS.md` for:
+- Error types: ParseError, ValidationError, TransformError, FileError, ConfigError
+- Immutable builder pattern with `WithSuggestions()`, `WithContext()`
+- Getters for programmatic access
+- `Unwrap()` for error chaining
 
 ---
 

@@ -41,12 +41,15 @@ See [INSTALL.md](INSTALL.md) for detailed installation instructions for Linux, m
 
 ### Commands
 
-Germinator provides two main commands:
+Germinator provides the following commands:
 
 - **validate** - Validate a Germinator source document
 - **adapt** - Transform a Germinator source document to a target platform
+- **canonicalize** - Convert a platform-specific document to canonical Germinator format
+- **library** - Manage library resources (list, show)
+- **init** - Initialize library resources in a project
 
-**Important**: The `--platform` flag is required for both commands. Specify either `claude-code` or `opencode`.
+**Important**: The `--platform` flag is required for validate, adapt, and canonicalize. Specify either `claude-code` or `opencode`.
 
 ### Examples
 
@@ -62,6 +65,15 @@ Germinator provides two main commands:
 
 # Adapt memory to AGENTS.md
 ./germinator adapt memory.yaml AGENTS.md --platform opencode
+
+# Canonicalize a Claude Code agent to Germinator format
+./germinator canonicalize .claude/agents/my-agent.yaml agent.yaml --platform claude-code
+
+# List available library resources
+./germinator library list
+
+# Initialize library resources to a project
+./germinator init --platform opencode --output . --ref agent-base
 ```
 
 ## Supported Platforms
@@ -206,53 +218,3 @@ OpenCode does not support `disallowedTools` in agents. Fields are included for f
 
 ### Unidirectional Transformation
 Transformation is one-way: Germinator format → target platform only. There is no support for bidirectional conversion.
-
-## Breaking Changes and Migration
-
-### Germinator Source Format (v0.4.0+)
-**Breaking Change**: Germinator now uses its own canonical YAML format as the source. Existing Claude Code YAML files are incompatible.
-
-**Migration Guide**:
-1. Create new Germinator source files with platform-agnostic field names
-2. Include both Claude Code and OpenCode specific fields in the source
-3. Use `--platform` flag to specify target platform
-
-**Example Migration**:
-```yaml
-# Old Claude Code format (incompatible)
-name: my-agent
-description: My agent
-permissionMode: default
-
-# New Germinator format
-name: my-agent
-description: My agent
-permissionMode: default  # Claude Code field
-mode: strict             # OpenCode field
-model: anthropic/claude-sonnet-4-20250514
-```
-
-### --platform Flag Requirement (v0.4.0+)
-**Breaking Change**: The `--platform` flag is now required for all CLI operations. No default to `claude-code`.
-
-**Migration**: Update all scripts and commands to include `--platform claude-code` or `--platform opencode`.
-
-### Validate() Signature Change (v0.4.0+)
-**Breaking Change**: `Validate()` methods now require a `platform string` parameter.
-
-**Migration**: Update custom parsers or validation code to pass the platform parameter:
-```go
-// Before
-errs := agent.Validate()
-
-// After
-errs := agent.Validate("claude-code")
-```
-
-### Field Name Changes
-- No field name changes in this release
-- Field casing uses Go conventions (PascalCase) for compatibility
-
-## License
-
-[Add your license here]
