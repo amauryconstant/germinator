@@ -5,24 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
 
-### Changed
-
-- **BREAKING**: Replace Claude Code-based source format with domain-driven canonical format expressing intent over platform mechanics (canonical-format-redesign)
-- **BREAKING**: Add functional validation pipeline with Result[T] pattern for composable, early-exit validation with clean error handling (add-validation-pipeline)
-- **BREAKING**: Enhance all error types with immutable builder pattern: private fields, getters, WithSuggestions(), WithContext() (enhance-all-errors)
+## [0.6.0] - 2026-03-11
 
 ### Added
 
-- Add reverse transformation capability to convert platform documents into canonical YAML format (reverse-transformation)
-- Establish foundational CLI infrastructure with typed errors, semantic exit codes, composable error formatting, and verbosity flags (cli-infrastructure)
-- Add global configuration system with Koanf-based loading from TOML file at XDG-compliant location (add-configuration-system)
-- Add library system for indexed storage with preset grouping, and init command for batch transformation of library resources (add-library-init-system)
-- Add clean dependency injection pattern with ServiceContainer struct and command constructors replacing init pattern (di-foundation)
-- Add E2E test coverage for canonicalize command and claude-code platform variants (e2e-test-coverage)
-- Add E2E CLI testing infrastructure with Ginkgo v2, Gomega, and gexec for validating actual CLI behavior (e2e-testing-ginkgo)
-- Introduce service interfaces with request/result types in internal/application/ for testability and cleaner architecture (introduce-service-interfaces)
+- Add `canonicalize` command to convert platform documents (Claude Code, OpenCode) to canonical YAML format (reverse-transformation)
+- Add `init` command for batch transformation and installation of library resources to projects (add-library-init-system)
+- Add `library` command with `resources`, `presets`, and `show` subcommands for managing the canonical resource library (add-library-init-system)
+- Add global `-v, --verbose` flag for increased output verbosity (cli-infrastructure)
+- Add global configuration system with Koanf-based TOML loading at XDG-compliant location (add-configuration-system)
+- Add dependency injection pattern with ServiceContainer for cleaner command architecture (di-foundation)
+- Introduce service interfaces in `internal/application/` for testability and separation of concerns (introduce-service-interfaces)
+
+### Changed
+
+- Add functional validation pipeline with `Result[T]` pattern for composable, early-exit validation (add-validation-pipeline)
+- Enhance error types with immutable builder pattern: `WithSuggestions()`, `WithContext()` (enhance-all-errors)
+- Refactor CLI commands for consistency across adapt, validate, canonicalize, init, and library (cli-infrastructure)
+- Expand E2E test coverage for all CLI commands and platform adapters (e2e-test-coverage, e2e-testing-ginkgo)
 
 ## [0.5.0] - 2026-02-09
 
