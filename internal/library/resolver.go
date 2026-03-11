@@ -1,7 +1,6 @@
 package library
 
 import (
-	"fmt"
 	"path/filepath"
 	"strings"
 
@@ -96,7 +95,7 @@ func GetOutputPath(typ, name, platform, outputDir string) (string, error) {
 
 	config, ok := platformConfigs[resourceType]
 	if !ok {
-		return "", fmt.Errorf("unsupported resource type for platform: %s/%s", typ, platform)
+		return "", gerrors.NewConfigError("resource-type", typ, "unsupported resource type for platform")
 	}
 
 	var path string
@@ -156,11 +155,11 @@ func ValidateRef(ref string) error {
 		for i, t := range ValidResourceTypes {
 			validTypes[i] = string(t)
 		}
-		return fmt.Errorf("invalid resource type: %s (valid types: %s)", typ, strings.Join(validTypes, ", "))
+		return gerrors.NewConfigError("resource-type", typ, "invalid resource type").WithSuggestions(validTypes)
 	}
 
 	if strings.TrimSpace(name) == "" {
-		return fmt.Errorf("resource name cannot be empty or whitespace")
+		return gerrors.NewValidationError(ref, "name", name, "resource name cannot be empty or whitespace")
 	}
 
 	return nil
