@@ -111,8 +111,21 @@ The canonical format SHALL group agent execution settings into a `behavior` obje
 
 - **GIVEN** A canonical agent YAML with behavior.temperature field
 - **WHEN** The file is parsed
-- **THEN** Temperature SHALL be a float64 value between 0.0 and 1.0
+- **THEN** Temperature SHALL be a *float64 pointer (not float64 value)
+- **AND** Value (when not nil) SHALL be between 0.0 and 1.0
 - **AND** Field SHALL be nested under behavior key
+
+#### Scenario: Behavior temperature nil vs 0.0 distinction
+
+- **GIVEN** Agent model with behavior.temperature as *float64 pointer
+- **WHEN** behavior.temperature is nil
+- **THEN** behavior.temperature field SHALL NOT be rendered in OpenCode output (user didn't set it)
+- **AND** OpenCode will use model's default temperature
+- **WHEN** behavior.temperature is 0.0
+- **THEN** behavior.temperature field SHALL be rendered as `temperature: 0.0` in OpenCode output
+- **AND** User explicitly requested deterministic low-temperature behavior
+- **AND** Template rendering checks nil presence (not zero value)
+- **AND** Distinction between unset and explicitly set to 0.0 is preserved
 
 #### Scenario: Behavior object with maxSteps field
 
