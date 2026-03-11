@@ -3,6 +3,7 @@
 package helpers
 
 import (
+	"os"
 	"os/exec"
 	"time"
 
@@ -87,4 +88,24 @@ func (c *GerminatorCLI) GetOutput(session *gexec.Session) string {
 // GetErrorOutput returns the stderr content
 func (c *GerminatorCLI) GetErrorOutput(session *gexec.Session) string {
 	return string(session.Err.Contents())
+}
+
+// RunWithEnv executes the germinator binary with the given arguments and environment variables
+func (c *GerminatorCLI) RunWithEnv(env map[string]string, args ...string) *gexec.Session {
+	By("Running germinator command with env", func() {
+		GinkgoLogr.Info("Executing", "binary", c.binaryPath, "args", args, "env", env)
+	})
+
+	command := exec.Command(c.binaryPath, args...)
+	command.Env = os.Environ()
+	for k, v := range env {
+		command.Env = append(command.Env, k+"="+v)
+	}
+
+	session, err := gexec.Start(command, GinkgoWriter, GinkgoWriter)
+	Expect(err).NotTo(HaveOccurred(), "Failed to start germinator command")
+
+	Eventually(session, c.timeout).Should(gexec.Exit(), "Command did not complete within timeout")
+
+	return session
 }

@@ -3,9 +3,12 @@ name: deploy-service
 description: Deploys service to production
 tools:
   - Bash
-context: fork
-agent: code-reviewer
-argument-hint: Target environment (staging|production)
+execution:
+  context: fork
+  subtask: false
+  agent: code-reviewer
+arguments:
+  hint: "Target environment (staging|production)"
 model: claude-sonnet-4-5-20250929
 ---
 Deployment workflow for $ARGUMENTS environment:
@@ -24,4 +27,3 @@ go build -o service .
 ```bash
 kubectl apply -f k8s/
 ```
-

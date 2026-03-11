@@ -142,6 +142,80 @@ func TestGoldenFiles(t *testing.T) {
 			golden:   "../../test/golden/opencode/code-reviewer-agent.md.golden",
 			platform: "opencode",
 		},
+
+		// Claude-Code platform tests
+		{
+			name:     "claude-code-agent-full",
+			fixture:  "../../test/fixtures/claude-code/agent-full.md",
+			golden:   "../../test/golden/claude-code/agent-full.md.golden",
+			platform: "claude-code",
+		},
+		{
+			name:     "claude-code-agent-permission-restrictive",
+			fixture:  "../../test/fixtures/claude-code/agent-permission-restrictive.md",
+			golden:   "../../test/golden/claude-code/agent-permission-restrictive.md.golden",
+			platform: "claude-code",
+		},
+		{
+			name:     "claude-code-agent-permission-balanced",
+			fixture:  "../../test/fixtures/claude-code/agent-permission-balanced.md",
+			golden:   "../../test/golden/claude-code/agent-permission-balanced.md.golden",
+			platform: "claude-code",
+		},
+		{
+			name:     "claude-code-agent-permission-permissive",
+			fixture:  "../../test/fixtures/claude-code/agent-permission-permissive.md",
+			golden:   "../../test/golden/claude-code/agent-permission-permissive.md.golden",
+			platform: "claude-code",
+		},
+		{
+			name:     "claude-code-agent-permission-analysis",
+			fixture:  "../../test/fixtures/claude-code/agent-permission-analysis.md",
+			golden:   "../../test/golden/claude-code/agent-permission-analysis.md.golden",
+			platform: "claude-code",
+		},
+		{
+			name:     "claude-code-agent-permission-unrestricted",
+			fixture:  "../../test/fixtures/claude-code/agent-permission-unrestricted.md",
+			golden:   "../../test/golden/claude-code/agent-permission-unrestricted.md.golden",
+			platform: "claude-code",
+		},
+		{
+			name:     "claude-code-command-full",
+			fixture:  "../../test/fixtures/claude-code/command-full.md",
+			golden:   "../../test/golden/claude-code/command-full.md.golden",
+			platform: "claude-code",
+		},
+		{
+			name:     "claude-code-command-with-arguments",
+			fixture:  "../../test/fixtures/claude-code/command-with-arguments.md",
+			golden:   "../../test/golden/claude-code/command-with-arguments.md.golden",
+			platform: "claude-code",
+		},
+		{
+			name:     "claude-code-skill-full",
+			fixture:  "../../test/fixtures/claude-code/skill-full.md",
+			golden:   "../../test/golden/claude-code/skill-full.md.golden",
+			platform: "claude-code",
+		},
+		{
+			name:     "claude-code-memory-paths-only",
+			fixture:  "../../test/fixtures/claude-code/memory-paths-only.md",
+			golden:   "../../test/golden/claude-code/memory-paths-only.md.golden",
+			platform: "claude-code",
+		},
+		{
+			name:     "claude-code-memory-content-only",
+			fixture:  "../../test/fixtures/claude-code/memory-content-only.md",
+			golden:   "../../test/golden/claude-code/memory-content-only.md.golden",
+			platform: "claude-code",
+		},
+		{
+			name:     "claude-code-memory-both",
+			fixture:  "../../test/fixtures/claude-code/memory-both.md",
+			golden:   "../../test/golden/claude-code/memory-both.md.golden",
+			platform: "claude-code",
+		},
 	}
 
 	tr := NewTransformer()

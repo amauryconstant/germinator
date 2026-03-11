@@ -42,6 +42,10 @@ run = "gofmt -w ."
 
 [tasks.test]
 description = "Run all tests"
+depends = ["test:unit", "test:e2e"]
+
+[tasks."test:unit"]
+description = "Run unit tests"
 run = "go test ./..."
 
 [tasks."test:coverage"]
@@ -50,11 +54,7 @@ run = "go test ./... -cover -v"
 
 [tasks."test:e2e"]
 description = "Run E2E tests with verbose output"
-run = "go test -tags=e2e ./test/e2e/... -v"
-
-[tasks."test:full"]
-description = "Run all tests (unit tests + E2E tests)"
-depends = ["test", "test:e2e"]
+run = "go test -tags=e2e ./test/e2e/..."
 
 [tasks.check]
 description = "Run all validation checks"

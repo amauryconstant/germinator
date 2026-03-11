@@ -1,18 +1,18 @@
 ---
-name: git-release
-description: Create consistent releases and changelogs
+name: run-lint
+description: Run linting and formatting checks on code
 tools:
   - bash
 execution:
   context: fork
-  agent: general-purpose
-model: claude-sonnet-4-5-20250929
+arguments:
+  hint: [options] <files...>
+model: anthropic/claude-sonnet-4-20250514
 ---
-## What I do
-- Draft release notes from merged PRs
-- Propose a version bump
-- Provide a copy-pasteable `gh release create` command
+This command runs comprehensive code quality checks including:
+- Go fmt verification
+- Go vet analysis
+- golangci-lint with standard rules
 
-## When to use me
-Use this when you are preparing a tagged release.
-Ask clarifying questions if target versioning scheme is unclear.
+Usage: run-lint [options] <files...>
+

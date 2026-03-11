@@ -22,4 +22,3 @@ When rendered for OpenCode:
 - Uses targets.opencode.temperature: 0.8 instead of behavior.temperature
 - Uses targets.opencode.steps: 25 instead of behavior.steps
 - Uses targets.opencode.prompt as override
-

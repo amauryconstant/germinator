@@ -10,4 +10,3 @@ Execute test suite with coverage reporting:
 ```bash
 go test ./... -v -cover
 ```
-

@@ -6,20 +6,22 @@ tools:
   - Grep
   - Bash
 model: claude-sonnet-4-5-20250929
-license: MIT
-compatibility:
-  - claude-code
-  - opencode
-metadata:
-  author: "Germinator Team"
-  category: "code-quality"
-  version: "1.0.0"
-hooks:
-  post-review: "update-metrics"
-  pre-review: "run-linters"
-context: fork
-agent: code-reviewer
-user-invocable: true
+extensions:
+  license: MIT
+  compatibility:
+    - claude-code
+    - opencode
+  metadata:
+    version: "1.0.0"
+    author: "Germinator Team"
+    category: "code-quality"
+  hooks:
+    pre-review: "run-linters"
+    post-review: "update-metrics"
+execution:
+  context: fork
+  agent: code-reviewer
+  userInvocable: true
 ---
 You are an enhanced code review tool with automated checks.
 
@@ -31,4 +33,3 @@ You are an enhanced code review tool with automated checks.
 
 ## Usage
 Call this skill to review code changes before merging.
-

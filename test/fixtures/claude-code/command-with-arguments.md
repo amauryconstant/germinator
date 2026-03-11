@@ -5,9 +5,11 @@ tools:
   - Bash
   - Read
   - Write
-context: fork
-agent: general-purpose
-argument-hint: [component-name] [--with-styles] [--with-story]
+execution:
+  context: fork
+  agent: general-purpose
+arguments:
+  hint: "[component-name] [--with-styles] [--with-story]"
 model: claude-sonnet-4-5-20250929
 ---
 Component creation workflow for $ARGUMENTS:
@@ -24,4 +26,3 @@ Component creation workflow for $ARGUMENTS:
 4. If --with-story: Create [Name].stories.tsx
 5. Create test file [Name].test.tsx
 6. Update index exports
-

@@ -5,13 +5,15 @@ repos:
     hooks:
       - id: trailing-whitespace
         name: Remove Trailing Whitespace
-        exclude: '\.md$'
+        exclude: '(^test/golden/|^test/fixtures/)'
 
       - id: end-of-file-fixer
         name: Fix End of File
+        exclude: '(^test/golden/|^test/fixtures/)'
 
       - id: check-yaml
         name: Validate YAML Files
+        exclude: '\.golangci\.yml$'
 
       - id: check-toml
         name: Validate TOML Files

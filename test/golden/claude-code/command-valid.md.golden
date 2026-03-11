@@ -13,4 +13,3 @@ This command runs comprehensive code quality checks including:
 - golangci-lint with standard rules
 
 Usage: run-lint [options] <files...>
-

@@ -1,23 +1,30 @@
 ---
-name: git-release
-description: Create consistent releases and changelogs
+name: code-analyzer
+description: Advanced code analysis with multiple backends
 tools:
   - bash
+  - grep
+  - read
 extensions:
   license: MIT
   compatibility:
     - claude-code
     - opencode
+  metadata:
+    author: "Germinator Team"
+    version: "1.0.0"
 execution:
   context: fork
-  agent: general-purpose
-model: claude-sonnet-4-5-20250929
+  agent: code-reviewer
+  userInvocable: true
+model: anthropic/claude-haiku-4-20250514
 ---
-## What I do
-- Draft release notes from merged PRs
-- Propose a version bump
-- Provide a copy-pasteable `gh release create` command
+This skill provides advanced code analysis capabilities:
+- Pattern matching and detection
+- Code complexity metrics
+- Dependency graph analysis
+- Security vulnerability scanning
 
-## When to use me
-Use this when you are preparing a tagged release.
-Ask clarifying questions if target versioning scheme is unclear.
+The skill can be invoked by users directly and automatically
+by code-reviewer agent for related tasks.
+

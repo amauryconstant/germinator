@@ -33,4 +33,3 @@ This is code-reviewer agent. It specializes in analyzing code for:
 - Code style violations
 
 The agent uses balanced permission settings for safe code review operations.
-
