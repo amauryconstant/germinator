@@ -223,6 +223,12 @@ func (e *ValidationError) Error() string {
 	return result
 }
 
+// Unwrap returns nil (validation errors don't wrap other errors).
+// Provided for API consistency with other error types.
+func (e *ValidationError) Unwrap() error {
+	return nil
+}
+
 type TransformError struct {
 	operation   string
 	platform    string

@@ -4,6 +4,8 @@ package library
 import (
 	"fmt"
 	"strings"
+
+	gerrors "gitlab.com/amoconst/germinator/internal/errors"
 )
 
 // ResourceType represents the type of a library resource.
@@ -50,10 +52,10 @@ type Resource struct {
 // Validate checks if the resource has valid fields.
 func (r *Resource) Validate() error {
 	if r.Path == "" {
-		return fmt.Errorf("resource path is required")
+		return gerrors.NewValidationError("", "path", "", "resource path is required")
 	}
 	if strings.TrimSpace(r.Path) == "" {
-		return fmt.Errorf("resource path cannot be whitespace only")
+		return gerrors.NewValidationError("", "path", "", "resource path cannot be whitespace only")
 	}
 	return nil
 }
@@ -71,17 +73,17 @@ type Preset struct {
 // Validate checks if the preset has valid fields.
 func (p *Preset) Validate() error {
 	if p.Name == "" {
-		return fmt.Errorf("preset name is required")
+		return gerrors.NewValidationError("", "name", "", "preset name is required")
 	}
 	if strings.TrimSpace(p.Name) == "" {
-		return fmt.Errorf("preset name cannot be whitespace only")
+		return gerrors.NewValidationError("", "name", "", "preset name cannot be whitespace only")
 	}
 	if len(p.Resources) == 0 {
-		return fmt.Errorf("preset %q must have at least one resource", p.Name)
+		return gerrors.NewValidationError("", "resources", "", "preset must have at least one resource")
 	}
 	for _, ref := range p.Resources {
 		if _, _, err := ParseRef(ref); err != nil {
-			return fmt.Errorf("preset %q has invalid resource reference %q: %w", p.Name, ref, err)
+			return gerrors.NewValidationError("", "resources", ref, "invalid resource reference in preset").WithContext(p.Name)
 		}
 	}
 	return nil
@@ -104,11 +106,11 @@ type Library struct {
 func ParseRef(ref string) (typ, name string, err error) {
 	parts := strings.Split(ref, "/")
 	if len(parts) != 2 {
-		return "", "", fmt.Errorf("invalid resource reference format: %q (expected type/name)", ref)
+		return "", "", gerrors.NewConfigError("reference", ref, "invalid resource reference format (expected type/name)")
 	}
 	typ, name = parts[0], parts[1]
 	if typ == "" || name == "" {
-		return "", "", fmt.Errorf("invalid resource reference format: %q (type and name cannot be empty)", ref)
+		return "", "", gerrors.NewConfigError("reference", ref, "invalid resource reference format (type and name cannot be empty)")
 	}
 	return typ, name, nil
 }

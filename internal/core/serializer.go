@@ -13,6 +13,7 @@ import (
 	"gitlab.com/amoconst/germinator/internal/adapters"
 	claudecode "gitlab.com/amoconst/germinator/internal/adapters/claude-code"
 	opencode "gitlab.com/amoconst/germinator/internal/adapters/opencode"
+	gerrors "gitlab.com/amoconst/germinator/internal/errors"
 	"gitlab.com/amoconst/germinator/internal/models/canonical"
 )
 
@@ -29,17 +30,17 @@ type canonicalTemplateContext struct {
 func RenderDocument(doc interface{}, platform string) (string, error) {
 	docType, err := getDocType(doc)
 	if err != nil {
-		return "", fmt.Errorf("failed to determine document type: %w", err)
+		return "", gerrors.NewTransformError("render", platform, "failed to determine document type", err)
 	}
 
 	tmplPath, err := getTemplatePath(platform, docType+".tmpl")
 	if err != nil {
-		return "", fmt.Errorf("failed to get template path: %w", err)
+		return "", gerrors.NewTransformError("render", platform, "failed to get template path", err)
 	}
 
 	tmplContent, err := os.ReadFile(tmplPath)
 	if err != nil {
-		return "", fmt.Errorf("failed to read template file %s: %w", tmplPath, err)
+		return "", gerrors.NewFileError(tmplPath, "read", "failed to read template file", err)
 	}
 
 	var adapter interface{}
@@ -57,12 +58,12 @@ func RenderDocument(doc interface{}, platform string) (string, error) {
 
 	tmpl, err := template.New(docType).Funcs(createTemplateFuncMap()).Parse(string(tmplContent))
 	if err != nil {
-		return "", fmt.Errorf("failed to parse template: %w", err)
+		return "", gerrors.NewTransformError("render", platform, "failed to parse template", err)
 	}
 
 	var sb strings.Builder
 	if err := tmpl.Execute(&sb, ctx); err != nil {
-		return "", fmt.Errorf("failed to execute template: %w", err)
+		return "", gerrors.NewTransformError("render", platform, "failed to execute template", err)
 	}
 
 	return sb.String(), nil
@@ -174,7 +175,7 @@ func getTemplatePath(platform string, filename string) (string, error) {
 		if _, err := os.Stat(altPath); err == nil {
 			return filepath.Abs(altPath)
 		}
-		return "", fmt.Errorf("template file not found: %s", relPath)
+		return "", gerrors.NewFileError(relPath, "read", "template file not found", nil)
 	}
 
 	return filepath.Abs(tmplPath)
@@ -191,7 +192,7 @@ func getDocType(doc interface{}) (string, error) {
 	case *CanonicalSkill:
 		return "skill", nil
 	default:
-		return "", fmt.Errorf("unknown document type: %T", d)
+		return "", gerrors.NewTransformError("marshal", "canonical", fmt.Sprintf("unknown document type: %T", d), nil)
 	}
 }
 
@@ -199,17 +200,17 @@ func getDocType(doc interface{}) (string, error) {
 func MarshalCanonical(doc interface{}) (string, error) {
 	docType, err := getDocType(doc)
 	if err != nil {
-		return "", fmt.Errorf("failed to determine document type: %w", err)
+		return "", gerrors.NewTransformError("marshal", "canonical", "failed to determine document type", err)
 	}
 
 	tmplPath, err := getCanonicalTemplatePath(docType + ".tmpl")
 	if err != nil {
-		return "", fmt.Errorf("failed to get template path: %w", err)
+		return "", gerrors.NewTransformError("marshal", "canonical", "failed to get template path", err)
 	}
 
 	tmplContent, err := os.ReadFile(tmplPath)
 	if err != nil {
-		return "", fmt.Errorf("failed to read template file %s: %w", tmplPath, err)
+		return "", gerrors.NewFileError(tmplPath, "read", "failed to read template file", err)
 	}
 
 	ctx := canonicalTemplateContext{
@@ -218,12 +219,12 @@ func MarshalCanonical(doc interface{}) (string, error) {
 
 	tmpl, err := template.New(docType).Funcs(createCanonicalTemplateFuncMap()).Parse(string(tmplContent))
 	if err != nil {
-		return "", fmt.Errorf("failed to parse template: %w", err)
+		return "", gerrors.NewTransformError("marshal", "canonical", "failed to parse template", err)
 	}
 
 	var sb strings.Builder
 	if err := tmpl.Execute(&sb, ctx); err != nil {
-		return "", fmt.Errorf("failed to execute template: %w", err)
+		return "", gerrors.NewTransformError("marshal", "canonical", "failed to execute template", err)
 	}
 
 	return sb.String(), nil
@@ -244,7 +245,7 @@ func getCanonicalTemplatePath(filename string) (string, error) {
 		if _, err := os.Stat(altPath); err == nil {
 			return filepath.Abs(altPath)
 		}
-		return "", fmt.Errorf("canonical template file not found: %s", relPath)
+		return "", gerrors.NewFileError(relPath, "read", "canonical template file not found", nil)
 	}
 
 	return filepath.Abs(tmplPath)

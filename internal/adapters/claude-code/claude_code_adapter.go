@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"gitlab.com/amoconst/germinator/internal/adapters"
+	gerrors "gitlab.com/amoconst/germinator/internal/errors"
 	"gitlab.com/amoconst/germinator/internal/models/canonical"
 )
 
@@ -16,7 +17,7 @@ func New() *ClaudeCodeAdapter {
 func (a *ClaudeCodeAdapter) ToCanonical(input map[string]interface{}) (*canonical.Agent, *canonical.Command, *canonical.Skill, *canonical.Memory, error) {
 	docType, ok := input["__type"].(string)
 	if !ok {
-		return nil, nil, nil, nil, fmt.Errorf("missing __type field")
+		return nil, nil, nil, nil, gerrors.NewParseError("", "missing __type field", nil)
 	}
 
 	switch docType {
@@ -33,7 +34,7 @@ func (a *ClaudeCodeAdapter) ToCanonical(input map[string]interface{}) (*canonica
 		mem, err := a.parseMemory(input)
 		return nil, nil, nil, mem, err
 	default:
-		return nil, nil, nil, nil, fmt.Errorf("unknown document type: %s", docType)
+		return nil, nil, nil, nil, gerrors.NewParseError("", "unknown document type: "+docType, nil)
 	}
 }
 
@@ -42,36 +43,36 @@ func (a *ClaudeCodeAdapter) FromCanonical(docType string, doc interface{}) (map[
 	case "agent":
 		agent, ok := doc.(*canonical.Agent)
 		if !ok {
-			return nil, fmt.Errorf("expected *canonical.Agent, got %T", doc)
+			return nil, gerrors.NewTransformError("from-canonical", "claude-code", fmt.Sprintf("expected *canonical.Agent, got %T", doc), nil)
 		}
 		return a.renderAgent(agent)
 	case "command":
 		cmd, ok := doc.(*canonical.Command)
 		if !ok {
-			return nil, fmt.Errorf("expected *canonical.Command, got %T", doc)
+			return nil, gerrors.NewTransformError("from-canonical", "claude-code", fmt.Sprintf("expected *canonical.Command, got %T", doc), nil)
 		}
 		return a.renderCommand(cmd)
 	case "skill":
 		skill, ok := doc.(*canonical.Skill)
 		if !ok {
-			return nil, fmt.Errorf("expected *canonical.Skill, got %T", doc)
+			return nil, gerrors.NewTransformError("from-canonical", "claude-code", fmt.Sprintf("expected *canonical.Skill, got %T", doc), nil)
 		}
 		return a.renderSkill(skill)
 	case "memory":
 		mem, ok := doc.(*canonical.Memory)
 		if !ok {
-			return nil, fmt.Errorf("expected *canonical.Memory, got %T", doc)
+			return nil, gerrors.NewTransformError("from-canonical", "claude-code", fmt.Sprintf("expected *canonical.Memory, got %T", doc), nil)
 		}
 		return a.renderMemory(mem)
 	default:
-		return nil, fmt.Errorf("unknown document type: %s", docType)
+		return nil, gerrors.NewTransformError("from-canonical", "claude-code", "unknown document type: "+docType, nil)
 	}
 }
 
 func (a *ClaudeCodeAdapter) PermissionPolicyToPlatform(policy canonical.PermissionPolicy) (interface{}, error) {
 	mapping, ok := adapters.PermissionPolicyMappings[string(policy)]
 	if !ok {
-		return nil, fmt.Errorf("unknown permission policy: %s", policy)
+		return nil, gerrors.NewConfigError("permission-policy", string(policy), "unknown permission policy")
 	}
 	return mapping.ClaudeCode, nil
 }

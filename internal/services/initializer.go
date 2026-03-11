@@ -49,7 +49,7 @@ func (i *initializer) Initialize(ctx context.Context, req *application.Initializ
 		if err != nil {
 			result.Error = err
 			results = append(results, result)
-			return results, fmt.Errorf("failed to resolve %s: %w", ref, err)
+			return results, err
 		}
 		result.InputPath = inputPath
 
@@ -65,14 +65,14 @@ func (i *initializer) Initialize(ctx context.Context, req *application.Initializ
 		if err != nil {
 			result.Error = err
 			results = append(results, result)
-			return results, fmt.Errorf("failed to get output path for %s: %w", ref, err)
+			return results, err
 		}
 		result.OutputPath = outputPath
 
 		// Check if file exists (unless force or dry-run)
 		if !req.DryRun && !req.Force {
 			if _, err := os.Stat(outputPath); err == nil {
-				result.Error = fmt.Errorf("file exists: %s (use --force to overwrite)", outputPath)
+				result.Error = gerrors.NewFileError(outputPath, "write", "file exists (use --force to overwrite)", nil)
 				results = append(results, result)
 				return results, result.Error
 			}
@@ -89,7 +89,7 @@ func (i *initializer) Initialize(ctx context.Context, req *application.Initializ
 		if err != nil {
 			result.Error = err
 			results = append(results, result)
-			return results, fmt.Errorf("failed to load %s: %w", inputPath, err)
+			return results, err
 		}
 
 		// Render the document
@@ -97,7 +97,7 @@ func (i *initializer) Initialize(ctx context.Context, req *application.Initializ
 		if err != nil {
 			result.Error = err
 			results = append(results, result)
-			return results, fmt.Errorf("failed to render %s: %w", ref, err)
+			return results, err
 		}
 
 		// Create output directory

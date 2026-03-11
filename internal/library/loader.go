@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	gerrors "gitlab.com/amoconst/germinator/internal/errors"
 	yaml "gopkg.in/yaml.v3"
 )
 
@@ -25,12 +26,12 @@ func LoadLibrary(path string) (*Library, error) {
 	info, err := os.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("library not found: %s", path)
+			return nil, gerrors.NewFileError(path, "access", "library not found", nil)
 		}
-		return nil, fmt.Errorf("failed to access library: %w", err)
+		return nil, gerrors.NewFileError(path, "access", "failed to access library", err)
 	}
 	if !info.IsDir() {
-		return nil, fmt.Errorf("library path is not a directory: %s", path)
+		return nil, gerrors.NewFileError(path, "access", "path is not a directory", nil)
 	}
 
 	// Read library.yaml
@@ -38,23 +39,23 @@ func LoadLibrary(path string) (*Library, error) {
 	yamlContent, err := os.ReadFile(yamlPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("library.yaml not found: %s", yamlPath)
+			return nil, gerrors.NewFileError(yamlPath, "read", "library.yaml not found", nil)
 		}
-		return nil, fmt.Errorf("failed to read library.yaml: %w", err)
+		return nil, gerrors.NewFileError(yamlPath, "read", "failed to read library.yaml", err)
 	}
 
 	// Parse YAML
 	var libYAML libraryYAML
 	if err := yaml.Unmarshal(yamlContent, &libYAML); err != nil {
-		return nil, fmt.Errorf("failed to parse library.yaml: %w", err)
+		return nil, gerrors.NewParseError(yamlPath, "failed to parse library.yaml", err)
 	}
 
 	// Validate version
 	if libYAML.Version == "" {
-		return nil, fmt.Errorf("library.yaml missing version field")
+		return nil, gerrors.NewConfigError("version", "", "library.yaml missing version field")
 	}
 	if libYAML.Version != SupportedVersion {
-		return nil, fmt.Errorf("unsupported library version: %s (expected %s)", libYAML.Version, SupportedVersion)
+		return nil, gerrors.NewConfigError("version", libYAML.Version, fmt.Sprintf("unsupported library version (expected %s)", SupportedVersion))
 	}
 
 	// Create library
@@ -78,7 +79,7 @@ func LoadLibrary(path string) (*Library, error) {
 		// Validate type
 		resourceType := ResourceType(typ)
 		if !resourceType.IsValid() {
-			return nil, fmt.Errorf("invalid resource type: %s", typ)
+			return nil, gerrors.NewConfigError("resource-type", typ, "invalid resource type")
 		}
 
 		// Validate each resource

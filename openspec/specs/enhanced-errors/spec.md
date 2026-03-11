@@ -289,3 +289,15 @@ All error types' `Error()` method SHALL include context and suggestions in the f
 - **WHEN** `err.Error()` is called on a ConfigError with suggestions
 - **THEN** the string SHALL contain the suggestions formatted as "Hint: <suggestion>"
 - **AND** this SHALL replace the old "Available: ..." format
+
+---
+
+### Requirement: ValidationError Unwrap method for API consistency
+
+The system SHALL provide an `Unwrap() error` method on ValidationError that returns nil.
+
+#### Scenario: ValidationError Unwrap returns nil
+
+- **WHEN** `err.Unwrap()` is called on a ValidationError
+- **THEN** it SHALL return nil
+- **AND** this SHALL provide API consistency with ParseError, TransformError, and FileError

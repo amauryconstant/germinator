@@ -2,7 +2,6 @@
 package core
 
 import (
-	"fmt"
 	"os"
 	"strings"
 
@@ -53,7 +52,7 @@ func ParseDocument(filePath string, docType string) (interface{}, error) {
 		return parseDocumentWithFrontmatter(filePath, fileContent, docType)
 
 	default:
-		return nil, fmt.Errorf("unsupported document type: %s", docType)
+		return nil, gerrors.NewParseError(filePath, "unsupported document type: "+docType, nil)
 	}
 }
 
@@ -140,7 +139,7 @@ func extractContentFromYamlLines(yamlLines []string) string {
 func parseDocumentWithFrontmatter(filePath string, fileContent string, docType string) (interface{}, error) {
 	yamlContent, markdownBody, err := extractFrontmatter(fileContent)
 	if err != nil {
-		return nil, fmt.Errorf("failed to extract frontmatter: %w", err)
+		return nil, gerrors.NewParseError(filePath, "failed to extract frontmatter", err)
 	}
 
 	var doc interface{}
@@ -148,7 +147,7 @@ func parseDocumentWithFrontmatter(filePath string, fileContent string, docType s
 	case "agent":
 		var agent CanonicalAgent
 		if err := yaml.Unmarshal([]byte(yamlContent), &agent.Agent); err != nil {
-			return nil, fmt.Errorf("failed to parse agent: %w", err)
+			return nil, gerrors.NewParseError(filePath, "failed to parse agent", err)
 		}
 		agent.FilePath = filePath
 		agent.Content = markdownBody
@@ -157,7 +156,7 @@ func parseDocumentWithFrontmatter(filePath string, fileContent string, docType s
 	case "command":
 		var command CanonicalCommand
 		if err := yaml.Unmarshal([]byte(yamlContent), &command.Command); err != nil {
-			return nil, fmt.Errorf("failed to parse command: %w", err)
+			return nil, gerrors.NewParseError(filePath, "failed to parse command", err)
 		}
 		command.FilePath = filePath
 		command.Content = markdownBody
@@ -166,7 +165,7 @@ func parseDocumentWithFrontmatter(filePath string, fileContent string, docType s
 	case "skill":
 		var skill CanonicalSkill
 		if err := yaml.Unmarshal([]byte(yamlContent), &skill.Skill); err != nil {
-			return nil, fmt.Errorf("failed to parse skill: %w", err)
+			return nil, gerrors.NewParseError(filePath, "failed to parse skill", err)
 		}
 		skill.FilePath = filePath
 		skill.Content = markdownBody

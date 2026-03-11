@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+
+	gerrors "gitlab.com/amoconst/germinator/internal/errors"
 )
 
 // ResolveResource resolves a resource reference to an absolute file path.
@@ -16,12 +18,12 @@ func ResolveResource(lib *Library, ref string) (string, error) {
 
 	resources, ok := lib.Resources[typ]
 	if !ok {
-		return "", fmt.Errorf("resource not found: %s", ref)
+		return "", gerrors.NewFileError(ref, "resolve", "resource not found", nil)
 	}
 
 	res, ok := resources[name]
 	if !ok {
-		return "", fmt.Errorf("resource not found: %s", ref)
+		return "", gerrors.NewFileError(ref, "resolve", "resource not found", nil)
 	}
 
 	return filepath.Join(lib.RootPath, res.Path), nil
@@ -46,7 +48,7 @@ func ResolveResources(lib *Library, refs []string) ([]string, error) {
 func ResolvePreset(lib *Library, name string) ([]string, error) {
 	preset, ok := lib.Presets[name]
 	if !ok {
-		return nil, fmt.Errorf("preset not found: %s", name)
+		return nil, gerrors.NewConfigError("preset", name, "preset not found")
 	}
 	return preset.Resources, nil
 }
@@ -84,12 +86,12 @@ var PlatformOutputPaths = map[string]map[ResourceType]OutputPathConfig{
 func GetOutputPath(typ, name, platform, outputDir string) (string, error) {
 	resourceType := ResourceType(typ)
 	if !resourceType.IsValid() {
-		return "", fmt.Errorf("invalid resource type: %s", typ)
+		return "", gerrors.NewConfigError("resource-type", typ, "invalid resource type")
 	}
 
 	platformConfigs, ok := PlatformOutputPaths[platform]
 	if !ok {
-		return "", fmt.Errorf("unknown platform: %s", platform)
+		return "", gerrors.NewConfigError("platform", platform, "unknown platform")
 	}
 
 	config, ok := platformConfigs[resourceType]
