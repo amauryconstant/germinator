@@ -21,7 +21,7 @@ No arguments required. The AI will guide you through scope selection.
    ```bash
    find openspec/changes/archive -type d -name "????-??-??-*" | sort
    ```
-   
+
    Change directory format: `YYYY-MM-DD-<change-name>/`
 
 2. **Prompt for scope selection**
@@ -84,7 +84,7 @@ No arguments required. The AI will guide you through scope selection.
    If exists:
    - Detect current version from `## [Version]` headers
    - Add new entries to `## [Unreleased]` section
-   
+
    If not exists:
    - Create new file with Keep a Changelog header
    - Start with `## [Unreleased]`

@@ -95,4 +95,3 @@ Template functions SHALL have unit tests covering all scenarios.
 - **THEN** all 5 Claude Code modes SHALL be tested
 - **AND** unknown mode SHALL be tested
 - **AND** all tests SHALL pass
-

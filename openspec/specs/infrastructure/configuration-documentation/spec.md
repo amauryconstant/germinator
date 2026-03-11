@@ -49,4 +49,3 @@ Empty directories SHALL be preserved in version control if needed.
 **When** repository is committed
 **Then** .gitkeep file MAY exist
 **And** directory SHALL be tracked by git
-

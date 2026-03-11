@@ -16,7 +16,7 @@ None.
 
 **Location:** `internal/errors/types.go` (ParseError, TransformError, FileError, ConfigError)
 
-**Spec requirement:** 
+**Spec requirement:**
 - `spec.md:277-286` - "All error types' `Error()` method SHALL include context and suggestions in the formatted output"
 - `spec.md:281` - "the string SHALL contain the suggestions formatted as 'Hint: <suggestion>'"
 - `spec.md:285` - "the string SHALL contain 'Context: loading config'"

@@ -32,7 +32,7 @@ Current state:
 
 **Choice**: Adopt the same testing stack as twiggit
 
-**Rationale**: 
+**Rationale**:
 - Ginkgo provides BDD-style tests with BeforeEach/AfterEach setup
 - Gomega offers fluent assertions (`Expect`, `Eventually`)
 - gexec handles process lifecycle (building, running, cleanup)

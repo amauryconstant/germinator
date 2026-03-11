@@ -15,17 +15,17 @@ graph LR
         A2[instructions]
         A3[list]
     end
-    
+
     subgraph "Validation"
         A4[validate]
         A5[show]
     end
-    
+
     subgraph "Discovery"
         A6[schemas]
         A7[templates]
     end
-    
+
     style A1 fill:#c8e6c9
     style A2 fill:#c8e6c9
     style A3 fill:#c8e6c9

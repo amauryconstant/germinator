@@ -121,4 +121,3 @@
 - **THEN** Name field is NOT rendered in frontmatter
 - **AND** OpenCode uses filename as command identifier
 - **AND** Claude Code templates render name field in frontmatter
-

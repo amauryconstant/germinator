@@ -32,7 +32,7 @@ Optionally specify `[change-name]` after `/opsx-verify-tests`. If omitted, the A
    ```bash
    cat openspec/config.yaml
    ```
-   
+
    Extract if present:
    - Testing framework conventions
    - Test directory patterns
@@ -46,7 +46,7 @@ Optionally specify `[change-name]` after `/opsx-verify-tests`. If omitted, the A
    ```bash
    ls openspec/changes/<name>/specs/
    ```
-   
+
    Parse each spec for:
    - Requirement names (`### Requirement: ...`)
    - Scenario names (`#### Scenario: ...`)

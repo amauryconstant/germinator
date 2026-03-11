@@ -136,11 +136,11 @@ def find_skill_entry(content, skill_name):
 def find_and_remove_skill(content, skill_name):
     lines = content.split('\n')
     new_lines = []
-    
+
     for line in lines:
         if not line.strip().startswith(f'- `{skill_name}`:'):
             new_lines.append(line)
-    
+
     return '\n'.join(new_lines)
 ```
 
@@ -151,7 +151,7 @@ def cleanup_blank_lines(content):
     lines = content.split('\n')
     cleaned = []
     prev_was_blank = False
-    
+
     for line in lines:
         is_blank = line.strip() == ''
         if not (is_blank and prev_was_blank):
@@ -159,7 +159,7 @@ def cleanup_blank_lines(content):
         prev_was_blank = is_blank
         else:
             cleaned.append(line)
-    
+
     return '\n'.join(cleaned)
 ```
 
@@ -182,13 +182,13 @@ def cleanup_blank_lines(content):
 def update_skills_distributed(content, skill_name, new_description):
     lines = content.split('\n')
     updated = []
-    
+
     for line in lines:
         if line.strip().startswith(f'- `{skill_name}`:'):
             updated.append(f'- `{skill_name}`: {new_description}')
         else:
             updated.append(line)
-    
+
     return '\n'.join(updated)
 ```
 

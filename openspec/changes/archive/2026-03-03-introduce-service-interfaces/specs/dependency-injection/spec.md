@@ -93,7 +93,7 @@ The `main.go` file SHALL be the composition root where all services are wired an
 
 #### Scenario: Command tree construction in main
 
-- **WHEN** main() executes  
+- **WHEN** main() executes
 - **THEN** `NewRootCommand(config)` is called
 - **AND** the returned command is executed via `cmd.Execute()`
 

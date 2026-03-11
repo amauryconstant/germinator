@@ -78,10 +78,10 @@ graph TB
         changes["changes/<br/>Proposed modifications<br/>Each change = one folder"]
         archive["changes/archive/<br/>Completed changes<br/>Preserved for history"]
     end
-    
+
     changes -->|"merge deltas"| specs
     changes -->|"when done"| archive
-    
+
     style specs fill:#e1f5fe
     style changes fill:#fff3e0
     style archive fill:#e8f5e9
@@ -177,19 +177,19 @@ graph TB
     subgraph Exploration["Exploration"]
         E1[openspec-explore]
     end
-    
+
     subgraph Planning["Planning"]
         P1[openspec-new-change]
         P2[openspec-continue-change<br/>or openspec-ff-change]
         P3[openspec-review-artifacts]
         P4[openspec-modify-artifacts]
     end
-    
+
     subgraph Implementation["Implementation"]
         I1[openspec-apply-change]
         I2[openspec-review-test-compliance]
     end
-    
+
     subgraph Completion["Completion"]
         C1[openspec-verify-change]
         C2[openspec-maintain-ai-docs]
@@ -197,10 +197,10 @@ graph TB
         C4[openspec-archive-change<br/>or bulk-archive]
         C5[openspec-generate-changelog]
     end
-    
+
     E1 --> P1 --> P2 --> P3 --> I1 --> C1 --> C2 --> C4 --> C5
     C2 -.->|optional| C3 --> C4
-    
+
     P3 -.->|issues found| P4
     P4 -.-> P3
     I1 -.->|reality diverges| P4
@@ -241,21 +241,21 @@ graph TB
 ```mermaid
 graph TB
     start["User requests change"]
-    
+
     q1{"Quick fix?<br/>(1-2 lines)"}
     skip1["Skip OpenSpec<br/>Just implement"]
-    
+
     q2{"Emergency?"}
     skip2["Hotfix now<br/>Document later"]
-    
+
     q3{"Unclear scope?"}
     use1["Use OpenSpec<br/>/opsx:explore first"]
-    
+
     q4{"Multi-step?<br/>(3+ tasks)"}
     use2["Use OpenSpec<br/>/opsx:new"]
-    
+
     optional["Optional:<br/>Consider OpenSpec"]
-    
+
     start --> q1
     q1 -->|"Yes"| skip1
     q1 -->|"No"| q2
@@ -265,7 +265,7 @@ graph TB
     q3 -->|"No"| q4
     q4 -->|"Yes"| use2
     q4 -->|"No"| optional
-    
+
     style use1 fill:#c8e6c9
     style use2 fill:#c8e6c9
 ```
@@ -279,17 +279,17 @@ graph TB
 ```mermaid
 graph TB
     start["Continue existing<br/>or start new?"]
-    
+
     q1{"Same intent?<br/>Same problem?"}
     new1["Start New Change"]
-    
+
     q2{">50% overlap?<br/>Same scope?"}
     new2["Start New Change"]
-    
+
     q3{"Can original be<br/>done without these<br/>changes?"}
     update["Update Existing<br/>Change"]
     new3["Start New Change"]
-    
+
     start --> q1
     q1 -->|"No"| new1
     q1 -->|"Yes"| q2
@@ -297,7 +297,7 @@ graph TB
     q2 -->|"Yes"| q3
     q3 -->|"No"| update
     q3 -->|"Yes"| new3
-    
+
     style update fill:#c8e6c9
     style new1 fill:#bbdefb
     style new2 fill:#bbdefb

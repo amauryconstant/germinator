@@ -43,7 +43,7 @@ Several workflow improvements would help:
 
 ## 8. What would improve for future changes?
 
-The suggestions.md file contained only cosmetic items, none of which were blockers. The two suggestions (adding Context to Error() output, updating spec to match implementation) are minor polish items. Neither should become new OpenSpec changes - they're low-impact refinements. 
+The suggestions.md file contained only cosmetic items, none of which were blockers. The two suggestions (adding Context to Error() output, updating spec to match implementation) are minor polish items. Neither should become new OpenSpec changes - they're low-impact refinements.
 
 **Artifact quality improvements:**
 - Specs should explicitly state when Error() method output differs from formatter output

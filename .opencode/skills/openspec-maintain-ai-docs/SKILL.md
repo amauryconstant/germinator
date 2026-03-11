@@ -40,7 +40,7 @@ Update project documentation after implementing an OpenSpec change.
 2. **Read change artifacts**
 
    Read files from `openspec/changes/<name>/`:
-   
+
    | File | Extract |
    |------|---------|
    | `proposal.md` | Intent, scope, new features/capabilities |
@@ -142,7 +142,7 @@ Update project documentation after implementing an OpenSpec change.
 7. **Generate proposed updates**
 
    Apply best practices:
-   
+
    **Use tables for lists**:
    ```markdown
    | Command | Purpose |

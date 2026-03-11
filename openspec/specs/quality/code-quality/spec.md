@@ -56,4 +56,3 @@ The project SHALL enforce code quality through core linting rules.
 **When** code is linted
 **Then** unchecked errors SHALL be reported
 **And** developers SHALL be notified of unhandled errors
-

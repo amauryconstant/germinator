@@ -15,7 +15,7 @@
 
 ## E2E Testing
 
-**Stack**: Ginkgo v2, Gomega, gexec  
+**Stack**: Ginkgo v2, Gomega, gexec
 **Build tag**: `//go:build e2e` (excluded from `go test ./...`)
 
 ### Running E2E Tests

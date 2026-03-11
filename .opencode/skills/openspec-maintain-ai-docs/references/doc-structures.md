@@ -210,7 +210,7 @@ Projects with both tools may have:
 def extract_skills_list(content):
     skills = []
     in_skills_section = False
-    
+
     for line in content.split('\n'):
         if '**Skills Distributed**:' in line:
             in_skills_section = True
@@ -218,7 +218,7 @@ def extract_skills_list(content):
             skill_name = line.split(':`')[0].strip().strip(' -`')
             description = line.split(':', 1)[1].strip() if ':' in line else ''
             skills.append({'name': skill_name, 'description': description})
-    
+
     return skills
 ```
 
@@ -229,14 +229,14 @@ def extract_skills_list(content):
 def extract_claude_sections(content):
     sections = {}
     current_section = None
-    
+
     for line in content.split('\n'):
         if line.startswith('##'):
             current_section = line.strip('#')
             sections[current_section] = []
         elif current_section and line.startswith('- '):
             sections[current_section].append(line.strip('- '))
-    
+
     return sections
 ```
 

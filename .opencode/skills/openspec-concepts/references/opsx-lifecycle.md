@@ -20,28 +20,28 @@ graph TB
         E3["Investigate<br/>codebase"]
         E4["Compare<br/>approaches"]
     end
-    
+
     subgraph "Phase 2: Planning"
         P1["/opsx:new"]
         P2["Create change<br/>folder"]
         P3["/opsx:continue<br/>or /opsx:ff"]
         P4["Create artifacts<br/>proposal → specs →<br/>design → tasks"]
     end
-    
+
     subgraph "Phase 3: Implementation"
         I1["/opsx:apply"]
         I2["Work through<br/>tasks"]
         I3["Check off<br/>completed items"]
         I4["Update artifacts<br/>as needed"]
     end
-    
+
     subgraph "Phase 4: Completion"
         C1["/opsx:verify"]
         C2["Validate<br/>implementation"]
         C3["/opsx:archive"]
         C4["Merge deltas<br/>Move to archive/"]
     end
-    
+
     E1 --> E2 --> E3 --> E4
     E4 -.->|"insights crystallize"| P1
     P1 --> P2 --> P3 --> P4
@@ -51,7 +51,7 @@ graph TB
     I4 -.->|"back to tasks"| I2
     I2 -->|"all tasks done"| C1
     C1 --> C2 --> C3 --> C4
-    
+
     style E1 fill:#e3f2fd
     style P1 fill:#fff8e1
     style I1 fill:#e8f5e9
@@ -90,12 +90,12 @@ graph TB
         design["◆ design<br/>(READY)"]
         tasks["○ tasks<br/>(BLOCKED)"]
     end
-    
+
     proposal --> specs
     proposal --> design
     specs --> tasks
     design --> tasks
-    
+
     style proposal fill:#c8e6c9
     style specs fill:#c8e6c9
     style design fill:#fff9c4
@@ -138,7 +138,7 @@ AI:  [investigates...]
      1. Middleware-based
      2. Redis-backed
      3. Token bucket
-     
+
      Which direction?
 You: Let's go with Redis. Start a change?
 AI:  Ready when you are. Run /opsx:new add-rate-limiting
@@ -164,7 +164,7 @@ openspec/changes/<change-name>/
 You: /opsx:new add-dark-mode
 AI:  Created openspec/changes/add-dark-mode/
      Schema: spec-driven
-     
+
      Ready to create: proposal
      Use /opsx:continue or /opsx:ff
 ```
@@ -221,12 +221,12 @@ Fast-forward through all planning artifacts.
 You: /opsx:ff add-dark-mode
 
 AI:  Fast-forwarding add-dark-mode...
-     
+
      ✓ Creating proposal.md
      ✓ Creating specs/ui/spec.md
      ✓ Creating design.md
      ✓ Creating tasks.md
-     
+
      All planning artifacts complete!
      Ready for implementation. Run /opsx:apply to begin.
 ```
@@ -253,17 +253,17 @@ Implement tasks from the change.
 You: /opsx:apply
 
 AI:  Implementing add-dark-mode...
-     
+
      Reading tasks.md:
      - [ ] 1.1 Create ThemeContext
      - [ ] 1.2 Add CSS custom properties
      - [ ] 1.3 Implement localStorage persistence
-     
+
      Working on 1.1: Create ThemeContext...
      [Creates src/context/ThemeContext.tsx]
-     
+
      ✓ 1.1 Complete
-     
+
      Working on 1.2...
 ```
 
@@ -294,20 +294,20 @@ Validate implementation against artifacts.
 You: /opsx:verify
 
 AI:  Verifying add-dark-mode...
-     
+
      COMPLETENESS
      ✓ All 8 tasks in tasks.md are checked
      ✓ All requirements in specs have corresponding code
      ⚠ Scenario "System preference detection" has no test
-     
+
      CORRECTNESS
      ✓ Implementation matches spec intent
      ✓ Edge cases handled
-     
+
      COHERENCE
      ✓ Design decisions reflected in code structure
      ⚠ Design mentions "CSS variables" but uses Tailwind classes
-     
+
      SUMMARY
      Critical issues: 0
      Warnings: 2
@@ -331,21 +331,21 @@ Complete the change and merge to main specs.
 You: /opsx:archive
 
 AI:  Archiving add-dark-mode...
-     
+
      Artifact status:
      ✓ proposal.md exists
      ✓ specs/ exists
      ✓ design.md exists
      ✓ tasks.md exists (8/8 tasks complete)
-     
+
      Delta specs: Not yet synced
      → Sync now? (recommended)
-     
+
 You: Yes
 
 AI:  ✓ Synced specs to openspec/specs/ui/spec.md
      ✓ Moved to openspec/changes/archive/2025-01-24-add-dark-mode/
-     
+
      Change archived successfully.
 ```
 
@@ -373,15 +373,15 @@ AI:  Found 3 completed changes:
      - add-dark-mode (8/8 tasks)
      - fix-login-bug (3/3 tasks)
      - update-footer (2/2 tasks)
-     
+
      Checking for spec conflicts...
      ⚠ add-dark-mode and update-footer both touch specs/ui/
-     
+
      Inspecting codebase to resolve...
      Both changes are implemented. Will apply in order:
      1. add-dark-mode (created Jan 20)
      2. update-footer (created Jan 22)
-     
+
      Archive all 3 changes?
 ```
 
@@ -399,15 +399,15 @@ artifacts:
   - id: proposal
     generates: proposal.md
     requires: []
-    
+
   - id: specs
     generates: specs/**/*.md
     requires: [proposal]
-    
+
   - id: design
     generates: design.md
     requires: [proposal]
-    
+
   - id: tasks
     generates: tasks.md
     requires: [specs, design]
@@ -436,11 +436,11 @@ artifacts:
   - id: research
     generates: research.md
     requires: []
-    
+
   - id: proposal
     generates: proposal.md
     requires: [research]
-    
+
   - id: tasks
     generates: tasks.md
     requires: [proposal]

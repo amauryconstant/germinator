@@ -281,14 +281,14 @@ Before and after examples showing how AGENTS.md and CLAUDE.md are updated.
 
 **After**: Skills Distributed section lists 3 skills
 
-**Action**: 
+**Action**:
 1. Scan actual skills directory
 2. Report discrepancy: "2 documented skills no longer exist"
 3. Ask user whether to remove entries or investigate
 
 ### Malformed Skill Entry
 
-**Before**: 
+**Before**:
 ```markdown
 - openspec-concepts Teaches AI agents about OpenSpec framework
 ```
@@ -306,7 +306,7 @@ Before and after examples showing how AGENTS.md and CLAUDE.md are updated.
 
 **After**: Document skill without version
 
-**Action**: 
+**Action**:
 1. Report "SKILL.md missing frontmatter" in discrepancy report
 2. Add entry anyway with note: "(version unknown)"
 3. Ask user to fix SKILL.md frontmatter for future runs

@@ -250,4 +250,3 @@ The CI configuration SHALL support rollback to previous image version if issues 
 **Then** previous Debian image tag SHALL still be available
 **And** both latest and versioned tags SHALL exist for new image
 **And** older versioned tags SHALL remain available
-

@@ -621,6 +621,3 @@
          - Verify platform flag validation, error messages, exit codes
          - Add tests for help text completeness
          - Increase cmd package coverage significantly
-
-
-

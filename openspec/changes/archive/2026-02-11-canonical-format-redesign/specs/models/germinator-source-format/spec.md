@@ -45,7 +45,7 @@ The system SHALL use a domain-driven canonical YAML format expressing configurat
 
 **Reason**: Canonical format uses domain-driven field names, not platform-specific enums. Platform adapters handle conversion to/from platform-specific formats. This requirement describes the old approach of having all platform fields in one format.
 
-**Migration**: 
+**Migration**:
 - Use canonical models with domain-driven field names
 - Create platform adapters in `internal/adapters/` for platform-specific conversions
 - Update templates to render from canonical models

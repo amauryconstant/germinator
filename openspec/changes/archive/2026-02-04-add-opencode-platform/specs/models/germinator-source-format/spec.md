@@ -75,4 +75,3 @@ The system SHALL allow source YAML files to omit optional platform-specific fiel
 - **WHEN** Temperature is 0.0
 - **THEN** Temperature field SHALL be rendered as `temperature: 0.0` in OpenCode output
 - **AND** User explicitly requested deterministic low-temperature behavior
-

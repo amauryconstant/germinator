@@ -239,12 +239,12 @@ graph TB
     specs["specs"]
     design["design"]
     tasks["tasks"]
-    
+
     proposal --> specs
     proposal --> design
     specs --> tasks
     design --> tasks
-    
+
     style proposal fill:#c8e6c9
     style specs fill:#fff9c4
     style design fill:#fff9c4
@@ -259,15 +259,15 @@ artifacts:
   - id: proposal
     generates: proposal.md
     requires: []
-    
+
   - id: specs
     generates: specs/**/*.md
     requires: [proposal]
-    
+
   - id: design
     generates: design.md
     requires: [proposal]
-    
+
   - id: tasks
     generates: tasks.md
     requires: [specs, design]
@@ -293,11 +293,11 @@ artifacts:
   - id: research
     generates: research.md
     requires: []
-    
+
   - id: proposal
     generates: proposal.md
     requires: [research]
-    
+
   - id: tasks
     generates: tasks.md
     requires: [proposal]
@@ -306,7 +306,7 @@ artifacts:
 ```mermaid
 graph LR
     research["research"] --> proposal["proposal"] --> tasks["tasks"]
-    
+
     style research fill:#e3f2fd
     style proposal fill:#fff8e1
     style tasks fill:#e8f5e9

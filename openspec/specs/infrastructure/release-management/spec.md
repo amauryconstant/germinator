@@ -337,4 +337,3 @@ The system SHALL provide a single consolidated validation task for release opera
 **Then** task SHALL fail
 **And** error SHALL indicate main branch is required
 **And** task SHALL suggest checking out main branch
-

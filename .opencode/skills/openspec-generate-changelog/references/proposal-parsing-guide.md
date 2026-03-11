@@ -81,16 +81,16 @@ If proposal.md deviates from standard format, check these sections:
 def parse_proposal(file_path):
     with open(file_path, 'r') as f:
         lines = f.readlines()
-    
+
     # Initialize parser state
     in_summary = False
     in_proposed = False
     summary = []
     proposed_change = []
-    
+
     for line in lines:
         line = line.strip()
-        
+
         # Track sections
         if line.startswith('## Summary'):
             in_summary = True
@@ -101,13 +101,13 @@ def parse_proposal(file_path):
         elif line.startswith('##'):
             # Hit new section, stop parsing
             break
-        
+
         # Extract content
         elif in_summary and line:
             summary.append(line)
         elif in_proposed and line:
             proposed_change.append(line)
-    
+
     return {
         'summary': '\n'.join(summary).strip(),
         'proposed_change': '\n'.join(proposed_change).strip()
@@ -120,7 +120,7 @@ def parse_proposal(file_path):
 def categorize_from_keywords(text):
     """Auto-categorize based on keywords"""
     text_lower = text.lower()
-    
+
     # Category keywords
     categories = {
         'Added': ['add', 'create', 'introduce', 'new', 'implement', 'establish', 'initialize'],
@@ -129,12 +129,12 @@ def categorize_from_keywords(text):
         'Removed': ['remove', 'delete', 'deprecate', 'drop', 'remove legacy'],
         'Breaking': ['breaking', 'incompatible', 'major', 'api change']
     }
-    
+
     for category, keywords in categories.items():
         for keyword in keywords:
             if keyword in text_lower:
                 return category
-    
+
     return None  # No match
 ```
 
@@ -149,18 +149,18 @@ def categorize_from_keywords(text):
 def detect_breaking_change(text):
     """Check if change is breaking"""
     text_upper = text.upper()
-    
+
     breaking_indicators = [
         '**BREAKING**',
         'BREAKING',
         'incompatible',
         'breaking change'
     ]
-    
+
     for indicator in breaking_indicators:
         if indicator in text_upper:
             return True, indicator
-    
+
     return False, None
 ```
 
@@ -171,11 +171,11 @@ def categorize_security_change(text):
     """Check if this is a security fix"""
     keywords = ['security', 'vulnerability', 'cve', 'patch', 'critical', 'jwt']
     text_lower = text.lower()
-    
+
     for keyword in keywords:
         if keyword in text_lower:
             return True
-    
+
     return False
 ```
 
@@ -217,10 +217,10 @@ def split_by_type(proposed_text):
     lines = proposed_text.split('\n')
     entries = []
     current_entry = {'bullet': '', 'content': []}
-    
+
     for line in lines:
         stripped = line.strip()
-        
+
         if stripped.startswith('- '):
             if current_entry['content']:
                 entries.append({
@@ -230,14 +230,14 @@ def split_by_type(proposed_text):
             current_entry = {'bullet': stripped, 'content': []}
         elif stripped:
             current_entry['content'].append(stripped)
-    
+
     # Don't forget last entry
     if current_entry['content']:
         entries.append({
             'content': ' '.join(current_entry['content']),
             'bullet': current_entry['bullet']
         })
-    
+
     return entries
 ```
 
@@ -344,12 +344,12 @@ def handle_missing_proposal(change_path):
     design_path = os.path.join(os.path.dirname(change_path), 'design.md')
     if os.path.exists(design_path):
         return parse_design_summary(design_path)
-    
+
     # Try tasks.md
     tasks_path = os.path.join(os.path.dirname(change_path), 'tasks.md')
     if os.path.exists(tasks_path):
         return parse_tasks_summary(tasks_path)
-    
+
     # Fallback
     return {
         'summary': 'Infrastructure update',
@@ -363,11 +363,11 @@ def handle_missing_proposal(change_path):
 def validate_proposal_structure(content):
     """Check if proposal.md has expected structure"""
     required_sections = ['## Summary', '## Proposed Change']
-    
+
     for section in required_sections:
         if section not in content:
             return False, f"Missing required section: {section}"
-    
+
     return True, None
 ```
 

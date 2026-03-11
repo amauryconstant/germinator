@@ -105,8 +105,8 @@ _ = cmd.MarkFlagRequired("platform")
 Validation uses typed ConfigError:
 ```go
 if platform == "" {
-    HandleError(cfg, gerrors.NewConfigError("platform", "", 
-        []string{models.PlatformClaudeCode, models.PlatformOpenCode}, 
+    HandleError(cfg, gerrors.NewConfigError("platform", "",
+        []string{models.PlatformClaudeCode, models.PlatformOpenCode},
         "--platform flag is required"))
 }
 ```

@@ -169,7 +169,7 @@ def is_monorepo(root_path):
         'services/',
         os.path.join(root_path, 'lerna.json')
     ]
-    
+
     for indicator in indicators:
         if os.path.exists(os.path.join(root_path, indicator)):
             return True
@@ -204,16 +204,16 @@ find . -type f -name "*_test.go" -print0 | head -100
 def cache_test_discovery(project_root):
     """Cache test file list for faster subsequent runs"""
     cache_file = os.path.join(project_root, '.test_cache.json')
-    
+
     if os.path.exists(cache_file):
         with open(cache_file) as f:
             return json.load(f)
-    
+
     # Discover and cache
     test_files = discover_tests(project_root)
     with open(cache_file, 'w') as f:
         json.dump(test_files, f)
-    
+
     return test_files
 ```
 

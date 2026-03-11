@@ -80,7 +80,7 @@ graph TB
         T2[Session 2]
         T3[Session 3]
     end
-    
+
     subgraph "Change A: add-dark-mode"
         A1["/opsx:new"]
         A2["/opsx:ff"]
@@ -88,14 +88,14 @@ graph TB
         A4["/opsx:apply<br/>(resume)"]
         A5["/opsx:archive"]
     end
-    
+
     subgraph "Change B: fix-login"
         B1["/opsx:new"]
         B2["/opsx:ff"]
         B3["/opsx:apply"]
         B4["/opsx:archive"]
     end
-    
+
     T1 --> A1 --> A2 --> A3
     T2 --> B1 --> B2 --> B3 --> B4
     T3 --> A4 --> A5
@@ -166,7 +166,7 @@ graph TD
     D --> E["Resolve by checking<br/>what's implemented"]
     E --> F["Apply in chronological order"]
     F --> G["Archive all changes"]
-    
+
     style A fill:#e3f2fd
     style C fill:#c8e6c9
     style G fill:#c8e6c9

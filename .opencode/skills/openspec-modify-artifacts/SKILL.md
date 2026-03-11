@@ -135,11 +135,11 @@ Optionally specify a change name and artifact ID. If omitted, the skill will inf
 9. **Validate modifications**
 
    Check proposed changes against:
-   
+
    a) The `rules` array from step 4 (structural/format requirements)
-   
+
    b) **If in Review Iteration Mode**: The specific issues from review-artifacts feedback
-   
+
    c) **If in Amendment Mode**: Backward compatibility with implementation
 
    Handle validation results:

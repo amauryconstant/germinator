@@ -6,7 +6,7 @@ Germinator is evolving from a simple document transformer into a comprehensive C
 
 - **New**: `ServiceContainer` struct in `cmd/container.go` to hold service instances
 - **New**: `NewRootCommand(config *CommandConfig)` pattern replacing global `rootCmd` variable
-- **New**: Command constructors `NewValidateCommand`, `NewAdaptCommand`, `NewCanonicalizeCommand`, `NewVersionCommand` 
+- **New**: Command constructors `NewValidateCommand`, `NewAdaptCommand`, `NewCanonicalizeCommand`, `NewVersionCommand`
 - **New**: `main.go` as composition root (extracted from `cmd/root.go`)
 - **Modified**: All command files converted from `init()` pattern to constructor pattern
 - **Removed**: Global command variables (`validateCmd`, `adaptCmd`, etc.)
@@ -28,7 +28,7 @@ Germinator is evolving from a simple document transformer into a comprehensive C
 - `cmd/container.go` (new) - ServiceContainer definition
 - `cmd/root.go` - NewRootCommand constructor, remove main()
 - `cmd/validate.go` - NewValidateCommand constructor
-- `cmd/adapt.go` - NewAdaptCommand constructor  
+- `cmd/adapt.go` - NewAdaptCommand constructor
 - `cmd/canonicalize.go` - NewCanonicalizeCommand constructor
 - `cmd/version.go` - NewVersionCommand constructor
 - `main.go` (new) - Composition root with service wiring
