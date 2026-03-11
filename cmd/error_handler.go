@@ -81,3 +81,23 @@ func HandleError(cfg *CommandConfig, err error) {
 	fmt.Fprintln(os.Stderr, cfg.ErrorFormatter.Format(err))
 	os.Exit(int(GetExitCodeForError(err)))
 }
+
+// ValidationResultError wraps multiple validation errors for unified handling.
+type ValidationResultError struct {
+	Errors []error
+}
+
+func (e *ValidationResultError) Error() string {
+	if len(e.Errors) == 0 {
+		return "validation failed"
+	}
+	return e.Errors[0].Error()
+}
+
+// HandleValidationErrors formats and outputs multiple validation errors, then exits.
+func HandleValidationErrors(cfg *CommandConfig, errs []error) {
+	for _, e := range errs {
+		fmt.Fprintln(os.Stderr, cfg.ErrorFormatter.Format(e))
+	}
+	os.Exit(int(ExitCodeUsage))
+}

@@ -54,7 +54,7 @@ Example:
 				HandleError(cfg, err)
 			}
 
-			fmt.Printf("Document transformed successfully to %s\n", outputPath)
+			_, _ = fmt.Fprintf(c.OutOrStdout(), "Document transformed successfully to %s\n", outputPath)
 		},
 	}
 

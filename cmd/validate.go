@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 	"gitlab.com/amoconst/germinator/internal/application"
@@ -13,7 +12,7 @@ import (
 
 // NewValidateCommand creates the validate command with dependency injection.
 func NewValidateCommand(cfg *CommandConfig) *cobra.Command {
-	var validatePlatform string
+	var platform string
 
 	cmd := &cobra.Command{
 		Use:   "validate <file>",
@@ -35,9 +34,9 @@ Example:
 			filePath := args[0]
 
 			VerbosePrint(cfg, "Validating file: %s", filePath)
-			VerbosePrint(cfg, "Platform: %s", validatePlatform)
+			VerbosePrint(cfg, "Platform: %s", platform)
 
-			if validatePlatform == "" {
+			if platform == "" {
 				HandleError(cfg, gerrors.NewConfigError("platform", "", "--platform flag is required").WithSuggestions([]string{models.PlatformClaudeCode, models.PlatformOpenCode}))
 			}
 
@@ -47,24 +46,21 @@ Example:
 
 			result, err := cfg.Services.Validator.Validate(context.Background(), &application.ValidateRequest{
 				InputPath: filePath,
-				Platform:  validatePlatform,
+				Platform:  platform,
 			})
 			if err != nil {
 				HandleError(cfg, err)
 			}
 
 			if !result.Valid() {
-				for _, e := range result.Errors {
-					fmt.Fprintln(os.Stderr, cfg.ErrorFormatter.Format(e))
-				}
-				os.Exit(int(ExitCodeUsage))
+				HandleValidationErrors(cfg, result.Errors)
 			}
 
-			fmt.Println("Document is valid")
+			_, _ = fmt.Fprintln(c.OutOrStdout(), "Document is valid")
 		},
 	}
 
-	cmd.Flags().StringVar(&validatePlatform, "platform", "", fmt.Sprintf("Target platform (required: %s, %s)", models.PlatformClaudeCode, models.PlatformOpenCode))
+	cmd.Flags().StringVar(&platform, "platform", "", fmt.Sprintf("Target platform (required: %s, %s)", models.PlatformClaudeCode, models.PlatformOpenCode))
 	_ = cmd.MarkFlagRequired("platform")
 
 	return cmd

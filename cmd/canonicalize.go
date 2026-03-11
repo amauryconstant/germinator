@@ -12,8 +12,8 @@ import (
 
 // NewCanonicalizeCommand creates the canonicalize command with dependency injection.
 func NewCanonicalizeCommand(cfg *CommandConfig) *cobra.Command {
-	var canonicalizePlatform string
-	var canonicalizeDocType string
+	var platform string
+	var docType string
 
 	cmd := &cobra.Command{
 		Use:   "canonicalize <input> <output>",
@@ -44,20 +44,12 @@ Example:
 			VerbosePrint(cfg, "Canonicalizing document...")
 			VerbosePrint(cfg, "Output path: %s", outputPath)
 
-			if canonicalizePlatform == "" {
+			if platform == "" {
 				HandleError(cfg, gerrors.NewConfigError("platform", "", "--platform flag is required").WithSuggestions([]string{models.PlatformClaudeCode, models.PlatformOpenCode}))
 			}
 
-			if canonicalizeDocType == "" {
+			if docType == "" {
 				HandleError(cfg, gerrors.NewConfigError("type", "", "--type flag is required").WithSuggestions([]string{"agent", "command", "skill", "memory"}))
-			}
-
-			if canonicalizePlatform != models.PlatformClaudeCode && canonicalizePlatform != models.PlatformOpenCode {
-				HandleError(cfg, gerrors.NewConfigError("platform", canonicalizePlatform, "invalid platform").WithSuggestions([]string{models.PlatformClaudeCode, models.PlatformOpenCode}))
-			}
-
-			if canonicalizeDocType != "agent" && canonicalizeDocType != "command" && canonicalizeDocType != "skill" && canonicalizeDocType != "memory" {
-				HandleError(cfg, gerrors.NewConfigError("type", canonicalizeDocType, "invalid document type").WithSuggestions([]string{"agent", "command", "skill", "memory"}))
 			}
 
 			VeryVerbosePrint(cfg, "Parsing platform document...")
@@ -67,20 +59,20 @@ Example:
 			_, err := cfg.Services.Canonicalizer.Canonicalize(context.Background(), &application.CanonicalizeRequest{
 				InputPath:  inputPath,
 				OutputPath: outputPath,
-				Platform:   canonicalizePlatform,
-				DocType:    canonicalizeDocType,
+				Platform:   platform,
+				DocType:    docType,
 			})
 			if err != nil {
 				HandleError(cfg, err)
 			}
 
-			fmt.Printf("Successfully canonicalized document to: %s\n", outputPath)
+			_, _ = fmt.Fprintf(c.OutOrStdout(), "Successfully canonicalized document to: %s\n", outputPath)
 		},
 	}
 
-	cmd.Flags().StringVar(&canonicalizePlatform, "platform", "", fmt.Sprintf("Source platform (required: %s, %s)", models.PlatformClaudeCode, models.PlatformOpenCode))
+	cmd.Flags().StringVar(&platform, "platform", "", fmt.Sprintf("Source platform (required: %s, %s)", models.PlatformClaudeCode, models.PlatformOpenCode))
 	_ = cmd.MarkFlagRequired("platform")
-	cmd.Flags().StringVar(&canonicalizeDocType, "type", "", "Document type (required: agent, command, skill, memory)")
+	cmd.Flags().StringVar(&docType, "type", "", "Document type (required: agent, command, skill, memory)")
 	_ = cmd.MarkFlagRequired("type")
 
 	return cmd

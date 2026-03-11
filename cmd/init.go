@@ -67,17 +67,6 @@ Examples:
 			if resources == "" && preset == "" {
 				HandleError(cfg, gerrors.NewConfigError("resources/preset", "", "either --resources or --preset is required"))
 			}
-			if !library.IsValidPlatform(platform) {
-				HandleError(cfg, gerrors.NewConfigError("platform", platform, "unknown platform").WithSuggestions(library.ValidPlatforms()))
-			}
-
-			// Validate resources or preset (mutually exclusive)
-			if resources != "" && preset != "" {
-				HandleError(cfg, gerrors.NewConfigError("resources/preset", "", "--resources and --preset are mutually exclusive"))
-			}
-			if resources == "" && preset == "" {
-				HandleError(cfg, gerrors.NewConfigError("resources/preset", "", "either --resources or --preset is required"))
-			}
 
 			// Parse resource list
 			var refs []string
