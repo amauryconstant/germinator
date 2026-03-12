@@ -49,4 +49,6 @@ openspec/changes/*/decision-log.json
 openspec/changes/*/verification-report.md
 openspec/changes/*/reflections.md
 openspec/changes/*/test-compliance-report.md
+openspec/changes/*/suggestions.md
+.openspec-auto-*.log
 # END OpenSpec autonomous workflow state
