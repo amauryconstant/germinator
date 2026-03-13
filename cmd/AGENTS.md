@@ -20,6 +20,8 @@ Cobra-based CLI with platform-specific validation, typed errors, and verbosity c
 | `version.go` | Display version, commit, build date |
 | `library.go` | Library management commands (resources, presets, show) |
 | `init.go` | Install resources from library to project |
+| `completion.go` | Shell completion command (carapace-based, multi-shell) |
+| `completions.go` | Dynamic completion actions with caching |
 | `formatters.go` | Init command output formatting (dry-run, success) |
 | `library_formatters.go` | Library command output formatting |
 | `error_handler.go` | Error categorization and exit code handling |
@@ -222,6 +224,7 @@ New test files:
 - `verbose_test.go` - Verbosity type and helper function tests
 - `error_formatter_test.go` - Error formatting tests
 - `library_test.go` - Library and init command tests
+- `completions_test.go` - Completion action unit tests (cache, timeout, actions)
 
 ---
 
@@ -335,3 +338,66 @@ germinator init --platform opencode --preset git-workflow --output /project
 - File exists error without `--force`
 - Resource not found error for missing resources
 - Preset not found error for missing presets
+
+---
+
+# Completion Command
+
+Generate shell completion scripts for 10+ shells via carapace.
+
+## Supported Shells
+
+| Shell | Subcommand |
+|-------|------------|
+| Bash | `completion bash` |
+| Zsh | `completion zsh` |
+| Fish | `completion fish` |
+| PowerShell | `completion powershell` |
+| Elvish | `completion elvish` |
+| Nushell | `completion nushell` |
+| Oil | `completion oil` |
+| Tcsh | `completion tcsh` |
+| Xonsh | `completion xonsh` |
+| Clink (Windows) | `completion cmd-clink` |
+
+## Installation Examples
+
+```bash
+# Bash
+echo 'source <(germinator completion bash)' >> ~/.bashrc
+
+# Zsh
+germinator completion zsh > ~/.zfunc/_germinator
+
+# Fish
+germinator completion fish > ~/.config/fish/completions/germinator.fish
+```
+
+## Dynamic Completions
+
+| Flag/Argument | Source |
+|---------------|--------|
+| `--resources` | Library resources (e.g., `skill/commit`) |
+| `--preset` | Library presets |
+| `library show <ref>` | Resources + presets |
+| `--platform` | Static: `claude-code`, `opencode` |
+
+## Completion Actions (completions.go)
+
+| Function | Purpose |
+|----------|---------|
+| `actionPlatforms()` | Static platform values |
+| `actionResources(cmd)` | Dynamic from library with caching |
+| `actionPresets(cmd)` | Dynamic from library with caching |
+| `actionLibraryRefs(cmd)` | Combined resources + presets |
+
+## Caching
+
+- Package-level cache with mutex for thread safety
+- 5-second TTL (configurable via `completion.cache_ttl`)
+- 500ms timeout for library loading (configurable via `completion.timeout`)
+- Silent fallback to empty completions on error/timeout
+
+## Library Path Resolution
+
+Priority: `--library` flag > `GERMINATOR_LIBRARY` env > config > default

@@ -19,10 +19,12 @@ cfg := cm.GetConfig()
 
 ## Config File
 
-| Field    | Default                    | Description                           |
-| -------- | -------------------------- | ------------------------------------- |
-| `library`| `~/.config/germinator/library` | Path to library directory        |
-| `platform`| `""` (empty)              | Default platform (empty = must specify via flag) |
+| Field | Default | Description |
+|-------|---------|-------------|
+| `library` | `~/.config/germinator/library` | Path to library directory |
+| `platform` | `""` (empty) | Default platform (empty = must specify via flag) |
+| `completion.timeout` | `500ms` | Max time for library loading during shell completion |
+| `completion.cache_ttl` | `5s` | Cache duration for library data during completion |
 
 **Valid platforms**: `opencode`, `claude-code`
 
@@ -46,4 +48,8 @@ cfg := cm.GetConfig()
 # ~/.config/germinator/config.toml
 library = "/path/to/library"
 platform = "opencode"
+
+[completion]
+timeout = "500ms"    # Max time for library loading
+cache_ttl = "5s"     # Cache duration for completion data
 ```

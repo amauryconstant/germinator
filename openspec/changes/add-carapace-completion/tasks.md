@@ -52,8 +52,8 @@
 
 ## 7. Documentation
 
-- [ ] 7.1 Update `internal/config/AGENTS.md` with completion config documentation
-- [ ] 7.2 Update `cmd/AGENTS.md` with completion command documentation
+- [x] 7.1 Update `internal/config/AGENTS.md` with completion config documentation
+- [x] 7.2 Update `cmd/AGENTS.md` with completion command documentation
 
 ## 8. Verification
 
