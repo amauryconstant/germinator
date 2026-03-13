@@ -19,6 +19,44 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.Platform != "" {
 		t.Errorf("DefaultConfig().Platform = %q, want empty string", cfg.Platform)
 	}
+
+	// Test completion config defaults
+	if cfg.Completion.Timeout != "500ms" {
+		t.Errorf("DefaultConfig().Completion.Timeout = %q, want %q", cfg.Completion.Timeout, "500ms")
+	}
+
+	if cfg.Completion.CacheTTL != "5s" {
+		t.Errorf("DefaultConfig().Completion.CacheTTL = %q, want %q", cfg.Completion.CacheTTL, "5s")
+	}
+}
+
+func TestCompletionConfigDefaults(t *testing.T) {
+	cfg := DefaultConfig()
+
+	tests := []struct {
+		name     string
+		got      string
+		expected string
+	}{
+		{
+			name:     "timeout default is 500ms",
+			got:      cfg.Completion.Timeout,
+			expected: "500ms",
+		},
+		{
+			name:     "cache_ttl default is 5s",
+			got:      cfg.Completion.CacheTTL,
+			expected: "5s",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.got != tt.expected {
+				t.Errorf("got %q, want %q", tt.got, tt.expected)
+			}
+		})
+	}
 }
 
 func TestConfigValidate(t *testing.T) {

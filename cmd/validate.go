@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/carapace-sh/carapace"
 	"github.com/spf13/cobra"
 	"gitlab.com/amoconst/germinator/internal/application"
 	gerrors "gitlab.com/amoconst/germinator/internal/errors"
@@ -62,6 +63,11 @@ Example:
 
 	cmd.Flags().StringVar(&platform, "platform", "", fmt.Sprintf("Target platform (required: %s, %s)", models.PlatformClaudeCode, models.PlatformOpenCode))
 	_ = cmd.MarkFlagRequired("platform")
+
+	// Add platform flag completion
+	carapace.Gen(cmd).FlagCompletion(carapace.ActionMap{
+		"platform": actionPlatforms(),
+	})
 
 	return cmd
 }

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"github.com/carapace-sh/carapace"
 	"github.com/spf13/cobra"
 )
 
@@ -26,6 +27,10 @@ Germinator source format and adapts it for target platforms like Claude Code and
 	cmd.AddCommand(NewVersionCommand(cfg))
 	cmd.AddCommand(NewLibraryCommand(cfg))
 	cmd.AddCommand(NewInitCommand(cfg))
+	cmd.AddCommand(NewCompletionCommand(cfg))
+
+	// Initialize carapace for enhanced completions
+	carapace.Gen(cmd)
 
 	return cmd
 }

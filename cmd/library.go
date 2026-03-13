@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/carapace-sh/carapace"
 	"github.com/spf13/cobra"
 	"gitlab.com/amoconst/germinator/internal/library"
 )
@@ -110,13 +111,13 @@ Example:
 
 // NewLibraryShowCommand creates the library show subcommand.
 func NewLibraryShowCommand(cfg *CommandConfig, libraryPath *string) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "show <ref>",
 		Short: "Display details of a resource or preset",
 		Long: `Display details of a resource or preset.
 
 For resources, use the format: type/name (e.g., skill/commit)
-For presets, use the preset name directly (e.g., git-workflow)
+For presets, use the preset/ prefix (e.g., preset/git-workflow)
 
 Examples:
   germinator library show skill/commit
@@ -165,4 +166,11 @@ Examples:
 			_, _ = fmt.Fprint(c.OutOrStdout(), output)
 		},
 	}
+
+	// Add positional completion for 'library show <ref>'
+	carapace.Gen(cmd).PositionalCompletion(
+		actionLibraryRefs(cmd),
+	)
+
+	return cmd
 }

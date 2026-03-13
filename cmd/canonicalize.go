@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/carapace-sh/carapace"
 	"github.com/spf13/cobra"
 	"gitlab.com/amoconst/germinator/internal/application"
 	gerrors "gitlab.com/amoconst/germinator/internal/errors"
@@ -71,9 +72,15 @@ Example:
 	}
 
 	cmd.Flags().StringVar(&platform, "platform", "", fmt.Sprintf("Source platform (required: %s, %s)", models.PlatformClaudeCode, models.PlatformOpenCode))
-	_ = cmd.MarkFlagRequired("platform")
 	cmd.Flags().StringVar(&docType, "type", "", "Document type (required: agent, command, skill, memory)")
+	_ = cmd.MarkFlagRequired("platform")
 	_ = cmd.MarkFlagRequired("type")
+
+	// Add flag completion for carapace
+	carapace.Gen(cmd).FlagCompletion(carapace.ActionMap{
+		"platform": actionPlatforms(),
+		"type":     carapace.ActionValuesDescribed("agent", "command", "skill", "memory"),
+	})
 
 	return cmd
 }

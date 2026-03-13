@@ -17,6 +17,20 @@ type Config struct {
 	// Platform is the default platform for transformations.
 	// Empty string means platform must be specified via flag.
 	Platform string `koanf:"platform"`
+
+	// Completion holds the shell completion configuration.
+	Completion CompletionConfig `koanf:"completion"`
+}
+
+// CompletionConfig holds configuration for shell completion.
+type CompletionConfig struct {
+	// Timeout is the maximum time for library loading during completion.
+	// Default: "500ms"
+	Timeout string `koanf:"timeout"`
+
+	// CacheTTL is the duration to cache library data during completion.
+	// Default: "5s"
+	CacheTTL string `koanf:"cache_ttl"`
 }
 
 // DefaultConfig returns a Config with sensible defaults.
@@ -24,6 +38,10 @@ func DefaultConfig() *Config {
 	return &Config{
 		Library:  "~/.config/germinator/library",
 		Platform: "",
+		Completion: CompletionConfig{
+			Timeout:  "500ms",
+			CacheTTL: "5s",
+		},
 	}
 }
 

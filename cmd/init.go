@@ -6,13 +6,12 @@ import (
 	"os"
 	"strings"
 
+	"github.com/carapace-sh/carapace"
 	"github.com/spf13/cobra"
 	"gitlab.com/amoconst/germinator/internal/application"
 	gerrors "gitlab.com/amoconst/germinator/internal/errors"
 	"gitlab.com/amoconst/germinator/internal/library"
-)
-
-// NewInitCommand creates the init command for installing resources.
+) // NewInitCommand creates the init command for installing resources.
 func NewInitCommand(cfg *CommandConfig) *cobra.Command {
 	var (
 		platform    string
@@ -144,6 +143,13 @@ Examples:
 	cmd.Flags().BoolVarP(&force, "force", "f", false, "Overwrite existing files")
 
 	_ = cmd.MarkFlagRequired("platform")
+
+	// Add flag completions for carapace
+	carapace.Gen(cmd).FlagCompletion(carapace.ActionMap{
+		"platform":  actionPlatforms(),
+		"resources": actionResources(cmd),
+		"preset":    actionPresets(cmd),
+	})
 
 	return cmd
 }
