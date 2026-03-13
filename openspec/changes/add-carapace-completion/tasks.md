@@ -41,14 +41,14 @@
 
 ## 6. Tests
 
-- [ ] 6.1 Create `cmd/completions_test.go` with tests for `getCompletionTimeout`
-- [ ] 6.2 Add tests for `getCacheTTL`
-- [ ] 6.3 Add tests for `actionPlatforms` returns valid platforms
-- [ ] 6.4 Add tests for `actionResources` with mock library
-- [ ] 6.5 Add tests for `actionPresets` with mock library
-- [ ] 6.6 Add tests for `actionLibraryRefs` combines resources and presets
-- [ ] 6.7 Add tests for cache hit/miss scenarios
-- [ ] 6.8 Add tests for silent failure on library load errors
+- [x] 6.1 Create `cmd/completions_test.go` with tests for `getCompletionTimeout`
+- [x] 6.2 Add tests for `getCacheTTL`
+- [x] 6.3 Add tests for `actionPlatforms` returns valid platforms
+- [x] 6.4 Add tests for `actionResources` with mock library
+- [x] 6.5 Add tests for `actionPresets` with mock library
+- [x] 6.6 Add tests for `actionLibraryRefs` combines resources and presets
+- [x] 6.7 Add tests for cache hit/miss scenarios
+- [x] 6.8 Add tests for silent failure on library load errors
 
 ## 7. Documentation
 
