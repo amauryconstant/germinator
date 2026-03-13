@@ -34,9 +34,10 @@
 - [ ] 5.2 Replace Cobra's default completion with carapace completion command in `cmd/root.go`
 - [ ] 5.3 Add `--platform` flag completion to `cmd/adapt.go`
 - [ ] 5.4 Add `--platform` flag completion to `cmd/validate.go`
-- [ ] 5.5 Add `--platform` and `--resources` flag completions to `cmd/init.go`
-- [ ] 5.6 Add `--preset` flag completion to `cmd/init.go`
-- [ ] 5.7 Add positional completion for `library show <ref>` in `cmd/library.go`
+- [ ] 5.5 Add `--platform` flag completion to `cmd/canonicalize.go`
+- [ ] 5.6 Add `--platform` and `--resources` flag completions to `cmd/init.go`
+- [ ] 5.7 Add `--preset` flag completion to `cmd/init.go`
+- [ ] 5.8 Add positional completion for `library show <ref>` in `cmd/library.go`
 
 ## 6. Tests
 
