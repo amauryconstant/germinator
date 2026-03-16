@@ -38,7 +38,7 @@ Validate implementation matches artifacts - completeness, correctness, coherence
 
 ## PROCESS
 
-1. Load and use `osx-verify-change` skill for change "$1"
+1. Load and use `osc-verify-change` (originally `openspec-verify-change`) skill for change "$1"
 2. Execute the skill's verification instructions exactly
 3. Log the verification report via `osx log` in `verification_report` field
 4. Do NOT modify the skill's verification report format
@@ -121,12 +121,15 @@ EOF
 
 IF artifacts were modified during this phase (CRITICAL/WARNING fixes):
 
-```bash
-git add openspec/changes/$1/
-git commit -m "Fix artifacts after verification for $1"
-```
+1. Invoke osx-commit skill
+2. Commit changes:
 
-Record commit hash in decision log and iterations.json.
+   ```bash
+   git add openspec/changes/$1/
+   git commit -m "Fix artifacts after verification for $1"
+   ```
+
+3. Record commit hash in decision log and iterations.json
 
 ## STATE FILE UPDATES
 

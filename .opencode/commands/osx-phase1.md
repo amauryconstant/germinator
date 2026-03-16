@@ -42,7 +42,7 @@ Implement tasks from the change, making logical milestone commits and validating
 
 ### 1. Load Implementation Skill
 
-Load skill: Use `osx-apply-change` skill for change "$1"
+Load skill: Use `osc-apply-change` (originally `openspec-apply-change`) skill for change "$1"
 
 The skill provides the implementation workflow. Follow its task execution pattern.
 
@@ -63,10 +63,10 @@ Per the skill workflow:
 - Subject: imperative verb + brief description (40-72 chars)
 - Review staged changes: `git diff --staged` before committing
 
-**Commit message priority:**
-1. Check for dedicated commit skills in `.opencode/skills/commit/SKILL.md`
-2. Check project's AGENTS.md for commit conventions
-3. Default: logical, atomic commits with clear, descriptive messages
+For each commit:
+
+1. Invoke osx-commit skill
+2. Stage and commit changes
 
 **Pre-commit hook guardrails (ALWAYS apply):**
 - NEVER use `--no-verify` to bypass pre-commit hooks

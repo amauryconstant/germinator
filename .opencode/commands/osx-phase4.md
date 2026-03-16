@@ -7,7 +7,7 @@ agent: osx-maintainer
 
 | Tool | Usage |
 |------|-------|
-| `osc` | `.opencode/scripts/lib/osx <domain> <action> [args]` - unified OpenSpec tool |
+| `osx` | `.opencode/scripts/lib/osx <domain> <action> [args]` - unified OpenSpec tool |
 | Domains: `ctx`, `state`, `iterations`, `log`, `complete`, `validate` |
 
 # PHASE4: Sync Specs
@@ -32,7 +32,7 @@ Merge delta specs from the change to main specs.
    - Look in `openspec/changes/$1/specs/`
    - If no delta specs exist: Skip to transition with log note
 
-2. Load skill: Use `osc-sync-specs` skill
+2. Load skill: Use `osc-sync-specs` (originally `openspec-sync-specs`) skill
 
 3. Sync delta specs:
    - ADDED → Append to main spec
@@ -46,14 +46,17 @@ Merge delta specs from the change to main specs.
 
 ## MANDATORY END
 
-IF delta specs were synced, commit before transitioning:
+IF delta specs were synced:
 
-```bash
-git add openspec/specs/
-git commit -m "Sync $1 specs to main"
-```
+1. Invoke osx-commit skill
+2. Commit changes:
 
-Record commit hash in decision log and iterations.json.
+   ```bash
+   git add openspec/specs/
+   git commit -m "Sync $1 specs to main"
+   ```
+
+3. Record commit hash in decision log and iterations.json
 
 ## BLOCKER HANDLING
 
