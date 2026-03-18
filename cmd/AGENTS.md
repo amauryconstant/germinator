@@ -73,14 +73,16 @@ result, err := cfg.Services.Transformer.Transform(ctx, &application.TransformReq
 
 ## Constructor Pattern
 
-Commands use `NewXCommand(cfg *CommandConfig)` constructors:
+Commands use `NewXCommand(cfg *CommandConfig)` constructors with RunE pattern:
 ```go
 func NewValidateCommand(cfg *CommandConfig) *cobra.Command {
     cmd := &cobra.Command{...}
-    cmd.Run = func(c *cobra.Command, args []string) {
+    cmd.RunE = func(c *cobra.Command, args []string) error {
         verbosity, _ := c.Flags().GetCount("verbose")
         cfg.Verbosity = Verbosity(verbosity)
         // Use cfg.Services, cfg.ErrorFormatter
+        // Return errors (bubble up to main.go for centralized handling)
+        return nil
     }
     return cmd
 }
@@ -155,8 +157,11 @@ Output goes to stderr (stdout stays clean for piping).
 Semantic exit codes for programmatic handling:
 - `0` (Success) - Command completed successfully
 - `1` (Error) - General errors (transform, file, unexpected)
-- `2` (Usage) - Config/validation errors (invalid flags, missing args)
-- `3` (Parse) - Parse errors (malformed YAML, unrecognized document type)
+- `2` (Usage) - Cobra argument/validation errors (invalid flags, missing args)
+- `3` (Config) - Configuration/parsing errors (malformed YAML, config errors)
+- `4` (Git) - Git-related errors
+- `5` (Validation) - Document validation errors
+- `6` (NotFound) - File/resource not found errors
 
 Error categorization via `CategorizeError()` using `errors.As` for type detection.
 
@@ -164,12 +169,22 @@ Error categorization via `CategorizeError()` using `errors.As` for type detectio
 
 # Error Handling
 
-## Central Error Handler
+## Centralized Error Handling
+
+Errors bubble up to main.go via RunE pattern:
+```go
+// main.go
+cmd.SetGlobalCommandConfig(cfg)
+if err := rootCmd.Execute(); err != nil {
+    exitCode := cmd.HandleCLIError(rootCmd, err)
+    os.Exit(int(exitCode))
+}
+```
 
 ```go
-func HandleError(cfg *CommandConfig, err error) {
-    fmt.Fprintln(os.Stderr, cfg.ErrorFormatter.Format(err))
-    os.Exit(int(GetExitCodeForError(err)))
+func HandleCLIError(c *cobra.Command, err error) ExitCode {
+    // Formats and outputs error, returns exit code
+    // Uses global CommandConfig set during command construction
 }
 ```
 
