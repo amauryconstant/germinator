@@ -16,7 +16,10 @@ The system SHALL define semantic exit code constants.
 - **THEN** ExitCodeSuccess SHALL be 0
 - **AND** ExitCodeError SHALL be 1
 - **AND** ExitCodeUsage SHALL be 2
-- **AND** ExitCodeParse SHALL be 3
+- **AND** ExitCodeConfig SHALL be 3
+- **AND** ExitCodeGit SHALL be 4
+- **AND** ExitCodeValidation SHALL be 5
+- **AND** ExitCodeNotFound SHALL be 6
 
 ---
 
@@ -28,12 +31,18 @@ The system SHALL define error categories for exit code mapping.
 
 - **WHEN** error categories are defined
 - **THEN** CategoryCobra SHALL exist for Cobra framework errors
-- **AND** CategoryConfig SHALL exist for configuration errors
-- **AND** CategoryParse SHALL exist for parsing errors
+- **AND** CategoryConfig SHALL exist for configuration errors (renamed from CategoryParse)
 - **AND** CategoryValidation SHALL exist for validation errors
-- **AND** CategoryTransform SHALL exist for transformation errors
-- **AND** CategoryFile SHALL exist for file I/O errors
+- **AND** CategoryNotFound SHALL exist for not-found errors (NEW)
+- **AND** CategoryGit SHALL exist for git-related errors (NEW)
 - **AND** CategoryGeneric SHALL exist for unclassified errors
+
+#### Scenario: CategoryParse renamed to CategoryConfig
+
+- **GIVEN** current code has `CategoryParse` for parse errors
+- **WHEN** the migration is complete
+- **THEN** `CategoryParse` SHALL be renamed to `CategoryConfig`
+- **AND** parse errors SHALL map to the Config exit code (3)
 
 ---
 
@@ -44,27 +53,27 @@ The system SHALL provide a function to categorize errors.
 #### Scenario: Categorize ParseError
 
 - **WHEN** CategorizeError receives a ParseError
-- **THEN** it SHALL return CategoryParse
+- **THEN** it SHALL return CategoryConfig (renamed from CategoryParse)
 
 #### Scenario: Categorize ValidationError
 
 - **WHEN** CategorizeError receives a ValidationError
 - **THEN** it SHALL return CategoryValidation
 
-#### Scenario: Categorize TransformError
-
-- **WHEN** CategorizeError receives a TransformError
-- **THEN** it SHALL return CategoryTransform
-
-#### Scenario: Categorize FileError
-
-- **WHEN** CategorizeError receives a FileError
-- **THEN** it SHALL return CategoryFile
-
 #### Scenario: Categorize ConfigError
 
 - **WHEN** CategorizeError receives a ConfigError
 - **THEN** it SHALL return CategoryConfig
+
+#### Scenario: Categorize GitError
+
+- **WHEN** CategorizeError receives a GitError
+- **THEN** it SHALL return CategoryGit
+
+#### Scenario: Categorize NotFoundError
+
+- **WHEN** CategorizeError receives a NotFoundError
+- **THEN** it SHALL return CategoryNotFound
 
 #### Scenario: Categorize wrapped errors
 
@@ -83,30 +92,25 @@ The system SHALL provide a function to categorize errors.
 
 The system SHALL provide a function to map errors to exit codes.
 
-#### Scenario: Parse error exit code
-
-- **WHEN** GetExitCodeForError receives CategoryParse
-- **THEN** it SHALL return ExitCodeParse (3)
-
 #### Scenario: Config error exit code
 
 - **WHEN** GetExitCodeForError receives CategoryConfig
-- **THEN** it SHALL return ExitCodeUsage (2)
+- **THEN** it SHALL return ExitCodeConfig (3)
 
 #### Scenario: Validation error exit code
 
 - **WHEN** GetExitCodeForError receives CategoryValidation
-- **THEN** it SHALL return ExitCodeUsage (2)
+- **THEN** it SHALL return ExitCodeValidation (5)
 
-#### Scenario: Transform error exit code
+#### Scenario: NotFound error exit code
 
-- **WHEN** GetExitCodeForError receives CategoryTransform
-- **THEN** it SHALL return ExitCodeError (1)
+- **WHEN** GetExitCodeForError receives CategoryNotFound
+- **THEN** it SHALL return ExitCodeNotFound (6)
 
-#### Scenario: File error exit code
+#### Scenario: Git error exit code
 
-- **WHEN** GetExitCodeForError receives CategoryFile
-- **THEN** it SHALL return ExitCodeError (1)
+- **WHEN** GetExitCodeForError receives CategoryGit
+- **THEN** it SHALL return ExitCodeGit (4)
 
 #### Scenario: Cobra error exit code
 
