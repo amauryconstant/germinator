@@ -18,15 +18,15 @@
 - [x] 2.5 Convert `cmd/init.go` from `Run` to `RunE`
 - [x] 2.6 Convert `cmd/library.go` and subcommands from `Run` to `RunE`
 - [x] 2.7 Remove `HandleError()` calls from all commands (return errors instead)
-- [ ] 2.8 Verify E2E tests pass with correct exit codes
-  - [ ] 2.8.1 Verify config errors exit with code 3
-  - [ ] 2.8.2 Verify validation errors exit with code 5
-  - [ ] 2.8.3 Verify usage errors exit with code 2
-  - [ ] 2.8.4 Verify git errors exit with code 4 (when git operations added)
-  - [ ] 2.8.5 Verify not-found errors exit with code 6 (when not-found errors occur)
+- [x] 2.8 Verify E2E tests pass with correct exit codes
+  - [x] 2.8.1 Verify config errors exit with code 3
+  - [x] 2.8.2 Verify validation errors exit with code 5
+  - [x] 2.8.3 Verify usage errors exit with code 2
+  - [x] 2.8.4 Verify git errors exit with code 4 (when git operations added)
+  - [x] 2.8.5 Verify not-found errors exit with code 6 (when not-found errors occur)
 
 ## 3. Final Verification
 
-- [ ] 3.1 Run `go build ./...` to verify compilation
-- [ ] 3.2 Run `go test ./...` to verify all tests pass
-- [ ] 3.3 Run `mise run test:e2e` to verify E2E tests pass with correct exit codes
+- [x] 3.1 Run `go build ./...` to verify compilation
+- [x] 3.2 Run `go test ./...` to verify all tests pass
+- [x] 3.3 Run `mise run test:e2e` to verify E2E tests pass with correct exit codes

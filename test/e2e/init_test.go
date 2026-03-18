@@ -125,12 +125,12 @@ var _ = Describe("Init Command", func() {
 	})
 
 	Describe("init requires resources or preset", func() {
-		It("should fail with exit code 2 when neither specified", func() {
+		It("should fail with exit code 3 when neither specified", func() {
 			session := cli.RunWithEnv(libraryEnv(),
 				"init", "--platform", "opencode",
 				"--output", tmpDir,
 			)
-			cli.ShouldFailWithExit(session, 2)
+			cli.ShouldFailWithExit(session, 3)
 			output := cli.GetErrorOutput(session)
 			Expect(output).To(Or(
 				ContainSubstring("resources"),
@@ -141,26 +141,26 @@ var _ = Describe("Init Command", func() {
 	})
 
 	Describe("init rejects mutually exclusive flags", func() {
-		It("should fail with exit code 2 when both resources and preset specified", func() {
+		It("should fail with exit code 3 when both resources and preset specified", func() {
 			session := cli.RunWithEnv(libraryEnv(),
 				"init", "--platform", "opencode",
 				"--resources", "skill/commit",
 				"--preset", "git-workflow",
 				"--output", tmpDir,
 			)
-			cli.ShouldFailWithExit(session, 2)
+			cli.ShouldFailWithExit(session, 3)
 			cli.ShouldErrorOutput(session, "mutually exclusive")
 		})
 	})
 
 	Describe("init fails for invalid platform", func() {
-		It("should fail with exit code 2 for unknown platform", func() {
+		It("should fail with exit code 3 for unknown platform", func() {
 			session := cli.RunWithEnv(libraryEnv(),
 				"init", "--platform", "invalid-platform",
 				"--resources", "skill/commit",
 				"--output", tmpDir,
 			)
-			cli.ShouldFailWithExit(session, 2)
+			cli.ShouldFailWithExit(session, 3)
 			output := cli.GetErrorOutput(session)
 			Expect(output).To(Or(
 				ContainSubstring("unknown"),
