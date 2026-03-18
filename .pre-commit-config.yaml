@@ -5,11 +5,11 @@ repos:
     hooks:
       - id: trailing-whitespace
         name: Remove Trailing Whitespace
-        exclude: '(^test/golden/|^test/fixtures/)'
+        exclude: '(^test/golden/|^test/fixtures/|\.log$)'
 
       - id: end-of-file-fixer
         name: Fix End of File
-        exclude: '(^test/golden/|^test/fixtures/)'
+        exclude: '(^test/golden/|^test/fixtures/|\.log$)'
 
       - id: check-yaml
         name: Validate YAML Files
