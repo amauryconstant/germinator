@@ -211,7 +211,7 @@ graph TB
 
 | Rule      | Detail                                                                             |
 | --------- | ---------------------------------------------------------------------------------- |
-| Tests     | Unit tests alongside code, golden file tests for transformations, E2E for CLI      |
+| Tests     | Unit tests alongside code, golden file tests for transformations, E2E for CLI, mocks for isolated unit testing      |
 | Progress  | Check tasks.md in change folder for completion status                              |
 | Artifacts | Follow openspec/config.yaml rules section                                          |
 | Archive   | See openspec/changes/archive/ for examples                                         |
@@ -229,5 +229,5 @@ graph TB
 | [internal/validation/AGENTS.md](internal/validation/AGENTS.md) | Validation pipeline, Result[T], composable validators |
 | [internal/AGENTS.md](internal/AGENTS.md)                   | Core package patterns, models integration                    |
 | [config/AGENTS.md](config/AGENTS.md)                       | Template patterns, permission mappings                       |
-| [test/AGENTS.md](test/AGENTS.md)                           | Golden file testing, E2E testing, fixture conventions        |
+| [test/AGENTS.md](test/AGENTS.md)                           | Golden file testing, E2E testing, mock infrastructure, fixture conventions        |
 | [openspec/research/AGENTS.md](openspec/research/AGENTS.md) | Platform research documentation usage                        |
