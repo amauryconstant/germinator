@@ -10,6 +10,8 @@
 - `fixtures/` - Test fixtures (Germinator format inputs)
 - `golden/` - Golden files (expected outputs)
 - `e2e/` - E2E tests (CLI behavior validation)
+- `mocks/` - Mock implementations of application service interfaces
+- `helpers/` - Shared test utilities (future)
 
 ---
 
@@ -98,6 +100,250 @@ tests := []struct {
     {"agent-full", "../../test/fixtures/opencode/agent-full.md", "../../test/golden/opencode/agent-full.md.golden", "opencode"},
 }
 ```
+
+---
+
+## Mock Testing
+
+### Overview
+
+Mock infrastructure provides testify/mock implementations of all application service interfaces, enabling isolated unit testing without real implementations. Mocks are optional - tests can choose whether to use mocks or real implementations based on their testing strategy.
+
+### Available Mocks
+
+| Mock | Interface | Purpose |
+|------|-----------|---------|
+| `MockTransformer` | `application.Transformer` | Document transformation |
+| `MockValidator` | `application.Validator` | Document validation |
+| `MockCanonicalizer` | `application.Canonicalizer` | Platform → canonical conversion |
+| `MockInitializer` | `application.Initializer` | Library resource installation |
+
+**Location**: `test/mocks/` - See `test/mocks/AGENTS.md` for complete mock inventory and documentation
+
+### Mock Usage Pattern
+
+#### 1. Create Mock Instance
+
+```go
+import "gitlab.com/amoconst/germinator/test/mocks"
+
+mockValidator := new(mocks.MockValidator)
+```
+
+#### 2. Set Up Expected Calls
+
+Use `On()` to define expected method calls and return values:
+
+```go
+import (
+    "context"
+    "github.com/stretchr/testify/mock"
+)
+
+ctx := context.Background()
+expectedReq := &application.ValidateRequest{
+    InputPath: "/path/to/doc.md",
+    Platform:  "opencode",
+}
+
+// Exact argument matching
+mockValidator.On("Validate", ctx, expectedReq).
+    Return(&application.ValidateResult{Errors: []error{}}, nil)
+
+// Type-based matching (flexible)
+mockValidator.On("Validate", ctx, mock.AnythingOfType("*application.ValidateRequest")).
+    Return(&application.ValidateResult{Errors: []error{}}, nil)
+
+// Match anything
+mockValidator.On("Validate", ctx, mock.Anything).
+    Return(&application.ValidateResult{Errors: []error{}}, nil)
+```
+
+**Return Value Options**:
+- Success: `Return(&ValidateResult{Errors: []error{}}, nil)`
+- Validation errors: `Return(&ValidateResult{Errors: []error{err1, err2}}, nil)`
+- Fatal error: `Return(nil, errors.New("file not found"))`
+
+#### 3. Call the Method
+
+```go
+result, err := mockValidator.Validate(ctx, &application.ValidateRequest{
+    InputPath: "/path/to/doc.md",
+    Platform:  "opencode",
+})
+```
+
+#### 4. Verify Behavior
+
+Use assertions to verify the method was called:
+
+```go
+import "github.com/stretchr/testify/assert"
+
+// Verify method was called with specific arguments
+mockValidator.AssertCalled(t, "Validate", ctx, req)
+
+// Verify method was called a specific number of times
+mockValidator.AssertNumberOfCalls(t, "Validate", 1)
+
+// Verify all expectations were met
+mockValidator.AssertExpectations(t)
+
+// Verify method was NOT called
+mockValidator.AssertNotCalled(t, "Validate")
+```
+
+#### 5. Reset Mock (if needed)
+
+```go
+mockValidator.ExpectedCalls = nil  // Clear all expectations
+```
+
+### Complete Example
+
+```go
+package cmd_test
+
+import (
+    "context"
+    "testing"
+    "errors"
+
+    "github.com/stretchr/testify/assert"
+    "github.com/stretchr/testify/mock"
+    "gitlab.com/amoconst/germinator/internal/application"
+    "gitlab.com/amoconst/germinator/test/mocks"
+)
+
+func TestCommandWithMockValidator(t *testing.T) {
+    // Setup: Create mock
+    mockValidator := new(mocks.MockValidator)
+    ctx := context.Background()
+
+    // Arrange: Set up expected call
+    expectedReq := &application.ValidateRequest{
+        InputPath: "/path/to/doc.md",
+        Platform:  "opencode",
+    }
+    mockValidator.On("Validate", ctx, expectedReq).
+        Return(&application.ValidateResult{
+            Errors: []error{errors.New("missing required field")},
+        }, nil)
+
+    // Act: Call the method being tested
+    result, err := mockValidator.Validate(ctx, expectedReq)
+
+    // Assert: Verify results
+    assert.NoError(t, err)
+    assert.NotNil(t, result)
+    assert.False(t, result.Valid())
+    assert.Len(t, result.Errors, 1)
+
+    // Verify: Ensure method was called as expected
+    mockValidator.AssertCalled(t, "Validate", ctx, expectedReq)
+    mockValidator.AssertExpectations(t)
+}
+```
+
+### Argument Matching Strategies
+
+| Matcher | Usage | When to Use |
+|---------|-------|--------------|
+| Exact value | `On("Method", ctx, exactReq)` | When you know exact input |
+| Type match | `On("Method", ctx, mock.AnythingOfType("*Req"))` | When input varies but type matters |
+| Anything | `On("Method", ctx, mock.Anything)` | When input doesn't matter |
+| Custom function | `On("Method", ctx, mock.MatchedBy(func(req *Req) bool { ... }))` | Complex validation logic |
+
+### Multiple Calls Setup
+
+```go
+// Return different values on different calls
+mockValidator.On("Validate", ctx, req1).Return(result1, nil)
+mockValidator.On("Validate", ctx, req2).Return(result2, errors.New("error"))
+
+// Or use After() for call ordering
+mockValidator.On("Validate", ctx, req1).Return(result1, nil)
+mockValidator.On("Validate", ctx, req2).Return(result2, nil).After(mockValidator.On("Validate", ctx, req1))
+```
+
+### Mock vs. Real Implementation
+
+| Scenario | Use Mock | Use Real Implementation |
+|----------|----------|-------------------------|
+| Fast unit tests of business logic | ✓ | |
+| Integration tests with I/O | | ✓ |
+| Testing error handling | ✓ | |
+| Testing with real data | | ✓ |
+| Test isolation from external dependencies | ✓ | |
+| Golden file tests | | ✓ |
+| E2E tests | | ✓ |
+
+### Best Practices
+
+#### DO:
+
+- Use mocks for unit tests that need to isolate from real implementations
+- Use specific argument matching when possible for better test precision
+- Always call `AssertExpectations(t)` at the end of each test
+- Reset mocks between test cases when reusing the same mock instance
+- Document the expected behavior in test comments
+- Keep mocks focused on a single behavior per test
+
+#### DON'T:
+
+- Mock everything - use real implementations when they're fast and reliable
+- Over-specify expectations - only assert what's important for the test
+- Forget to verify expectations - tests may pass without calling the mocked method
+- Mix mocks and real implementations in the same test without clear intent
+- Use mocks for integration tests - they're for unit tests only
+- Create overly complex mock setups - simplify test logic
+
+### Common Patterns
+
+#### Pattern: Test Error Handling
+
+```go
+mockValidator.On("Validate", ctx, mock.AnythingOfType("*application.ValidateRequest")).
+    Return(nil, errors.New("file not found"))
+
+result, err := mockValidator.Validate(ctx, req)
+assert.Error(t, err)
+assert.Nil(t, result)
+```
+
+#### Pattern: Test with Multiple Errors
+
+```go
+mockValidator.On("Validate", ctx, req).
+    Return(&application.ValidateResult{
+        Errors: []error{
+            errors.New("missing name"),
+            errors.New("invalid platform"),
+        },
+    }, nil)
+
+result, err := mockValidator.Validate(ctx, req)
+assert.NoError(t, err)
+assert.Len(t, result.Errors, 2)
+```
+
+#### Pattern: Test Success Path
+
+```go
+mockValidator.On("Validate", ctx, req).
+    Return(&application.ValidateResult{Errors: []error{}}, nil)
+
+result, err := mockValidator.Validate(ctx, req)
+assert.NoError(t, err)
+assert.True(t, result.Valid())
+```
+
+### See Also
+
+- `test/mocks/AGENTS.md` - Complete mock inventory and detailed documentation
+- `cmd/validate_test.go` - Example test demonstrating MockValidator usage with multiple scenarios
+- `internal/application/interfaces.go` - Interface definitions being mocked
+- `internal/application/AGENTS.md` - Application package documentation
 
 ---
 
