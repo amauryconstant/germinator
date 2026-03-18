@@ -4,19 +4,34 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
+	"github.com/spf13/cobra"
 	gerrors "gitlab.com/amoconst/germinator/internal/errors"
 )
+
+// globalCommandConfig holds the CommandConfig for error handling in main.go.
+// This is set during root command construction and used by HandleCLIError.
+var globalCommandConfig *CommandConfig
+
+// SetGlobalCommandConfig stores the CommandConfig for use in error handling.
+// This is called during root command construction.
+func SetGlobalCommandConfig(cfg *CommandConfig) {
+	globalCommandConfig = cfg
+}
 
 // ExitCode represents the process exit code.
 type ExitCode int
 
 // Exit codes for different error categories.
 const (
-	ExitCodeSuccess ExitCode = 0
-	ExitCodeError   ExitCode = 1
-	ExitCodeUsage   ExitCode = 2
-	ExitCodeParse   ExitCode = 3
+	ExitCodeSuccess    ExitCode = 0
+	ExitCodeError      ExitCode = 1
+	ExitCodeUsage      ExitCode = 2
+	ExitCodeConfig     ExitCode = 3
+	ExitCodeGit        ExitCode = 4
+	ExitCodeValidation ExitCode = 5
+	ExitCodeNotFound   ExitCode = 6
 )
 
 // ErrorCategory represents the category of an error.
@@ -26,10 +41,11 @@ type ErrorCategory int
 const (
 	CategoryCobra ErrorCategory = iota
 	CategoryConfig
-	CategoryParse
 	CategoryValidation
 	CategoryTransform
 	CategoryFile
+	CategoryGit
+	CategoryNotFound
 	CategoryGeneric
 )
 
@@ -42,7 +58,7 @@ func CategorizeError(err error) ErrorCategory {
 	var configErr *gerrors.ConfigError
 
 	if errors.As(err, &parseErr) {
-		return CategoryParse
+		return CategoryConfig
 	}
 	if errors.As(err, &validationErr) {
 		return CategoryValidation
@@ -51,6 +67,9 @@ func CategorizeError(err error) ErrorCategory {
 		return CategoryTransform
 	}
 	if errors.As(err, &fileErr) {
+		if fileErr.IsNotFound() {
+			return CategoryNotFound
+		}
 		return CategoryFile
 	}
 	if errors.As(err, &configErr) {
@@ -65,9 +84,15 @@ func GetExitCodeForError(err error) ExitCode {
 	category := CategorizeError(err)
 
 	switch category {
-	case CategoryParse:
-		return ExitCodeParse
-	case CategoryConfig, CategoryValidation, CategoryCobra:
+	case CategoryConfig:
+		return ExitCodeConfig
+	case CategoryValidation:
+		return ExitCodeValidation
+	case CategoryGit:
+		return ExitCodeGit
+	case CategoryNotFound:
+		return ExitCodeNotFound
+	case CategoryCobra:
 		return ExitCodeUsage
 	case CategoryTransform, CategoryFile, CategoryGeneric:
 		return ExitCodeError
@@ -76,10 +101,56 @@ func GetExitCodeForError(err error) ExitCode {
 	}
 }
 
-// HandleError formats and outputs the error, then exits with the appropriate code.
-func HandleError(cfg *CommandConfig, err error) {
-	fmt.Fprintln(os.Stderr, cfg.ErrorFormatter.Format(err))
-	os.Exit(int(GetExitCodeForError(err)))
+// HandleCLIError formats and outputs the error, then returns the appropriate exit code.
+// The caller (main.go) should use this code with os.Exit().
+func HandleCLIError(cmd *cobra.Command, err error) ExitCode {
+	// Check for Cobra argument errors to provide better UX
+	if IsCobraArgumentError(err) {
+		// Cobra will have already printed the error
+		return ExitCodeUsage
+	}
+
+	// Handle ValidationResultError specially to print all errors
+	if validationErr, ok := err.(*ValidationResultError); ok {
+		if globalCommandConfig != nil {
+			for _, e := range validationErr.Errors {
+				fmt.Fprintln(os.Stderr, globalCommandConfig.ErrorFormatter.Format(e))
+			}
+		} else {
+			// Fallback to basic formatting
+			for _, e := range validationErr.Errors {
+				fmt.Fprintln(os.Stderr, e.Error())
+			}
+		}
+		return ExitCodeValidation
+	}
+
+	// Format and print the error using the global config
+	if globalCommandConfig != nil {
+		fmt.Fprintln(os.Stderr, globalCommandConfig.ErrorFormatter.Format(err))
+	} else {
+		// Fallback to basic formatting if config is not available
+		fmt.Fprintln(os.Stderr, err.Error())
+	}
+
+	// Return the appropriate exit code
+	return GetExitCodeForError(err)
+}
+
+// IsCobraArgumentError detects if an error is a Cobra argument validation error.
+// These errors have already been printed by Cobra and should just return ExitCodeUsage.
+func IsCobraArgumentError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	errStr := err.Error()
+	return strings.Contains(errStr, "accepts") ||
+		strings.Contains(errStr, "requires") ||
+		strings.Contains(errStr, "at least") ||
+		strings.Contains(errStr, "at most") ||
+		strings.Contains(errStr, "unknown flag") ||
+		strings.Contains(errStr, "invalid argument")
 }
 
 // ValidationResultError wraps multiple validation errors for unified handling.
@@ -94,10 +165,10 @@ func (e *ValidationResultError) Error() string {
 	return e.Errors[0].Error()
 }
 
-// HandleValidationErrors formats and outputs multiple validation errors, then exits.
-func HandleValidationErrors(cfg *CommandConfig, errs []error) {
-	for _, e := range errs {
-		fmt.Fprintln(os.Stderr, cfg.ErrorFormatter.Format(e))
+// Unwrap returns the first error for compatibility with error chain support.
+func (e *ValidationResultError) Unwrap() error {
+	if len(e.Errors) > 0 {
+		return e.Errors[0]
 	}
-	os.Exit(int(ExitCodeUsage))
+	return nil
 }

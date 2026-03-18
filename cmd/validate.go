@@ -27,7 +27,7 @@ Supported platforms:
 Example:
   germinator validate agent.yaml --platform %s`, models.PlatformClaudeCode, models.PlatformOpenCode, models.PlatformOpenCode),
 		Args: cobra.ExactArgs(1),
-		Run: func(c *cobra.Command, args []string) {
+		RunE: func(c *cobra.Command, args []string) error {
 			// Extract verbosity from command flags at runtime
 			verbosity, _ := c.Flags().GetCount("verbose")
 			cfg.Verbosity = Verbosity(verbosity)
@@ -38,7 +38,7 @@ Example:
 			VerbosePrint(cfg, "Platform: %s", platform)
 
 			if platform == "" {
-				HandleError(cfg, gerrors.NewConfigError("platform", "", "--platform flag is required").WithSuggestions([]string{models.PlatformClaudeCode, models.PlatformOpenCode}))
+				return gerrors.NewConfigError("platform", "", "--platform flag is required").WithSuggestions([]string{models.PlatformClaudeCode, models.PlatformOpenCode})
 			}
 
 			VeryVerbosePrint(cfg, "Loading document...")
@@ -50,14 +50,17 @@ Example:
 				Platform:  platform,
 			})
 			if err != nil {
-				HandleError(cfg, err)
+				return err
 			}
 
 			if !result.Valid() {
-				HandleValidationErrors(cfg, result.Errors)
+				// Wrap all validation errors in a single error for centralized handling
+				// The error formatter will handle displaying multiple errors
+				return &ValidationResultError{Errors: result.Errors}
 			}
 
 			_, _ = fmt.Fprintln(c.OutOrStdout(), "Document is valid")
+			return nil
 		},
 	}
 

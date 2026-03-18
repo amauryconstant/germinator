@@ -11,7 +11,9 @@ import (
 	"gitlab.com/amoconst/germinator/internal/application"
 	gerrors "gitlab.com/amoconst/germinator/internal/errors"
 	"gitlab.com/amoconst/germinator/internal/library"
-) // NewInitCommand creates the init command for installing resources.
+)
+
+// NewInitCommand creates init command for installing resources.
 func NewInitCommand(cfg *CommandConfig) *cobra.Command {
 	var (
 		platform    string
@@ -46,24 +48,24 @@ Examples:
   # Overwrite existing files
   germinator init --platform opencode --resources skill/commit --force`,
 		Args: cobra.NoArgs,
-		Run: func(c *cobra.Command, _ []string) {
+		RunE: func(c *cobra.Command, _ []string) error {
 			verbosity, _ := c.Flags().GetCount("verbose")
 			cfg.Verbosity = Verbosity(verbosity)
 
 			// Validate platform
 			if platform == "" {
-				HandleError(cfg, gerrors.NewConfigError("platform", "", "--platform flag is required").WithSuggestions(library.ValidPlatforms()))
+				return gerrors.NewConfigError("platform", "", "--platform flag is required").WithSuggestions(library.ValidPlatforms())
 			}
 			if !library.IsValidPlatform(platform) {
-				HandleError(cfg, gerrors.NewConfigError("platform", platform, "unknown platform").WithSuggestions(library.ValidPlatforms()))
+				return gerrors.NewConfigError("platform", platform, "unknown platform").WithSuggestions(library.ValidPlatforms())
 			}
 
 			// Validate resources or preset (mutually exclusive)
 			if resources != "" && preset != "" {
-				HandleError(cfg, gerrors.NewConfigError("resources/preset", "", "--resources and --preset are mutually exclusive"))
+				return gerrors.NewConfigError("resources/preset", "", "--resources and --preset are mutually exclusive")
 			}
 			if resources == "" && preset == "" {
-				HandleError(cfg, gerrors.NewConfigError("resources/preset", "", "either --resources or --preset is required"))
+				return gerrors.NewConfigError("resources/preset", "", "either --resources or --preset is required")
 			}
 
 			// Parse resource list
@@ -77,7 +79,7 @@ Examples:
 				// Validate each reference format
 				for _, ref := range refs {
 					if err := library.ValidateRef(ref); err != nil {
-						HandleError(cfg, err)
+						return err
 					}
 				}
 			}
@@ -91,20 +93,20 @@ Examples:
 			// Load library
 			lib, err := library.LoadLibrary(libPath)
 			if err != nil {
-				HandleError(cfg, err)
+				return err
 			}
 
 			// Resolve preset if specified (preset resolution happens in command layer)
 			if preset != "" {
 				refs, err = library.ResolvePreset(lib, preset)
 				if err != nil {
-					HandleError(cfg, err)
+					return err
 				}
 			}
 
 			VeryVerbosePrint(cfg, "Installing resources: %s", strings.Join(refs, ", "))
 
-			// Initialize resources using the service interface
+			// Initialize resources using service interface
 			results, err := cfg.Services.Initializer.Initialize(context.Background(), &application.InitializeRequest{
 				Library:   lib,
 				Platform:  platform,
@@ -120,7 +122,7 @@ Examples:
 						fmt.Fprintf(os.Stderr, "Error: %s: %v\n", r.Ref, r.Error)
 					}
 				}
-				HandleError(cfg, err)
+				return err
 			}
 
 			// Output results
@@ -131,6 +133,7 @@ Examples:
 				_, _ = fmt.Fprint(c.OutOrStdout(), formatSuccessOutput(results))
 				_, _ = fmt.Fprintf(c.OutOrStdout(), "\nSuccessfully installed %d resource(s).\n", len(results))
 			}
+			return nil
 		},
 	}
 

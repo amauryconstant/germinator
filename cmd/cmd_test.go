@@ -1390,17 +1390,17 @@ func TestValidateCommandExitCodes(t *testing.T) {
 			expectedCode: 3,
 		},
 		{
-			name:     "missing description - exit code 2",
+			name:     "missing description - exit code 5",
 			filename: "agent-invalid.md",
 			content: `---
 name: test-agent
 ---
 content`,
 			platform:     "opencode",
-			expectedCode: 2,
+			expectedCode: 5,
 		},
 		{
-			name:     "invalid platform - exit code 2",
+			name:     "invalid platform - exit code 3",
 			filename: "agent-test.md",
 			content: `---
 name: test-agent
@@ -1408,7 +1408,7 @@ description: test
 ---
 content`,
 			platform:     "invalid-platform",
-			expectedCode: 2,
+			expectedCode: 3,
 		},
 	}
 
@@ -1432,7 +1432,8 @@ content`,
 					t.Errorf("Expected exit code %d for error, got %d (error: %v)", tt.expectedCode, code, err)
 				}
 			} else if !result.Valid() {
-				code := GetExitCodeForError(gerrors.NewValidationError("", "", "", result.Errors[0].Error()))
+				// Use the actual error type from result, not create a new ValidationError
+				code := GetExitCodeForError(result.Errors[0])
 				if int(code) != tt.expectedCode {
 					t.Errorf("Expected exit code %d for validation errors, got %d", tt.expectedCode, code)
 				}
@@ -1480,7 +1481,7 @@ func TestAdaptCommandExitCodes(t *testing.T) {
 			expectedCode: 3,
 		},
 		{
-			name:       "invalid platform - exit code 2",
+			name:       "invalid platform - exit code 3",
 			inputFile:  "agent-test.md",
 			outputFile: tmpDir + "/output.md",
 			content: `---
@@ -1489,7 +1490,7 @@ description: test
 ---
 content`,
 			platform:     "invalid-platform",
-			expectedCode: 2,
+			expectedCode: 3,
 		},
 	}
 
@@ -1529,17 +1530,17 @@ func TestExitCodeForErrorTypes(t *testing.T) {
 		{
 			name:         "ParseError returns exit code 3",
 			err:          gerrors.NewParseError("test.yaml", "parse failed", nil),
-			expectedCode: ExitCodeParse,
+			expectedCode: ExitCodeConfig,
 		},
 		{
-			name:         "ValidationError returns exit code 2",
+			name:         "ValidationError returns exit code 5",
 			err:          gerrors.NewValidationError("", "name", "", "invalid field"),
-			expectedCode: ExitCodeUsage,
+			expectedCode: ExitCodeValidation,
 		},
 		{
-			name:         "ConfigError returns exit code 2",
+			name:         "ConfigError returns exit code 3",
 			err:          gerrors.NewConfigError("platform", "invalid", "unknown platform").WithSuggestions([]string{"claude-code"}),
-			expectedCode: ExitCodeUsage,
+			expectedCode: ExitCodeConfig,
 		},
 		{
 			name:         "TransformError returns exit code 1",
@@ -1547,9 +1548,9 @@ func TestExitCodeForErrorTypes(t *testing.T) {
 			expectedCode: ExitCodeError,
 		},
 		{
-			name:         "FileError returns exit code 1",
+			name:         "FileError with not found returns exit code 6",
 			err:          gerrors.NewFileError("test.yaml", "read", "not found", nil),
-			expectedCode: ExitCodeError,
+			expectedCode: ExitCodeNotFound,
 		},
 		{
 			name:         "generic error returns exit code 1",
@@ -1575,9 +1576,9 @@ func TestErrorCategorization(t *testing.T) {
 		expectedCategory ErrorCategory
 	}{
 		{
-			name:             "ParseError categorizes as CategoryParse",
+			name:             "ParseError categorizes as CategoryConfig",
 			err:              gerrors.NewParseError("test.yaml", "failed", nil),
-			expectedCategory: CategoryParse,
+			expectedCategory: CategoryConfig,
 		},
 		{
 			name:             "ValidationError categorizes as CategoryValidation",
@@ -1711,8 +1712,8 @@ func TestHandleErrorWritesToStderr(t *testing.T) {
 		t.Errorf("Expected stderr to contain 'Hint:', got: %q", output)
 	}
 
-	if exitCode != ExitCodeUsage {
-		t.Errorf("GetExitCodeForError(ConfigError) = %d, want %d", exitCode, ExitCodeUsage)
+	if exitCode != ExitCodeConfig {
+		t.Errorf("GetExitCodeForError(ConfigError) = %d, want %d", exitCode, ExitCodeConfig)
 	}
 }
 
@@ -1732,17 +1733,17 @@ func TestHandleErrorExitCodes(t *testing.T) {
 		{
 			name:       "ParseError exits with code 3",
 			err:        gerrors.NewParseError("file.yaml", "parse failed", nil),
-			expectCode: ExitCodeParse,
+			expectCode: ExitCodeConfig,
 		},
 		{
-			name:       "ValidationError exits with code 2",
+			name:       "ValidationError exits with code 5",
 			err:        gerrors.NewValidationError("", "name", "", "invalid field"),
-			expectCode: ExitCodeUsage,
+			expectCode: ExitCodeValidation,
 		},
 		{
-			name:       "ConfigError exits with code 2",
+			name:       "ConfigError exits with code 3",
 			err:        gerrors.NewConfigError("platform", "bad", "invalid").WithSuggestions([]string{"claude-code"}),
-			expectCode: ExitCodeUsage,
+			expectCode: ExitCodeConfig,
 		},
 		{
 			name:       "TransformError exits with code 1",
@@ -1750,8 +1751,13 @@ func TestHandleErrorExitCodes(t *testing.T) {
 			expectCode: ExitCodeError,
 		},
 		{
-			name:       "FileError exits with code 1",
+			name:       "FileError with not found exits with code 6",
 			err:        gerrors.NewFileError("file.yaml", "read", "not found", nil),
+			expectCode: ExitCodeNotFound,
+		},
+		{
+			name:       "FileError exits with code 1",
+			err:        gerrors.NewFileError("file.yaml", "read", "permission denied", nil),
 			expectCode: ExitCodeError,
 		},
 	}

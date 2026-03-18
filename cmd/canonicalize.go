@@ -34,7 +34,7 @@ Supported document types:
 Example:
   germinator canonicalize agent.md canonical-agent.yaml --platform %s --type agent`, models.PlatformClaudeCode, models.PlatformOpenCode, models.PlatformOpenCode),
 		Args: cobra.ExactArgs(2),
-		Run: func(c *cobra.Command, args []string) {
+		RunE: func(c *cobra.Command, args []string) error {
 			// Extract verbosity from command flags at runtime
 			verbosity, _ := c.Flags().GetCount("verbose")
 			cfg.Verbosity = Verbosity(verbosity)
@@ -46,11 +46,11 @@ Example:
 			VerbosePrint(cfg, "Output path: %s", outputPath)
 
 			if platform == "" {
-				HandleError(cfg, gerrors.NewConfigError("platform", "", "--platform flag is required").WithSuggestions([]string{models.PlatformClaudeCode, models.PlatformOpenCode}))
+				return gerrors.NewConfigError("platform", "", "--platform flag is required").WithSuggestions([]string{models.PlatformClaudeCode, models.PlatformOpenCode})
 			}
 
 			if docType == "" {
-				HandleError(cfg, gerrors.NewConfigError("type", "", "--type flag is required").WithSuggestions([]string{"agent", "command", "skill", "memory"}))
+				return gerrors.NewConfigError("type", "", "--type flag is required").WithSuggestions([]string{"agent", "command", "skill", "memory"})
 			}
 
 			VeryVerbosePrint(cfg, "Parsing platform document...")
@@ -64,10 +64,11 @@ Example:
 				DocType:    docType,
 			})
 			if err != nil {
-				HandleError(cfg, err)
+				return err
 			}
 
 			_, _ = fmt.Fprintf(c.OutOrStdout(), "Successfully canonicalized document to: %s\n", outputPath)
+			return nil
 		},
 	}
 

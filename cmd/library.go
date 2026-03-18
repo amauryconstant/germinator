@@ -15,7 +15,7 @@ func NewLibraryCommand(cfg *CommandConfig) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "library",
-		Short: "Manage the canonical resource library",
+		Short: "Manage canonical resource library",
 		Long: `Manage the canonical resource library.
 
 The library contains skills, agents, commands, and memory resources
@@ -52,7 +52,7 @@ Example:
   germinator library resources
   germinator library resources --library /path/to/library`,
 		Args: cobra.NoArgs,
-		Run: func(c *cobra.Command, _ []string) {
+		RunE: func(c *cobra.Command, _ []string) error {
 			verbosity, _ := c.Flags().GetCount("verbose")
 			cfg.Verbosity = Verbosity(verbosity)
 
@@ -65,12 +65,13 @@ Example:
 			// Load library
 			lib, err := library.LoadLibrary(path)
 			if err != nil {
-				HandleError(cfg, err)
+				return err
 			}
 
 			// List resources
 			output := formatResourcesList(lib)
 			_, _ = fmt.Fprint(c.OutOrStdout(), output)
+			return nil
 		},
 	}
 }
@@ -86,7 +87,7 @@ Example:
   germinator library presets
   germinator library presets --library /path/to/library`,
 		Args: cobra.NoArgs,
-		Run: func(c *cobra.Command, _ []string) {
+		RunE: func(c *cobra.Command, _ []string) error {
 			verbosity, _ := c.Flags().GetCount("verbose")
 			cfg.Verbosity = Verbosity(verbosity)
 
@@ -99,12 +100,13 @@ Example:
 			// Load library
 			lib, err := library.LoadLibrary(path)
 			if err != nil {
-				HandleError(cfg, err)
+				return err
 			}
 
 			// List presets
 			output := formatPresetsList(lib)
 			_, _ = fmt.Fprint(c.OutOrStdout(), output)
+			return nil
 		},
 	}
 }
@@ -124,7 +126,7 @@ Examples:
   germinator library show preset/git-workflow
   germinator library show agent/reviewer --library /path/to/library`,
 		Args: cobra.ExactArgs(1),
-		Run: func(c *cobra.Command, args []string) {
+		RunE: func(c *cobra.Command, args []string) error {
 			verbosity, _ := c.Flags().GetCount("verbose")
 			cfg.Verbosity = Verbosity(verbosity)
 
@@ -139,7 +141,7 @@ Examples:
 			// Load library
 			lib, err := library.LoadLibrary(path)
 			if err != nil {
-				HandleError(cfg, err)
+				return err
 			}
 
 			// Check if it's a preset reference
@@ -147,23 +149,24 @@ Examples:
 				presetName := ref[7:]
 				output, err := formatPresetDetails(lib, presetName)
 				if err != nil {
-					HandleError(cfg, err)
+					return err
 				}
 				_, _ = fmt.Fprint(c.OutOrStdout(), output)
-				return
+				return nil
 			}
 
 			// Validate resource reference format
 			if _, _, err := library.ParseRef(ref); err != nil {
-				HandleError(cfg, fmt.Errorf("invalid reference format: %s (expected type/name or preset/name)", ref))
+				return fmt.Errorf("invalid reference format: %s (expected type/name or preset/name)", ref)
 			}
 
 			// Show resource details
 			output, err := formatResourceDetails(lib, ref)
 			if err != nil {
-				HandleError(cfg, err)
+				return err
 			}
 			_, _ = fmt.Fprint(c.OutOrStdout(), output)
+			return nil
 		},
 	}
 

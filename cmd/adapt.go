@@ -27,7 +27,7 @@ Supported platforms:
 Example:
   germinator adapt agent.yaml opencode-agent.md --platform %s`, models.PlatformClaudeCode, models.PlatformOpenCode, models.PlatformOpenCode),
 		Args: cobra.ExactArgs(2),
-		Run: func(c *cobra.Command, args []string) {
+		RunE: func(c *cobra.Command, args []string) error {
 			// Extract verbosity from command flags at runtime
 			verbosity, _ := c.Flags().GetCount("verbose")
 			cfg.Verbosity = Verbosity(verbosity)
@@ -39,7 +39,7 @@ Example:
 			VerbosePrint(cfg, "Output path: %s", outputPath)
 
 			if platform == "" {
-				HandleError(cfg, gerrors.NewConfigError("platform", "", "--platform flag is required").WithSuggestions([]string{models.PlatformClaudeCode, models.PlatformOpenCode}))
+				return gerrors.NewConfigError("platform", "", "--platform flag is required").WithSuggestions([]string{models.PlatformClaudeCode, models.PlatformOpenCode})
 			}
 
 			VeryVerbosePrint(cfg, "Loading source document...")
@@ -52,10 +52,11 @@ Example:
 				Platform:   platform,
 			})
 			if err != nil {
-				HandleError(cfg, err)
+				return err
 			}
 
 			_, _ = fmt.Fprintf(c.OutOrStdout(), "Document transformed successfully to %s\n", outputPath)
+			return nil
 		},
 	}
 
