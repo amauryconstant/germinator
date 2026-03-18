@@ -84,16 +84,16 @@ func formatParseError(err error) string {
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Parse error: %s\n", parseErr.Message()))
-	sb.WriteString(fmt.Sprintf("  File: %s\n", parseErr.Path()))
+	fmt.Fprintf(&sb, "Parse error: %s\n", parseErr.Message())
+	fmt.Fprintf(&sb, "  File: %s\n", parseErr.Path())
 	if parseErr.Cause() != nil {
-		sb.WriteString(fmt.Sprintf("  Cause: %s\n", parseErr.Cause().Error()))
+		fmt.Fprintf(&sb, "  Cause: %s\n", parseErr.Cause().Error())
 	}
 	for _, suggestion := range parseErr.Suggestions() {
-		sb.WriteString(fmt.Sprintf("  Hint: %s\n", suggestion))
+		fmt.Fprintf(&sb, "  Hint: %s\n", suggestion)
 	}
 	if parseErr.Context() != "" {
-		sb.WriteString(fmt.Sprintf("  Context: %s\n", parseErr.Context()))
+		fmt.Fprintf(&sb, "  Context: %s\n", parseErr.Context())
 	}
 	return sb.String()
 }
@@ -106,13 +106,13 @@ func formatValidationError(err error) string {
 
 	var sb strings.Builder
 	if validationErr.Field() != "" {
-		sb.WriteString(fmt.Sprintf("Validation error: %s (field: %s)\n", validationErr.Message(), validationErr.Field()))
+		fmt.Fprintf(&sb, "Validation error: %s (field: %s)\n", validationErr.Message(), validationErr.Field())
 	} else {
-		sb.WriteString(fmt.Sprintf("Validation error: %s\n", validationErr.Message()))
+		fmt.Fprintf(&sb, "Validation error: %s\n", validationErr.Message())
 	}
 
 	for _, suggestion := range validationErr.Suggestions() {
-		sb.WriteString(fmt.Sprintf("  Hint: %s\n", suggestion))
+		fmt.Fprintf(&sb, "  Hint: %s\n", suggestion)
 	}
 	return sb.String()
 }
@@ -125,18 +125,18 @@ func formatTransformError(err error) string {
 
 	var sb strings.Builder
 	if transformErr.Platform() != "" {
-		sb.WriteString(fmt.Sprintf("Transform error (%s for %s): %s\n", transformErr.Operation(), transformErr.Platform(), transformErr.Message()))
+		fmt.Fprintf(&sb, "Transform error (%s for %s): %s\n", transformErr.Operation(), transformErr.Platform(), transformErr.Message())
 	} else {
-		sb.WriteString(fmt.Sprintf("Transform error (%s): %s\n", transformErr.Operation(), transformErr.Message()))
+		fmt.Fprintf(&sb, "Transform error (%s): %s\n", transformErr.Operation(), transformErr.Message())
 	}
 	if transformErr.Cause() != nil {
-		sb.WriteString(fmt.Sprintf("  Cause: %s\n", transformErr.Cause().Error()))
+		fmt.Fprintf(&sb, "  Cause: %s\n", transformErr.Cause().Error())
 	}
 	for _, suggestion := range transformErr.Suggestions() {
-		sb.WriteString(fmt.Sprintf("  Hint: %s\n", suggestion))
+		fmt.Fprintf(&sb, "  Hint: %s\n", suggestion)
 	}
 	if transformErr.Context() != "" {
-		sb.WriteString(fmt.Sprintf("  Context: %s\n", transformErr.Context()))
+		fmt.Fprintf(&sb, "  Context: %s\n", transformErr.Context())
 	}
 	return sb.String()
 }
@@ -148,16 +148,16 @@ func formatFileError(err error) string {
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("File error (%s): %s\n", fileErr.Operation(), fileErr.Message()))
-	sb.WriteString(fmt.Sprintf("  Path: %s\n", fileErr.Path()))
+	fmt.Fprintf(&sb, "File error (%s): %s\n", fileErr.Operation(), fileErr.Message())
+	fmt.Fprintf(&sb, "  Path: %s\n", fileErr.Path())
 	if fileErr.Cause() != nil {
-		sb.WriteString(fmt.Sprintf("  Cause: %s\n", fileErr.Cause().Error()))
+		fmt.Fprintf(&sb, "  Cause: %s\n", fileErr.Cause().Error())
 	}
 	for _, suggestion := range fileErr.Suggestions() {
-		sb.WriteString(fmt.Sprintf("  Hint: %s\n", suggestion))
+		fmt.Fprintf(&sb, "  Hint: %s\n", suggestion)
 	}
 	if fileErr.Context() != "" {
-		sb.WriteString(fmt.Sprintf("  Context: %s\n", fileErr.Context()))
+		fmt.Fprintf(&sb, "  Context: %s\n", fileErr.Context())
 	}
 	return sb.String()
 }
@@ -169,15 +169,15 @@ func formatConfigError(err error) string {
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Config error: %s\n", configErr.Message()))
+	fmt.Fprintf(&sb, "Config error: %s\n", configErr.Message())
 	if len(configErr.Suggestions()) > 0 {
-		sb.WriteString(fmt.Sprintf("  Hint: %s\n", strings.Join(configErr.Suggestions(), ", ")))
+		fmt.Fprintf(&sb, "  Hint: %s\n", strings.Join(configErr.Suggestions(), ", "))
 	}
 	if configErr.Field() != "" && configErr.Value() != "" {
-		sb.WriteString(fmt.Sprintf("  Field: %s, Value: %s\n", configErr.Field(), configErr.Value()))
+		fmt.Fprintf(&sb, "  Field: %s, Value: %s\n", configErr.Field(), configErr.Value())
 	}
 	if configErr.Context() != "" {
-		sb.WriteString(fmt.Sprintf("  Context: %s\n", configErr.Context()))
+		fmt.Fprintf(&sb, "  Context: %s\n", configErr.Context())
 	}
 	return sb.String()
 }

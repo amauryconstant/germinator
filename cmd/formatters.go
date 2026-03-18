@@ -10,7 +10,7 @@ import (
 func formatDryRunOutput(results []application.InitializeResult) string {
 	var output strings.Builder
 	for _, result := range results {
-		output.WriteString(fmt.Sprintf("Would write: %s\n  from: %s\n", result.OutputPath, result.InputPath))
+		fmt.Fprintf(&output, "Would write: %s\n  from: %s\n", result.OutputPath, result.InputPath)
 	}
 	return output.String()
 }
@@ -18,7 +18,7 @@ func formatDryRunOutput(results []application.InitializeResult) string {
 func formatSuccessOutput(results []application.InitializeResult) string {
 	var output strings.Builder
 	for _, result := range results {
-		output.WriteString(fmt.Sprintf("Installed: %s -> %s\n", result.Ref, result.OutputPath))
+		fmt.Fprintf(&output, "Installed: %s -> %s\n", result.Ref, result.OutputPath)
 	}
 	return output.String()
 }

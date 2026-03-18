@@ -40,9 +40,9 @@ func formatResourcesList(lib *library.Library) string {
 		for _, info := range infos {
 			ref := library.FormatRef(info.Type, info.Name)
 			if info.Description != "" {
-				sb.WriteString(fmt.Sprintf("  %s - %s\n", ref, info.Description))
+				fmt.Fprintf(&sb, "  %s - %s\n", ref, info.Description)
 			} else {
-				sb.WriteString(fmt.Sprintf("  %s\n", ref))
+				fmt.Fprintf(&sb, "  %s\n", ref)
 			}
 		}
 	}
@@ -65,13 +65,13 @@ func formatPresetsList(lib *library.Library) string {
 
 	for _, preset := range presets {
 		if preset.Description != "" {
-			sb.WriteString(fmt.Sprintf("%s - %s\n", preset.Name, preset.Description))
+			fmt.Fprintf(&sb, "%s - %s\n", preset.Name, preset.Description)
 		} else {
-			sb.WriteString(fmt.Sprintf("%s\n", preset.Name))
+			fmt.Fprintf(&sb, "%s\n", preset.Name)
 		}
 
 		for _, ref := range preset.Resources {
-			sb.WriteString(fmt.Sprintf("  - %s\n", ref))
+			fmt.Fprintf(&sb, "  - %s\n", ref)
 		}
 	}
 
@@ -95,10 +95,10 @@ func formatResourceDetails(lib *library.Library, ref string) (string, error) {
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Reference: %s\n", ref))
-	sb.WriteString(fmt.Sprintf("Path: %s\n", res.Path))
+	fmt.Fprintf(&sb, "Reference: %s\n", ref)
+	fmt.Fprintf(&sb, "Path: %s\n", res.Path)
 	if res.Description != "" {
-		sb.WriteString(fmt.Sprintf("Description: %s\n", res.Description))
+		fmt.Fprintf(&sb, "Description: %s\n", res.Description)
 	}
 
 	return sb.String(), nil
@@ -111,13 +111,13 @@ func formatPresetDetails(lib *library.Library, name string) (string, error) {
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Preset: %s\n", name))
+	fmt.Fprintf(&sb, "Preset: %s\n", name)
 	if preset.Description != "" {
-		sb.WriteString(fmt.Sprintf("Description: %s\n", preset.Description))
+		fmt.Fprintf(&sb, "Description: %s\n", preset.Description)
 	}
 	sb.WriteString("Resources:\n")
 	for _, ref := range preset.Resources {
-		sb.WriteString(fmt.Sprintf("  - %s\n", ref))
+		fmt.Fprintf(&sb, "  - %s\n", ref)
 	}
 
 	return sb.String(), nil

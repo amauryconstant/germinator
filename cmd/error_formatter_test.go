@@ -150,7 +150,7 @@ func TestFormatMultipleErrors(t *testing.T) {
 
 	var formatted strings.Builder
 	for i, err := range []error{err1, err2} {
-		formatted.WriteString(fmt.Sprintf("%d. %s", i+1, formatter.Format(err)))
+		fmt.Fprintf(&formatted, "%d. %s", i+1, formatter.Format(err))
 	}
 
 	result := formatted.String()
