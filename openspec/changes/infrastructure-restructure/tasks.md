@@ -24,14 +24,14 @@
 
 **Goal**: Move `internal/config/` → `internal/infrastructure/config/`
 
-- [ ] B.1 Verify `internal/infrastructure/config/` directory exists
-- [ ] B.2 Move config files: `git mv internal/config/*.go internal/infrastructure/config/`
-- [ ] B.3 Update package declarations to `package config`
-- [ ] B.4 Update imports in consuming files: `internal/config` → `internal/infrastructure/config`
-- [ ] B.5 Move test files
-- [ ] B.6 Update test imports
-- [ ] B.7 Verify: `go build ./internal/infrastructure/config/...`
-- [ ] B.8 Verify: `go test ./internal/infrastructure/config/...`
+- [x] B.1 Verify `internal/infrastructure/config/` directory exists
+- [x] B.2 Move config files: `git mv internal/config/*.go internal/infrastructure/config/`
+- [x] B.3 Update package declarations to `package config`
+- [x] B.4 Update imports in consuming files: `internal/config` → `internal/infrastructure/config`
+- [x] B.5 Move test files
+- [x] B.6 Update test imports
+- [x] B.7 Verify: `go build ./internal/infrastructure/config/...`
+- [x] B.8 Verify: `go test ./internal/infrastructure/config/...`
 - [ ] B.9 Commit this phase using `osx-commit`
 
 ---

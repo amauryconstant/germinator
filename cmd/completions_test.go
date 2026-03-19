@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"gitlab.com/amoconst/germinator/internal/config"
+	"gitlab.com/amoconst/germinator/internal/infrastructure/config"
 	"gitlab.com/amoconst/germinator/internal/library"
 )
 
