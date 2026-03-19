@@ -3,8 +3,8 @@ package opencode
 import (
 	"fmt"
 
-	"gitlab.com/amoconst/germinator/internal/adapters"
 	"gitlab.com/amoconst/germinator/internal/domain"
+	"gitlab.com/amoconst/germinator/internal/infrastructure/adapters"
 )
 
 // Adapter implements the Adapter interface for OpenCode platform.

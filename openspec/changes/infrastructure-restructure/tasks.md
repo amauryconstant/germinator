@@ -2,20 +2,20 @@
 
 **Goal**: Move `internal/adapters/` → `internal/infrastructure/adapters/`
 
-- [ ] A.1 Verify `internal/infrastructure/adapters/` directory exists
-- [ ] A.2 Move adapter files
+- [x] A.1 Verify `internal/infrastructure/adapters/` directory exists
+- [x] A.2 Move adapter files
   - `git mv internal/adapters/adapter.go internal/infrastructure/adapters/`
   - `git mv internal/adapters/helpers.go internal/infrastructure/adapters/`
-- [ ] A.3 Move adapter subdirectories
+- [x] A.3 Move adapter subdirectories
   - `git mv internal/adapters/claude-code internal/infrastructure/adapters/`
   - `git mv internal/adapters/opencode internal/infrastructure/adapters/`
-- [ ] A.4 Update package declarations in all adapter files to `package adapters`
-- [ ] A.5 Update imports in consuming files: `internal/adapters` → `internal/infrastructure/adapters`
+- [x] A.4 Update package declarations in all adapter files to `package adapters`
+- [x] A.5 Update imports in consuming files: `internal/adapters` → `internal/infrastructure/adapters`
   - Files: `internal/core/platform_parser.go`, `internal/core/loader.go`
-- [ ] A.6 Move test files: `helpers_test.go`, `claude-code/*_test.go`, `opencode/*_test.go`
-- [ ] A.7 Update test imports
-- [ ] A.8 Verify: `go build ./internal/infrastructure/adapters/...`
-- [ ] A.9 Verify: `go test ./internal/infrastructure/adapters/...`
+- [x] A.6 Move test files: `helpers_test.go`, `claude-code/*_test.go`, `opencode/*_test.go`
+- [x] A.7 Update test imports
+- [x] A.8 Verify: `go build ./internal/infrastructure/adapters/...`
+- [x] A.9 Verify: `go test ./internal/infrastructure/adapters/...`
 - [ ] A.10 Commit this phase using `osx-commit`
 
 ---

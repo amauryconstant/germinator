@@ -10,10 +10,10 @@ import (
 
 	"github.com/Masterminds/sprig/v3"
 
-	"gitlab.com/amoconst/germinator/internal/adapters"
-	claudecode "gitlab.com/amoconst/germinator/internal/adapters/claude-code"
-	opencode "gitlab.com/amoconst/germinator/internal/adapters/opencode"
 	gerrors "gitlab.com/amoconst/germinator/internal/domain"
+	"gitlab.com/amoconst/germinator/internal/infrastructure/adapters"
+	claudecode "gitlab.com/amoconst/germinator/internal/infrastructure/adapters/claude-code"
+	opencode "gitlab.com/amoconst/germinator/internal/infrastructure/adapters/opencode"
 )
 
 type templateContext struct {

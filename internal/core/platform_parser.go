@@ -4,9 +4,9 @@ package core
 import (
 	"os"
 
-	claudecode "gitlab.com/amoconst/germinator/internal/adapters/claude-code"
-	opencode "gitlab.com/amoconst/germinator/internal/adapters/opencode"
 	"gitlab.com/amoconst/germinator/internal/domain"
+	claudecode "gitlab.com/amoconst/germinator/internal/infrastructure/adapters/claude-code"
+	opencode "gitlab.com/amoconst/germinator/internal/infrastructure/adapters/opencode"
 	yaml "gopkg.in/yaml.v3"
 )
 

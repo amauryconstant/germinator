@@ -3,7 +3,7 @@ package claudecode
 // Package claudecode implements the Claude Code adapter for bidirectional conversion
 // between canonical models and Claude Code-specific format.
 //
-// The Claude Code adapter implements the Adapter interface (defined in internal/adapters/adapter.go)
+// The Claude Code adapter implements the Adapter interface (defined in internal/infrastructure/adapters/adapter.go)
 // and handles all platform-specific logic for Claude Code:
 //
 //   - ToCanonical(): Parses Claude Code YAML files into canonical models
@@ -39,7 +39,7 @@ package claudecode
 //
 // Usage Example
 //
-//   import "gitlab.com/amoconst/germinator/internal/adapters/claude-code"
+//   import "gitlab.com/amoconst/germinator/internal/infrastructure/adapters/claude-code"
 //
 //   adapter := claudcode.New()
 //
