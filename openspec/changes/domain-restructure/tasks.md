@@ -43,10 +43,10 @@
 
 ## 6. Cleanup Old Directories
 
-- [ ] 6.1 Remove empty `internal/errors/` directory
-- [ ] 6.2 Remove empty `internal/validation/` directory
-- [ ] 6.3 Remove empty `internal/models/canonical/` directory
-- [ ] 6.4 Remove empty `internal/models/` directory (if empty after canonical removal)
+- [x] 6.1 Remove empty `internal/errors/` directory
+- [x] 6.2 Remove empty `internal/validation/` directory
+- [x] 6.3 Remove empty `internal/models/canonical/` directory
+- [x] 6.4 Remove empty `internal/models/` directory (if empty after canonical removal)
 
 ## 7. Update Documentation
 

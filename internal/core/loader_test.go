@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	gerrors "gitlab.com/amoconst/germinator/internal/errors"
+	"gitlab.com/amoconst/germinator/internal/domain"
 )
 
 func TestDetectTypeFromFilename(t *testing.T) {
@@ -450,7 +450,7 @@ Content`
 			t.Fatal("Expected error for unrecognizable filename")
 		}
 
-		var parseErr *gerrors.ParseError
+		var parseErr *domain.ParseError
 		if !errors.As(err, &parseErr) {
 			t.Errorf("Expected ParseError, got %T: %v", err, err)
 		} else {
@@ -482,7 +482,7 @@ Content`
 			t.Fatal("Expected error for invalid YAML")
 		}
 
-		var parseErr *gerrors.ParseError
+		var parseErr *domain.ParseError
 		if !errors.As(err, &parseErr) {
 			t.Errorf("Expected ParseError, got %T: %v", err, err)
 		} else {
@@ -506,7 +506,7 @@ func TestLoadDocumentReturnsTypedFileError(t *testing.T) {
 			t.Fatal("Expected error for non-existent file")
 		}
 
-		var fileErr *gerrors.FileError
+		var fileErr *domain.FileError
 		if !errors.As(err, &fileErr) {
 			t.Errorf("Expected FileError, got %T: %v", err, err)
 		} else {

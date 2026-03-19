@@ -8,7 +8,7 @@ import (
 	"github.com/knadh/koanf/parsers/toml/v2"
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
-	gerrors "gitlab.com/amoconst/germinator/internal/errors"
+	"gitlab.com/amoconst/germinator/internal/domain"
 )
 
 // ConfigManager defines the interface for configuration management.
@@ -56,12 +56,12 @@ func (m *koanfConfigManager) Load() error {
 			// File doesn't exist, use defaults
 			return nil
 		}
-		return gerrors.NewFileError(configPath, "reading", "failed to read config file", err)
+		return domain.NewFileError(configPath, "reading", "failed to read config file", err)
 	}
 
 	// Unmarshal into config struct
 	if err := k.Unmarshal("", m.config); err != nil {
-		return gerrors.NewParseError(configPath, "failed to parse config", err)
+		return domain.NewParseError(configPath, "failed to parse config", err)
 	}
 
 	// Validate the config

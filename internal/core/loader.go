@@ -5,7 +5,7 @@ import (
 	"errors"
 	"regexp"
 
-	gerrors "gitlab.com/amoconst/germinator/internal/errors"
+	"gitlab.com/amoconst/germinator/internal/domain"
 )
 
 const (
@@ -18,12 +18,12 @@ func validatePlatform(platform string) []error {
 	var errs []error
 
 	if platform == "" {
-		errs = append(errs, gerrors.NewConfigError("platform", "", "platform is required").WithSuggestions([]string{PlatformClaudeCode, PlatformOpenCode}))
+		errs = append(errs, domain.NewConfigError("platform", "", "platform is required").WithSuggestions([]string{PlatformClaudeCode, PlatformOpenCode}))
 		return errs
 	}
 
 	if platform != PlatformClaudeCode && platform != PlatformOpenCode {
-		errs = append(errs, gerrors.NewConfigError("platform", platform, "unknown platform").WithSuggestions([]string{PlatformClaudeCode, PlatformOpenCode}))
+		errs = append(errs, domain.NewConfigError("platform", platform, "unknown platform").WithSuggestions([]string{PlatformClaudeCode, PlatformOpenCode}))
 		return errs
 	}
 
@@ -38,16 +38,16 @@ func LoadDocument(filepath, platform string) (interface{}, error) {
 
 	docType := DetectType(filepath)
 	if docType == "" {
-		return nil, gerrors.NewParseError(filepath, "unrecognizable filename (expected: agent-*.md, *-agent.md, etc.)", nil)
+		return nil, domain.NewParseError(filepath, "unrecognizable filename (expected: agent-*.md, *-agent.md, etc.)", nil)
 	}
 
 	doc, err := ParseDocument(filepath, docType)
 	if err != nil {
-		var fileErr *gerrors.FileError
+		var fileErr *domain.FileError
 		if errors.As(err, &fileErr) {
 			return nil, err
 		}
-		return nil, gerrors.NewParseError(filepath, "failed to parse document", err)
+		return nil, domain.NewParseError(filepath, "failed to parse document", err)
 	}
 
 	// Validation is now handled by the validation package in services layer
