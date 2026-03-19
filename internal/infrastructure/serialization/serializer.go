@@ -161,6 +161,23 @@ func createTemplateFuncMap() map[string]interface{} {
 	return funcMap
 }
 
+// findProjectRoot walks up the directory tree from cwd looking for go.mod.
+// Returns the project root directory and an error if not found.
+func findProjectRoot(cwd string) (string, error) {
+	dir := cwd
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir, nil
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+	return "", gerrors.NewFileError(cwd, "read", "project root not found (no go.mod)", nil)
+}
+
 func getTemplatePath(platform string, filename string) (string, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -168,17 +185,24 @@ func getTemplatePath(platform string, filename string) (string, error) {
 	}
 
 	relPath := filepath.Join("config", "templates", platform, filename)
-	tmplPath := filepath.Join(cwd, relPath)
 
-	if _, err := os.Stat(tmplPath); err != nil {
-		altPath := filepath.Join(filepath.Join(cwd, "..", ".."), relPath)
-		if _, err := os.Stat(altPath); err == nil {
-			return filepath.Abs(altPath)
-		}
-		return "", gerrors.NewFileError(relPath, "read", "template file not found", nil)
+	// First try CWD (works when running from project root)
+	tmplPath := filepath.Join(cwd, relPath)
+	if _, err := os.Stat(tmplPath); err == nil {
+		return filepath.Abs(tmplPath)
 	}
 
-	return filepath.Abs(tmplPath)
+	// Try finding project root (works when running from package directory in tests)
+	projectRoot, err := findProjectRoot(cwd)
+	if err != nil {
+		return "", gerrors.NewFileError(relPath, "read", "template file not found", nil)
+	}
+	tmplPath = filepath.Join(projectRoot, relPath)
+	if _, err := os.Stat(tmplPath); err == nil {
+		return filepath.Abs(tmplPath)
+	}
+
+	return "", gerrors.NewFileError(relPath, "read", "template file not found", nil)
 }
 
 func getDocType(doc interface{}) (string, error) {
@@ -238,17 +262,24 @@ func getCanonicalTemplatePath(filename string) (string, error) {
 	}
 
 	relPath := filepath.Join("config", "templates", "canonical", filename)
-	tmplPath := filepath.Join(cwd, relPath)
 
-	if _, err := os.Stat(tmplPath); err != nil {
-		altPath := filepath.Join(filepath.Join(cwd, "..", ".."), relPath)
-		if _, err := os.Stat(altPath); err == nil {
-			return filepath.Abs(altPath)
-		}
-		return "", gerrors.NewFileError(relPath, "read", "canonical template file not found", nil)
+	// First try CWD (works when running from project root)
+	tmplPath := filepath.Join(cwd, relPath)
+	if _, err := os.Stat(tmplPath); err == nil {
+		return filepath.Abs(tmplPath)
 	}
 
-	return filepath.Abs(tmplPath)
+	// Try finding project root (works when running from package directory in tests)
+	projectRoot, err := findProjectRoot(cwd)
+	if err != nil {
+		return "", gerrors.NewFileError(relPath, "read", "canonical template file not found", nil)
+	}
+	tmplPath = filepath.Join(projectRoot, relPath)
+	if _, err := os.Stat(tmplPath); err == nil {
+		return filepath.Abs(tmplPath)
+	}
+
+	return "", gerrors.NewFileError(relPath, "read", "canonical template file not found", nil)
 }
 
 // createCanonicalTemplateFuncMap creates and returns a FuncMap with minimal Sprig functions for canonical templates.
