@@ -9,7 +9,7 @@ Adopting a dedicated `internal/domain/` package isolates core business types (ca
 - **BREAKING**: Move `models/canonical/` into `domain/` package with files split by type
 - **BREAKING**: Move `errors/` into `domain/errors.go`
 - **BREAKING**: Move `validation/` into `domain/validation.go`
-- **BREAKING**: Move `application/requests.go` and `application/results.go` into `domain/`
+- **BREAKING**: Move `application/results.go` into `domain/` (requests stay in application layer due to InitializeRequest's external dependency)
 - Add domain purity enforcement via depguard (no external deps in domain/)
 
 ## Capabilities
@@ -30,7 +30,7 @@ Adopting a dedicated `internal/domain/` package isolates core business types (ca
 - `internal/models/canonical/` - Removed (moved to domain/)
 - `internal/errors/` - Removed (moved to domain/)
 - `internal/validation/` - Removed (moved to domain/)
-- `internal/application/` - Reduced (requests/results moved to domain/)
+- `internal/application/` - Reduced (results moved to domain/, requests remain)
 - `.golangci.yml` - Add depguard rule for domain purity
 
 **No Public API Impact**: All changes are to internal packages; no external consumers affected.
