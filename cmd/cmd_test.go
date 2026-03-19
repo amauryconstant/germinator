@@ -108,14 +108,12 @@ This is test content`
 		{
 			name:        "valid claude-code platform",
 			platform:    "claude-code",
-			expectError: true,
-			errorMsg:    "template file not found",
+			expectError: false,
 		},
 		{
 			name:        "valid opencode platform",
 			platform:    "opencode",
-			expectError: true,
-			errorMsg:    "template file not found",
+			expectError: false,
 		},
 	}
 
