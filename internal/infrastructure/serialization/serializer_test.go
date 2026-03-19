@@ -1,18 +1,23 @@
-package core
+package serialization
 
 import (
 	"strings"
 	"testing"
 
 	"gitlab.com/amoconst/germinator/internal/domain"
+	"gitlab.com/amoconst/germinator/internal/infrastructure/parsing"
 )
 
 func float64Ptr(f float64) *float64 {
 	return &f
 }
 
+func containsString(s, substr string) bool {
+	return strings.Contains(s, substr)
+}
+
 func TestRenderDocumentAgent(t *testing.T) {
-	agent := &CanonicalAgent{
+	agent := &parsing.CanonicalAgent{
 		Agent: domain.Agent{
 			Name:             "test-agent",
 			Description:      "Test agent",
@@ -57,7 +62,7 @@ func TestRenderDocumentAgent(t *testing.T) {
 }
 
 func TestRenderDocumentCommand(t *testing.T) {
-	command := &CanonicalCommand{
+	command := &parsing.CanonicalCommand{
 		Command: domain.Command{
 			Name:        "test-command",
 			Description: "Test command",
@@ -84,7 +89,7 @@ func TestRenderDocumentCommand(t *testing.T) {
 }
 
 func TestRenderDocumentSkill(t *testing.T) {
-	skill := &CanonicalSkill{
+	skill := &parsing.CanonicalSkill{
 		Skill: domain.Skill{
 			Name:        "test-skill",
 			Description: "Test skill description",
@@ -114,7 +119,7 @@ func TestRenderDocumentSkill(t *testing.T) {
 }
 
 func TestRenderDocumentMemory(t *testing.T) {
-	memory := &CanonicalMemory{
+	memory := &parsing.CanonicalMemory{
 		Memory: domain.Memory{
 			Paths: []string{"src/**/*.go", "README.md"},
 		},
@@ -148,7 +153,7 @@ func TestRenderDocumentUnknownType(t *testing.T) {
 }
 
 func TestRenderDocumentInvalidTemplate(t *testing.T) {
-	agent := &CanonicalAgent{
+	agent := &parsing.CanonicalAgent{
 		Agent: domain.Agent{
 			Name:        "test-agent",
 			Description: "Test agent",
@@ -190,7 +195,7 @@ func TestRenderDocumentMarkdownBodyPreservation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			agent := &CanonicalAgent{
+			agent := &parsing.CanonicalAgent{
 				Agent: domain.Agent{
 					Name:        "test-agent",
 					Description: "Test agent",
@@ -213,12 +218,12 @@ func TestRenderDocumentMarkdownBodyPreservation(t *testing.T) {
 func TestRenderCanonicalAgentClaudeCode(t *testing.T) {
 	tests := []struct {
 		name        string
-		agent       *CanonicalAgent
+		agent       *parsing.CanonicalAgent
 		checkOutput func(t *testing.T, output string)
 	}{
 		{
 			name: "minimal agent",
-			agent: &CanonicalAgent{
+			agent: &parsing.CanonicalAgent{
 				Agent: domain.Agent{
 					Name:        "test-agent",
 					Description: "Test agent",
@@ -232,7 +237,7 @@ func TestRenderCanonicalAgentClaudeCode(t *testing.T) {
 		},
 		{
 			name: "agent with tools",
-			agent: &CanonicalAgent{
+			agent: &parsing.CanonicalAgent{
 				Agent: domain.Agent{
 					Name:        "test-agent",
 					Description: "Test agent",
@@ -250,7 +255,7 @@ func TestRenderCanonicalAgentClaudeCode(t *testing.T) {
 		},
 		{
 			name: "agent with permission policy",
-			agent: &CanonicalAgent{
+			agent: &parsing.CanonicalAgent{
 				Agent: domain.Agent{
 					Name:             "test-agent",
 					Description:      "Test agent",
@@ -265,7 +270,7 @@ func TestRenderCanonicalAgentClaudeCode(t *testing.T) {
 		},
 		{
 			name: "agent with behavior",
-			agent: &CanonicalAgent{
+			agent: &parsing.CanonicalAgent{
 				Agent: domain.Agent{
 					Name:        "test-agent",
 					Description: "Test agent",
@@ -298,12 +303,12 @@ func TestRenderCanonicalAgentClaudeCode(t *testing.T) {
 func TestRenderCanonicalAgentOpenCode(t *testing.T) {
 	tests := []struct {
 		name        string
-		agent       *CanonicalAgent
+		agent       *parsing.CanonicalAgent
 		checkOutput func(t *testing.T, output string)
 	}{
 		{
 			name: "minimal agent",
-			agent: &CanonicalAgent{
+			agent: &parsing.CanonicalAgent{
 				Agent: domain.Agent{
 					Name:             "test-agent",
 					Description:      "Test agent",
@@ -321,7 +326,7 @@ func TestRenderCanonicalAgentOpenCode(t *testing.T) {
 		},
 		{
 			name: "agent with tools",
-			agent: &CanonicalAgent{
+			agent: &parsing.CanonicalAgent{
 				Agent: domain.Agent{
 					Name:             "test-agent",
 					Description:      "Test agent",
@@ -340,7 +345,7 @@ func TestRenderCanonicalAgentOpenCode(t *testing.T) {
 		},
 		{
 			name: "agent with disallowed tools",
-			agent: &CanonicalAgent{
+			agent: &parsing.CanonicalAgent{
 				Agent: domain.Agent{
 					Name:             "test-agent",
 					Description:      "Test agent",
@@ -360,7 +365,7 @@ func TestRenderCanonicalAgentOpenCode(t *testing.T) {
 		},
 		{
 			name: "agent with behavior",
-			agent: &CanonicalAgent{
+			agent: &parsing.CanonicalAgent{
 				Agent: domain.Agent{
 					Name:             "test-agent",
 					Description:      "Test agent",
@@ -401,13 +406,13 @@ func TestRenderCanonicalCommand(t *testing.T) {
 	tests := []struct {
 		name     string
 		platform string
-		command  *CanonicalCommand
+		command  *parsing.CanonicalCommand
 		check    func(t *testing.T, output string)
 	}{
 		{
 			name:     "claude-code",
 			platform: "claude-code",
-			command: &CanonicalCommand{
+			command: &parsing.CanonicalCommand{
 				Command: domain.Command{
 					Name:        "test-command",
 					Description: "Test command",
@@ -424,7 +429,7 @@ func TestRenderCanonicalCommand(t *testing.T) {
 		{
 			name:     "opencode",
 			platform: "opencode",
-			command: &CanonicalCommand{
+			command: &parsing.CanonicalCommand{
 				Command: domain.Command{
 					Name:        "test-command",
 					Description: "Test command",
@@ -455,13 +460,13 @@ func TestRenderCanonicalSkill(t *testing.T) {
 	tests := []struct {
 		name     string
 		platform string
-		skill    *CanonicalSkill
+		skill    *parsing.CanonicalSkill
 		check    func(t *testing.T, output string)
 	}{
 		{
 			name:     "claude-code with extensions",
 			platform: "claude-code",
-			skill: &CanonicalSkill{
+			skill: &parsing.CanonicalSkill{
 				Skill: domain.Skill{
 					Name:        "test-skill",
 					Description: "Test skill",
@@ -480,7 +485,7 @@ func TestRenderCanonicalSkill(t *testing.T) {
 		{
 			name:     "opencode with extensions",
 			platform: "opencode",
-			skill: &CanonicalSkill{
+			skill: &parsing.CanonicalSkill{
 				Skill: domain.Skill{
 					Name:        "test-skill",
 					Description: "Test skill",
@@ -514,13 +519,13 @@ func TestRenderCanonicalMemory(t *testing.T) {
 	tests := []struct {
 		name     string
 		platform string
-		memory   *CanonicalMemory
+		memory   *parsing.CanonicalMemory
 		check    func(t *testing.T, output string)
 	}{
 		{
 			name:     "claude-code with paths",
 			platform: "claude-code",
-			memory: &CanonicalMemory{
+			memory: &parsing.CanonicalMemory{
 				Memory: domain.Memory{
 					Paths:   []string{"README.md", "AGENTS.md"},
 					Content: "Project context",
@@ -535,7 +540,7 @@ func TestRenderCanonicalMemory(t *testing.T) {
 		{
 			name:     "opencode with paths",
 			platform: "opencode",
-			memory: &CanonicalMemory{
+			memory: &parsing.CanonicalMemory{
 				Memory: domain.Memory{
 					Paths:   []string{"README.md", "AGENTS.md"},
 					Content: "Project context",
@@ -568,23 +573,23 @@ func TestGetDocType(t *testing.T) {
 		wantError bool
 	}{
 		{
-			name:     "CanonicalAgent",
-			doc:      &CanonicalAgent{},
+			name:     "parsing.CanonicalAgent",
+			doc:      &parsing.CanonicalAgent{},
 			wantType: "agent",
 		},
 		{
-			name:     "CanonicalCommand",
-			doc:      &CanonicalCommand{},
+			name:     "parsing.CanonicalCommand",
+			doc:      &parsing.CanonicalCommand{},
 			wantType: "command",
 		},
 		{
-			name:     "CanonicalSkill",
-			doc:      &CanonicalSkill{},
+			name:     "parsing.CanonicalSkill",
+			doc:      &parsing.CanonicalSkill{},
 			wantType: "skill",
 		},
 		{
-			name:     "CanonicalMemory",
-			doc:      &CanonicalMemory{},
+			name:     "parsing.CanonicalMemory",
+			doc:      &parsing.CanonicalMemory{},
 			wantType: "memory",
 		},
 		{
@@ -616,12 +621,12 @@ func TestGetDocType(t *testing.T) {
 func TestMarshalCanonicalAgent(t *testing.T) {
 	tests := []struct {
 		name  string
-		agent *CanonicalAgent
+		agent *parsing.CanonicalAgent
 		check func(t *testing.T, output string)
 	}{
 		{
 			name: "agent with all fields",
-			agent: &CanonicalAgent{
+			agent: &parsing.CanonicalAgent{
 				Agent: domain.Agent{
 					Name:             "test-agent",
 					Description:      "Test agent description",
@@ -709,7 +714,7 @@ func TestMarshalCanonicalAgent(t *testing.T) {
 		},
 		{
 			name: "agent with minimal fields",
-			agent: &CanonicalAgent{
+			agent: &parsing.CanonicalAgent{
 				Agent: domain.Agent{
 					Name:        "minimal-agent",
 					Description: "Minimal agent",
@@ -753,12 +758,12 @@ func TestMarshalCanonicalAgent(t *testing.T) {
 func TestMarshalCanonicalCommand(t *testing.T) {
 	tests := []struct {
 		name    string
-		command *CanonicalCommand
+		command *parsing.CanonicalCommand
 		check   func(t *testing.T, output string)
 	}{
 		{
 			name: "command with all fields",
-			command: &CanonicalCommand{
+			command: &parsing.CanonicalCommand{
 				Command: domain.Command{
 					Name:        "test-command",
 					Description: "Test command",
@@ -824,12 +829,12 @@ func TestMarshalCanonicalCommand(t *testing.T) {
 func TestMarshalCanonicalSkill(t *testing.T) {
 	tests := []struct {
 		name  string
-		skill *CanonicalSkill
+		skill *parsing.CanonicalSkill
 		check func(t *testing.T, output string)
 	}{
 		{
 			name: "skill with all fields",
-			skill: &CanonicalSkill{
+			skill: &parsing.CanonicalSkill{
 				Skill: domain.Skill{
 					Name:        "test-skill",
 					Description: "Test skill",
@@ -912,12 +917,12 @@ func TestMarshalCanonicalSkill(t *testing.T) {
 func TestMarshalCanonicalMemory(t *testing.T) {
 	tests := []struct {
 		name   string
-		memory *CanonicalMemory
+		memory *parsing.CanonicalMemory
 		check  func(t *testing.T, output string)
 	}{
 		{
 			name: "memory with paths only",
-			memory: &CanonicalMemory{
+			memory: &parsing.CanonicalMemory{
 				Memory: domain.Memory{
 					Paths: []string{"src/**/*.go", "README.md"},
 				},
@@ -940,7 +945,7 @@ func TestMarshalCanonicalMemory(t *testing.T) {
 		},
 		{
 			name: "memory with content only",
-			memory: &CanonicalMemory{
+			memory: &parsing.CanonicalMemory{
 				Memory: domain.Memory{
 					Paths: []string{},
 				},
@@ -960,7 +965,7 @@ func TestMarshalCanonicalMemory(t *testing.T) {
 		},
 		{
 			name: "memory with both paths and content",
-			memory: &CanonicalMemory{
+			memory: &parsing.CanonicalMemory{
 				Memory: domain.Memory{
 					Paths: []string{"src/**/*.go"},
 				},
@@ -989,7 +994,7 @@ func TestMarshalCanonicalMemory(t *testing.T) {
 }
 
 func TestMarshalCanonicalAllEmptyOptionalFields(t *testing.T) {
-	agent := &CanonicalAgent{
+	agent := &parsing.CanonicalAgent{
 		Agent: domain.Agent{
 			Name:        "test-agent",
 			Description: "Test agent",
@@ -1026,7 +1031,7 @@ func TestMarshalCanonicalAllEmptyOptionalFields(t *testing.T) {
 }
 
 func TestMarshalCanonicalNoAdapterFieldAccess(t *testing.T) {
-	agent := &CanonicalAgent{
+	agent := &parsing.CanonicalAgent{
 		Agent: domain.Agent{
 			Name:        "test-agent",
 			Description: "Test agent",

@@ -6,8 +6,9 @@ import (
 	"os"
 
 	"gitlab.com/amoconst/germinator/internal/application"
-	"gitlab.com/amoconst/germinator/internal/core"
 	"gitlab.com/amoconst/germinator/internal/domain"
+	"gitlab.com/amoconst/germinator/internal/infrastructure/parsing"
+	"gitlab.com/amoconst/germinator/internal/infrastructure/serialization"
 )
 
 const (
@@ -44,12 +45,12 @@ func NewTransformer() application.Transformer {
 
 // Transform transforms a document to target platform format.
 func (t *transformer) Transform(_ context.Context, req *application.TransformRequest) (*domain.TransformResult, error) {
-	doc, err := core.LoadDocument(req.InputPath, req.Platform)
+	doc, err := parsing.LoadDocument(req.InputPath, req.Platform)
 	if err != nil {
 		return nil, err
 	}
 
-	rendered, err := core.RenderDocument(doc, req.Platform)
+	rendered, err := serialization.RenderDocument(doc, req.Platform)
 	if err != nil {
 		return nil, domain.NewTransformError("render", req.Platform, "failed to render document", err)
 	}

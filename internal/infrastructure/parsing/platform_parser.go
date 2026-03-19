@@ -1,5 +1,5 @@
-// Package core provides document parsing and serialization functionality.
-package core
+// Package parsing provides platform document parsing functionality.
+package parsing
 
 import (
 	"os"

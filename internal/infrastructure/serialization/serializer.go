@@ -1,5 +1,5 @@
-// Package core provides document parsing and serialization functionality.
-package core
+// Package serialization provides document serialization and rendering functionality.
+package serialization
 
 import (
 	"fmt"
@@ -14,6 +14,7 @@ import (
 	"gitlab.com/amoconst/germinator/internal/infrastructure/adapters"
 	claudecode "gitlab.com/amoconst/germinator/internal/infrastructure/adapters/claude-code"
 	opencode "gitlab.com/amoconst/germinator/internal/infrastructure/adapters/opencode"
+	"gitlab.com/amoconst/germinator/internal/infrastructure/parsing"
 )
 
 type templateContext struct {
@@ -182,13 +183,13 @@ func getTemplatePath(platform string, filename string) (string, error) {
 
 func getDocType(doc interface{}) (string, error) {
 	switch d := doc.(type) {
-	case *CanonicalAgent:
+	case *parsing.CanonicalAgent:
 		return "agent", nil
-	case *CanonicalCommand:
+	case *parsing.CanonicalCommand:
 		return "command", nil
-	case *CanonicalMemory:
+	case *parsing.CanonicalMemory:
 		return "memory", nil
-	case *CanonicalSkill:
+	case *parsing.CanonicalSkill:
 		return "skill", nil
 	default:
 		return "", gerrors.NewTransformError("marshal", "canonical", fmt.Sprintf("unknown document type: %T", d), nil)

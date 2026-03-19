@@ -5,9 +5,9 @@ import (
 	"context"
 
 	"gitlab.com/amoconst/germinator/internal/application"
-	"gitlab.com/amoconst/germinator/internal/core"
 	"gitlab.com/amoconst/germinator/internal/domain"
 	"gitlab.com/amoconst/germinator/internal/domain/opencode"
+	"gitlab.com/amoconst/germinator/internal/infrastructure/parsing"
 )
 
 // validator implements the application.Validator interface.
@@ -24,12 +24,12 @@ func (v *validator) Validate(_ context.Context, req *application.ValidateRequest
 		return &domain.ValidateResult{Errors: errs}, nil
 	}
 
-	docType := core.DetectType(req.InputPath)
+	docType := parsing.DetectType(req.InputPath)
 	if docType == "" {
 		return nil, domain.NewParseError(req.InputPath, "unrecognizable filename", nil)
 	}
 
-	doc, parseErr := core.ParseDocument(req.InputPath, docType)
+	doc, parseErr := parsing.ParseDocument(req.InputPath, docType)
 	if parseErr != nil {
 		return nil, domain.NewParseError(req.InputPath, "failed to parse document", parseErr)
 	}
@@ -37,7 +37,7 @@ func (v *validator) Validate(_ context.Context, req *application.ValidateRequest
 	var errs []error
 
 	switch d := doc.(type) {
-	case *core.CanonicalAgent:
+	case *parsing.CanonicalAgent:
 		if result := domain.ValidateAgent(&d.Agent); result.IsError() {
 			errs = append(errs, unwrapErrors(result.Error)...)
 		}
@@ -46,7 +46,7 @@ func (v *validator) Validate(_ context.Context, req *application.ValidateRequest
 				errs = append(errs, unwrapErrors(result.Error)...)
 			}
 		}
-	case *core.CanonicalCommand:
+	case *parsing.CanonicalCommand:
 		if result := domain.ValidateCommand(&d.Command); result.IsError() {
 			errs = append(errs, unwrapErrors(result.Error)...)
 		}
@@ -55,11 +55,11 @@ func (v *validator) Validate(_ context.Context, req *application.ValidateRequest
 				errs = append(errs, unwrapErrors(result.Error)...)
 			}
 		}
-	case *core.CanonicalMemory:
+	case *parsing.CanonicalMemory:
 		if result := domain.ValidateMemory(&d.Memory); result.IsError() {
 			errs = append(errs, unwrapErrors(result.Error)...)
 		}
-	case *core.CanonicalSkill:
+	case *parsing.CanonicalSkill:
 		if result := domain.ValidateSkill(&d.Skill); result.IsError() {
 			errs = append(errs, unwrapErrors(result.Error)...)
 		}

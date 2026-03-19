@@ -7,9 +7,10 @@ import (
 	"path/filepath"
 
 	"gitlab.com/amoconst/germinator/internal/application"
-	"gitlab.com/amoconst/germinator/internal/core"
 	"gitlab.com/amoconst/germinator/internal/domain"
 	"gitlab.com/amoconst/germinator/internal/infrastructure/library"
+	"gitlab.com/amoconst/germinator/internal/infrastructure/parsing"
+	"gitlab.com/amoconst/germinator/internal/infrastructure/serialization"
 )
 
 // initializer implements the application.Initializer interface.
@@ -69,7 +70,7 @@ func (i *initializer) Initialize(_ context.Context, req *application.InitializeR
 		}
 
 		// Load the document
-		doc, err := core.LoadDocument(inputPath, req.Platform)
+		doc, err := parsing.LoadDocument(inputPath, req.Platform)
 		if err != nil {
 			result.Error = err
 			results = append(results, result)
@@ -77,7 +78,7 @@ func (i *initializer) Initialize(_ context.Context, req *application.InitializeR
 		}
 
 		// Render the document
-		rendered, err := core.RenderDocument(doc, req.Platform)
+		rendered, err := serialization.RenderDocument(doc, req.Platform)
 		if err != nil {
 			result.Error = err
 			results = append(results, result)

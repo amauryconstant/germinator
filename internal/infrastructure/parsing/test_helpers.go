@@ -1,4 +1,4 @@
-package core
+package parsing
 
 import (
 	"os"
@@ -12,14 +12,14 @@ func getProjectRoot() (string, error) {
 		return "", err
 	}
 
-	testPath := filepath.Join(wd, "..", "..", "test")
+	testPath := filepath.Join(wd, "..", "..", "..", "test")
 	if _, err := os.Stat(testPath); err == nil {
-		return filepath.Abs(filepath.Join(wd, "..", ".."))
+		return filepath.Abs(filepath.Join(wd, "..", "..", ".."))
 	}
 
-	altTestPath := filepath.Join(wd, "..", "..", "..", "test")
+	altTestPath := filepath.Join(wd, "..", "..", "..", "..", "test")
 	if _, err := os.Stat(altTestPath); err == nil {
-		return filepath.Abs(filepath.Join(wd, "..", "..", ".."))
+		return filepath.Abs(filepath.Join(wd, "..", "..", "..", ".."))
 	}
 
 	return "", os.ErrNotExist
