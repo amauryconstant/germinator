@@ -1,6 +1,6 @@
 //go:build golden
 
-package services
+package service
 
 import (
 	"bytes"

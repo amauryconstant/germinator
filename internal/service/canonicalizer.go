@@ -1,5 +1,5 @@
-// Package services provides document transformation and validation services.
-package services
+// Package service provides document transformation and validation services.
+package service
 
 import (
 	"context"

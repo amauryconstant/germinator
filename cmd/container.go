@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"gitlab.com/amoconst/germinator/internal/application"
-	"gitlab.com/amoconst/germinator/internal/services"
+	"gitlab.com/amoconst/germinator/internal/service"
 )
 
 // ServiceContainer holds service instances for dependency injection.
@@ -21,9 +21,9 @@ type ServiceContainer struct {
 // NewServiceContainer creates a new ServiceContainer with all services initialized.
 func NewServiceContainer() *ServiceContainer {
 	return &ServiceContainer{
-		Transformer:   services.NewTransformer(),
-		Validator:     services.NewValidator(),
-		Canonicalizer: services.NewCanonicalizer(),
-		Initializer:   services.NewInitializer(),
+		Transformer:   service.NewTransformer(),
+		Validator:     service.NewValidator(),
+		Canonicalizer: service.NewCanonicalizer(),
+		Initializer:   service.NewInitializer(),
 	}
 }

@@ -1,5 +1,5 @@
-// Package services provides business logic for document transformation and validation.
-package services
+// Package service provides business logic for document transformation and validation.
+package service
 
 import (
 	"context"
