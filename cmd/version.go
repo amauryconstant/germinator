@@ -7,6 +7,7 @@ import (
 	"gitlab.com/amoconst/germinator/internal/version"
 )
 
+// NewVersionCommand creates a new version command.
 func NewVersionCommand(_ *CommandConfig) *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",

@@ -41,7 +41,7 @@ package claudecode
 //
 //   import "gitlab.com/amoconst/germinator/internal/adapters/claude-code"
 //
-//   adapter := claudcode.NewClaudeCodeAdapter()
+//   adapter := claudcode.New()
 //
 //   // Convert canonical to Claude Code
 //   claudeCodeYAML, err := adapter.FromCanonical(canonicalAgent)

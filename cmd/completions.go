@@ -103,7 +103,7 @@ func actionPlatforms() carapace.Action {
 // actionResources returns a dynamic completion action for library resources.
 // It loads the library with caching and timeout support.
 func actionResources(cmd *cobra.Command) carapace.Action {
-	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
+	return carapace.ActionCallback(func(_ carapace.Context) carapace.Action {
 		libPath := resolveLibraryPath(cmd, nil)
 		timeout := getCompletionTimeout(nil)
 		cacheTTL := getCacheTTL(nil)
@@ -145,7 +145,7 @@ func actionResources(cmd *cobra.Command) carapace.Action {
 // actionPresets returns a dynamic completion action for library presets.
 // It loads the library with caching and timeout support.
 func actionPresets(cmd *cobra.Command) carapace.Action {
-	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
+	return carapace.ActionCallback(func(_ carapace.Context) carapace.Action {
 		libPath := resolveLibraryPath(cmd, nil)
 		timeout := getCompletionTimeout(nil)
 		cacheTTL := getCacheTTL(nil)
@@ -187,7 +187,7 @@ func actionPresets(cmd *cobra.Command) carapace.Action {
 // actionLibraryRefs returns a dynamic completion action combining resources and presets.
 // It loads the library with caching and timeout support.
 func actionLibraryRefs(cmd *cobra.Command) carapace.Action {
-	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
+	return carapace.ActionCallback(func(_ carapace.Context) carapace.Action {
 		libPath := resolveLibraryPath(cmd, nil)
 		timeout := getCompletionTimeout(nil)
 		cacheTTL := getCacheTTL(nil)

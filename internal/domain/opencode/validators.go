@@ -66,12 +66,12 @@ func ValidateAgentOpenCode(a *domain.Agent) domain.Result[bool] {
 
 // ValidateCommandOpenCode validates OpenCode-specific command constraints.
 // Currently no OpenCode-specific validation for commands beyond generic rules.
-func ValidateCommandOpenCode(c *domain.Command) domain.Result[bool] {
+func ValidateCommandOpenCode(_ *domain.Command) domain.Result[bool] {
 	return domain.NewResult(true)
 }
 
 // ValidateSkillOpenCode validates OpenCode-specific skill constraints.
 // Currently no OpenCode-specific validation for skills beyond generic rules.
-func ValidateSkillOpenCode(s *domain.Skill) domain.Result[bool] {
+func ValidateSkillOpenCode(_ *domain.Skill) domain.Result[bool] {
 	return domain.NewResult(true)
 }

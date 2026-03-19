@@ -111,7 +111,7 @@ func GetOutputPath(typ, name, platform, outputDir string) (string, error) {
 }
 
 // GetOutputPaths returns all output paths for a list of resource references.
-func GetOutputPaths(lib *Library, refs []string, platform, outputDir string) (map[string]string, error) {
+func GetOutputPaths(_ *Library, refs []string, platform, outputDir string) (map[string]string, error) {
 	paths := make(map[string]string, len(refs))
 	for _, ref := range refs {
 		typ, name, err := ParseRef(ref)

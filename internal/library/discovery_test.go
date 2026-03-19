@@ -56,25 +56,25 @@ func TestDefaultLibraryPath(t *testing.T) {
 	}
 }
 
-func TestLibraryExists(t *testing.T) {
+func TestExists(t *testing.T) {
 	// Test with existing directory
 	tmpDir := t.TempDir()
-	if !LibraryExists(tmpDir) {
-		t.Error("LibraryExists() should return true for existing directory")
+	if !Exists(tmpDir) {
+		t.Error("Exists() should return true for existing directory")
 	}
 
 	// Test with non-existing directory
-	if LibraryExists("/nonexistent/path") {
-		t.Error("LibraryExists() should return false for non-existing directory")
+	if Exists("/nonexistent/path") {
+		t.Error("Exists() should return false for non-existing directory")
 	}
 }
 
-func TestLibraryYAMLExists(t *testing.T) {
+func TestYAMLExists(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Test without library.yaml
-	if LibraryYAMLExists(tmpDir) {
-		t.Error("LibraryYAMLExists() should return false when no library.yaml")
+	if YAMLExists(tmpDir) {
+		t.Error("YAMLExists() should return false when no library.yaml")
 	}
 
 	// Create library.yaml
@@ -84,7 +84,7 @@ func TestLibraryYAMLExists(t *testing.T) {
 	}
 
 	// Test with library.yaml
-	if !LibraryYAMLExists(tmpDir) {
-		t.Error("LibraryYAMLExists() should return true when library.yaml exists")
+	if !YAMLExists(tmpDir) {
+		t.Error("YAMLExists() should return true when library.yaml exists")
 	}
 }

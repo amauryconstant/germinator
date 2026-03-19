@@ -11,8 +11,8 @@ import (
 	"gitlab.com/amoconst/germinator/internal/domain"
 )
 
-// ConfigManager defines the interface for configuration management.
-type ConfigManager interface {
+// Manager defines the interface for configuration management.
+type Manager interface {
 	// Load reads and parses the configuration file.
 	// Returns an error if the file exists but cannot be read or parsed.
 	// Missing config file is not an error - defaults are used.
@@ -23,13 +23,13 @@ type ConfigManager interface {
 	GetConfig() *Config
 }
 
-// koanfConfigManager implements ConfigManager using Koanf.
+// koanfConfigManager implements Manager using Koanf.
 type koanfConfigManager struct {
 	config *Config
 }
 
-// NewConfigManager creates a new ConfigManager.
-func NewConfigManager() ConfigManager {
+// NewConfigManager creates a new Manager.
+func NewConfigManager() Manager {
 	return &koanfConfigManager{
 		config: DefaultConfig(),
 	}

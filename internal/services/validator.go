@@ -19,7 +19,7 @@ func NewValidator() application.Validator {
 }
 
 // Validate validates a document and returns any validation errors.
-func (v *validator) Validate(ctx context.Context, req *application.ValidateRequest) (*domain.ValidateResult, error) {
+func (v *validator) Validate(_ context.Context, req *application.ValidateRequest) (*domain.ValidateResult, error) {
 	if errs := validatePlatform(req.Platform); len(errs) > 0 {
 		return &domain.ValidateResult{Errors: errs}, nil
 	}

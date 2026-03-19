@@ -5,6 +5,9 @@ import (
 	"unicode"
 )
 
+// ToPascalCase converts a string to PascalCase.
+// It splits the input on hyphens, underscores, and whitespace,
+// capitalizes the first letter of each word, and joins them together.
 func ToPascalCase(s string) string {
 	if s == "" {
 		return ""
@@ -26,18 +29,24 @@ func ToPascalCase(s string) string {
 	return result.String()
 }
 
+// ToLowerCase converts a string to lowercase.
 func ToLowerCase(s string) string {
 	return strings.ToLower(s)
 }
 
+// PermissionAction represents the action to take for a tool permission.
 type PermissionAction string
 
 const (
+	// PermissionActionAllow allows the tool to be used without confirmation.
 	PermissionActionAllow PermissionAction = "allow"
-	PermissionActionAsk   PermissionAction = "ask"
-	PermissionActionDeny  PermissionAction = "deny"
+	// PermissionActionAsk requires user confirmation before using the tool.
+	PermissionActionAsk PermissionAction = "ask"
+	// PermissionActionDeny prevents the tool from being used.
+	PermissionActionDeny PermissionAction = "deny"
 )
 
+// PermissionMap maps tool names to their permission actions.
 type PermissionMap struct {
 	Edit      PermissionAction `json:"edit,omitempty"`
 	Bash      PermissionAction `json:"bash,omitempty"`
@@ -49,11 +58,14 @@ type PermissionMap struct {
 	WebSearch PermissionAction `json:"websearch,omitempty"`
 }
 
+// PermissionMapping maps a Claude Code permission policy to OpenCode permissions.
 type PermissionMapping struct {
 	ClaudeCode string        `json:"claudeCode"`
 	OpenCode   PermissionMap `json:"openCode"`
 }
 
+// PermissionPolicyMappings maps canonical permission policy names to their platform-specific permission mappings.
+// The keys match the canonical PermissionPolicy enum values (restrictive, balanced, permissive, analysis, unrestricted).
 var PermissionPolicyMappings = map[string]PermissionMapping{
 	"restrictive": {
 		ClaudeCode: "default",

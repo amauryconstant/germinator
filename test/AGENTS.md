@@ -24,7 +24,7 @@
 
 ```bash
 mise run test:e2e          # E2E tests only
-mise run test:full         # All tests (unit + E2E)
+mise run test              # All tests (unit + golden + integration + e2e)
 go test -tags=e2e ./test/e2e/... -run TestValidate -v  # Specific test
 ```
 
@@ -55,6 +55,35 @@ cli.ShouldOutput(session, "Document is valid")
 
 ---
 
+## Integration Testing
+
+**Build tag**: `//go:build integration` (excluded from `go test ./...`)
+
+### Running Integration Tests
+
+```bash
+mise run test:integration              # All integration tests
+mise run test:coverage:integration     # Integration tests with coverage
+go test -tags=integration ./internal/core -v
+```
+
+### Integration Test Structure
+
+Located in `internal/core/integration_test.go`:
+
+- Tests end-to-end document loading pipeline: `LoadDocument → Validate → RenderDocument`
+- Uses fixtures from `test/fixtures/` for representative document types
+- Verifies document structure, file paths, and content extraction
+
+### Adding Integration Tests
+
+1. Create test functions in `internal/core/integration_test.go` with `//go:build integration` tag
+2. Use fixtures from `test/fixtures/` for test data
+3. Test complete pipelines, not individual functions
+4. Keep integration tests focused on critical workflows
+
+---
+
 ## Golden File Testing
 
 ### Usage
@@ -65,20 +94,21 @@ cli.ShouldOutput(session, "Document is valid")
 ### Running Tests
 
 ```bash
-# All golden file tests
-go test ./internal/services -run TestGoldenFiles -v
-
-# Specific test
-go test ./internal/services -run TestGoldenFiles/agent-full -v
+mise run test:golden              # All golden file tests
+mise run test:coverage:golden      # Golden tests with coverage
+go test -tags=golden ./internal/services -v
+go test -tags=golden ./internal/services -run TestGoldenFiles/agent-full -v  # Specific test
 ```
 
 ### Updating Golden Files
 
 ```bash
-UPDATE_GOLDEN=true go test ./internal/services -run TestGoldenFiles -v
+UPDATE_GOLDEN=true mise run test:golden
+# or
+UPDATE_GOLDEN=true go test -tags=golden ./internal/services -v
 ```
 
-Commit updated golden files. Verify without flag: `go test ./internal/services -run TestGoldenFiles -v`
+Commit updated golden files. Verify without flag: `mise run test:golden`
 
 ### Adding New Golden File Tests
 
@@ -88,6 +118,8 @@ Commit updated golden files. Verify without flag: `go test ./internal/services -
 4. Add test case to `transformer_golden_test.go`
 
 ### Test Structure
+
+**Build tag**: `//go:build golden` (excluded from `go test ./...`)
 
 Table-driven in `internal/services/transformer_golden_test.go`:
 ```go

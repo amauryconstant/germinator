@@ -22,7 +22,7 @@ func NewInitializer() application.Initializer {
 
 // Initialize installs resources from the library to the target directory.
 // It uses fail-fast error handling - stops on first error.
-func (i *initializer) Initialize(ctx context.Context, req *application.InitializeRequest) ([]domain.InitializeResult, error) {
+func (i *initializer) Initialize(_ context.Context, req *application.InitializeRequest) ([]domain.InitializeResult, error) {
 	results := make([]domain.InitializeResult, 0, len(req.Refs))
 
 	for _, ref := range req.Refs {

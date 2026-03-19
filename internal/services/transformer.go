@@ -11,8 +11,10 @@ import (
 )
 
 const (
+	// PlatformClaudeCode identifies the Claude Code platform.
 	PlatformClaudeCode = "claude-code"
-	PlatformOpenCode   = "opencode"
+	// PlatformOpenCode identifies the OpenCode platform.
+	PlatformOpenCode = "opencode"
 )
 
 // validatePlatform checks if platform parameter is valid.
@@ -41,7 +43,7 @@ func NewTransformer() application.Transformer {
 }
 
 // Transform transforms a document to target platform format.
-func (t *transformer) Transform(ctx context.Context, req *application.TransformRequest) (*domain.TransformResult, error) {
+func (t *transformer) Transform(_ context.Context, req *application.TransformRequest) (*domain.TransformResult, error) {
 	doc, err := core.LoadDocument(req.InputPath, req.Platform)
 	if err != nil {
 		return nil, err

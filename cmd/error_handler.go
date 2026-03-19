@@ -103,7 +103,7 @@ func GetExitCodeForError(err error) ExitCode {
 
 // HandleCLIError formats and outputs the error, then returns the appropriate exit code.
 // The caller (main.go) should use this code with os.Exit().
-func HandleCLIError(cmd *cobra.Command, err error) ExitCode {
+func HandleCLIError(_ *cobra.Command, err error) ExitCode {
 	// Check for Cobra argument errors to provide better UX
 	if IsCobraArgumentError(err) {
 		// Cobra will have already printed the error

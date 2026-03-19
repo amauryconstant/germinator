@@ -229,6 +229,7 @@ func (e *ValidationError) Unwrap() error {
 	return nil
 }
 
+// TransformError represents a transformation failure with immutable builders for fluent construction.
 type TransformError struct {
 	operation   string
 	platform    string
@@ -343,6 +344,7 @@ func (e *TransformError) Unwrap() error {
 	return e.cause
 }
 
+// FileError represents a file operation failure with immutable builders for fluent construction.
 type FileError struct {
 	path        string
 	operation   string
@@ -466,6 +468,7 @@ func (e *FileError) IsNotFound() bool {
 	return false
 }
 
+// ConfigError represents a configuration failure with immutable builders for fluent construction.
 type ConfigError struct {
 	field       string
 	value       string

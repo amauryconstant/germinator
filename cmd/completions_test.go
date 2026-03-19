@@ -96,7 +96,7 @@ func TestGetCacheTTL(t *testing.T) {
 	}
 }
 
-func TestActionPlatforms(t *testing.T) {
+func TestActionPlatforms(_ *testing.T) {
 	// Test that actionPlatforms returns a valid action
 	_ = actionPlatforms()
 }
@@ -139,7 +139,7 @@ func TestResourceActionFromLibrary(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.name, func(_ *testing.T) {
 			_ = resourceActionFromLibrary(tt.lib)
 		})
 	}
@@ -176,7 +176,7 @@ func TestPresetActionFromLibrary(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.name, func(_ *testing.T) {
 			_ = presetActionFromLibrary(tt.lib)
 		})
 	}
@@ -230,7 +230,7 @@ func TestLibraryRefActionFromLibrary(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.name, func(_ *testing.T) {
 			_ = libraryRefActionFromLibrary(tt.lib)
 		})
 	}

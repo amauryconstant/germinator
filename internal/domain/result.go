@@ -1,8 +1,8 @@
-// Package validation provides a functional validation pipeline with Result[T] type
-// for composable, early-exit validation with clean error handling.
+// Package domain provides core types, errors, and validation functionality
+// for the Germinator application.
 package domain
 
-// Result[T] represents either a success value or an error, enabling functional
+// Result represents either a success value or an error, enabling functional
 // error handling without exceptions or multiple return values.
 type Result[T any] struct {
 	Value T

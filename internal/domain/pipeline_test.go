@@ -36,13 +36,13 @@ func TestNewValidationPipeline(t *testing.T) {
 	})
 
 	t.Run("creates pipeline with multiple validators", func(t *testing.T) {
-		v1 := func(s string) Result[bool] { return NewResult(true) }
-		v2 := func(s string) Result[bool] { return NewResult(true) }
-		v3 := func(s string) Result[bool] { return NewResult(true) }
+		v1 := func(_ string) Result[bool] { return NewResult(true) }
+		v2 := func(_ string) Result[bool] { return NewResult(true) }
+		v3 := func(s string) Result[bool] { _ = s; return NewResult(true) }
 
 		pipeline := NewValidationPipeline(v1, v2, v3)
 		if len(pipeline.validations) != 3 {
-			t.Errorf("expected 3 validators, got %d", len(pipeline.validations))
+			t.Errorf("expected 3 validators, got %d validators", len(pipeline.validations))
 		}
 	})
 }
@@ -50,15 +50,15 @@ func TestNewValidationPipeline(t *testing.T) {
 func TestValidationPipeline_Validate(t *testing.T) {
 	t.Run("runs all validators on valid input", func(t *testing.T) {
 		callCount := 0
-		v1 := func(s string) Result[bool] {
+		v1 := func(_ string) Result[bool] {
 			callCount++
 			return NewResult(true)
 		}
-		v2 := func(s string) Result[bool] {
+		v2 := func(_ string) Result[bool] {
 			callCount++
 			return NewResult(true)
 		}
-		v3 := func(s string) Result[bool] {
+		v3 := func(_ string) Result[bool] {
 			callCount++
 			return NewResult(true)
 		}
@@ -76,15 +76,15 @@ func TestValidationPipeline_Validate(t *testing.T) {
 
 	t.Run("collects all errors", func(t *testing.T) {
 		callCount := 0
-		v1 := func(s string) Result[bool] {
+		v1 := func(_ string) Result[bool] {
 			callCount++
 			return NewResult(true)
 		}
-		v2 := func(s string) Result[bool] {
+		v2 := func(_ string) Result[bool] {
 			callCount++
 			return NewErrorResult[bool](errors.New("validation failed 1"))
 		}
-		v3 := func(s string) Result[bool] {
+		v3 := func(_ string) Result[bool] {
 			callCount++
 			return NewErrorResult[bool](errors.New("validation failed 2"))
 		}
@@ -115,10 +115,10 @@ func TestValidationPipeline_Validate(t *testing.T) {
 	t.Run("collects multiple failures", func(t *testing.T) {
 		testErr1 := errors.New("validation failed 1")
 		testErr2 := errors.New("validation failed 2")
-		v1 := func(s string) Result[bool] {
+		v1 := func(_ string) Result[bool] {
 			return NewErrorResult[bool](testErr1)
 		}
-		v2 := func(s string) Result[bool] {
+		v2 := func(_ string) Result[bool] {
 			return NewErrorResult[bool](testErr2)
 		}
 

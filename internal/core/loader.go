@@ -9,8 +9,10 @@ import (
 )
 
 const (
+	// PlatformClaudeCode represents the Claude Code platform.
 	PlatformClaudeCode = "claude-code"
-	PlatformOpenCode   = "opencode"
+	// PlatformOpenCode represents the OpenCode platform.
+	PlatformOpenCode = "opencode"
 )
 
 // validatePlatform checks if platform parameter is valid.

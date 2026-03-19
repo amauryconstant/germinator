@@ -19,7 +19,7 @@ func NewCanonicalizer() application.Canonicalizer {
 }
 
 // Canonicalize converts a platform document to canonical YAML format.
-func (c *canonicalizer) Canonicalize(ctx context.Context, req *application.CanonicalizeRequest) (*domain.CanonicalizeResult, error) {
+func (c *canonicalizer) Canonicalize(_ context.Context, req *application.CanonicalizeRequest) (*domain.CanonicalizeResult, error) {
 	doc, err := core.ParsePlatformDocument(req.InputPath, req.Platform, req.DocType)
 	if err != nil {
 		return nil, domain.NewParseError(req.InputPath, "failed to parse platform document", err)

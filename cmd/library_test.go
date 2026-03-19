@@ -119,7 +119,7 @@ func TestLibraryCommand_InvalidRef(t *testing.T) {
 	// For now, we just verify the command structure is correct
 }
 
-func TestInitCommand_RequiresPlatform(t *testing.T) {
+func TestInitCommand_RequiresPlatform(_ *testing.T) {
 	cfg := &CommandConfig{
 		Services:       NewServiceContainer(),
 		ErrorFormatter: NewErrorFormatter(),
@@ -133,7 +133,7 @@ func TestInitCommand_RequiresPlatform(t *testing.T) {
 	_ = cmd
 }
 
-func TestInitCommand_RequiresResourcesOrPreset(t *testing.T) {
+func TestInitCommand_RequiresResourcesOrPreset(_ *testing.T) {
 	cfg := &CommandConfig{
 		Services:       NewServiceContainer(),
 		ErrorFormatter: NewErrorFormatter(),
@@ -147,7 +147,7 @@ func TestInitCommand_RequiresResourcesOrPreset(t *testing.T) {
 	_ = cmd
 }
 
-func TestInitCommand_MutuallyExclusive(t *testing.T) {
+func TestInitCommand_MutuallyExclusive(_ *testing.T) {
 	cfg := &CommandConfig{
 		Services:       NewServiceContainer(),
 		ErrorFormatter: NewErrorFormatter(),

@@ -4,10 +4,10 @@ import (
 	"errors"
 )
 
-// ValidationFunc[T] is a function that validates input of type T and returns a Result[bool].
+// ValidationFunc validates input of type T and returns a Result[bool].
 type ValidationFunc[T any] func(T) Result[bool]
 
-// ValidationPipeline[T] chains multiple ValidationFunc[T] functions and collects all errors.
+// ValidationPipeline chains multiple ValidationFunc functions and collects all errors.
 type ValidationPipeline[T any] struct {
 	validations []ValidationFunc[T]
 }

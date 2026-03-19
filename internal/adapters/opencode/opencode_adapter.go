@@ -7,13 +7,17 @@ import (
 	"gitlab.com/amoconst/germinator/internal/domain"
 )
 
-type OpenCodeAdapter struct{}
+// Adapter implements the Adapter interface for OpenCode platform.
+type Adapter struct{}
 
-func New() *OpenCodeAdapter {
-	return &OpenCodeAdapter{}
+// New creates and returns a new Adapter instance.
+func New() *Adapter {
+	return &Adapter{}
 }
 
-func (a *OpenCodeAdapter) ToCanonical(input map[string]interface{}) (*domain.Agent, *domain.Command, *domain.Skill, *domain.Memory, error) {
+// ToCanonical converts OpenCode format to canonical models.
+// It parses the input map based on the __type field and returns the appropriate canonical document type.
+func (a *Adapter) ToCanonical(input map[string]interface{}) (*domain.Agent, *domain.Command, *domain.Skill, *domain.Memory, error) {
 	docType, ok := input["__type"].(string)
 	if !ok {
 		return nil, nil, nil, nil, domain.NewParseError("", "missing __type field", nil)
@@ -37,7 +41,9 @@ func (a *OpenCodeAdapter) ToCanonical(input map[string]interface{}) (*domain.Age
 	}
 }
 
-func (a *OpenCodeAdapter) FromCanonical(docType string, doc interface{}) (map[string]interface{}, error) {
+// FromCanonical converts canonical models to OpenCode format.
+// It renders the canonical document into a map suitable for YAML serialization.
+func (a *Adapter) FromCanonical(docType string, doc interface{}) (map[string]interface{}, error) {
 	switch docType {
 	case "agent":
 		agent, ok := doc.(*domain.Agent)
@@ -68,7 +74,9 @@ func (a *OpenCodeAdapter) FromCanonical(docType string, doc interface{}) (map[st
 	}
 }
 
-func (a *OpenCodeAdapter) PermissionPolicyToPlatform(policy domain.PermissionPolicy) (interface{}, error) {
+// PermissionPolicyToPlatform converts a canonical PermissionPolicy to OpenCode permission object format.
+// It maps the policy to a PermissionMap with Allow/Ask/Deny actions for each tool.
+func (a *Adapter) PermissionPolicyToPlatform(policy domain.PermissionPolicy) (interface{}, error) {
 	mapping, ok := adapters.PermissionPolicyMappings[string(policy)]
 	if !ok {
 		return nil, domain.NewConfigError("permission-policy", string(policy), "unknown permission policy")
@@ -76,11 +84,13 @@ func (a *OpenCodeAdapter) PermissionPolicyToPlatform(policy domain.PermissionPol
 	return mapping.OpenCode, nil
 }
 
-func (a *OpenCodeAdapter) ConvertToolNameCase(name string) string {
+// ConvertToolNameCase converts a tool name to lowercase for OpenCode.
+// OpenCode uses lowercase tool names, so this is an identity operation.
+func (a *Adapter) ConvertToolNameCase(name string) string {
 	return adapters.ToLowerCase(name)
 }
 
-func (a *OpenCodeAdapter) parseAgent(input map[string]interface{}) (*domain.Agent, error) {
+func (a *Adapter) parseAgent(input map[string]interface{}) (*domain.Agent, error) {
 	agent := &domain.Agent{}
 
 	if name, ok := input["name"].(string); ok {
@@ -156,7 +166,7 @@ func (a *OpenCodeAdapter) parseAgent(input map[string]interface{}) (*domain.Agen
 	return agent, nil
 }
 
-func (a *OpenCodeAdapter) renderAgent(agent *domain.Agent) (map[string]interface{}, error) {
+func (a *Adapter) renderAgent(agent *domain.Agent) (map[string]interface{}, error) {
 	output := make(map[string]interface{})
 	output["__type"] = "agent"
 	output["name"] = agent.Name
@@ -213,7 +223,7 @@ func (a *OpenCodeAdapter) renderAgent(agent *domain.Agent) (map[string]interface
 	return output, nil
 }
 
-func (a *OpenCodeAdapter) parseCommand(input map[string]interface{}) (*domain.Command, error) {
+func (a *Adapter) parseCommand(input map[string]interface{}) (*domain.Command, error) {
 	cmd := &domain.Command{}
 
 	if name, ok := input["name"].(string); ok {
@@ -258,7 +268,7 @@ func (a *OpenCodeAdapter) parseCommand(input map[string]interface{}) (*domain.Co
 	return cmd, nil
 }
 
-func (a *OpenCodeAdapter) renderCommand(cmd *domain.Command) (map[string]interface{}, error) {
+func (a *Adapter) renderCommand(cmd *domain.Command) (map[string]interface{}, error) {
 	output := make(map[string]interface{})
 	output["__type"] = "command"
 	output["name"] = cmd.Name
@@ -289,7 +299,7 @@ func (a *OpenCodeAdapter) renderCommand(cmd *domain.Command) (map[string]interfa
 	return output, nil
 }
 
-func (a *OpenCodeAdapter) parseSkill(input map[string]interface{}) (*domain.Skill, error) {
+func (a *Adapter) parseSkill(input map[string]interface{}) (*domain.Skill, error) {
 	skill := &domain.Skill{}
 
 	if name, ok := input["name"].(string); ok {
@@ -358,7 +368,7 @@ func (a *OpenCodeAdapter) parseSkill(input map[string]interface{}) (*domain.Skil
 	return skill, nil
 }
 
-func (a *OpenCodeAdapter) renderSkill(skill *domain.Skill) (map[string]interface{}, error) {
+func (a *Adapter) renderSkill(skill *domain.Skill) (map[string]interface{}, error) {
 	output := make(map[string]interface{})
 	output["__type"] = "skill"
 	output["name"] = skill.Name
@@ -405,7 +415,7 @@ func (a *OpenCodeAdapter) renderSkill(skill *domain.Skill) (map[string]interface
 	return output, nil
 }
 
-func (a *OpenCodeAdapter) parseMemory(input map[string]interface{}) (*domain.Memory, error) {
+func (a *Adapter) parseMemory(input map[string]interface{}) (*domain.Memory, error) {
 	mem := &domain.Memory{}
 
 	if paths, ok := input["paths"].([]interface{}); ok {
@@ -423,7 +433,7 @@ func (a *OpenCodeAdapter) parseMemory(input map[string]interface{}) (*domain.Mem
 	return mem, nil
 }
 
-func (a *OpenCodeAdapter) renderMemory(mem *domain.Memory) (map[string]interface{}, error) {
+func (a *Adapter) renderMemory(mem *domain.Memory) (map[string]interface{}, error) {
 	output := make(map[string]interface{})
 	output["__type"] = "memory"
 
@@ -438,7 +448,7 @@ func (a *OpenCodeAdapter) renderMemory(mem *domain.Memory) (map[string]interface
 	return output, nil
 }
 
-func (a *OpenCodeAdapter) parseTargets(input map[string]interface{}) domain.PlatformConfig {
+func (a *Adapter) parseTargets(input map[string]interface{}) domain.PlatformConfig {
 	targets := make(domain.PlatformConfig)
 	for platform, config := range input {
 		if configMap, ok := config.(map[string]interface{}); ok {
@@ -448,7 +458,7 @@ func (a *OpenCodeAdapter) parseTargets(input map[string]interface{}) domain.Plat
 	return targets
 }
 
-func (a *OpenCodeAdapter) mapPermissionModeToPolicy(mode string) domain.PermissionPolicy {
+func (a *Adapter) mapPermissionModeToPolicy(mode string) domain.PermissionPolicy {
 	switch mode {
 	case "default":
 		return domain.PermissionPolicyRestrictive
@@ -465,7 +475,7 @@ func (a *OpenCodeAdapter) mapPermissionModeToPolicy(mode string) domain.Permissi
 	}
 }
 
-func (a *OpenCodeAdapter) mapPermissionObjectToPolicy(permission map[string]interface{}) domain.PermissionPolicy {
+func (a *Adapter) mapPermissionObjectToPolicy(permission map[string]interface{}) domain.PermissionPolicy {
 	editDenied := false
 	bashDenied := false
 	otherDeny := false

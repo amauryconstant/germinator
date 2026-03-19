@@ -1,3 +1,5 @@
+// Package main provides the germinator CLI application for transforming
+// AI coding assistant configuration documents between platforms.
 package main
 
 import (

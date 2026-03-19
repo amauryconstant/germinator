@@ -9,25 +9,28 @@ import (
 	yaml "gopkg.in/yaml.v3"
 )
 
-// Wrapper structs to extend canonical models with FilePath and Content
+// CanonicalAgent extends the Agent domain model with FilePath and Content fields.
 type CanonicalAgent struct {
 	domain.Agent
 	FilePath string
 	Content  string
 }
 
+// CanonicalCommand extends the Command domain model with FilePath and Content fields.
 type CanonicalCommand struct {
 	domain.Command
 	FilePath string
 	Content  string
 }
 
+// CanonicalSkill extends the Skill domain model with FilePath and Content fields.
 type CanonicalSkill struct {
 	domain.Skill
 	FilePath string
 	Content  string
 }
 
+// CanonicalMemory extends the Memory domain model with FilePath and Content fields.
 type CanonicalMemory struct {
 	domain.Memory
 	FilePath string

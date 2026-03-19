@@ -1,8 +1,7 @@
-package opencode
-
 // Package opencode implements the OpenCode adapter for bidirectional conversion
 // between canonical models and OpenCode-specific format.
-//
+package opencode
+
 // The OpenCode adapter implements the Adapter interface (defined in internal/adapters/adapter.go)
 // and handles all platform-specific logic for OpenCode:
 //
@@ -64,7 +63,7 @@ package opencode
 //
 //   import "gitlab.com/amoconst/germinator/internal/adapters/opencode"
 //
-//   adapter := opencode.NewOpenCodeAdapter()
+//   adapter := opencode.New()
 //
 //   // Convert canonical to OpenCode
 //   openCodeYAML, err := adapter.FromCanonical(canonicalAgent)

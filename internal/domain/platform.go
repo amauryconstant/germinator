@@ -4,10 +4,15 @@ package domain
 type PermissionPolicy string
 
 const (
-	PermissionPolicyRestrictive  PermissionPolicy = "restrictive"
-	PermissionPolicyBalanced     PermissionPolicy = "balanced"
-	PermissionPolicyPermissive   PermissionPolicy = "permissive"
-	PermissionPolicyAnalysis     PermissionPolicy = "analysis"
+	// PermissionPolicyRestrictive requires explicit approval for all tool use.
+	PermissionPolicyRestrictive PermissionPolicy = "restrictive"
+	// PermissionPolicyBalanced requires approval for sensitive tools only.
+	PermissionPolicyBalanced PermissionPolicy = "balanced"
+	// PermissionPolicyPermissive allows most tools without approval.
+	PermissionPolicyPermissive PermissionPolicy = "permissive"
+	// PermissionPolicyAnalysis allows read-only tools without approval.
+	PermissionPolicyAnalysis PermissionPolicy = "analysis"
+	// PermissionPolicyUnrestricted allows all tools without approval.
 	PermissionPolicyUnrestricted PermissionPolicy = "unrestricted"
 )
 

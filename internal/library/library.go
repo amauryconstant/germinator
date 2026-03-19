@@ -11,6 +11,7 @@ import (
 // ResourceType represents the type of a library resource.
 type ResourceType string
 
+// ResourceType constants define the type of resource in the library.
 const (
 	ResourceTypeSkill   ResourceType = "skill"
 	ResourceTypeAgent   ResourceType = "agent"

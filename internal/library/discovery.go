@@ -40,8 +40,8 @@ func DefaultLibraryPath() string {
 	return filepath.Join(configDir, "germinator", "library")
 }
 
-// LibraryExists checks if a library exists at the given path.
-func LibraryExists(path string) bool {
+// Exists checks if a library directory exists at the given path.
+func Exists(path string) bool {
 	info, err := os.Stat(path)
 	if err != nil {
 		return false
@@ -49,8 +49,8 @@ func LibraryExists(path string) bool {
 	return info.IsDir()
 }
 
-// LibraryYAMLExists checks if a library.yaml exists at the given path.
-func LibraryYAMLExists(path string) bool {
+// YAMLExists checks if a library.yaml configuration file exists at the given library path.
+func YAMLExists(path string) bool {
 	yamlPath := filepath.Join(path, "library.yaml")
 	_, err := os.Stat(yamlPath)
 	return err == nil
