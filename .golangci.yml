@@ -5,39 +5,49 @@
    timeout: 5m
    tests: true
 
-linters:
-  disable-all: true
-  enable:
-    # Essential
-    - errcheck
-    - govet
-    - ineffassign
-    - typecheck
-    - unused
+ linters:
+   disable-all: true
+   enable:
+     # Essential
+     - errcheck
+     - govet
+     - ineffassign
+     - unused
 
-    # Style
-    - misspell
-    - whitespace
-    - revive
+     # Style
+     - misspell
+     - whitespace
+     - revive
 
-  settings:
-    gosec:
-      excludes:
-        - G104  # unchecked errors (defer/test)
-        - G301  # dir perms
-        - G304  # file inclusion
-        - G306  # file perms
-        - G307  # defers in loops
-        - G204  # subprocess input
-        - G401  # weak crypto for compat
-        - G501  # blocklisted import
+     # Domain Purity
+     - depguard
 
-  exclusions:
-    rules:
-      # Generated files
-      - path: ".*_gen\\.go"
-        linters: [all]
+   settings:
+     depguard:
+       rules:
+         domain:
+           files:
+             - internal/domain/**
+           allow:
+             - $gostd
+             - internal/domain
+     gosec:
+       excludes:
+         - G104  # unchecked errors (defer/test)
+         - G301  # dir perms
+         - G304  # file inclusion
+         - G306  # file perms
+         - G307  # defers in loops
+         - G204  # subprocess input
+         - G401  # weak crypto for compat
+         - G501  # blocklisted import
 
-      # Main file
-      - path: "main\\.go"
-        linters: [gosec]
+   exclusions:
+     rules:
+       # Generated files
+       - path: ".*_gen\\.go"
+         linters: [all]
+
+       # Main file
+       - path: "main\\.go"
+         linters: [gosec]

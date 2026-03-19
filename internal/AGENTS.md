@@ -10,10 +10,14 @@
 - `application/` - Service interfaces and DTOs for dependency injection (see `internal/application/AGENTS.md`)
 - `config/` - Configuration loading, XDG paths, TOML parsing (Koanf-based)
 - `core/` - Document parsing, loading, serialization, template functions
-- `errors/` - Typed domain errors (ParseError, ValidationError, TransformError, FileError, ConfigError)
-- `models/` - Document data models (validation moved to `internal/validation/`)
+- `domain/` - **Consolidated domain layer**: types, errors, validation, results (see `internal/domain/AGENTS.md`)
+- `library/` - Library system, resource management, preset grouping
 - `services/` - Service implementations (see `internal/services/AGENTS.md`)
-- `validation/` - Functional validation pipeline with `Result[T]` (see `internal/validation/AGENTS.md`)
+
+**Note**: The following packages have been consolidated into `internal/domain/`:
+- `errors/` → now `domain/errors.go` (Typed domain errors with builder pattern)
+- `models/` → now split into `domain/*.go` (Agent, Command, Skill, Memory, Platform types)
+- `validation/` → now `domain/validation.go`, `domain/result.go`, `domain/opencode/` (Validation pipeline and Result[T])
 
 ---
 
@@ -32,7 +36,11 @@ Serialization: `getDocType → getTemplatePath → template.Execute()`
 
 ---
 
-# Models Package (`internal/models/`)
+# Domain Package (`internal/domain/`)
+
+**Consolidated domain layer** containing all business types with no external dependencies.
+
+**Location**: See `domain/AGENTS.md` for complete documentation.
 
 ## Document Types
 
@@ -73,13 +81,32 @@ Serialization: `getDocType → getTemplatePath → template.Execute()`
 
 ## Validation
 
-**Moved to `internal/validation/`**: Standalone validator functions with `Result[T]` pattern.
+**Functional validation pipeline** with `Result[T]` type and composable validators.
 
-See `internal/validation/AGENTS.md` for:
-- `Result[T]` type for functional error handling
-- `ValidationPipeline[T]` for composable validation
-- Generic validators: `ValidateAgent()`, `ValidateCommand()`, `ValidateSkill()`, `ValidateMemory()`
-- OpenCode validators: `ValidateAgentOpenCode()`, etc.
+Located in `internal/domain/`:
+- `validation.go` - Generic validators: `ValidateAgent()`, `ValidateCommand()`, `ValidateSkill()`, `ValidateMemory()`
+- `opencode/` - OpenCode-specific validators: `ValidateAgentOpenCode()`, etc.
+- `pipeline.go` - `ValidationPipeline[T]` for chaining validators
+- `result.go` - `Result[T]` type for functional error handling
+
+## Errors
+
+**Typed domain errors** in `internal/domain/errors.go` with immutable builder pattern.
+
+Error types: ParseError, ValidationError, TransformError, FileError, ConfigError
+
+Features:
+- Immutable builder pattern with `WithSuggestions()`, `WithContext()`
+- Getters for programmatic access
+- `Unwrap()` for error chaining
+
+## Results
+
+**Service result types** in `internal/domain/results.go`:
+
+Types: TransformResult, ValidateResult, CanonicalizeResult, InitializeResult
+
+Used by service interfaces in `internal/application/` for operation outcomes.
 
 ---
 
@@ -88,18 +115,6 @@ See `internal/validation/AGENTS.md` for:
 Table-driven tests with descriptive names. End-to-end: `LoadDocument → Validate → RenderDocument → Verify output`.
 
 See `test/AGENTS.md` for golden file testing patterns.
-
----
-
-# Error Handling
-
-**Typed errors** in `internal/errors/` with immutable builder pattern.
-
-See `internal/errors/AGENTS.md` for:
-- Error types: ParseError, ValidationError, TransformError, FileError, ConfigError
-- Immutable builder pattern with `WithSuggestions()`, `WithContext()`
-- Getters for programmatic access
-- `Unwrap()` for error chaining
 
 ---
 
@@ -124,3 +139,5 @@ See `internal/models/constants.go` for:
 - Permission mode enums
 - Document type constants
 - Platform-specific constants
+
+**Note**: `internal/models/` directory remains but only contains constants.go and doc.go (non-domain artifacts).

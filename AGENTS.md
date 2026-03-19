@@ -44,11 +44,11 @@ graph LR
         MC[MarshalCanonical]
     end
 
-    subgraph VAL[Validation Layer]
-        RS[Result T]
-        VP[ValidationPipeline]
-        GV[Generic Validators]
-        PV[Platform Validators]
+    subgraph DOMAIN[Domain Layer]
+        DM[Models]
+        DE[Errors]
+        DV[Validation]
+        DR[Results]
     end
 
     subgraph CFG[Config Layer]
@@ -58,10 +58,6 @@ graph LR
     subgraph ADP[Adapters Layer]
         ACC[claude-code]
         AOC[opencode]
-    end
-
-    subgraph MOD[Models Layer]
-        MD[Canonical Models]
     end
 
     subgraph TPL[Templates Layer]
@@ -82,9 +78,8 @@ graph LR
     II --> IN
     ST --> LDc
     SV --> LDc
-    SV --> VP
-    VP --> GV
-    VP --> PV
+    SV --> DV
+    DV --> DM
     SC --> MP
     IN --> LDc
     IN --> LR
@@ -95,11 +90,11 @@ graph LR
     R --> TCC
     R --> TOC
     MC --> TC
-    P --> MD
+    P --> DM
     MP --> ACC
     MP --> AOC
-    ACC --> MD
-    AOC --> MD
+    ACC --> DM
+    AOC --> DM
     CM -.->|library path| LDc
 ```
 
@@ -221,13 +216,13 @@ graph TB
 | File                                                       | Purpose                                                      |
 | ---------------------------------------------------------- | ------------------------------------------------------------ |
 | [cmd/AGENTS.md](cmd/AGENTS.md)                             | CLI commands, Cobra patterns, command specs                  |
-| [internal/application/AGENTS.md](internal/application/AGENTS.md) | Service interfaces, request/result types for DI |
+| [internal/application/AGENTS.md](internal/application/AGENTS.md) | Service interfaces, request types for DI (results moved to domain) |
 | [internal/config/AGENTS.md](internal/config/AGENTS.md)     | Configuration loading, XDG paths, TOML parsing               |
 | [internal/core/AGENTS.md](internal/core/AGENTS.md)         | Document loading, parsing, serialization, template functions |
+| [internal/domain/AGENTS.md](internal/domain/AGENTS.md)     | Domain types, errors, validation, results (consolidated layer) |
 | [internal/library/AGENTS.md](internal/library/AGENTS.md)   | Library system, resource management, preset grouping         |
 | [internal/services/AGENTS.md](internal/services/AGENTS.md) | Service implementations (Transformer, Validator, etc.)       |
-| [internal/validation/AGENTS.md](internal/validation/AGENTS.md) | Validation pipeline, Result[T], composable validators |
-| [internal/AGENTS.md](internal/AGENTS.md)                   | Core package patterns, models integration                    |
+| [internal/AGENTS.md](internal/AGENTS.md)                   | Core package patterns                                        |
 | [config/AGENTS.md](config/AGENTS.md)                       | Template patterns, permission mappings                       |
 | [test/AGENTS.md](test/AGENTS.md)                           | Golden file testing, E2E testing, mock infrastructure, fixture conventions        |
 | [openspec/research/AGENTS.md](openspec/research/AGENTS.md) | Platform research documentation usage                        |

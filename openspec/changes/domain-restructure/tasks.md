@@ -51,12 +51,12 @@
 ## 7. Update Documentation
 
 - [ ] 7.1 Create `internal/domain/AGENTS.md` with domain layer documentation
-- [ ] 7.2 Update `internal/application/AGENTS.md` (remove requests/results references)
-- [ ] 7.3 Update root `AGENTS.md` architecture diagram
+- [x] 7.2 Update `internal/application/AGENTS.md` (remove requests/results references)
+- [x] 7.3 Update root `AGENTS.md` architecture diagram
 
 ## 8. Final Verification
 
-- [ ] 8.1 Run `go build ./...` to verify compilation
-- [ ] 8.2 Run `go test ./...` to verify all tests pass
-- [ ] 8.3 Run `golangci-lint run` to verify no linting errors
-- [ ] 8.4 Run `mise run check` to verify full validation passes
+- [x] 8.1 Run `go build ./...` to verify compilation
+- [x] 8.2 Run `go test ./...` to verify all tests pass
+- [x] 8.3 Run `golangci-lint run` to verify no linting errors
+- [x] 8.4 Run `mise run check` to verify full validation passes

@@ -13,7 +13,8 @@ Service interfaces and data transfer objects for dependency injection and testab
 |------|---------|
 | `interfaces.go` | Service interface definitions (Transformer, Validator, Canonicalizer, Initializer) |
 | `requests.go` | Request types for service operations |
-| `results.go` | Result types for service operations |
+
+**Note**: Result types have been moved to `internal/domain/results.go` as part of the domain consolidation.
 
 ---
 
@@ -23,10 +24,10 @@ All service methods take `context.Context` as first parameter (idiomatic Go).
 
 | Interface | Method | Purpose |
 |-----------|--------|---------|
-| Transformer | `Transform(ctx, *TransformRequest) (*TransformResult, error)` | Transform canonical → platform |
-| Validator | `Validate(ctx, *ValidateRequest) (*ValidateResult, error)` | Validate document |
-| Canonicalizer | `Canonicalize(ctx, *CanonicalizeRequest) (*CanonicalizeResult, error)` | Convert platform → canonical |
-| Initializer | `Initialize(ctx, *InitializeRequest) ([]InitializeResult, error)` | Install library resources |
+| Transformer | `Transform(ctx, *TransformRequest) (*domain.TransformResult, error)` | Transform canonical → platform |
+| Validator | `Validate(ctx, *ValidateRequest) (*domain.ValidateResult, error)` | Validate document |
+| Canonicalizer | `Canonicalize(ctx, *CanonicalizeRequest) (*domain.CanonicalizeResult, error)` | Convert platform → canonical |
+| Initializer | `Initialize(ctx, *InitializeRequest) ([]domain.InitializeResult, error)` | Install library resources |
 
 ---
 
@@ -42,6 +43,8 @@ All service methods take `context.Context` as first parameter (idiomatic Go).
 ---
 
 # Result Types
+
+Result types are defined in `internal/domain/results.go`:
 
 | Type | Fields | Notes |
 |------|--------|-------|
