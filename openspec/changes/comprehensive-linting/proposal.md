@@ -1,13 +1,13 @@
 ## Why
 
-Comprehensive linting catches more issues earlier in the development cycle, reducing bugs and maintaining code quality. The current configuration uses only 8 linters, missing many potential issues that 25 linters would catch. Domain purity enforcement via depguard ensures architectural integrity by preventing external dependencies from leaking into the domain layer. This aligns with CLI tooling standards established in cross-project investigations.
+Comprehensive linting catches more issues earlier in the development cycle, reducing bugs and maintaining code quality. The current configuration uses 8 linters, missing many potential issues that 25 linters would catch. Domain purity enforcement via depguard ensures architectural integrity by preventing external dependencies from leaking into the domain layer. This aligns with CLI tooling standards established in cross-project investigations.
 
-**Prerequisite:** This change depends on `domain-restructure` which creates the `internal/domain/` package. Apply this change after domain-restructure is complete.
+**Note:** The `domain-restructure` change is complete, creating the `internal/domain/` package. This linting change builds upon that foundation.
 
 ## What Changes
 
 - Expand golangci-lint from 8 to 25 linters organized by category:
-  - Essential: `staticcheck`, `unused`
+  - Essential: `staticcheck`, `typecheck`, `unused`
   - Code Quality: `gocyclo`, `gocognit`, `funlen`
   - Style: `misspell`, `whitespace`, `revive`
   - Error Handling: `errorlint`, `wrapcheck`, `errname`
@@ -16,7 +16,7 @@ Comprehensive linting catches more issues earlier in the development cycle, redu
   - Tests: `testifylint`, `tparallel`, `thelper`
   - Best Practices: `nakedret`, `unconvert`, `unparam`, `wastedassign`
   - Architecture: `depguard`
-- Add domain purity enforcement via depguard (no external deps in `internal/domain/`)
+- Enhance domain purity enforcement via depguard (no external deps in `internal/domain/`)
 - Configure appropriate thresholds for complexity linters
 - Add exclusions for test files and common false positives
 

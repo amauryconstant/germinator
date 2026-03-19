@@ -1,16 +1,16 @@
 ## Context
 
 **Current State:**
-- 8 linters in `.golangci.yml`: `errcheck`, `govet`, `ineffassign`, `typecheck`, `unused`, `misspell`, `whitespace`, `revive`
-- No domain purity enforcement
-- Minimal complexity thresholds
+- 8 linters in `.golangci.yml`: `errcheck`, `govet`, `ineffassign`, `unused`, `misspell`, `whitespace`, `revive`, `depguard`
+- Domain purity enforcement via depguard (for `internal/domain/`)
+- No complexity thresholds
 - No organized linter categories
 
-**Prerequisite:** This change should be applied **after** `domain-restructure` creates the `internal/domain/` package. If applied before, the depguard configuration will have no effect until the domain package is created.
+**Prerequisite:** The `domain-restructure` change created the `internal/domain/` package and is complete. This change expands the linting configuration but does not depend on any other pending changes.
 
 **Target State:**
 - 25 linters organized by category
-- depguard enforcing no external dependencies in `internal/domain/`
+- Enhanced depguard rules for comprehensive architecture enforcement
 - Appropriate complexity thresholds (gocyclo: 25, gocognit: 30, funlen: 150 lines/100 statements)
 - Test file exclusions for complexity linters
 - GoSec exclusions for CLI tool false positives
@@ -24,7 +24,7 @@
 
 **Goals:**
 - Expand linting to 25 linters matching CLI standard
-- Add domain purity enforcement via depguard
+- Enhance domain purity enforcement with additional checks
 - Configure appropriate thresholds and exclusions
 - Fix all surfaced linting errors
 
@@ -65,7 +65,7 @@ depguard:
 
 | Category | Linters |
 |----------|---------|
-| Essential | `staticcheck` (NEW), `unused` (already enabled) |
+| Essential | `staticcheck` (NEW), `typecheck` (NEW), `unused` (already enabled) |
 | Code Quality | `gocyclo`, `gocognit`, `funlen` |
 | Style | `misspell` (already enabled), `whitespace` (already enabled), `revive` (already enabled) |
 | Error Handling | `errorlint`, `wrapcheck`, `errname` |
@@ -73,7 +73,7 @@ depguard:
 | Security | `gosec` |
 | Tests | `testifylint`, `tparallel`, `thelper` |
 | Best Practices | `nakedret`, `unconvert`, `unparam`, `wastedassign` |
-| Architecture | `depguard` |
+| Architecture | `depguard` (already enabled) |
 
 **Thresholds:**
 - `gocyclo`: min-complexity: 25
