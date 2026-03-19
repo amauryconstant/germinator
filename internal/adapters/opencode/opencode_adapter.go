@@ -4,8 +4,7 @@ import (
 	"fmt"
 
 	"gitlab.com/amoconst/germinator/internal/adapters"
-	gerrors "gitlab.com/amoconst/germinator/internal/errors"
-	"gitlab.com/amoconst/germinator/internal/models/canonical"
+	"gitlab.com/amoconst/germinator/internal/domain"
 )
 
 type OpenCodeAdapter struct{}
@@ -14,10 +13,10 @@ func New() *OpenCodeAdapter {
 	return &OpenCodeAdapter{}
 }
 
-func (a *OpenCodeAdapter) ToCanonical(input map[string]interface{}) (*canonical.Agent, *canonical.Command, *canonical.Skill, *canonical.Memory, error) {
+func (a *OpenCodeAdapter) ToCanonical(input map[string]interface{}) (*domain.Agent, *domain.Command, *domain.Skill, *domain.Memory, error) {
 	docType, ok := input["__type"].(string)
 	if !ok {
-		return nil, nil, nil, nil, gerrors.NewParseError("", "missing __type field", nil)
+		return nil, nil, nil, nil, domain.NewParseError("", "missing __type field", nil)
 	}
 
 	switch docType {
@@ -34,45 +33,45 @@ func (a *OpenCodeAdapter) ToCanonical(input map[string]interface{}) (*canonical.
 		mem, err := a.parseMemory(input)
 		return nil, nil, nil, mem, err
 	default:
-		return nil, nil, nil, nil, gerrors.NewParseError("", "unknown document type: "+docType, nil)
+		return nil, nil, nil, nil, domain.NewParseError("", "unknown document type: "+docType, nil)
 	}
 }
 
 func (a *OpenCodeAdapter) FromCanonical(docType string, doc interface{}) (map[string]interface{}, error) {
 	switch docType {
 	case "agent":
-		agent, ok := doc.(*canonical.Agent)
+		agent, ok := doc.(*domain.Agent)
 		if !ok {
-			return nil, gerrors.NewTransformError("from-canonical", "opencode", fmt.Sprintf("expected *canonical.Agent, got %T", doc), nil)
+			return nil, domain.NewTransformError("from-canonical", "opencode", fmt.Sprintf("expected *domain.Agent, got %T", doc), nil)
 		}
 		return a.renderAgent(agent)
 	case "command":
-		cmd, ok := doc.(*canonical.Command)
+		cmd, ok := doc.(*domain.Command)
 		if !ok {
-			return nil, gerrors.NewTransformError("from-canonical", "opencode", fmt.Sprintf("expected *canonical.Command, got %T", doc), nil)
+			return nil, domain.NewTransformError("from-canonical", "opencode", fmt.Sprintf("expected *domain.Command, got %T", doc), nil)
 		}
 		return a.renderCommand(cmd)
 	case "skill":
-		skill, ok := doc.(*canonical.Skill)
+		skill, ok := doc.(*domain.Skill)
 		if !ok {
-			return nil, gerrors.NewTransformError("from-canonical", "opencode", fmt.Sprintf("expected *canonical.Skill, got %T", doc), nil)
+			return nil, domain.NewTransformError("from-canonical", "opencode", fmt.Sprintf("expected *domain.Skill, got %T", doc), nil)
 		}
 		return a.renderSkill(skill)
 	case "memory":
-		mem, ok := doc.(*canonical.Memory)
+		mem, ok := doc.(*domain.Memory)
 		if !ok {
-			return nil, gerrors.NewTransformError("from-canonical", "opencode", fmt.Sprintf("expected *canonical.Memory, got %T", doc), nil)
+			return nil, domain.NewTransformError("from-canonical", "opencode", fmt.Sprintf("expected *domain.Memory, got %T", doc), nil)
 		}
 		return a.renderMemory(mem)
 	default:
-		return nil, gerrors.NewTransformError("from-canonical", "opencode", "unknown document type: "+docType, nil)
+		return nil, domain.NewTransformError("from-canonical", "opencode", "unknown document type: "+docType, nil)
 	}
 }
 
-func (a *OpenCodeAdapter) PermissionPolicyToPlatform(policy canonical.PermissionPolicy) (interface{}, error) {
+func (a *OpenCodeAdapter) PermissionPolicyToPlatform(policy domain.PermissionPolicy) (interface{}, error) {
 	mapping, ok := adapters.PermissionPolicyMappings[string(policy)]
 	if !ok {
-		return nil, gerrors.NewConfigError("permission-policy", string(policy), "unknown permission policy")
+		return nil, domain.NewConfigError("permission-policy", string(policy), "unknown permission policy")
 	}
 	return mapping.OpenCode, nil
 }
@@ -81,8 +80,8 @@ func (a *OpenCodeAdapter) ConvertToolNameCase(name string) string {
 	return adapters.ToLowerCase(name)
 }
 
-func (a *OpenCodeAdapter) parseAgent(input map[string]interface{}) (*canonical.Agent, error) {
-	agent := &canonical.Agent{}
+func (a *OpenCodeAdapter) parseAgent(input map[string]interface{}) (*domain.Agent, error) {
+	agent := &domain.Agent{}
 
 	if name, ok := input["name"].(string); ok {
 		agent.Name = name
@@ -103,7 +102,7 @@ func (a *OpenCodeAdapter) parseAgent(input map[string]interface{}) (*canonical.A
 		}
 	}
 
-	agent.Behavior = canonical.AgentBehavior{}
+	agent.Behavior = domain.AgentBehavior{}
 	if mode, ok := input["mode"].(string); ok {
 		agent.Behavior.Mode = mode
 	}
@@ -133,14 +132,14 @@ func (a *OpenCodeAdapter) parseAgent(input map[string]interface{}) (*canonical.A
 		agent.Model = model
 	}
 
-	agent.Targets = make(canonical.PlatformConfig)
+	agent.Targets = make(domain.PlatformConfig)
 	if targets, ok := input["targets"].(map[string]interface{}); ok {
 		agent.Targets = a.parseTargets(targets)
 	}
 
 	if skills, ok := input["skills"].([]interface{}); ok {
 		if agent.Targets == nil {
-			agent.Targets = make(canonical.PlatformConfig)
+			agent.Targets = make(domain.PlatformConfig)
 		}
 		if agent.Targets["opencode"] == nil {
 			agent.Targets["opencode"] = make(map[string]interface{})
@@ -157,7 +156,7 @@ func (a *OpenCodeAdapter) parseAgent(input map[string]interface{}) (*canonical.A
 	return agent, nil
 }
 
-func (a *OpenCodeAdapter) renderAgent(agent *canonical.Agent) (map[string]interface{}, error) {
+func (a *OpenCodeAdapter) renderAgent(agent *domain.Agent) (map[string]interface{}, error) {
 	output := make(map[string]interface{})
 	output["__type"] = "agent"
 	output["name"] = agent.Name
@@ -214,8 +213,8 @@ func (a *OpenCodeAdapter) renderAgent(agent *canonical.Agent) (map[string]interf
 	return output, nil
 }
 
-func (a *OpenCodeAdapter) parseCommand(input map[string]interface{}) (*canonical.Command, error) {
-	cmd := &canonical.Command{}
+func (a *OpenCodeAdapter) parseCommand(input map[string]interface{}) (*domain.Command, error) {
+	cmd := &domain.Command{}
 
 	if name, ok := input["name"].(string); ok {
 		cmd.Name = name
@@ -232,7 +231,7 @@ func (a *OpenCodeAdapter) parseCommand(input map[string]interface{}) (*canonical
 		}
 	}
 
-	cmd.Execution = canonical.CommandExecution{}
+	cmd.Execution = domain.CommandExecution{}
 	if context, ok := input["context"].(string); ok {
 		cmd.Execution.Context = context
 	}
@@ -251,7 +250,7 @@ func (a *OpenCodeAdapter) parseCommand(input map[string]interface{}) (*canonical
 		cmd.Model = model
 	}
 
-	cmd.Targets = make(canonical.PlatformConfig)
+	cmd.Targets = make(domain.PlatformConfig)
 	if targets, ok := input["targets"].(map[string]interface{}); ok {
 		cmd.Targets = a.parseTargets(targets)
 	}
@@ -259,7 +258,7 @@ func (a *OpenCodeAdapter) parseCommand(input map[string]interface{}) (*canonical
 	return cmd, nil
 }
 
-func (a *OpenCodeAdapter) renderCommand(cmd *canonical.Command) (map[string]interface{}, error) {
+func (a *OpenCodeAdapter) renderCommand(cmd *domain.Command) (map[string]interface{}, error) {
 	output := make(map[string]interface{})
 	output["__type"] = "command"
 	output["name"] = cmd.Name
@@ -290,8 +289,8 @@ func (a *OpenCodeAdapter) renderCommand(cmd *canonical.Command) (map[string]inte
 	return output, nil
 }
 
-func (a *OpenCodeAdapter) parseSkill(input map[string]interface{}) (*canonical.Skill, error) {
-	skill := &canonical.Skill{}
+func (a *OpenCodeAdapter) parseSkill(input map[string]interface{}) (*domain.Skill, error) {
+	skill := &domain.Skill{}
 
 	if name, ok := input["name"].(string); ok {
 		skill.Name = name
@@ -308,7 +307,7 @@ func (a *OpenCodeAdapter) parseSkill(input map[string]interface{}) (*canonical.S
 		}
 	}
 
-	skill.Extensions = canonical.SkillExtensions{}
+	skill.Extensions = domain.SkillExtensions{}
 	if license, ok := input["license"].(string); ok {
 		skill.Extensions.License = license
 	}
@@ -336,7 +335,7 @@ func (a *OpenCodeAdapter) parseSkill(input map[string]interface{}) (*canonical.S
 		}
 	}
 
-	skill.Execution = canonical.SkillExecution{}
+	skill.Execution = domain.SkillExecution{}
 	if context, ok := input["context"].(string); ok {
 		skill.Execution.Context = context
 	}
@@ -351,7 +350,7 @@ func (a *OpenCodeAdapter) parseSkill(input map[string]interface{}) (*canonical.S
 		skill.Model = model
 	}
 
-	skill.Targets = make(canonical.PlatformConfig)
+	skill.Targets = make(domain.PlatformConfig)
 	if targets, ok := input["targets"].(map[string]interface{}); ok {
 		skill.Targets = a.parseTargets(targets)
 	}
@@ -359,7 +358,7 @@ func (a *OpenCodeAdapter) parseSkill(input map[string]interface{}) (*canonical.S
 	return skill, nil
 }
 
-func (a *OpenCodeAdapter) renderSkill(skill *canonical.Skill) (map[string]interface{}, error) {
+func (a *OpenCodeAdapter) renderSkill(skill *domain.Skill) (map[string]interface{}, error) {
 	output := make(map[string]interface{})
 	output["__type"] = "skill"
 	output["name"] = skill.Name
@@ -406,8 +405,8 @@ func (a *OpenCodeAdapter) renderSkill(skill *canonical.Skill) (map[string]interf
 	return output, nil
 }
 
-func (a *OpenCodeAdapter) parseMemory(input map[string]interface{}) (*canonical.Memory, error) {
-	mem := &canonical.Memory{}
+func (a *OpenCodeAdapter) parseMemory(input map[string]interface{}) (*domain.Memory, error) {
+	mem := &domain.Memory{}
 
 	if paths, ok := input["paths"].([]interface{}); ok {
 		for _, p := range paths {
@@ -424,7 +423,7 @@ func (a *OpenCodeAdapter) parseMemory(input map[string]interface{}) (*canonical.
 	return mem, nil
 }
 
-func (a *OpenCodeAdapter) renderMemory(mem *canonical.Memory) (map[string]interface{}, error) {
+func (a *OpenCodeAdapter) renderMemory(mem *domain.Memory) (map[string]interface{}, error) {
 	output := make(map[string]interface{})
 	output["__type"] = "memory"
 
@@ -439,8 +438,8 @@ func (a *OpenCodeAdapter) renderMemory(mem *canonical.Memory) (map[string]interf
 	return output, nil
 }
 
-func (a *OpenCodeAdapter) parseTargets(input map[string]interface{}) canonical.PlatformConfig {
-	targets := make(canonical.PlatformConfig)
+func (a *OpenCodeAdapter) parseTargets(input map[string]interface{}) domain.PlatformConfig {
+	targets := make(domain.PlatformConfig)
 	for platform, config := range input {
 		if configMap, ok := config.(map[string]interface{}); ok {
 			targets[platform] = configMap
@@ -449,24 +448,24 @@ func (a *OpenCodeAdapter) parseTargets(input map[string]interface{}) canonical.P
 	return targets
 }
 
-func (a *OpenCodeAdapter) mapPermissionModeToPolicy(mode string) canonical.PermissionPolicy {
+func (a *OpenCodeAdapter) mapPermissionModeToPolicy(mode string) domain.PermissionPolicy {
 	switch mode {
 	case "default":
-		return canonical.PermissionPolicyRestrictive
+		return domain.PermissionPolicyRestrictive
 	case "acceptEdits":
-		return canonical.PermissionPolicyBalanced
+		return domain.PermissionPolicyBalanced
 	case "dontAsk":
-		return canonical.PermissionPolicyPermissive
+		return domain.PermissionPolicyPermissive
 	case "bypassPermissions":
-		return canonical.PermissionPolicyUnrestricted
+		return domain.PermissionPolicyUnrestricted
 	case "plan":
-		return canonical.PermissionPolicyAnalysis
+		return domain.PermissionPolicyAnalysis
 	default:
 		return ""
 	}
 }
 
-func (a *OpenCodeAdapter) mapPermissionObjectToPolicy(permission map[string]interface{}) canonical.PermissionPolicy {
+func (a *OpenCodeAdapter) mapPermissionObjectToPolicy(permission map[string]interface{}) domain.PermissionPolicy {
 	editDenied := false
 	bashDenied := false
 	otherDeny := false
@@ -495,11 +494,11 @@ func (a *OpenCodeAdapter) mapPermissionObjectToPolicy(permission map[string]inte
 	}
 
 	if editDenied && bashDenied && !otherDeny {
-		return canonical.PermissionPolicyAnalysis
+		return domain.PermissionPolicyAnalysis
 	}
 	if allAllow {
-		return canonical.PermissionPolicyPermissive
+		return domain.PermissionPolicyPermissive
 	}
 
-	return canonical.PermissionPolicyBalanced
+	return domain.PermissionPolicyBalanced
 }

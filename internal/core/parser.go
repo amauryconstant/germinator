@@ -5,32 +5,31 @@ import (
 	"os"
 	"strings"
 
-	gerrors "gitlab.com/amoconst/germinator/internal/errors"
-	"gitlab.com/amoconst/germinator/internal/models/canonical"
+	"gitlab.com/amoconst/germinator/internal/domain"
 	yaml "gopkg.in/yaml.v3"
 )
 
 // Wrapper structs to extend canonical models with FilePath and Content
 type CanonicalAgent struct {
-	canonical.Agent
+	domain.Agent
 	FilePath string
 	Content  string
 }
 
 type CanonicalCommand struct {
-	canonical.Command
+	domain.Command
 	FilePath string
 	Content  string
 }
 
 type CanonicalSkill struct {
-	canonical.Skill
+	domain.Skill
 	FilePath string
 	Content  string
 }
 
 type CanonicalMemory struct {
-	canonical.Memory
+	domain.Memory
 	FilePath string
 	Content  string
 }
@@ -39,7 +38,7 @@ type CanonicalMemory struct {
 func ParseDocument(filePath string, docType string) (interface{}, error) {
 	content, err := os.ReadFile(filePath)
 	if err != nil {
-		return nil, gerrors.NewFileError(filePath, "read", "failed to read file", err)
+		return nil, domain.NewFileError(filePath, "read", "failed to read file", err)
 	}
 
 	fileContent := string(content)
@@ -52,13 +51,13 @@ func ParseDocument(filePath string, docType string) (interface{}, error) {
 		return parseDocumentWithFrontmatter(filePath, fileContent, docType)
 
 	default:
-		return nil, gerrors.NewParseError(filePath, "unsupported document type: "+docType, nil)
+		return nil, domain.NewParseError(filePath, "unsupported document type: "+docType, nil)
 	}
 }
 
 func parseMemory(filePath string, content string) (interface{}, error) {
 	memory := &CanonicalMemory{
-		Memory: canonical.Memory{
+		Memory: domain.Memory{
 			Content: content,
 		},
 		FilePath: filePath,
@@ -139,7 +138,7 @@ func extractContentFromYamlLines(yamlLines []string) string {
 func parseDocumentWithFrontmatter(filePath string, fileContent string, docType string) (interface{}, error) {
 	yamlContent, markdownBody, err := extractFrontmatter(fileContent)
 	if err != nil {
-		return nil, gerrors.NewParseError(filePath, "failed to extract frontmatter", err)
+		return nil, domain.NewParseError(filePath, "failed to extract frontmatter", err)
 	}
 
 	var doc interface{}
@@ -147,7 +146,7 @@ func parseDocumentWithFrontmatter(filePath string, fileContent string, docType s
 	case "agent":
 		var agent CanonicalAgent
 		if err := yaml.Unmarshal([]byte(yamlContent), &agent.Agent); err != nil {
-			return nil, gerrors.NewParseError(filePath, "failed to parse agent", err)
+			return nil, domain.NewParseError(filePath, "failed to parse agent", err)
 		}
 		agent.FilePath = filePath
 		agent.Content = markdownBody
@@ -156,7 +155,7 @@ func parseDocumentWithFrontmatter(filePath string, fileContent string, docType s
 	case "command":
 		var command CanonicalCommand
 		if err := yaml.Unmarshal([]byte(yamlContent), &command.Command); err != nil {
-			return nil, gerrors.NewParseError(filePath, "failed to parse command", err)
+			return nil, domain.NewParseError(filePath, "failed to parse command", err)
 		}
 		command.FilePath = filePath
 		command.Content = markdownBody
@@ -165,7 +164,7 @@ func parseDocumentWithFrontmatter(filePath string, fileContent string, docType s
 	case "skill":
 		var skill CanonicalSkill
 		if err := yaml.Unmarshal([]byte(yamlContent), &skill.Skill); err != nil {
-			return nil, gerrors.NewParseError(filePath, "failed to parse skill", err)
+			return nil, domain.NewParseError(filePath, "failed to parse skill", err)
 		}
 		skill.FilePath = filePath
 		skill.Content = markdownBody

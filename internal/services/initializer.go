@@ -8,7 +8,7 @@ import (
 
 	"gitlab.com/amoconst/germinator/internal/application"
 	"gitlab.com/amoconst/germinator/internal/core"
-	gerrors "gitlab.com/amoconst/germinator/internal/errors"
+	"gitlab.com/amoconst/germinator/internal/domain"
 	"gitlab.com/amoconst/germinator/internal/library"
 )
 
@@ -22,11 +22,11 @@ func NewInitializer() application.Initializer {
 
 // Initialize installs resources from the library to the target directory.
 // It uses fail-fast error handling - stops on first error.
-func (i *initializer) Initialize(ctx context.Context, req *application.InitializeRequest) ([]application.InitializeResult, error) {
-	results := make([]application.InitializeResult, 0, len(req.Refs))
+func (i *initializer) Initialize(ctx context.Context, req *application.InitializeRequest) ([]domain.InitializeResult, error) {
+	results := make([]domain.InitializeResult, 0, len(req.Refs))
 
 	for _, ref := range req.Refs {
-		result := application.InitializeResult{Ref: ref}
+		result := domain.InitializeResult{Ref: ref}
 
 		// Resolve resource to file path
 		inputPath, err := library.ResolveResource(req.Library, ref)
@@ -56,7 +56,7 @@ func (i *initializer) Initialize(ctx context.Context, req *application.Initializ
 		// Check if file exists (unless force or dry-run)
 		if !req.DryRun && !req.Force {
 			if _, err := os.Stat(outputPath); err == nil {
-				result.Error = gerrors.NewFileError(outputPath, "write", "file exists (use --force to overwrite)", nil)
+				result.Error = domain.NewFileError(outputPath, "write", "file exists (use --force to overwrite)", nil)
 				results = append(results, result)
 				return results, result.Error
 			}
@@ -87,14 +87,14 @@ func (i *initializer) Initialize(ctx context.Context, req *application.Initializ
 		// Create output directory
 		outputDir := filepath.Dir(outputPath)
 		if err := os.MkdirAll(outputDir, 0755); err != nil {
-			result.Error = gerrors.NewFileError(outputPath, "mkdir", "failed to create output directory", err)
+			result.Error = domain.NewFileError(outputPath, "mkdir", "failed to create output directory", err)
 			results = append(results, result)
 			return results, result.Error
 		}
 
 		// Write the file
 		if err := os.WriteFile(outputPath, []byte(rendered), 0644); err != nil {
-			result.Error = gerrors.NewFileError(outputPath, "write", "failed to write output file", err)
+			result.Error = domain.NewFileError(outputPath, "write", "failed to write output file", err)
 			results = append(results, result)
 			return results, result.Error
 		}

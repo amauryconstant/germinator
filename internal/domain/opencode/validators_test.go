@@ -3,38 +3,38 @@ package opencode
 import (
 	"testing"
 
-	"gitlab.com/amoconst/germinator/internal/models/canonical"
+	"gitlab.com/amoconst/germinator/internal/domain"
 )
 
 func TestValidateAgentMode(t *testing.T) {
 	tests := []struct {
 		name        string
-		agent       *canonical.Agent
+		agent       *domain.Agent
 		expectError bool
 	}{
 		{
 			name:        "empty mode passes",
-			agent:       &canonical.Agent{Behavior: canonical.AgentBehavior{Mode: ""}},
+			agent:       &domain.Agent{Behavior: domain.AgentBehavior{Mode: ""}},
 			expectError: false,
 		},
 		{
 			name:        "primary mode passes",
-			agent:       &canonical.Agent{Behavior: canonical.AgentBehavior{Mode: "primary"}},
+			agent:       &domain.Agent{Behavior: domain.AgentBehavior{Mode: "primary"}},
 			expectError: false,
 		},
 		{
 			name:        "subagent mode passes",
-			agent:       &canonical.Agent{Behavior: canonical.AgentBehavior{Mode: "subagent"}},
+			agent:       &domain.Agent{Behavior: domain.AgentBehavior{Mode: "subagent"}},
 			expectError: false,
 		},
 		{
 			name:        "all mode passes",
-			agent:       &canonical.Agent{Behavior: canonical.AgentBehavior{Mode: "all"}},
+			agent:       &domain.Agent{Behavior: domain.AgentBehavior{Mode: "all"}},
 			expectError: false,
 		},
 		{
 			name:        "invalid mode fails",
-			agent:       &canonical.Agent{Behavior: canonical.AgentBehavior{Mode: "invalid"}},
+			agent:       &domain.Agent{Behavior: domain.AgentBehavior{Mode: "invalid"}},
 			expectError: true,
 		},
 	}
@@ -64,37 +64,37 @@ func TestValidateAgentTemperature(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		agent       *canonical.Agent
+		agent       *domain.Agent
 		expectError bool
 	}{
 		{
 			name:        "nil temperature passes",
-			agent:       &canonical.Agent{Behavior: canonical.AgentBehavior{Temperature: nil}},
+			agent:       &domain.Agent{Behavior: domain.AgentBehavior{Temperature: nil}},
 			expectError: false,
 		},
 		{
 			name:        "minimum temperature passes",
-			agent:       &canonical.Agent{Behavior: canonical.AgentBehavior{Temperature: &minTemp}},
+			agent:       &domain.Agent{Behavior: domain.AgentBehavior{Temperature: &minTemp}},
 			expectError: false,
 		},
 		{
 			name:        "maximum temperature passes",
-			agent:       &canonical.Agent{Behavior: canonical.AgentBehavior{Temperature: &maxTemp}},
+			agent:       &domain.Agent{Behavior: domain.AgentBehavior{Temperature: &maxTemp}},
 			expectError: false,
 		},
 		{
 			name:        "mid temperature passes",
-			agent:       &canonical.Agent{Behavior: canonical.AgentBehavior{Temperature: &midTemp}},
+			agent:       &domain.Agent{Behavior: domain.AgentBehavior{Temperature: &midTemp}},
 			expectError: false,
 		},
 		{
 			name:        "temperature below range fails",
-			agent:       &canonical.Agent{Behavior: canonical.AgentBehavior{Temperature: &invalidLow}},
+			agent:       &domain.Agent{Behavior: domain.AgentBehavior{Temperature: &invalidLow}},
 			expectError: true,
 		},
 		{
 			name:        "temperature above range fails",
-			agent:       &canonical.Agent{Behavior: canonical.AgentBehavior{Temperature: &invalidHigh}},
+			agent:       &domain.Agent{Behavior: domain.AgentBehavior{Temperature: &invalidHigh}},
 			expectError: true,
 		},
 	}
@@ -123,13 +123,13 @@ func TestValidateAgentOpenCode(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		agent       *canonical.Agent
+		agent       *domain.Agent
 		expectError bool
 	}{
 		{
 			name: "valid agent passes",
-			agent: &canonical.Agent{
-				Behavior: canonical.AgentBehavior{
+			agent: &domain.Agent{
+				Behavior: domain.AgentBehavior{
 					Mode:        validMode,
 					Temperature: &validTemp,
 				},
@@ -138,8 +138,8 @@ func TestValidateAgentOpenCode(t *testing.T) {
 		},
 		{
 			name: "empty mode and nil temperature passes",
-			agent: &canonical.Agent{
-				Behavior: canonical.AgentBehavior{
+			agent: &domain.Agent{
+				Behavior: domain.AgentBehavior{
 					Mode:        "",
 					Temperature: nil,
 				},
@@ -148,8 +148,8 @@ func TestValidateAgentOpenCode(t *testing.T) {
 		},
 		{
 			name: "invalid mode fails",
-			agent: &canonical.Agent{
-				Behavior: canonical.AgentBehavior{
+			agent: &domain.Agent{
+				Behavior: domain.AgentBehavior{
 					Mode: invalidMode,
 				},
 			},
@@ -157,8 +157,8 @@ func TestValidateAgentOpenCode(t *testing.T) {
 		},
 		{
 			name: "invalid temperature fails",
-			agent: &canonical.Agent{
-				Behavior: canonical.AgentBehavior{
+			agent: &domain.Agent{
+				Behavior: domain.AgentBehavior{
 					Temperature: &invalidTemp,
 				},
 			},
@@ -183,7 +183,7 @@ func TestValidateAgentOpenCode(t *testing.T) {
 }
 
 func TestValidateCommandOpenCode(t *testing.T) {
-	command := &canonical.Command{
+	command := &domain.Command{
 		Name:        "test-command",
 		Description: "Test description",
 	}
@@ -195,7 +195,7 @@ func TestValidateCommandOpenCode(t *testing.T) {
 }
 
 func TestValidateSkillOpenCode(t *testing.T) {
-	skill := &canonical.Skill{
+	skill := &domain.Skill{
 		Name:        "test-skill",
 		Description: "Test description",
 	}
@@ -211,8 +211,8 @@ func TestOpenCodePipelineComposition(t *testing.T) {
 		invalidMode := "invalid"
 		invalidTemp := 1.5
 
-		agent := &canonical.Agent{
-			Behavior: canonical.AgentBehavior{
+		agent := &domain.Agent{
+			Behavior: domain.AgentBehavior{
 				Mode:        invalidMode, // Fails first
 				Temperature: &invalidTemp,
 			},

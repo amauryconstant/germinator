@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	gerrors "gitlab.com/amoconst/germinator/internal/errors"
+	gerrors "gitlab.com/amoconst/germinator/internal/domain"
 )
 
 // globalCommandConfig holds the CommandConfig for error handling in main.go.

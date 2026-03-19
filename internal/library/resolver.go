@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	gerrors "gitlab.com/amoconst/germinator/internal/errors"
+	gerrors "gitlab.com/amoconst/germinator/internal/domain"
 )
 
 // ResolveResource resolves a resource reference to an absolute file path.

@@ -6,8 +6,7 @@ import (
 
 	claudecode "gitlab.com/amoconst/germinator/internal/adapters/claude-code"
 	opencode "gitlab.com/amoconst/germinator/internal/adapters/opencode"
-	gerrors "gitlab.com/amoconst/germinator/internal/errors"
-	"gitlab.com/amoconst/germinator/internal/models/canonical"
+	"gitlab.com/amoconst/germinator/internal/domain"
 	yaml "gopkg.in/yaml.v3"
 )
 
@@ -15,18 +14,18 @@ import (
 func ParsePlatformDocument(path string, platform string, docType string) (interface{}, error) {
 	content, err := os.ReadFile(path)
 	if err != nil {
-		return nil, gerrors.NewFileError(path, "read", "failed to read file", err)
+		return nil, domain.NewFileError(path, "read", "failed to read file", err)
 	}
 
 	fileContent := string(content)
 	yamlContent, markdownBody, err := extractFrontmatter(fileContent)
 	if err != nil {
-		return nil, gerrors.NewParseError(path, "failed to extract frontmatter", err)
+		return nil, domain.NewParseError(path, "failed to extract frontmatter", err)
 	}
 
 	var input map[string]interface{}
 	if err := yaml.Unmarshal([]byte(yamlContent), &input); err != nil {
-		return nil, gerrors.NewParseError(path, "failed to parse YAML", err)
+		return nil, domain.NewParseError(path, "failed to parse YAML", err)
 	}
 
 	if input == nil {
@@ -40,23 +39,23 @@ func ParsePlatformDocument(path string, platform string, docType string) (interf
 	case "opencode":
 		adapter = opencode.New()
 	default:
-		return nil, gerrors.NewConfigError("platform", platform, "unsupported platform")
+		return nil, domain.NewConfigError("platform", platform, "unsupported platform")
 	}
 
 	input["__type"] = docType
 
 	agent, command, skill, memory, err := adapter.(interface {
-		ToCanonical(map[string]interface{}) (*canonical.Agent, *canonical.Command, *canonical.Skill, *canonical.Memory, error)
+		ToCanonical(map[string]interface{}) (*domain.Agent, *domain.Command, *domain.Skill, *domain.Memory, error)
 	}).ToCanonical(input)
 
 	if err != nil {
-		return nil, gerrors.NewParseError(path, "failed to convert to canonical", err)
+		return nil, domain.NewParseError(path, "failed to convert to canonical", err)
 	}
 
 	switch docType {
 	case "agent":
 		if agent == nil {
-			return nil, gerrors.NewParseError(path, "expected agent but got nil", nil)
+			return nil, domain.NewParseError(path, "expected agent but got nil", nil)
 		}
 		return &CanonicalAgent{
 			Agent:    *agent,
@@ -65,7 +64,7 @@ func ParsePlatformDocument(path string, platform string, docType string) (interf
 		}, nil
 	case "command":
 		if command == nil {
-			return nil, gerrors.NewParseError(path, "expected command but got nil", nil)
+			return nil, domain.NewParseError(path, "expected command but got nil", nil)
 		}
 		return &CanonicalCommand{
 			Command:  *command,
@@ -74,7 +73,7 @@ func ParsePlatformDocument(path string, platform string, docType string) (interf
 		}, nil
 	case "skill":
 		if skill == nil {
-			return nil, gerrors.NewParseError(path, "expected skill but got nil", nil)
+			return nil, domain.NewParseError(path, "expected skill but got nil", nil)
 		}
 		return &CanonicalSkill{
 			Skill:    *skill,
@@ -83,7 +82,7 @@ func ParsePlatformDocument(path string, platform string, docType string) (interf
 		}, nil
 	case "memory":
 		if memory == nil {
-			return nil, gerrors.NewParseError(path, "expected memory but got nil", nil)
+			return nil, domain.NewParseError(path, "expected memory but got nil", nil)
 		}
 		if markdownBody != "" {
 			memory.Content = markdownBody
@@ -94,6 +93,6 @@ func ParsePlatformDocument(path string, platform string, docType string) (interf
 			Content:  memory.Content,
 		}, nil
 	default:
-		return nil, gerrors.NewParseError(path, "unsupported document type: "+docType, nil)
+		return nil, domain.NewParseError(path, "unsupported document type: "+docType, nil)
 	}
 }

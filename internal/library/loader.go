@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	gerrors "gitlab.com/amoconst/germinator/internal/errors"
+	gerrors "gitlab.com/amoconst/germinator/internal/domain"
 	yaml "gopkg.in/yaml.v3"
 )
 

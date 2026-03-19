@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	gerrors "gitlab.com/amoconst/germinator/internal/errors"
+	gerrors "gitlab.com/amoconst/germinator/internal/domain"
 )
 
 // ResourceType represents the type of a library resource.

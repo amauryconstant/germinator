@@ -57,7 +57,7 @@ package canonical
 //
 // Usage Example
 //
-//   import "gitlab.com/amoconst/germinator/internal/models/canonical"
+//   import "gitlab.com/amoconst/germinator/internal/domain"
 //
 //   agent := &canonical.Agent{
 //       Name:            "code-reviewer",

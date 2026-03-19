@@ -13,8 +13,7 @@ import (
 	"gitlab.com/amoconst/germinator/internal/adapters"
 	claudecode "gitlab.com/amoconst/germinator/internal/adapters/claude-code"
 	opencode "gitlab.com/amoconst/germinator/internal/adapters/opencode"
-	gerrors "gitlab.com/amoconst/germinator/internal/errors"
-	"gitlab.com/amoconst/germinator/internal/models/canonical"
+	gerrors "gitlab.com/amoconst/germinator/internal/domain"
 )
 
 type templateContext struct {
@@ -83,7 +82,7 @@ func RenderDocument(doc interface{}, platform string) (string, error) {
 func createTemplateFuncMap() map[string]interface{} {
 	funcMap := sprig.FuncMap()
 
-	funcMap["permissionPolicyToClaudeCode"] = func(policy canonical.PermissionPolicy) string {
+	funcMap["permissionPolicyToClaudeCode"] = func(policy gerrors.PermissionPolicy) string {
 		if policy == "" {
 			return ""
 		}
@@ -98,7 +97,7 @@ func createTemplateFuncMap() map[string]interface{} {
 		return ""
 	}
 
-	funcMap["permissionPolicyToOpenCode"] = func(policy canonical.PermissionPolicy) string {
+	funcMap["permissionPolicyToOpenCode"] = func(policy gerrors.PermissionPolicy) string {
 		if policy == "" {
 			return ""
 		}

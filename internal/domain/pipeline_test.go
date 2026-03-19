@@ -1,4 +1,4 @@
-package validation
+package domain
 
 import (
 	"errors"

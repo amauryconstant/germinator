@@ -4,8 +4,7 @@ import (
 	"fmt"
 
 	"gitlab.com/amoconst/germinator/internal/adapters"
-	gerrors "gitlab.com/amoconst/germinator/internal/errors"
-	"gitlab.com/amoconst/germinator/internal/models/canonical"
+	"gitlab.com/amoconst/germinator/internal/domain"
 )
 
 type ClaudeCodeAdapter struct{}
@@ -14,10 +13,10 @@ func New() *ClaudeCodeAdapter {
 	return &ClaudeCodeAdapter{}
 }
 
-func (a *ClaudeCodeAdapter) ToCanonical(input map[string]interface{}) (*canonical.Agent, *canonical.Command, *canonical.Skill, *canonical.Memory, error) {
+func (a *ClaudeCodeAdapter) ToCanonical(input map[string]interface{}) (*domain.Agent, *domain.Command, *domain.Skill, *domain.Memory, error) {
 	docType, ok := input["__type"].(string)
 	if !ok {
-		return nil, nil, nil, nil, gerrors.NewParseError("", "missing __type field", nil)
+		return nil, nil, nil, nil, domain.NewParseError("", "missing __type field", nil)
 	}
 
 	switch docType {
@@ -34,45 +33,45 @@ func (a *ClaudeCodeAdapter) ToCanonical(input map[string]interface{}) (*canonica
 		mem, err := a.parseMemory(input)
 		return nil, nil, nil, mem, err
 	default:
-		return nil, nil, nil, nil, gerrors.NewParseError("", "unknown document type: "+docType, nil)
+		return nil, nil, nil, nil, domain.NewParseError("", "unknown document type: "+docType, nil)
 	}
 }
 
 func (a *ClaudeCodeAdapter) FromCanonical(docType string, doc interface{}) (map[string]interface{}, error) {
 	switch docType {
 	case "agent":
-		agent, ok := doc.(*canonical.Agent)
+		agent, ok := doc.(*domain.Agent)
 		if !ok {
-			return nil, gerrors.NewTransformError("from-canonical", "claude-code", fmt.Sprintf("expected *canonical.Agent, got %T", doc), nil)
+			return nil, domain.NewTransformError("from-canonical", "claude-code", fmt.Sprintf("expected *domain.Agent, got %T", doc), nil)
 		}
 		return a.renderAgent(agent)
 	case "command":
-		cmd, ok := doc.(*canonical.Command)
+		cmd, ok := doc.(*domain.Command)
 		if !ok {
-			return nil, gerrors.NewTransformError("from-canonical", "claude-code", fmt.Sprintf("expected *canonical.Command, got %T", doc), nil)
+			return nil, domain.NewTransformError("from-canonical", "claude-code", fmt.Sprintf("expected *domain.Command, got %T", doc), nil)
 		}
 		return a.renderCommand(cmd)
 	case "skill":
-		skill, ok := doc.(*canonical.Skill)
+		skill, ok := doc.(*domain.Skill)
 		if !ok {
-			return nil, gerrors.NewTransformError("from-canonical", "claude-code", fmt.Sprintf("expected *canonical.Skill, got %T", doc), nil)
+			return nil, domain.NewTransformError("from-canonical", "claude-code", fmt.Sprintf("expected *domain.Skill, got %T", doc), nil)
 		}
 		return a.renderSkill(skill)
 	case "memory":
-		mem, ok := doc.(*canonical.Memory)
+		mem, ok := doc.(*domain.Memory)
 		if !ok {
-			return nil, gerrors.NewTransformError("from-canonical", "claude-code", fmt.Sprintf("expected *canonical.Memory, got %T", doc), nil)
+			return nil, domain.NewTransformError("from-canonical", "claude-code", fmt.Sprintf("expected *domain.Memory, got %T", doc), nil)
 		}
 		return a.renderMemory(mem)
 	default:
-		return nil, gerrors.NewTransformError("from-canonical", "claude-code", "unknown document type: "+docType, nil)
+		return nil, domain.NewTransformError("from-canonical", "claude-code", "unknown document type: "+docType, nil)
 	}
 }
 
-func (a *ClaudeCodeAdapter) PermissionPolicyToPlatform(policy canonical.PermissionPolicy) (interface{}, error) {
+func (a *ClaudeCodeAdapter) PermissionPolicyToPlatform(policy domain.PermissionPolicy) (interface{}, error) {
 	mapping, ok := adapters.PermissionPolicyMappings[string(policy)]
 	if !ok {
-		return nil, gerrors.NewConfigError("permission-policy", string(policy), "unknown permission policy")
+		return nil, domain.NewConfigError("permission-policy", string(policy), "unknown permission policy")
 	}
 	return mapping.ClaudeCode, nil
 }
@@ -81,8 +80,8 @@ func (a *ClaudeCodeAdapter) ConvertToolNameCase(name string) string {
 	return adapters.ToPascalCase(name)
 }
 
-func (a *ClaudeCodeAdapter) parseAgent(input map[string]interface{}) (*canonical.Agent, error) {
-	agent := &canonical.Agent{}
+func (a *ClaudeCodeAdapter) parseAgent(input map[string]interface{}) (*domain.Agent, error) {
+	agent := &domain.Agent{}
 
 	if name, ok := input["name"].(string); ok {
 		agent.Name = name
@@ -119,7 +118,7 @@ func (a *ClaudeCodeAdapter) parseAgent(input map[string]interface{}) (*canonical
 		agent.PermissionPolicy = a.mapPermissionModeToPolicy(permissionMode)
 	}
 
-	agent.Behavior = canonical.AgentBehavior{}
+	agent.Behavior = domain.AgentBehavior{}
 	if mode, ok := input["mode"].(string); ok {
 		agent.Behavior.Mode = mode
 	}
@@ -140,7 +139,7 @@ func (a *ClaudeCodeAdapter) parseAgent(input map[string]interface{}) (*canonical
 	}
 
 	if hooks, ok := input["hooks"].(map[string]interface{}); ok {
-		agent.Extensions = canonical.AgentExtensions{}
+		agent.Extensions = domain.AgentExtensions{}
 		agent.Extensions.Hooks = make(map[string]string)
 		for k, v := range hooks {
 			if val, ok := v.(string); ok {
@@ -153,14 +152,14 @@ func (a *ClaudeCodeAdapter) parseAgent(input map[string]interface{}) (*canonical
 		agent.Model = model
 	}
 
-	agent.Targets = make(canonical.PlatformConfig)
+	agent.Targets = make(domain.PlatformConfig)
 	if targets, ok := input["targets"].(map[string]interface{}); ok {
 		agent.Targets = a.parseTargets(targets)
 	}
 
 	if skills, ok := input["skills"].([]interface{}); ok {
 		if agent.Targets == nil {
-			agent.Targets = make(canonical.PlatformConfig)
+			agent.Targets = make(domain.PlatformConfig)
 		}
 		if agent.Targets["claude-code"] == nil {
 			agent.Targets["claude-code"] = make(map[string]interface{})
@@ -177,7 +176,7 @@ func (a *ClaudeCodeAdapter) parseAgent(input map[string]interface{}) (*canonical
 	return agent, nil
 }
 
-func (a *ClaudeCodeAdapter) renderAgent(agent *canonical.Agent) (map[string]interface{}, error) {
+func (a *ClaudeCodeAdapter) renderAgent(agent *domain.Agent) (map[string]interface{}, error) {
 	output := make(map[string]interface{})
 	output["__type"] = "agent"
 	output["name"] = agent.Name
@@ -246,8 +245,8 @@ func (a *ClaudeCodeAdapter) renderAgent(agent *canonical.Agent) (map[string]inte
 	return output, nil
 }
 
-func (a *ClaudeCodeAdapter) parseCommand(input map[string]interface{}) (*canonical.Command, error) {
-	cmd := &canonical.Command{}
+func (a *ClaudeCodeAdapter) parseCommand(input map[string]interface{}) (*domain.Command, error) {
+	cmd := &domain.Command{}
 
 	if name, ok := input["name"].(string); ok {
 		cmd.Name = name
@@ -265,7 +264,7 @@ func (a *ClaudeCodeAdapter) parseCommand(input map[string]interface{}) (*canonic
 	}
 
 	if execution, ok := input["execution"].(map[string]interface{}); ok {
-		cmd.Execution = canonical.CommandExecution{}
+		cmd.Execution = domain.CommandExecution{}
 		if context, ok := execution["context"].(string); ok {
 			cmd.Execution.Context = context
 		}
@@ -278,7 +277,7 @@ func (a *ClaudeCodeAdapter) parseCommand(input map[string]interface{}) (*canonic
 	}
 
 	if arguments, ok := input["arguments"].(map[string]interface{}); ok {
-		cmd.Arguments = canonical.CommandArguments{}
+		cmd.Arguments = domain.CommandArguments{}
 		if hint, ok := arguments["hint"].(string); ok {
 			cmd.Arguments.Hint = hint
 		}
@@ -288,7 +287,7 @@ func (a *ClaudeCodeAdapter) parseCommand(input map[string]interface{}) (*canonic
 		cmd.Model = model
 	}
 
-	cmd.Targets = make(canonical.PlatformConfig)
+	cmd.Targets = make(domain.PlatformConfig)
 	if targets, ok := input["targets"].(map[string]interface{}); ok {
 		cmd.Targets = a.parseTargets(targets)
 	}
@@ -296,7 +295,7 @@ func (a *ClaudeCodeAdapter) parseCommand(input map[string]interface{}) (*canonic
 	return cmd, nil
 }
 
-func (a *ClaudeCodeAdapter) renderCommand(cmd *canonical.Command) (map[string]interface{}, error) {
+func (a *ClaudeCodeAdapter) renderCommand(cmd *domain.Command) (map[string]interface{}, error) {
 	output := make(map[string]interface{})
 	output["__type"] = "command"
 	output["name"] = cmd.Name
@@ -337,8 +336,8 @@ func (a *ClaudeCodeAdapter) renderCommand(cmd *canonical.Command) (map[string]in
 	return output, nil
 }
 
-func (a *ClaudeCodeAdapter) parseSkill(input map[string]interface{}) (*canonical.Skill, error) {
-	skill := &canonical.Skill{}
+func (a *ClaudeCodeAdapter) parseSkill(input map[string]interface{}) (*domain.Skill, error) {
+	skill := &domain.Skill{}
 
 	if name, ok := input["name"].(string); ok {
 		skill.Name = name
@@ -355,7 +354,7 @@ func (a *ClaudeCodeAdapter) parseSkill(input map[string]interface{}) (*canonical
 		}
 	}
 
-	skill.Extensions = canonical.SkillExtensions{}
+	skill.Extensions = domain.SkillExtensions{}
 	if extensions, ok := input["extensions"].(map[string]interface{}); ok {
 		if license, ok := extensions["license"].(string); ok {
 			skill.Extensions.License = license
@@ -385,7 +384,7 @@ func (a *ClaudeCodeAdapter) parseSkill(input map[string]interface{}) (*canonical
 		}
 	}
 
-	skill.Execution = canonical.SkillExecution{}
+	skill.Execution = domain.SkillExecution{}
 	if execution, ok := input["execution"].(map[string]interface{}); ok {
 		if context, ok := execution["context"].(string); ok {
 			skill.Execution.Context = context
@@ -402,7 +401,7 @@ func (a *ClaudeCodeAdapter) parseSkill(input map[string]interface{}) (*canonical
 		skill.Model = model
 	}
 
-	skill.Targets = make(canonical.PlatformConfig)
+	skill.Targets = make(domain.PlatformConfig)
 	if targets, ok := input["targets"].(map[string]interface{}); ok {
 		skill.Targets = a.parseTargets(targets)
 	}
@@ -410,7 +409,7 @@ func (a *ClaudeCodeAdapter) parseSkill(input map[string]interface{}) (*canonical
 	return skill, nil
 }
 
-func (a *ClaudeCodeAdapter) renderSkill(skill *canonical.Skill) (map[string]interface{}, error) {
+func (a *ClaudeCodeAdapter) renderSkill(skill *domain.Skill) (map[string]interface{}, error) {
 	output := make(map[string]interface{})
 	output["__type"] = "skill"
 	output["name"] = skill.Name
@@ -463,8 +462,8 @@ func (a *ClaudeCodeAdapter) renderSkill(skill *canonical.Skill) (map[string]inte
 	return output, nil
 }
 
-func (a *ClaudeCodeAdapter) parseMemory(input map[string]interface{}) (*canonical.Memory, error) {
-	mem := &canonical.Memory{}
+func (a *ClaudeCodeAdapter) parseMemory(input map[string]interface{}) (*domain.Memory, error) {
+	mem := &domain.Memory{}
 
 	if paths, ok := input["paths"].([]interface{}); ok {
 		for _, p := range paths {
@@ -481,7 +480,7 @@ func (a *ClaudeCodeAdapter) parseMemory(input map[string]interface{}) (*canonica
 	return mem, nil
 }
 
-func (a *ClaudeCodeAdapter) renderMemory(mem *canonical.Memory) (map[string]interface{}, error) {
+func (a *ClaudeCodeAdapter) renderMemory(mem *domain.Memory) (map[string]interface{}, error) {
 	output := make(map[string]interface{})
 	output["__type"] = "memory"
 
@@ -496,8 +495,8 @@ func (a *ClaudeCodeAdapter) renderMemory(mem *canonical.Memory) (map[string]inte
 	return output, nil
 }
 
-func (a *ClaudeCodeAdapter) parseTargets(input map[string]interface{}) canonical.PlatformConfig {
-	targets := make(canonical.PlatformConfig)
+func (a *ClaudeCodeAdapter) parseTargets(input map[string]interface{}) domain.PlatformConfig {
+	targets := make(domain.PlatformConfig)
 	for platform, config := range input {
 		if configMap, ok := config.(map[string]interface{}); ok {
 			targets[platform] = configMap
@@ -506,18 +505,18 @@ func (a *ClaudeCodeAdapter) parseTargets(input map[string]interface{}) canonical
 	return targets
 }
 
-func (a *ClaudeCodeAdapter) mapPermissionModeToPolicy(mode string) canonical.PermissionPolicy {
+func (a *ClaudeCodeAdapter) mapPermissionModeToPolicy(mode string) domain.PermissionPolicy {
 	switch mode {
 	case "default":
-		return canonical.PermissionPolicyRestrictive
+		return domain.PermissionPolicyRestrictive
 	case "acceptEdits":
-		return canonical.PermissionPolicyBalanced
+		return domain.PermissionPolicyBalanced
 	case "dontAsk":
-		return canonical.PermissionPolicyPermissive
+		return domain.PermissionPolicyPermissive
 	case "plan":
-		return canonical.PermissionPolicyAnalysis
+		return domain.PermissionPolicyAnalysis
 	case "bypassPermissions":
-		return canonical.PermissionPolicyUnrestricted
+		return domain.PermissionPolicyUnrestricted
 	default:
 		return ""
 	}

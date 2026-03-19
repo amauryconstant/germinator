@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"gitlab.com/amoconst/germinator/internal/application"
+	"gitlab.com/amoconst/germinator/internal/domain"
 	"gitlab.com/amoconst/germinator/internal/library"
 )
 
@@ -212,7 +213,7 @@ func TestInitialize_PresetNotFound(t *testing.T) {
 }
 
 func TestFormatDryRunOutput(t *testing.T) {
-	results := []application.InitializeResult{
+	results := []domain.InitializeResult{
 		{
 			Ref:        "skill/commit",
 			InputPath:  "/lib/skills/commit.yaml",
@@ -228,7 +229,7 @@ func TestFormatDryRunOutput(t *testing.T) {
 }
 
 func TestFormatSuccessOutput(t *testing.T) {
-	results := []application.InitializeResult{
+	results := []domain.InitializeResult{
 		{
 			Ref:        "skill/commit",
 			OutputPath: ".opencode/skills/commit/SKILL.md",
@@ -242,7 +243,7 @@ func TestFormatSuccessOutput(t *testing.T) {
 	}
 }
 
-func formatDryRunOutput(results []application.InitializeResult) string {
+func formatDryRunOutput(results []domain.InitializeResult) string {
 	output := ""
 	for _, result := range results {
 		output += "Would write: " + result.OutputPath + "\n  from: " + result.InputPath + "\n"
@@ -250,7 +251,7 @@ func formatDryRunOutput(results []application.InitializeResult) string {
 	return output
 }
 
-func formatSuccessOutput(results []application.InitializeResult) string {
+func formatSuccessOutput(results []domain.InitializeResult) string {
 	output := ""
 	for _, result := range results {
 		output += "Installed: " + result.Ref + " -> " + result.OutputPath + "\n"

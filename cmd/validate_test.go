@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"gitlab.com/amoconst/germinator/internal/application"
+	"gitlab.com/amoconst/germinator/internal/domain"
 	"gitlab.com/amoconst/germinator/test/mocks"
 )
 
@@ -30,7 +31,7 @@ func TestMockValidatorUsage(t *testing.T) {
 			InputPath: "/path/to/document.md",
 			Platform:  "opencode",
 		}
-		expectedResult := &application.ValidateResult{
+		expectedResult := &domain.ValidateResult{
 			Errors: []error{},
 		}
 
@@ -64,7 +65,7 @@ func TestMockValidatorUsage(t *testing.T) {
 			errors.New("missing required field: name"),
 			errors.New("invalid permission mode"),
 		}
-		expectedResult := &application.ValidateResult{
+		expectedResult := &domain.ValidateResult{
 			Errors: expectedErrors,
 		}
 
@@ -119,7 +120,7 @@ func TestMockValidatorUsage(t *testing.T) {
 		mockValidator = new(mocks.MockValidator) // Reset mock for this test case
 
 		mockValidator.On("Validate", ctx, mock.AnythingOfType("*application.ValidateRequest")).
-			Return(&application.ValidateResult{Errors: []error{}}, nil)
+			Return(&domain.ValidateResult{Errors: []error{}}, nil)
 
 		// Act: Call with any request
 		result, err := mockValidator.Validate(ctx, &application.ValidateRequest{

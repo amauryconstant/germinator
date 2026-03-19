@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"gitlab.com/amoconst/germinator/internal/models/canonical"
+	"gitlab.com/amoconst/germinator/internal/domain"
 )
 
 func float64Ptr(f float64) *float64 {
@@ -13,13 +13,13 @@ func float64Ptr(f float64) *float64 {
 
 func TestRenderDocumentAgent(t *testing.T) {
 	agent := &CanonicalAgent{
-		Agent: canonical.Agent{
+		Agent: domain.Agent{
 			Name:             "test-agent",
 			Description:      "Test agent",
 			Tools:            []string{"editor", "bash"},
 			Model:            "anthropic/claude-sonnet-4-20250514",
-			PermissionPolicy: canonical.PermissionPolicyBalanced,
-			Behavior: canonical.AgentBehavior{
+			PermissionPolicy: domain.PermissionPolicyBalanced,
+			Behavior: domain.AgentBehavior{
 				Mode:        "primary",
 				Temperature: float64Ptr(0.7),
 				Steps:       100,
@@ -58,11 +58,11 @@ func TestRenderDocumentAgent(t *testing.T) {
 
 func TestRenderDocumentCommand(t *testing.T) {
 	command := &CanonicalCommand{
-		Command: canonical.Command{
+		Command: domain.Command{
 			Name:        "test-command",
 			Description: "Test command",
 			Tools:       []string{"bash"},
-			Execution: canonical.CommandExecution{
+			Execution: domain.CommandExecution{
 				Context: "fork",
 				Subtask: true,
 			},
@@ -85,11 +85,11 @@ func TestRenderDocumentCommand(t *testing.T) {
 
 func TestRenderDocumentSkill(t *testing.T) {
 	skill := &CanonicalSkill{
-		Skill: canonical.Skill{
+		Skill: domain.Skill{
 			Name:        "test-skill",
 			Description: "Test skill description",
 			Model:       "anthropic/claude-haiku-4-20250514",
-			Extensions: canonical.SkillExtensions{
+			Extensions: domain.SkillExtensions{
 				License:       "MIT",
 				Compatibility: []string{"claude-code", "opencode"},
 			},
@@ -115,7 +115,7 @@ func TestRenderDocumentSkill(t *testing.T) {
 
 func TestRenderDocumentMemory(t *testing.T) {
 	memory := &CanonicalMemory{
-		Memory: canonical.Memory{
+		Memory: domain.Memory{
 			Paths: []string{"src/**/*.go", "README.md"},
 		},
 		Content: "Memory content\nWith multiple lines",
@@ -149,7 +149,7 @@ func TestRenderDocumentUnknownType(t *testing.T) {
 
 func TestRenderDocumentInvalidTemplate(t *testing.T) {
 	agent := &CanonicalAgent{
-		Agent: canonical.Agent{
+		Agent: domain.Agent{
 			Name:        "test-agent",
 			Description: "Test agent",
 		},
@@ -191,7 +191,7 @@ func TestRenderDocumentMarkdownBodyPreservation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			agent := &CanonicalAgent{
-				Agent: canonical.Agent{
+				Agent: domain.Agent{
 					Name:        "test-agent",
 					Description: "Test agent",
 				},
@@ -219,7 +219,7 @@ func TestRenderCanonicalAgentClaudeCode(t *testing.T) {
 		{
 			name: "minimal agent",
 			agent: &CanonicalAgent{
-				Agent: canonical.Agent{
+				Agent: domain.Agent{
 					Name:        "test-agent",
 					Description: "Test agent",
 				},
@@ -233,7 +233,7 @@ func TestRenderCanonicalAgentClaudeCode(t *testing.T) {
 		{
 			name: "agent with tools",
 			agent: &CanonicalAgent{
-				Agent: canonical.Agent{
+				Agent: domain.Agent{
 					Name:        "test-agent",
 					Description: "Test agent",
 					Tools:       []string{"editor", "bash", "grep"},
@@ -251,10 +251,10 @@ func TestRenderCanonicalAgentClaudeCode(t *testing.T) {
 		{
 			name: "agent with permission policy",
 			agent: &CanonicalAgent{
-				Agent: canonical.Agent{
+				Agent: domain.Agent{
 					Name:             "test-agent",
 					Description:      "Test agent",
-					PermissionPolicy: canonical.PermissionPolicyRestrictive,
+					PermissionPolicy: domain.PermissionPolicyRestrictive,
 				},
 			},
 			checkOutput: func(t *testing.T, output string) {
@@ -266,10 +266,10 @@ func TestRenderCanonicalAgentClaudeCode(t *testing.T) {
 		{
 			name: "agent with behavior",
 			agent: &CanonicalAgent{
-				Agent: canonical.Agent{
+				Agent: domain.Agent{
 					Name:        "test-agent",
 					Description: "Test agent",
-					Behavior: canonical.AgentBehavior{
+					Behavior: domain.AgentBehavior{
 						Mode:        "primary",
 						Temperature: float64Ptr(0.5),
 						Steps:       50,
@@ -304,10 +304,10 @@ func TestRenderCanonicalAgentOpenCode(t *testing.T) {
 		{
 			name: "minimal agent",
 			agent: &CanonicalAgent{
-				Agent: canonical.Agent{
+				Agent: domain.Agent{
 					Name:             "test-agent",
 					Description:      "Test agent",
-					PermissionPolicy: canonical.PermissionPolicyBalanced,
+					PermissionPolicy: domain.PermissionPolicyBalanced,
 				},
 			},
 			checkOutput: func(t *testing.T, output string) {
@@ -322,10 +322,10 @@ func TestRenderCanonicalAgentOpenCode(t *testing.T) {
 		{
 			name: "agent with tools",
 			agent: &CanonicalAgent{
-				Agent: canonical.Agent{
+				Agent: domain.Agent{
 					Name:             "test-agent",
 					Description:      "Test agent",
-					PermissionPolicy: canonical.PermissionPolicyBalanced,
+					PermissionPolicy: domain.PermissionPolicyBalanced,
 					Tools:            []string{"editor", "bash"},
 				},
 			},
@@ -341,10 +341,10 @@ func TestRenderCanonicalAgentOpenCode(t *testing.T) {
 		{
 			name: "agent with disallowed tools",
 			agent: &CanonicalAgent{
-				Agent: canonical.Agent{
+				Agent: domain.Agent{
 					Name:             "test-agent",
 					Description:      "Test agent",
-					PermissionPolicy: canonical.PermissionPolicyBalanced,
+					PermissionPolicy: domain.PermissionPolicyBalanced,
 					Tools:            []string{"editor", "bash"},
 					DisallowedTools:  []string{"write", "computer"},
 				},
@@ -361,11 +361,11 @@ func TestRenderCanonicalAgentOpenCode(t *testing.T) {
 		{
 			name: "agent with behavior",
 			agent: &CanonicalAgent{
-				Agent: canonical.Agent{
+				Agent: domain.Agent{
 					Name:             "test-agent",
 					Description:      "Test agent",
-					PermissionPolicy: canonical.PermissionPolicyBalanced,
-					Behavior: canonical.AgentBehavior{
+					PermissionPolicy: domain.PermissionPolicyBalanced,
+					Behavior: domain.AgentBehavior{
 						Mode:        "primary",
 						Temperature: float64Ptr(0.7),
 						Steps:       100,
@@ -408,7 +408,7 @@ func TestRenderCanonicalCommand(t *testing.T) {
 			name:     "claude-code",
 			platform: "claude-code",
 			command: &CanonicalCommand{
-				Command: canonical.Command{
+				Command: domain.Command{
 					Name:        "test-command",
 					Description: "Test command",
 					Tools:       []string{"bash"},
@@ -425,7 +425,7 @@ func TestRenderCanonicalCommand(t *testing.T) {
 			name:     "opencode",
 			platform: "opencode",
 			command: &CanonicalCommand{
-				Command: canonical.Command{
+				Command: domain.Command{
 					Name:        "test-command",
 					Description: "Test command",
 					Tools:       []string{"bash"},
@@ -462,10 +462,10 @@ func TestRenderCanonicalSkill(t *testing.T) {
 			name:     "claude-code with extensions",
 			platform: "claude-code",
 			skill: &CanonicalSkill{
-				Skill: canonical.Skill{
+				Skill: domain.Skill{
 					Name:        "test-skill",
 					Description: "Test skill",
-					Extensions: canonical.SkillExtensions{
+					Extensions: domain.SkillExtensions{
 						License: "MIT",
 					},
 				},
@@ -481,10 +481,10 @@ func TestRenderCanonicalSkill(t *testing.T) {
 			name:     "opencode with extensions",
 			platform: "opencode",
 			skill: &CanonicalSkill{
-				Skill: canonical.Skill{
+				Skill: domain.Skill{
 					Name:        "test-skill",
 					Description: "Test skill",
-					Extensions: canonical.SkillExtensions{
+					Extensions: domain.SkillExtensions{
 						License:       "MIT",
 						Compatibility: []string{"claude-code", "opencode"},
 					},
@@ -521,7 +521,7 @@ func TestRenderCanonicalMemory(t *testing.T) {
 			name:     "claude-code with paths",
 			platform: "claude-code",
 			memory: &CanonicalMemory{
-				Memory: canonical.Memory{
+				Memory: domain.Memory{
 					Paths:   []string{"README.md", "AGENTS.md"},
 					Content: "Project context",
 				},
@@ -536,7 +536,7 @@ func TestRenderCanonicalMemory(t *testing.T) {
 			name:     "opencode with paths",
 			platform: "opencode",
 			memory: &CanonicalMemory{
-				Memory: canonical.Memory{
+				Memory: domain.Memory{
 					Paths:   []string{"README.md", "AGENTS.md"},
 					Content: "Project context",
 				},
@@ -622,13 +622,13 @@ func TestMarshalCanonicalAgent(t *testing.T) {
 		{
 			name: "agent with all fields",
 			agent: &CanonicalAgent{
-				Agent: canonical.Agent{
+				Agent: domain.Agent{
 					Name:             "test-agent",
 					Description:      "Test agent description",
 					Tools:            []string{"bash", "read", "grep"},
 					DisallowedTools:  []string{"write", "webfetch"},
-					PermissionPolicy: canonical.PermissionPolicyBalanced,
-					Behavior: canonical.AgentBehavior{
+					PermissionPolicy: domain.PermissionPolicyBalanced,
+					Behavior: domain.AgentBehavior{
 						Mode:        "primary",
 						Temperature: float64Ptr(0.7),
 						Steps:       100,
@@ -637,12 +637,12 @@ func TestMarshalCanonicalAgent(t *testing.T) {
 						Disabled:    false,
 					},
 					Model: "claude-sonnet-4-5-20250929",
-					Targets: canonical.PlatformConfig{
+					Targets: domain.PlatformConfig{
 						"claude-code": map[string]interface{}{
 							"skills": []string{"skill1", "skill2"},
 						},
 					},
-					Extensions: canonical.AgentExtensions{
+					Extensions: domain.AgentExtensions{
 						Hooks: map[string]string{
 							"SessionStart": "hook1",
 						},
@@ -710,7 +710,7 @@ func TestMarshalCanonicalAgent(t *testing.T) {
 		{
 			name: "agent with minimal fields",
 			agent: &CanonicalAgent{
-				Agent: canonical.Agent{
+				Agent: domain.Agent{
 					Name:        "minimal-agent",
 					Description: "Minimal agent",
 				},
@@ -759,16 +759,16 @@ func TestMarshalCanonicalCommand(t *testing.T) {
 		{
 			name: "command with all fields",
 			command: &CanonicalCommand{
-				Command: canonical.Command{
+				Command: domain.Command{
 					Name:        "test-command",
 					Description: "Test command",
 					Tools:       []string{"bash", "read"},
-					Execution: canonical.CommandExecution{
+					Execution: domain.CommandExecution{
 						Context: "fork",
 						Subtask: true,
 						Agent:   "general-purpose",
 					},
-					Arguments: canonical.CommandArguments{
+					Arguments: domain.CommandArguments{
 						Hint: "[issue-number]",
 					},
 					Model: "claude-haiku-4-20250514",
@@ -830,11 +830,11 @@ func TestMarshalCanonicalSkill(t *testing.T) {
 		{
 			name: "skill with all fields",
 			skill: &CanonicalSkill{
-				Skill: canonical.Skill{
+				Skill: domain.Skill{
 					Name:        "test-skill",
 					Description: "Test skill",
 					Tools:       []string{"bash"},
-					Extensions: canonical.SkillExtensions{
+					Extensions: domain.SkillExtensions{
 						License:       "MIT",
 						Compatibility: []string{"claude-code", "opencode"},
 						Metadata: map[string]string{
@@ -845,7 +845,7 @@ func TestMarshalCanonicalSkill(t *testing.T) {
 							"Load": "hook1",
 						},
 					},
-					Execution: canonical.SkillExecution{
+					Execution: domain.SkillExecution{
 						Context:       "fork",
 						Agent:         "general-purpose",
 						UserInvocable: true,
@@ -918,7 +918,7 @@ func TestMarshalCanonicalMemory(t *testing.T) {
 		{
 			name: "memory with paths only",
 			memory: &CanonicalMemory{
-				Memory: canonical.Memory{
+				Memory: domain.Memory{
 					Paths: []string{"src/**/*.go", "README.md"},
 				},
 				Content: "",
@@ -941,7 +941,7 @@ func TestMarshalCanonicalMemory(t *testing.T) {
 		{
 			name: "memory with content only",
 			memory: &CanonicalMemory{
-				Memory: canonical.Memory{
+				Memory: domain.Memory{
 					Paths: []string{},
 				},
 				Content: "This is the memory content\nwith multiple lines",
@@ -961,7 +961,7 @@ func TestMarshalCanonicalMemory(t *testing.T) {
 		{
 			name: "memory with both paths and content",
 			memory: &CanonicalMemory{
-				Memory: canonical.Memory{
+				Memory: domain.Memory{
 					Paths: []string{"src/**/*.go"},
 				},
 				Content: "Additional context",
@@ -990,7 +990,7 @@ func TestMarshalCanonicalMemory(t *testing.T) {
 
 func TestMarshalCanonicalAllEmptyOptionalFields(t *testing.T) {
 	agent := &CanonicalAgent{
-		Agent: canonical.Agent{
+		Agent: domain.Agent{
 			Name:        "test-agent",
 			Description: "Test agent",
 		},
@@ -1027,7 +1027,7 @@ func TestMarshalCanonicalAllEmptyOptionalFields(t *testing.T) {
 
 func TestMarshalCanonicalNoAdapterFieldAccess(t *testing.T) {
 	agent := &CanonicalAgent{
-		Agent: canonical.Agent{
+		Agent: domain.Agent{
 			Name:        "test-agent",
 			Description: "Test agent",
 			Tools:       []string{"bash"},

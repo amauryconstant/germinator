@@ -1,50 +1,48 @@
-package validation
+package domain
 
 import (
 	"strings"
 	"testing"
-
-	"gitlab.com/amoconst/germinator/internal/models/canonical"
 )
 
 func TestValidateAgentName(t *testing.T) {
 	tests := []struct {
 		name        string
-		agent       *canonical.Agent
+		agent       *Agent
 		expectError bool
 		errorField  string
 	}{
 		{
 			name:        "empty name fails",
-			agent:       &canonical.Agent{Name: ""},
+			agent:       &Agent{Name: ""},
 			expectError: true,
 			errorField:  "name",
 		},
 		{
 			name:        "invalid name with spaces fails",
-			agent:       &canonical.Agent{Name: "Invalid Name"},
+			agent:       &Agent{Name: "Invalid Name"},
 			expectError: true,
 			errorField:  "name",
 		},
 		{
 			name:        "invalid name with uppercase fails",
-			agent:       &canonical.Agent{Name: "InvalidName"},
+			agent:       &Agent{Name: "InvalidName"},
 			expectError: true,
 			errorField:  "name",
 		},
 		{
 			name:        "valid single word name passes",
-			agent:       &canonical.Agent{Name: "valid"},
+			agent:       &Agent{Name: "valid"},
 			expectError: false,
 		},
 		{
 			name:        "valid hyphenated name passes",
-			agent:       &canonical.Agent{Name: "valid-name"},
+			agent:       &Agent{Name: "valid-name"},
 			expectError: false,
 		},
 		{
 			name:        "valid complex hyphenated name passes",
-			agent:       &canonical.Agent{Name: "valid-complex-name-123"},
+			agent:       &Agent{Name: "valid-complex-name-123"},
 			expectError: false,
 		},
 	}
@@ -75,17 +73,17 @@ func TestValidateAgentName(t *testing.T) {
 func TestValidateAgentDescription(t *testing.T) {
 	tests := []struct {
 		name        string
-		agent       *canonical.Agent
+		agent       *Agent
 		expectError bool
 	}{
 		{
 			name:        "empty description fails",
-			agent:       &canonical.Agent{Description: ""},
+			agent:       &Agent{Description: ""},
 			expectError: true,
 		},
 		{
 			name:        "valid description passes",
-			agent:       &canonical.Agent{Description: "A valid description"},
+			agent:       &Agent{Description: "A valid description"},
 			expectError: false,
 		},
 	}
@@ -109,32 +107,32 @@ func TestValidateAgentDescription(t *testing.T) {
 func TestValidateAgentPermissionPolicy(t *testing.T) {
 	tests := []struct {
 		name        string
-		agent       *canonical.Agent
+		agent       *Agent
 		expectError bool
 	}{
 		{
 			name:        "empty policy passes",
-			agent:       &canonical.Agent{PermissionPolicy: ""},
+			agent:       &Agent{PermissionPolicy: ""},
 			expectError: false,
 		},
 		{
 			name:        "valid restrictive policy passes",
-			agent:       &canonical.Agent{PermissionPolicy: canonical.PermissionPolicyRestrictive},
+			agent:       &Agent{PermissionPolicy: PermissionPolicyRestrictive},
 			expectError: false,
 		},
 		{
 			name:        "valid balanced policy passes",
-			agent:       &canonical.Agent{PermissionPolicy: canonical.PermissionPolicyBalanced},
+			agent:       &Agent{PermissionPolicy: PermissionPolicyBalanced},
 			expectError: false,
 		},
 		{
 			name:        "valid permissive policy passes",
-			agent:       &canonical.Agent{PermissionPolicy: canonical.PermissionPolicyPermissive},
+			agent:       &Agent{PermissionPolicy: PermissionPolicyPermissive},
 			expectError: false,
 		},
 		{
 			name:        "invalid policy fails",
-			agent:       &canonical.Agent{PermissionPolicy: "invalid"},
+			agent:       &Agent{PermissionPolicy: "invalid"},
 			expectError: true,
 		},
 	}
@@ -158,35 +156,35 @@ func TestValidateAgentPermissionPolicy(t *testing.T) {
 func TestValidateAgent(t *testing.T) {
 	tests := []struct {
 		name        string
-		agent       *canonical.Agent
+		agent       *Agent
 		expectError bool
 	}{
 		{
 			name: "valid agent passes",
-			agent: &canonical.Agent{
+			agent: &Agent{
 				Name:             "valid-agent",
 				Description:      "A valid description",
-				PermissionPolicy: canonical.PermissionPolicyBalanced,
+				PermissionPolicy: PermissionPolicyBalanced,
 			},
 			expectError: false,
 		},
 		{
 			name: "missing name fails",
-			agent: &canonical.Agent{
+			agent: &Agent{
 				Description: "A valid description",
 			},
 			expectError: true,
 		},
 		{
 			name: "missing description fails",
-			agent: &canonical.Agent{
+			agent: &Agent{
 				Name: "valid-agent",
 			},
 			expectError: true,
 		},
 		{
 			name: "invalid policy fails",
-			agent: &canonical.Agent{
+			agent: &Agent{
 				Name:             "valid-agent",
 				Description:      "A valid description",
 				PermissionPolicy: "invalid",
@@ -214,12 +212,12 @@ func TestValidateAgent(t *testing.T) {
 func TestValidateCommand(t *testing.T) {
 	tests := []struct {
 		name        string
-		command     *canonical.Command
+		command     *Command
 		expectError bool
 	}{
 		{
 			name: "valid command passes",
-			command: &canonical.Command{
+			command: &Command{
 				Name:        "valid-command",
 				Description: "A valid description",
 			},
@@ -227,33 +225,33 @@ func TestValidateCommand(t *testing.T) {
 		},
 		{
 			name: "missing name fails",
-			command: &canonical.Command{
+			command: &Command{
 				Description: "A valid description",
 			},
 			expectError: true,
 		},
 		{
 			name: "missing description fails",
-			command: &canonical.Command{
+			command: &Command{
 				Name: "valid-command",
 			},
 			expectError: true,
 		},
 		{
 			name: "invalid context fails",
-			command: &canonical.Command{
+			command: &Command{
 				Name:        "valid-command",
 				Description: "A valid description",
-				Execution:   canonical.CommandExecution{Context: "invalid"},
+				Execution:   CommandExecution{Context: "invalid"},
 			},
 			expectError: true,
 		},
 		{
 			name: "valid context passes",
-			command: &canonical.Command{
+			command: &Command{
 				Name:        "valid-command",
 				Description: "A valid description",
-				Execution:   canonical.CommandExecution{Context: "fork"},
+				Execution:   CommandExecution{Context: "fork"},
 			},
 			expectError: false,
 		},
@@ -278,12 +276,12 @@ func TestValidateCommand(t *testing.T) {
 func TestValidateSkill(t *testing.T) {
 	tests := []struct {
 		name        string
-		skill       *canonical.Skill
+		skill       *Skill
 		expectError bool
 	}{
 		{
 			name: "valid skill passes",
-			skill: &canonical.Skill{
+			skill: &Skill{
 				Name:        "valid-skill",
 				Description: "A valid description",
 			},
@@ -291,14 +289,14 @@ func TestValidateSkill(t *testing.T) {
 		},
 		{
 			name: "missing name fails",
-			skill: &canonical.Skill{
+			skill: &Skill{
 				Description: "A valid description",
 			},
 			expectError: true,
 		},
 		{
 			name: "name too long fails",
-			skill: &canonical.Skill{
+			skill: &Skill{
 				Name:        strings.Repeat("a", 65),
 				Description: "A valid description",
 			},
@@ -306,7 +304,7 @@ func TestValidateSkill(t *testing.T) {
 		},
 		{
 			name: "description too long fails",
-			skill: &canonical.Skill{
+			skill: &Skill{
 				Name:        "valid-skill",
 				Description: strings.Repeat("a", 1025),
 			},
@@ -314,7 +312,7 @@ func TestValidateSkill(t *testing.T) {
 		},
 		{
 			name: "invalid name format fails",
-			skill: &canonical.Skill{
+			skill: &Skill{
 				Name:        "Invalid Name",
 				Description: "A valid description",
 			},
@@ -322,10 +320,10 @@ func TestValidateSkill(t *testing.T) {
 		},
 		{
 			name: "invalid context fails",
-			skill: &canonical.Skill{
+			skill: &Skill{
 				Name:        "valid-skill",
 				Description: "A valid description",
-				Execution:   canonical.SkillExecution{Context: "invalid"},
+				Execution:   SkillExecution{Context: "invalid"},
 			},
 			expectError: true,
 		},
@@ -350,26 +348,26 @@ func TestValidateSkill(t *testing.T) {
 func TestValidateMemory(t *testing.T) {
 	tests := []struct {
 		name        string
-		memory      *canonical.Memory
+		memory      *Memory
 		expectError bool
 	}{
 		{
 			name: "memory with paths passes",
-			memory: &canonical.Memory{
+			memory: &Memory{
 				Paths: []string{"/path/to/file"},
 			},
 			expectError: false,
 		},
 		{
 			name: "memory with content passes",
-			memory: &canonical.Memory{
+			memory: &Memory{
 				Content: "Some content",
 			},
 			expectError: false,
 		},
 		{
 			name: "memory with both passes",
-			memory: &canonical.Memory{
+			memory: &Memory{
 				Paths:   []string{"/path/to/file"},
 				Content: "Some content",
 			},
@@ -377,7 +375,7 @@ func TestValidateMemory(t *testing.T) {
 		},
 		{
 			name:        "memory with neither fails",
-			memory:      &canonical.Memory{},
+			memory:      &Memory{},
 			expectError: true,
 		},
 	}
@@ -400,7 +398,7 @@ func TestValidateMemory(t *testing.T) {
 
 func TestValidatePipelineComposition(t *testing.T) {
 	t.Run("agent pipeline stops on first error", func(t *testing.T) {
-		agent := &canonical.Agent{
+		agent := &Agent{
 			// Name is empty - should fail on first validator
 			Description: "A valid description",
 		}
@@ -413,10 +411,10 @@ func TestValidatePipelineComposition(t *testing.T) {
 	})
 
 	t.Run("command pipeline validates all fields", func(t *testing.T) {
-		command := &canonical.Command{
+		command := &Command{
 			Name:        "valid-command",
 			Description: "A valid description",
-			Execution:   canonical.CommandExecution{Context: "fork"},
+			Execution:   CommandExecution{Context: "fork"},
 		}
 
 		result := ValidateCommand(command)
@@ -426,10 +424,10 @@ func TestValidatePipelineComposition(t *testing.T) {
 	})
 
 	t.Run("skill pipeline validates all fields", func(t *testing.T) {
-		skill := &canonical.Skill{
+		skill := &Skill{
 			Name:        "valid-skill",
 			Description: "A valid description",
-			Execution:   canonical.SkillExecution{Context: "fork"},
+			Execution:   SkillExecution{Context: "fork"},
 		}
 
 		result := ValidateSkill(skill)

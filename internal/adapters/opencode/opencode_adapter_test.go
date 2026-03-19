@@ -3,7 +3,7 @@ package opencode
 import (
 	"testing"
 
-	canonical "gitlab.com/amoconst/germinator/internal/models/canonical"
+	canonical "gitlab.com/amoconst/germinator/internal/domain"
 )
 
 func TestConvertToolNameCase(t *testing.T) {

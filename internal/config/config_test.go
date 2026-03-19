@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	gerrors "gitlab.com/amoconst/germinator/internal/errors"
+	gerrors "gitlab.com/amoconst/germinator/internal/domain"
 	"gitlab.com/amoconst/germinator/internal/models"
 )
 

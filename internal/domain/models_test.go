@@ -1,4 +1,4 @@
-package canonical
+package domain
 
 import (
 	"testing"

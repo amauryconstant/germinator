@@ -7,7 +7,7 @@ import (
 
 	"gitlab.com/amoconst/germinator/internal/application"
 	"gitlab.com/amoconst/germinator/internal/core"
-	gerrors "gitlab.com/amoconst/germinator/internal/errors"
+	"gitlab.com/amoconst/germinator/internal/domain"
 )
 
 const (
@@ -20,12 +20,12 @@ func validatePlatform(platform string) []error {
 	var errs []error
 
 	if platform == "" {
-		errs = append(errs, gerrors.NewConfigError("platform", "", "platform is required").WithSuggestions([]string{PlatformClaudeCode, PlatformOpenCode}))
+		errs = append(errs, domain.NewConfigError("platform", "", "platform is required").WithSuggestions([]string{PlatformClaudeCode, PlatformOpenCode}))
 		return errs
 	}
 
 	if platform != PlatformClaudeCode && platform != PlatformOpenCode {
-		errs = append(errs, gerrors.NewConfigError("platform", platform, "unknown platform").WithSuggestions([]string{PlatformClaudeCode, PlatformOpenCode}))
+		errs = append(errs, domain.NewConfigError("platform", platform, "unknown platform").WithSuggestions([]string{PlatformClaudeCode, PlatformOpenCode}))
 		return errs
 	}
 
@@ -41,7 +41,7 @@ func NewTransformer() application.Transformer {
 }
 
 // Transform transforms a document to target platform format.
-func (t *transformer) Transform(ctx context.Context, req *application.TransformRequest) (*application.TransformResult, error) {
+func (t *transformer) Transform(ctx context.Context, req *application.TransformRequest) (*domain.TransformResult, error) {
 	doc, err := core.LoadDocument(req.InputPath, req.Platform)
 	if err != nil {
 		return nil, err
@@ -49,14 +49,14 @@ func (t *transformer) Transform(ctx context.Context, req *application.TransformR
 
 	rendered, err := core.RenderDocument(doc, req.Platform)
 	if err != nil {
-		return nil, gerrors.NewTransformError("render", req.Platform, "failed to render document", err)
+		return nil, domain.NewTransformError("render", req.Platform, "failed to render document", err)
 	}
 
 	if err := os.WriteFile(req.OutputPath, []byte(rendered), 0644); err != nil {
-		return nil, gerrors.NewFileError(req.OutputPath, "write", "failed to write output file", err)
+		return nil, domain.NewFileError(req.OutputPath, "write", "failed to write output file", err)
 	}
 
-	return &application.TransformResult{OutputPath: req.OutputPath}, nil
+	return &domain.TransformResult{OutputPath: req.OutputPath}, nil
 }
 
 // Compile-time interface satisfaction check.
