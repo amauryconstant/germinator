@@ -217,12 +217,14 @@ graph TB
 | ---------------------------------------------------------- | ------------------------------------------------------------ |
 | [cmd/AGENTS.md](cmd/AGENTS.md)                             | CLI commands, Cobra patterns, command specs                  |
 | [internal/application/AGENTS.md](internal/application/AGENTS.md) | Service interfaces, request types for DI (results moved to domain) |
-| [internal/config/AGENTS.md](internal/config/AGENTS.md)     | Configuration loading, XDG paths, TOML parsing               |
-| [internal/core/AGENTS.md](internal/core/AGENTS.md)         | Document loading, parsing, serialization, template functions |
 | [internal/domain/AGENTS.md](internal/domain/AGENTS.md)     | Domain types, errors, validation, results (consolidated layer) |
-| [internal/library/AGENTS.md](internal/library/AGENTS.md)   | Library system, resource management, preset grouping         |
-| [internal/services/AGENTS.md](internal/services/AGENTS.md) | Service implementations (Transformer, Validator, etc.)       |
-| [internal/AGENTS.md](internal/AGENTS.md)                   | Core package patterns                                        |
+| [internal/service/AGENTS.md](internal/service/AGENTS.md)   | Service implementations (Transformer, Validator, etc.)        |
+| [internal/infrastructure/parsing/AGENTS.md](internal/infrastructure/parsing/AGENTS.md) | Document loading, parsing, platform detection |
+| [internal/infrastructure/serialization/AGENTS.md](internal/infrastructure/serialization/AGENTS.md) | Serialization, template functions |
+| [internal/infrastructure/adapters/AGENTS.md](internal/infrastructure/adapters/AGENTS.md) | Platform adapters (Claude Code, OpenCode) |
+| [internal/infrastructure/config/AGENTS.md](internal/infrastructure/config/AGENTS.md) | Configuration loading, XDG paths, TOML parsing |
+| [internal/infrastructure/library/AGENTS.md](internal/infrastructure/library/AGENTS.md) | Library system, resource management, preset grouping |
+| [internal/AGENTS.md](internal/AGENTS.md)                   | Internal package patterns                                    |
 | [config/AGENTS.md](config/AGENTS.md)                       | Template patterns, permission mappings                       |
 | [test/AGENTS.md](test/AGENTS.md)                           | Golden file testing, E2E testing, mock infrastructure, fixture conventions        |
 | [openspec/research/AGENTS.md](openspec/research/AGENTS.md) | Platform research documentation usage                        |

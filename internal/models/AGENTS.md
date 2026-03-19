@@ -202,5 +202,5 @@ See `internal/validation/AGENTS.md` for `Result[T]` pattern and composable valid
 # See Also
 
 - `internal/validation/AGENTS.md` - Validation patterns
-- `internal/adapters/AGENTS.md` - How adapters transform these models
+- `internal/infrastructure/adapters/AGENTS.md` - How adapters transform these models
 - `config/AGENTS.md` - How templates render these models

@@ -1,4 +1,4 @@
-**Location**: `internal/services/`
+**Location**: `internal/service/`
 **Parent**: See `/internal/AGENTS.md` for core patterns
 
 ---
@@ -172,7 +172,7 @@ See `test/AGENTS.md` for golden file testing patterns, fixture structure, and up
 
 **Dependencies**: `core.LoadDocument`, `core.DetectType`, `core.ParseDocument`, `core.RenderDocument`
 
-**Library**: `internal/library/` provides resource loading, resolution, and output path derivation.
+**Library**: `internal/infrastructure/library/` provides resource loading, resolution, and output path derivation.
 
 **Validation**: `internal/validation/` provides `Result[T]` pattern and composable validators.
 
@@ -188,7 +188,7 @@ See `test/AGENTS.md` for table-driven test patterns and golden file testing.
 
 **Integration tests**: End-to-end transformation workflow.
 
-See `internal/adapters/AGENTS.md` for platform-specific adapter patterns.
+See `internal/infrastructure/adapters/AGENTS.md` for platform-specific adapter patterns.
 
 ---
 

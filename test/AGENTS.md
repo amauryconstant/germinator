@@ -69,7 +69,7 @@ go test -tags=integration ./internal/core -v
 
 ### Integration Test Structure
 
-Located in `internal/core/integration_test.go`:
+Located in `internal/infrastructure/parsing/integration_test.go`:
 
 - Tests end-to-end document loading pipeline: `LoadDocument → Validate → RenderDocument`
 - Uses fixtures from `test/fixtures/` for representative document types
@@ -77,7 +77,7 @@ Located in `internal/core/integration_test.go`:
 
 ### Adding Integration Tests
 
-1. Create test functions in `internal/core/integration_test.go` with `//go:build integration` tag
+1. Create test functions in `internal/infrastructure/parsing/integration_test.go` with `//go:build integration` tag
 2. Use fixtures from `test/fixtures/` for test data
 3. Test complete pipelines, not individual functions
 4. Keep integration tests focused on critical workflows
@@ -121,7 +121,7 @@ Commit updated golden files. Verify without flag: `mise run test:golden`
 
 **Build tag**: `//go:build golden` (excluded from `go test ./...`)
 
-Table-driven in `internal/services/transformer_golden_test.go`:
+Table-driven in `internal/service/transformer_golden_test.go`:
 ```go
 tests := []struct {
     name     string
