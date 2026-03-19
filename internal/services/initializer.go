@@ -9,7 +9,7 @@ import (
 	"gitlab.com/amoconst/germinator/internal/application"
 	"gitlab.com/amoconst/germinator/internal/core"
 	"gitlab.com/amoconst/germinator/internal/domain"
-	"gitlab.com/amoconst/germinator/internal/library"
+	"gitlab.com/amoconst/germinator/internal/infrastructure/library"
 )
 
 // initializer implements the application.Initializer interface.

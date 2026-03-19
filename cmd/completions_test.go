@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"gitlab.com/amoconst/germinator/internal/infrastructure/config"
-	"gitlab.com/amoconst/germinator/internal/library"
+	"gitlab.com/amoconst/germinator/internal/infrastructure/library"
 )
 
 func TestGetCompletionTimeout(t *testing.T) {

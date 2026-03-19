@@ -8,7 +8,7 @@ import (
 
 func TestLoadLibrary(t *testing.T) {
 	// Get absolute path to fixtures
-	fixturePath := filepath.Join("..", "..", "test", "fixtures", "library")
+	fixturePath := filepath.Join("..", "..", "..", "test", "fixtures", "library")
 	absPath, err := filepath.Abs(fixturePath)
 	if err != nil {
 		t.Fatalf("Failed to get absolute path: %v", err)

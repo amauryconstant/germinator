@@ -40,15 +40,15 @@
 
 **Goal**: Move `internal/library/` → `internal/infrastructure/library/`
 
-- [ ] C.1 Verify `internal/infrastructure/library/` directory exists
-- [ ] C.2 Move library files: `git mv internal/library/*.go internal/infrastructure/library/`
-- [ ] C.3 Update package declarations to `package library`
-- [ ] C.4 Update imports in consuming files: `internal/library` → `internal/infrastructure/library`
+- [x] C.1 Verify `internal/infrastructure/library/` directory exists
+- [x] C.2 Move library files: `git mv internal/library/*.go internal/infrastructure/library/`
+- [x] C.3 Update package declarations to `package library`
+- [x] C.4 Update imports in consuming files: `internal/library` → `internal/infrastructure/library`
   - Files: `internal/services/*.go`
-- [ ] C.5 Move test files
-- [ ] C.6 Update test imports
-- [ ] C.7 Verify: `go build ./internal/infrastructure/library/...`
-- [ ] C.8 Verify: `go test ./internal/infrastructure/library/...`
+- [x] C.5 Move test files
+- [x] C.6 Update test imports
+- [x] C.7 Verify: `go build ./internal/infrastructure/library/...`
+- [x] C.8 Verify: `go test ./internal/infrastructure/library/...`
 - [ ] C.9 Commit this phase using `osx-commit`
 
 ---

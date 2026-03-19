@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 	"gitlab.com/amoconst/germinator/internal/application"
 	gerrors "gitlab.com/amoconst/germinator/internal/domain"
-	"gitlab.com/amoconst/germinator/internal/library"
+	"gitlab.com/amoconst/germinator/internal/infrastructure/library"
 )
 
 // NewInitCommand creates init command for installing resources.
