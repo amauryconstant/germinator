@@ -50,7 +50,7 @@
 
 ## 7. Update Documentation
 
-- [ ] 7.1 Create `internal/domain/AGENTS.md` with domain layer documentation
+- [x] 7.1 Create `internal/domain/AGENTS.md` with domain layer documentation
 - [x] 7.2 Update `internal/application/AGENTS.md` (remove requests/results references)
 - [x] 7.3 Update root `AGENTS.md` architecture diagram
 
