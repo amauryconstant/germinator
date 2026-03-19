@@ -12,12 +12,14 @@ The system SHALL provide an `internal/infrastructure/` package with subdirectori
 
 #### Scenario: Infrastructure package exists
 
+- **GIVEN** the project exists
 - **WHEN** the project structure is inspected
 - **THEN** an `internal/infrastructure/` directory SHALL exist
 - **AND** it SHALL contain `parsing/`, `serialization/`, `adapters/`, `config/`, `library/` subdirectories
 
 #### Scenario: Parsing subdirectory contains loader and parser
 
+- **GIVEN** the project exists
 - **WHEN** `internal/infrastructure/parsing/` is inspected
 - **THEN** `loader.go` SHALL exist
 - **AND** `parser.go` SHALL exist
@@ -25,6 +27,7 @@ The system SHALL provide an `internal/infrastructure/` package with subdirectori
 
 #### Scenario: Serialization subdirectory contains serializer and templates
 
+- **GIVEN** the project exists
 - **WHEN** `internal/infrastructure/serialization/` is inspected
 - **THEN** `serializer.go` SHALL exist
 - **AND** `template_funcs.go` SHALL exist
@@ -37,16 +40,19 @@ All files from `internal/core/` SHALL be migrated to `internal/infrastructure/`.
 
 #### Scenario: Loader in infrastructure
 
+- **GIVEN** the original package exists
 - **WHEN** `internal/infrastructure/parsing/loader.go` is inspected
 - **THEN** it SHALL contain the document loading logic from `internal/core/loader.go`
 
 #### Scenario: Parser in infrastructure
 
+- **GIVEN** the original package exists
 - **WHEN** `internal/infrastructure/parsing/parser.go` is inspected
 - **THEN** it SHALL contain the parsing logic from `internal/core/parser.go`
 
 #### Scenario: Serializer in infrastructure
 
+- **GIVEN** the original package exists
 - **WHEN** `internal/infrastructure/serialization/serializer.go` is inspected
 - **THEN** it SHALL contain the serialization logic from `internal/core/serializer.go`
 
@@ -58,17 +64,20 @@ The `internal/adapters/` package SHALL be migrated to `internal/infrastructure/a
 
 #### Scenario: Adapter interface in infrastructure
 
+- **GIVEN** the project exists
 - **WHEN** `internal/infrastructure/adapters/` is inspected
 - **THEN** `adapter.go` SHALL exist with Adapter interface
 - **AND** `helpers.go` SHALL exist with helper functions
 
 #### Scenario: Claude adapter in infrastructure
 
+- **GIVEN** the original package exists
 - **WHEN** `internal/infrastructure/adapters/claude-code/` is inspected
 - **THEN** adapter files SHALL exist with Claude adapter implementation
 
 #### Scenario: OpenCode adapter in infrastructure
 
+- **GIVEN** the original package exists
 - **WHEN** `internal/infrastructure/adapters/opencode/` is inspected
 - **THEN** adapter files SHALL exist with OpenCode adapter implementation
 
@@ -80,6 +89,7 @@ The `internal/config/` package SHALL be migrated to `internal/infrastructure/con
 
 #### Scenario: Config manager in infrastructure
 
+- **GIVEN** the original package exists
 - **WHEN** `internal/infrastructure/config/` is inspected
 - **THEN** config loading and management files SHALL exist
 - **AND** imports SHALL reference `internal/infrastructure/config`
@@ -92,6 +102,7 @@ The `internal/library/` package SHALL be migrated to `internal/infrastructure/li
 
 #### Scenario: Library loader in infrastructure
 
+- **GIVEN** the original package exists
 - **WHEN** `internal/infrastructure/library/` is inspected
 - **THEN** library loading and resource management files SHALL exist
 - **AND** imports SHALL reference `internal/infrastructure/library`
@@ -104,12 +115,14 @@ The `internal/services/` package SHALL be renamed to `internal/service/`.
 
 #### Scenario: Service package exists
 
+- **GIVEN** the project exists
 - **WHEN** the project structure is inspected
 - **THEN** `internal/service/` SHALL exist
 - **AND** `internal/services/` SHALL NOT exist
 
 #### Scenario: Service files renamed
 
+- **GIVEN** the original package exists
 - **WHEN** `internal/service/` is inspected
 - **THEN** all service implementation files SHALL exist
 - **AND** package declarations SHALL declare `package service`
@@ -122,26 +135,31 @@ All import paths SHALL be updated to reflect new package locations.
 
 #### Scenario: Core imports updated
 
+- **GIVEN** the original package exists
 - **WHEN** any file imports from `internal/core`
 - **THEN** it SHALL import from `internal/infrastructure/parsing` or `internal/infrastructure/serialization`
 
 #### Scenario: Adapters imports updated
 
+- **GIVEN** the original package exists
 - **WHEN** any file imports from `internal/adapters`
 - **THEN** it SHALL import from `internal/infrastructure/adapters`
 
 #### Scenario: Config imports updated
 
+- **GIVEN** the original package exists
 - **WHEN** any file imports from `internal/config`
 - **THEN** it SHALL import from `internal/infrastructure/config`
 
 #### Scenario: Library imports updated
 
+- **GIVEN** the original package exists
 - **WHEN** any file imports from `internal/library`
 - **THEN** it SHALL import from `internal/infrastructure/library`
 
 #### Scenario: Services imports updated
 
+- **GIVEN** the original package exists
 - **WHEN** any file imports from `internal/services`
 - **THEN** it SHALL import from `internal/service`
 

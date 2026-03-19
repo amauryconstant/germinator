@@ -26,6 +26,14 @@ Adopt DDD-light 4-package structure with clearer infrastructure organization. Th
 
 **No Public API Impact**: All changes are to internal packages; no external consumers affected.
 
+## Risks
+
+See [design.md](design.md) for detailed risks, trade-offs, and mitigations.
+
+**Summary**:
+- Import path changes touch most files → Mitigated by package-based phases with per-phase verification
+- Large change size → Mitigated by 7 atomic commits at phase boundaries
+
 ## Capabilities
 
 ### New Capabilities

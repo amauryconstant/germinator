@@ -93,3 +93,28 @@ internal/services/              →  internal/service/
 ## Open Questions
 
 None - scope is well-defined to infrastructure reorganization only.
+
+## Migration Phases
+
+The migration is organized into 7 phases, each producing a commit-able state:
+
+| Phase | Package | Rationale |
+|-------|---------|-----------|
+| A | adapters | Leaf dependency (imports domain only), no internal consumers |
+| B | config | Leaf dependency, isolated changes |
+| C | library | Leaf dependency, isolated changes |
+| D | parsing (from core) | Depends on adapters (moved in A) |
+| E | serialization (from core) | Depends on adapters (moved in A) |
+| F | service (rename services) | Depends on all infrastructure packages |
+| G | verification | Cleanup + final validation |
+
+**Phase Independence**:
+- Each phase compiles and tests in isolation
+- Commit points allow rollback to any phase boundary
+- Phases A-C can run in any order (no interdependencies)
+- Phases D-E can run in any order after A completes
+- Phase F must run after D-E
+- Phase G runs last
+
+**Why This Order**:
+Moving adapters first is critical because `internal/core/platform_parser.go` imports adapters. Splitting core before moving adapters would create import path confusion.
