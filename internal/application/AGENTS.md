@@ -95,11 +95,11 @@ func NewServiceContainer() *ServiceContainer {
 
 # Implementations
 
-Concrete implementations in `internal/services/`:
-- `services.NewTransformer()` → implements `application.Transformer`
-- `services.NewValidator()` → implements `application.Validator`
-- `services.NewCanonicalizer()` → implements `application.Canonicalizer`
-- `services.NewInitializer()` → implements `application.Initializer`
+Concrete implementations in `internal/service/`:
+- `service.NewTransformer()` → implements `application.Transformer`
+- `service.NewValidator()` → implements `application.Validator`
+- `service.NewCanonicalizer()` → implements `application.Canonicalizer`
+- `service.NewInitializer()` → implements `application.Initializer`
 
 ---
 

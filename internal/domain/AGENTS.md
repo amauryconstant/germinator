@@ -37,7 +37,7 @@ depguard:
 | Memory | `memory.go` | Paths (→ @ refs), Content (narrative) |
 | Platform | `platform.go` | Platform, PermissionPolicy |
 
-**Platform-specific behavior**: See `internal/adapters/{platform}/` for transformation logic.
+**Platform-specific behavior**: See `internal/infrastructure/adapters/{platform}/` for transformation logic.
 
 ---
 

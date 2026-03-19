@@ -8,11 +8,14 @@
 ## Structure
 
 - `application/` - Service interfaces and DTOs for dependency injection (see `internal/application/AGENTS.md`)
-- `config/` - Configuration loading, XDG paths, TOML parsing (Koanf-based)
-- `core/` - Document parsing, loading, serialization, template functions
 - `domain/` - **Consolidated domain layer**: types, errors, validation, results (see `internal/domain/AGENTS.md`)
-- `library/` - Library system, resource management, preset grouping
-- `services/` - Service implementations (see `internal/services/AGENTS.md`)
+- `service/` - Service implementations (see `internal/service/AGENTS.md`)
+- `infrastructure/` - **Unified infrastructure layer**:
+  - `infrastructure/parsing/` - Document loading, parsing, platform detection
+  - `infrastructure/serialization/` - Serialization, template functions
+  - `infrastructure/adapters/` - Platform adapters (Claude Code, OpenCode)
+  - `infrastructure/config/` - Configuration loading, XDG paths, TOML parsing
+  - `infrastructure/library/` - Library system, resource management, preset grouping
 
 **Note**: The following packages have been consolidated into `internal/domain/`:
 - `errors/` → now `domain/errors.go` (Typed domain errors with builder pattern)
@@ -21,18 +24,26 @@
 
 ---
 
-# Core Package (`internal/core/`)
+# Infrastructure Package (`internal/infrastructure/`)
 
-**Location**: See `core/AGENTS.md` for implementation details.
+**Unified infrastructure layer** organized by concern:
+
+## Parsing (`internal/infrastructure/parsing/`)
 
 Document Loading: `DetectType → ParseDocument → LoadDocument → Validate`
 - Detects type from filename patterns (agent-*, command-*, skill-*, memory-*)
 - Memory: full content; others: YAML frontmatter between `---`
 
+## Serialization (`internal/infrastructure/serialization/`)
+
 Serialization: `getDocType → getTemplatePath → template.Execute()`
 - Templates at `config/templates/{platform}/{docType}.tmpl`
 - Custom `transformPermissionMode`: Claude Code enum → OpenCode permission object
 - Sprig functions: lower, upper, trim, join, etc.
+
+**See also**:
+- [infrastructure/parsing/AGENTS.md](infrastructure/parsing/AGENTS.md) for detailed parsing documentation
+- [infrastructure/serialization/AGENTS.md](infrastructure/serialization/AGENTS.md) for detailed serialization documentation
 
 ---
 

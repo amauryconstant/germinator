@@ -86,4 +86,4 @@ webfetch, websearch follow grep/glob/list pattern.
 
 See template files for exact field mappings and omission patterns.
 
-See `internal/adapters/AGENTS.md` for platform-specific adapter patterns.
+See `internal/infrastructure/adapters/AGENTS.md` for platform-specific adapter patterns.
