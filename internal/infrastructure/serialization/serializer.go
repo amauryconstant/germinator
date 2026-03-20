@@ -181,7 +181,7 @@ func findProjectRoot(cwd string) (string, error) {
 func getTemplatePath(platform string, filename string) (string, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("getting current working directory: %w", err)
 	}
 
 	relPath := filepath.Join("config", "templates", platform, filename)
@@ -189,7 +189,11 @@ func getTemplatePath(platform string, filename string) (string, error) {
 	// First try CWD (works when running from project root)
 	tmplPath := filepath.Join(cwd, relPath)
 	if _, err := os.Stat(tmplPath); err == nil {
-		return filepath.Abs(tmplPath)
+		absPath, err := filepath.Abs(tmplPath)
+		if err != nil {
+			return "", fmt.Errorf("resolving absolute path: %w", err)
+		}
+		return absPath, nil
 	}
 
 	// Try finding project root (works when running from package directory in tests)
@@ -199,7 +203,11 @@ func getTemplatePath(platform string, filename string) (string, error) {
 	}
 	tmplPath = filepath.Join(projectRoot, relPath)
 	if _, err := os.Stat(tmplPath); err == nil {
-		return filepath.Abs(tmplPath)
+		absPath, err := filepath.Abs(tmplPath)
+		if err != nil {
+			return "", fmt.Errorf("resolving absolute path: %w", err)
+		}
+		return absPath, nil
 	}
 
 	return "", gerrors.NewFileError(relPath, "read", "template file not found", nil)
@@ -258,7 +266,7 @@ func MarshalCanonical(doc interface{}) (string, error) {
 func getCanonicalTemplatePath(filename string) (string, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("getting current working directory: %w", err)
 	}
 
 	relPath := filepath.Join("config", "templates", "canonical", filename)
@@ -266,7 +274,11 @@ func getCanonicalTemplatePath(filename string) (string, error) {
 	// First try CWD (works when running from project root)
 	tmplPath := filepath.Join(cwd, relPath)
 	if _, err := os.Stat(tmplPath); err == nil {
-		return filepath.Abs(tmplPath)
+		absPath, err := filepath.Abs(tmplPath)
+		if err != nil {
+			return "", fmt.Errorf("resolving absolute path: %w", err)
+		}
+		return absPath, nil
 	}
 
 	// Try finding project root (works when running from package directory in tests)
@@ -276,7 +288,11 @@ func getCanonicalTemplatePath(filename string) (string, error) {
 	}
 	tmplPath = filepath.Join(projectRoot, relPath)
 	if _, err := os.Stat(tmplPath); err == nil {
-		return filepath.Abs(tmplPath)
+		absPath, err := filepath.Abs(tmplPath)
+		if err != nil {
+			return "", fmt.Errorf("resolving absolute path: %w", err)
+		}
+		return absPath, nil
 	}
 
 	return "", gerrors.NewFileError(relPath, "read", "canonical template file not found", nil)

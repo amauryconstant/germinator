@@ -13,7 +13,9 @@ import (
 	"gitlab.com/amoconst/germinator/internal/infrastructure/library"
 )
 
-// NewInitCommand creates init command for installing resources.
+// NewInitCommand creates the init command for installing resources from the library.
+//
+//nolint:gocognit // has high cognitive complexity due to many flag validation branches
 func NewInitCommand(cfg *CommandConfig) *cobra.Command {
 	var (
 		platform    string
@@ -79,7 +81,7 @@ Examples:
 				// Validate each reference format
 				for _, ref := range refs {
 					if err := library.ValidateRef(ref); err != nil {
-						return err
+						return fmt.Errorf("validating ref %q: %w", ref, err)
 					}
 				}
 			}
@@ -93,14 +95,14 @@ Examples:
 			// Load library
 			lib, err := library.LoadLibrary(libPath)
 			if err != nil {
-				return err
+				return fmt.Errorf("loading library: %w", err)
 			}
 
 			// Resolve preset if specified (preset resolution happens in command layer)
 			if preset != "" {
 				refs, err = library.ResolvePreset(lib, preset)
 				if err != nil {
-					return err
+					return fmt.Errorf("resolving preset %q: %w", preset, err)
 				}
 			}
 
@@ -122,7 +124,7 @@ Examples:
 						fmt.Fprintf(os.Stderr, "Error: %s: %v\n", r.Ref, r.Error)
 					}
 				}
-				return err
+				return fmt.Errorf("initializing resources: %w", err)
 			}
 
 			// Output results

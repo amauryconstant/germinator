@@ -3,6 +3,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	"gitlab.com/amoconst/germinator/internal/application"
@@ -47,7 +48,7 @@ func NewTransformer() application.Transformer {
 func (t *transformer) Transform(_ context.Context, req *application.TransformRequest) (*domain.TransformResult, error) {
 	doc, err := parsing.LoadDocument(req.InputPath, req.Platform)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("loading document: %w", err)
 	}
 
 	rendered, err := serialization.RenderDocument(doc, req.Platform)

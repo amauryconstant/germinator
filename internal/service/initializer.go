@@ -3,6 +3,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -34,7 +35,7 @@ func (i *initializer) Initialize(_ context.Context, req *application.InitializeR
 		if err != nil {
 			result.Error = err
 			results = append(results, result)
-			return results, err
+			return results, fmt.Errorf("resolving resource %q: %w", ref, err)
 		}
 		result.InputPath = inputPath
 
@@ -43,14 +44,14 @@ func (i *initializer) Initialize(_ context.Context, req *application.InitializeR
 		if err != nil {
 			result.Error = err
 			results = append(results, result)
-			return results, err
+			return results, fmt.Errorf("parsing ref %q: %w", ref, err)
 		}
 
 		outputPath, err := library.GetOutputPath(typ, name, req.Platform, req.OutputDir)
 		if err != nil {
 			result.Error = err
 			results = append(results, result)
-			return results, err
+			return results, fmt.Errorf("getting output path for %s/%s: %w", typ, name, err)
 		}
 		result.OutputPath = outputPath
 
@@ -74,7 +75,7 @@ func (i *initializer) Initialize(_ context.Context, req *application.InitializeR
 		if err != nil {
 			result.Error = err
 			results = append(results, result)
-			return results, err
+			return results, fmt.Errorf("loading document from %q: %w", inputPath, err)
 		}
 
 		// Render the document
@@ -82,7 +83,7 @@ func (i *initializer) Initialize(_ context.Context, req *application.InitializeR
 		if err != nil {
 			result.Error = err
 			results = append(results, result)
-			return results, err
+			return results, fmt.Errorf("rendering document for %s: %w", req.Platform, err)
 		}
 
 		// Create output directory

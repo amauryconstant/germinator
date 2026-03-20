@@ -65,7 +65,7 @@ Example:
 			// Load library
 			lib, err := library.LoadLibrary(path)
 			if err != nil {
-				return err
+				return fmt.Errorf("loading library: %w", err)
 			}
 
 			// List resources
@@ -100,7 +100,7 @@ Example:
 			// Load library
 			lib, err := library.LoadLibrary(path)
 			if err != nil {
-				return err
+				return fmt.Errorf("loading library: %w", err)
 			}
 
 			// List presets
@@ -141,7 +141,7 @@ Examples:
 			// Load library
 			lib, err := library.LoadLibrary(path)
 			if err != nil {
-				return err
+				return fmt.Errorf("loading library: %w", err)
 			}
 
 			// Check if it's a preset reference

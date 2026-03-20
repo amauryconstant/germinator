@@ -82,7 +82,7 @@ func (e *ParseError) Error() string {
 	var parts []string
 
 	if e.path != "" {
-		parts = append(parts, fmt.Sprintf("parse error in %s", e.path))
+		parts = append(parts, "parse error in "+e.path)
 	} else {
 		parts = append(parts, "parse error")
 	}
@@ -98,9 +98,12 @@ func (e *ParseError) Error() string {
 	}
 
 	if len(e.suggestions) > 0 {
+		var b strings.Builder
 		for _, suggestion := range e.suggestions {
-			result += fmt.Sprintf("\n💡 %s", suggestion)
+			b.WriteString("\n💡 ")
+			b.WriteString(suggestion)
 		}
+		result += b.String()
 	}
 
 	return result
@@ -215,9 +218,12 @@ func (e *ValidationError) Error() string {
 	}
 
 	if len(e.suggestions) > 0 {
+		var b strings.Builder
 		for _, suggestion := range e.suggestions {
-			result += fmt.Sprintf("\n💡 %s", suggestion)
+			b.WriteString("\n💡 ")
+			b.WriteString(suggestion)
 		}
+		result += b.String()
 	}
 
 	return result
@@ -331,9 +337,12 @@ func (e *TransformError) Error() string {
 	}
 
 	if len(e.suggestions) > 0 {
+		var b strings.Builder
 		for _, suggestion := range e.suggestions {
-			result += fmt.Sprintf("\n💡 %s", suggestion)
+			b.WriteString("\n💡 ")
+			b.WriteString(suggestion)
 		}
+		result += b.String()
 	}
 
 	return result
@@ -442,9 +451,12 @@ func (e *FileError) Error() string {
 	}
 
 	if len(e.suggestions) > 0 {
+		var b strings.Builder
 		for _, suggestion := range e.suggestions {
-			result += fmt.Sprintf("\n💡 %s", suggestion)
+			b.WriteString("\n💡 ")
+			b.WriteString(suggestion)
 		}
+		result += b.String()
 	}
 
 	return result
@@ -559,7 +571,7 @@ func (e *ConfigError) Error() string {
 	result := strings.Join(parts, ": ")
 
 	if len(e.suggestions) > 0 {
-		result += fmt.Sprintf("\n💡 %s", strings.Join(e.suggestions, "\n💡 "))
+		result += "\n💡 " + strings.Join(e.suggestions, "\n💡 ")
 	}
 
 	return result
