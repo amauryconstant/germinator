@@ -90,6 +90,7 @@ func (a *Adapter) ConvertToolNameCase(name string) string {
 	return adapters.ToLowerCase(name)
 }
 
+//nolint:gocognit,gocyclo,unparam // parseAgent has high complexity due to nested map structure
 func (a *Adapter) parseAgent(input map[string]interface{}) (*domain.Agent, error) {
 	agent := &domain.Agent{}
 
@@ -223,6 +224,7 @@ func (a *Adapter) renderAgent(agent *domain.Agent) (map[string]interface{}, erro
 	return output, nil
 }
 
+//nolint:unparam // parseCommand always returns nil error - interface requires error return but implementation never fails
 func (a *Adapter) parseCommand(input map[string]interface{}) (*domain.Command, error) {
 	cmd := &domain.Command{}
 
@@ -299,6 +301,7 @@ func (a *Adapter) renderCommand(cmd *domain.Command) (map[string]interface{}, er
 	return output, nil
 }
 
+//nolint:gocognit,gocyclo,unparam // parseSkill has high complexity due to nested map structure
 func (a *Adapter) parseSkill(input map[string]interface{}) (*domain.Skill, error) {
 	skill := &domain.Skill{}
 
@@ -415,6 +418,7 @@ func (a *Adapter) renderSkill(skill *domain.Skill) (map[string]interface{}, erro
 	return output, nil
 }
 
+//nolint:unparam // parseMemory always returns nil error - interface requires error return but implementation never fails
 func (a *Adapter) parseMemory(input map[string]interface{}) (*domain.Memory, error) {
 	mem := &domain.Memory{}
 

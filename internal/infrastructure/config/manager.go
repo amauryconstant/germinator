@@ -88,6 +88,8 @@ func (m *koanfConfigManager) GetConfig() *Config {
 // 2. $HOME/.config/germinator/config.toml
 // 3. ./config.toml (current working directory)
 // Returns empty string if no config file is found.
+//
+//nolint:unparam // always returns nil error - function design never fails
 func resolveConfigPath() (string, error) {
 	candidates := []string{}
 
@@ -108,6 +110,7 @@ func resolveConfigPath() (string, error) {
 
 	// Find the first existing file
 	for _, path := range candidates {
+		//nolint:gosec // G703 false positive - path is from known-safe sources (xdg, home, cwd)
 		if _, err := os.Stat(path); err == nil {
 			return path, nil
 		}

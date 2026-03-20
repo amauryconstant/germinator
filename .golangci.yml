@@ -12,6 +12,7 @@
      - errcheck
      - govet
      - ineffassign
+     - staticcheck
      - unused
 
      # Style
@@ -19,10 +20,45 @@
      - whitespace
      - revive
 
+     # Code Quality
+     - gocyclo
+     - gocognit
+     - funlen
+
+     # Error Handling
+     - errorlint
+     - wrapcheck
+     - errname
+
+     # Performance
+     - prealloc
+     - perfsprint
+
+     # Security
+     - gosec
+
+     # Tests
+     - testifylint
+     - tparallel
+     - thelper
+
+     # Best Practices
+     - nakedret
+     - unconvert
+     - unparam
+     - wastedassign
+
      # Domain Purity
      - depguard
 
    settings:
+     gocyclo:
+       min-complexity: 25
+     gocognit:
+       min-complexity: 30
+     funlen:
+       lines: 150
+       statements: 100
      depguard:
        rules:
          domain:
@@ -41,6 +77,16 @@
          - G204  # subprocess input
          - G401  # weak crypto for compat
          - G501  # blocklisted import
+     wrapcheck:
+       ignoreSigs:
+         - .Error(
+         - .Errorf(
+         - errors.New(
+         - errors.As(
+         - errors.Is(
+         - fmt.Errorf(
+       ignorePackageSig:
+         - internal/domain
 
    exclusions:
      rules:
@@ -51,3 +97,57 @@
        # Main file
        - path: "main\\.go"
          linters: [gosec]
+
+       # Test files excluded from complexity linters
+       - path: ".*_test\\.go"
+         linters:
+           - funlen
+           - gocyclo
+           - gocognit
+
+       # Test files excluded from security and error linters
+       - path: ".*_test\\.go"
+         linters:
+           - gosec
+           - wrapcheck
+           - errorlint
+
+       # Test files excluded from performance linters
+       - path: ".*_test\\.go"
+         linters:
+           - perfsprint
+           - prealloc
+
+       # Test linters only apply to test files
+       - path: ".*_test\\.go"
+         linters:
+           - testifylint
+           - tparallel
+           - thelper
+
+       # Test utilities excluded from various linters
+       - path: "test/mocks/"
+         linters:
+           - wrapcheck
+           - unparam
+           - gosec
+       - path: "test_helpers\\.go"
+         linters:
+           - wrapcheck
+           - unparam
+           - gosec
+           - thelper
+           - perfsprint
+
+       # E2E tests have broad exclusions
+       - path: "test/e2e/"
+         linters:
+           - funlen
+           - gocyclo
+           - gocognit
+           - gosec
+           - unparam
+           - wastedassign
+           - wrapcheck
+           - errcheck
+           - prealloc

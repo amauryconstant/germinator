@@ -111,7 +111,8 @@ func HandleCLIError(_ *cobra.Command, err error) ExitCode {
 	}
 
 	// Handle ValidationResultError specially to print all errors
-	if validationErr, ok := err.(*ValidationResultError); ok {
+	var validationErr *ValidationResultError
+	if errors.As(err, &validationErr) {
 		if globalCommandConfig != nil {
 			for _, e := range validationErr.Errors {
 				fmt.Fprintln(os.Stderr, globalCommandConfig.ErrorFormatter.Format(e))

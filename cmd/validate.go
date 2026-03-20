@@ -50,7 +50,7 @@ Example:
 				Platform:  platform,
 			})
 			if err != nil {
-				return err
+				return fmt.Errorf("validating document: %w", err)
 			}
 
 			if !result.Valid() {

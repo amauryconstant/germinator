@@ -64,7 +64,7 @@ Example:
 				DocType:    docType,
 			})
 			if err != nil {
-				return err
+				return fmt.Errorf("canonicalizing document: %w", err)
 			}
 
 			_, _ = fmt.Fprintf(c.OutOrStdout(), "Successfully canonicalized document to: %s\n", outputPath)

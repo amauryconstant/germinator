@@ -177,6 +177,7 @@ func parseDocumentWithFrontmatter(filePath string, fileContent string, docType s
 	return doc, nil
 }
 
+//nolint:unparam // extractFrontmatter always returns nil error - function design never fails
 func extractFrontmatter(content string) (yamlContent string, markdownBody string, err error) {
 	lines := strings.Split(content, "\n")
 	if len(lines) < 3 {

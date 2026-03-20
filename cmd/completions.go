@@ -274,7 +274,7 @@ func resourceActionFromLibrary(lib *library.Library) carapace.Action {
 
 // presetActionFromLibrary creates a completion action from a library's presets.
 func presetActionFromLibrary(lib *library.Library) carapace.Action {
-	var values []string
+	values := make([]string, 0, 2*len(lib.Presets))
 
 	for name, preset := range lib.Presets {
 		values = append(values, name, preset.Description)

@@ -81,7 +81,7 @@ func formatPresetsList(lib *library.Library) string {
 func formatResourceDetails(lib *library.Library, ref string) (string, error) {
 	typ, name, err := library.ParseRef(ref)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("parsing ref %q: %w", ref, err)
 	}
 
 	resources, ok := lib.Resources[typ]

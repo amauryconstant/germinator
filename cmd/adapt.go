@@ -52,7 +52,7 @@ Example:
 				Platform:   platform,
 			})
 			if err != nil {
-				return err
+				return fmt.Errorf("transforming document: %w", err)
 			}
 
 			_, _ = fmt.Fprintf(c.OutOrStdout(), "Document transformed successfully to %s\n", outputPath)
