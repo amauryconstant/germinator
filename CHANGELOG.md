@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [Unreleased]
+
+### Added
+
+- Add shell completion with carapace supporting bash, zsh, fish, powershell with dynamic library-aware suggestions (add-carapace-completion)
+- Add testify/mock implementations for Transformer, Validator, Canonicalizer, and Initializer interfaces (mock-infrastructure)
+
+### Changed
+
+- Migrate CLI commands to RunE pattern with centralized error handling and expanded exit codes (cli-rune-migration)
+- Expand golangci-lint from 8 to 25+ linters with depguard domain purity enforcement (comprehensive-linting)
+
+### Changed
+
+- Reorganize domain layer moving models, errors, and validation into `internal/domain/` package (domain-restructure)
+- Reorganize infrastructure packages under `internal/infrastructure/` with unified structure (infrastructure-restructure)
+
 ## [0.6.0] - 2026-03-11
 
 ### Added
