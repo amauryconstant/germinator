@@ -88,14 +88,14 @@ func (i *initializer) Initialize(_ context.Context, req *application.InitializeR
 
 		// Create output directory
 		outputDir := filepath.Dir(outputPath)
-		if err := os.MkdirAll(outputDir, 0755); err != nil {
+		if err := os.MkdirAll(outputDir, 0755); err != nil { //nolint:gosec // G301: User owns output directory, 0755 is standard permission
 			result.Error = domain.NewFileError(outputPath, "mkdir", "failed to create output directory", err)
 			results = append(results, result)
 			return results, result.Error
 		}
 
 		// Write the file
-		if err := os.WriteFile(outputPath, []byte(rendered), 0644); err != nil {
+		if err := os.WriteFile(outputPath, []byte(rendered), 0644); err != nil { //nolint:gosec // G306: User owns output file, 0644 is standard readable permission
 			result.Error = domain.NewFileError(outputPath, "write", "failed to write output file", err)
 			results = append(results, result)
 			return results, result.Error

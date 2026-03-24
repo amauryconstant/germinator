@@ -38,7 +38,7 @@ func RenderDocument(doc interface{}, platform string) (string, error) {
 		return "", gerrors.NewTransformError("render", platform, "failed to get template path", err)
 	}
 
-	tmplContent, err := os.ReadFile(tmplPath)
+	tmplContent, err := os.ReadFile(tmplPath) //nolint:gosec // G304: Reads internal bundled templates only
 	if err != nil {
 		return "", gerrors.NewFileError(tmplPath, "read", "failed to read template file", err)
 	}
@@ -240,7 +240,7 @@ func MarshalCanonical(doc interface{}) (string, error) {
 		return "", gerrors.NewTransformError("marshal", "canonical", "failed to get template path", err)
 	}
 
-	tmplContent, err := os.ReadFile(tmplPath)
+	tmplContent, err := os.ReadFile(tmplPath) //nolint:gosec // G304: Reads internal bundled templates only
 	if err != nil {
 		return "", gerrors.NewFileError(tmplPath, "read", "failed to read template file", err)
 	}

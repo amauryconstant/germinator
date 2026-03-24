@@ -35,7 +35,7 @@ func (c *canonicalizer) Canonicalize(_ context.Context, req *application.Canonic
 		return nil, domain.NewTransformError("marshal", req.Platform, "failed to marshal canonical document", err)
 	}
 
-	if err := os.WriteFile(req.OutputPath, []byte(yamlBytes), 0644); err != nil {
+	if err := os.WriteFile(req.OutputPath, []byte(yamlBytes), 0644); err != nil { //nolint:gosec // G306: User owns output file, 0644 is standard readable permission
 		return nil, domain.NewFileError(req.OutputPath, "write", "failed to write output file", err)
 	}
 

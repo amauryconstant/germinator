@@ -70,11 +70,11 @@ run = "go test ./... -cover -coverprofile=coverage_unit.out"
 
 [tasks."test:coverage:golden"]
 description = "Run golden tests with coverage"
-run = "go test -tags=golden ./internal/services -cover -coverprofile=coverage_golden.out -v"
+run = "go test -tags=golden ./... -cover -coverprofile=coverage_golden.out"
 
 [tasks."test:coverage:integration"]
 description = "Run integration tests with coverage"
-run = "go test -tags=integration ./internal/core -cover -coverprofile=coverage_integration.out -v"
+run = "go test -tags=integration ./... -cover -coverprofile=coverage_integration.out"
 
 [tasks."test:coverage:e2e"]
 description = "Run E2E tests with coverage"

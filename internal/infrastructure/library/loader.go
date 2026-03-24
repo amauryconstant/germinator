@@ -36,7 +36,7 @@ func LoadLibrary(path string) (*Library, error) {
 
 	// Read library.yaml
 	yamlPath := filepath.Join(path, "library.yaml")
-	yamlContent, err := os.ReadFile(yamlPath)
+	yamlContent, err := os.ReadFile(yamlPath) //nolint:gosec // G304: User provides library path, must read fixed library.yaml from it
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, gerrors.NewFileError(yamlPath, "read", "library.yaml not found", nil)
