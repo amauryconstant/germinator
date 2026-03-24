@@ -56,7 +56,7 @@ func (t *transformer) Transform(_ context.Context, req *application.TransformReq
 		return nil, domain.NewTransformError("render", req.Platform, "failed to render document", err)
 	}
 
-	if err := os.WriteFile(req.OutputPath, []byte(rendered), 0644); err != nil {
+	if err := os.WriteFile(req.OutputPath, []byte(rendered), 0644); err != nil { //nolint:gosec // G306: User owns output file, 0644 is standard readable permission
 		return nil, domain.NewFileError(req.OutputPath, "write", "failed to write output file", err)
 	}
 

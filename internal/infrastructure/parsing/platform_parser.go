@@ -12,7 +12,7 @@ import (
 
 // ParsePlatformDocument parses a platform YAML file and converts it to a canonical model.
 func ParsePlatformDocument(path string, platform string, docType string) (interface{}, error) {
-	content, err := os.ReadFile(path)
+	content, err := os.ReadFile(path) //nolint:gosec // G304: User provides file path, tool must read user documents
 	if err != nil {
 		return nil, domain.NewFileError(path, "read", "failed to read file", err)
 	}

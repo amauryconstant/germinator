@@ -1,153 +1,146 @@
- version: "2"
+version: "2"
 
- run:
-   go: "1.25.5"
-   timeout: 5m
-   tests: true
+run:
+  go: "1.25.5"
+  timeout: 5m
+  tests: true
 
- linters:
-   disable-all: true
-   enable:
-     # Essential
-     - errcheck
-     - govet
-     - ineffassign
-     - staticcheck
-     - unused
+linters:
+  enable:
+    # Essential
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
 
-     # Style
-     - misspell
-     - whitespace
-     - revive
+    # Style
+    - misspell
+    - whitespace
+    - revive
 
-     # Code Quality
-     - gocyclo
-     - gocognit
-     - funlen
+    # Code Quality
+    - gocyclo
+    - gocognit
+    - funlen
 
-     # Error Handling
-     - errorlint
-     - wrapcheck
-     - errname
+    # Error Handling
+    - errorlint
+    - wrapcheck
+    - errname
 
-     # Performance
-     - prealloc
-     - perfsprint
+    # Performance
+    - prealloc
+    - perfsprint
 
-     # Security
-     - gosec
+    # Security
+    - gosec
 
-     # Tests
-     - testifylint
-     - tparallel
-     - thelper
+    # Tests
+    - testifylint
+    - tparallel
+    - thelper
 
-     # Best Practices
-     - nakedret
-     - unconvert
-     - unparam
-     - wastedassign
+    # Best Practices
+    - nakedret
+    - unconvert
+    - unparam
+    - wastedassign
 
-     # Domain Purity
-     - depguard
+    # Domain Purity
+    - depguard
 
-   settings:
-     gocyclo:
-       min-complexity: 25
-     gocognit:
-       min-complexity: 30
-     funlen:
-       lines: 150
-       statements: 100
-     depguard:
-       rules:
-         domain:
-           files:
-             - internal/domain/**
-           allow:
-             - $gostd
-             - internal/domain
-     gosec:
-       excludes:
-         - G104  # unchecked errors (defer/test)
-         - G301  # dir perms
-         - G304  # file inclusion
-         - G306  # file perms
-         - G307  # defers in loops
-         - G204  # subprocess input
-         - G401  # weak crypto for compat
-         - G501  # blocklisted import
-     wrapcheck:
-       ignoreSigs:
-         - .Error(
-         - .Errorf(
-         - errors.New(
-         - errors.As(
-         - errors.Is(
-         - fmt.Errorf(
-       ignorePackageSig:
-         - internal/domain
+  settings:
+    gocyclo:
+      min-complexity: 25
+    gocognit:
+      min-complexity: 30
+    funlen:
+      lines: 150
+      statements: 100
+    depguard:
+      rules:
+        domain:
+          files:
+            - internal/domain/**
+          allow:
+            - $gostd
+            - internal/domain
+    gosec:
+      excludes:
+        - G104 # unchecked errors (defer/test)
+        - G204 # subprocess input
+    wrapcheck:
+      ignoreSigs:
+        - .Error(
+        - .Errorf(
+        - errors.New(
+        - errors.As(
+        - errors.Is(
+        - fmt.Errorf(
+      ignorePackageSig:
+        - internal/domain
 
-   exclusions:
-     rules:
-       # Generated files
-       - path: ".*_gen\\.go"
-         linters: [all]
+  exclusions:
+    rules:
+      # Generated files
+      - path: ".*_gen\\.go"
+        linters: [all]
 
-       # Main file
-       - path: "main\\.go"
-         linters: [gosec]
+      # Main file
+      - path: "main\\.go"
+        linters: [gosec]
 
-       # Test files excluded from complexity linters
-       - path: ".*_test\\.go"
-         linters:
-           - funlen
-           - gocyclo
-           - gocognit
+      # Test files excluded from complexity linters
+      - path: ".*_test\\.go"
+        linters:
+          - funlen
+          - gocyclo
+          - gocognit
 
-       # Test files excluded from security and error linters
-       - path: ".*_test\\.go"
-         linters:
-           - gosec
-           - wrapcheck
-           - errorlint
+      # Test files excluded from security and error linters
+      - path: ".*_test\\.go"
+        linters:
+          - gosec
+          - wrapcheck
+          - errorlint
 
-       # Test files excluded from performance linters
-       - path: ".*_test\\.go"
-         linters:
-           - perfsprint
-           - prealloc
+      # Test files excluded from performance linters
+      - path: ".*_test\\.go"
+        linters:
+          - perfsprint
+          - prealloc
 
-       # Test linters only apply to test files
-       - path: ".*_test\\.go"
-         linters:
-           - testifylint
-           - tparallel
-           - thelper
+      # Test linters only apply to test files
+      - path: ".*_test\\.go"
+        linters:
+          - testifylint
+          - tparallel
+          - thelper
 
-       # Test utilities excluded from various linters
-       - path: "test/mocks/"
-         linters:
-           - wrapcheck
-           - unparam
-           - gosec
-       - path: "test_helpers\\.go"
-         linters:
-           - wrapcheck
-           - unparam
-           - gosec
-           - thelper
-           - perfsprint
+      # Test utilities excluded from various linters
+      - path: "test/mocks/"
+        linters:
+          - wrapcheck
+          - unparam
+          - gosec
+      - path: "test_helpers\\.go"
+        linters:
+          - wrapcheck
+          - unparam
+          - gosec
+          - thelper
+          - perfsprint
 
-       # E2E tests have broad exclusions
-       - path: "test/e2e/"
-         linters:
-           - funlen
-           - gocyclo
-           - gocognit
-           - gosec
-           - unparam
-           - wastedassign
-           - wrapcheck
-           - errcheck
-           - prealloc
+      # E2E tests have broad exclusions
+      - path: "test/e2e/"
+        linters:
+          - funlen
+          - gocyclo
+          - gocognit
+          - gosec
+          - unparam
+          - wastedassign
+          - wrapcheck
+          - errcheck
+          - prealloc

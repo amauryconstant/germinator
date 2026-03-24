@@ -39,7 +39,7 @@ type CanonicalMemory struct {
 
 // ParseDocument parses a document file and returns the appropriate struct.
 func ParseDocument(filePath string, docType string) (interface{}, error) {
-	content, err := os.ReadFile(filePath)
+	content, err := os.ReadFile(filePath) //nolint:gosec // G304: User provides file path, tool must read user documents
 	if err != nil {
 		return nil, domain.NewFileError(filePath, "read", "failed to read file", err)
 	}
