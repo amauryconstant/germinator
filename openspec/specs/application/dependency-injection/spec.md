@@ -138,3 +138,38 @@ The system SHALL provide `NewServiceContainer()` that returns a fully populated 
 - **AND** `Validator` field SHALL not be nil
 - **AND** `Canonicalizer` field SHALL not be nil
 - **AND** `Initializer` field SHALL not be nil
+
+---
+
+## MODIFIED Requirements
+
+### Requirement: Services are wired in main
+
+**Original behavior:** Services were created with no infrastructure dependencies:
+```
+services.NewTransformer()
+services.NewCanonicalizer()
+services.NewInitializer()
+```
+
+**New behavior:** Transformer and Initializer receive infrastructure interfaces via constructor injection; Canonicalizer and Validator remain unchanged:
+```
+parser := &parsingParser{}
+serializer := &serializationSerializer{}
+services.NewTransformer(parser, serializer)
+services.NewCanonicalizer()  // Unchanged - uses ParsePlatformDocument/MarshalCanonical
+services.NewInitializer(parser, serializer)
+```
+
+### Requirement: ServiceContainer constructor populates all services
+
+**Added behavior:** ServiceContainer now creates infrastructure implementations and passes them to Transformer and Initializer:
+
+#### Scenario: NewServiceContainer creates infrastructure implementations
+- **WHEN** `NewServiceContainer()` is called
+- **THEN** it SHALL create a Parser implementation (e.g., `parsingParser`)
+- **AND** it SHALL create a Serializer implementation (e.g., `serializationSerializer`)
+- **AND** it SHALL pass Parser and Serializer to `NewTransformer(parser, serializer)`
+- **AND** it SHALL pass Parser and Serializer to `NewInitializer(parser, serializer)`
+- **AND** Canonicalizer SHALL be created with `NewCanonicalizer()` (uses different infrastructure)
+- **AND** Validator SHALL be created with `NewValidator()` (no infrastructure dependencies)
