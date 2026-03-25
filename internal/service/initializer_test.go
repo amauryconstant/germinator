@@ -9,6 +9,8 @@ import (
 	"gitlab.com/amoconst/germinator/internal/application"
 	"gitlab.com/amoconst/germinator/internal/domain"
 	"gitlab.com/amoconst/germinator/internal/infrastructure/library"
+	"gitlab.com/amoconst/germinator/internal/infrastructure/parsing"
+	"gitlab.com/amoconst/germinator/internal/infrastructure/serialization"
 )
 
 func TestInitializeResources_DryRun(t *testing.T) {
@@ -27,7 +29,7 @@ func TestInitializeResources_DryRun(t *testing.T) {
 	// Create temp output directory
 	outputDir := t.TempDir()
 
-	init := NewInitializer()
+	init := NewInitializer(parsing.NewParser(), serialization.NewSerializer())
 	results, err := init.Initialize(context.Background(), &application.InitializeRequest{
 		Library:   lib,
 		Platform:  "opencode",
@@ -75,7 +77,7 @@ func TestInitializeResources_FileExists(t *testing.T) {
 		t.Fatalf("Failed to write existing file: %v", err)
 	}
 
-	init := NewInitializer()
+	init := NewInitializer(parsing.NewParser(), serialization.NewSerializer())
 	_, err = init.Initialize(context.Background(), &application.InitializeRequest{
 		Library:   lib,
 		Platform:  "opencode",
@@ -113,7 +115,7 @@ func TestInitializeResources_ForceOverwrite(t *testing.T) {
 		t.Fatalf("Failed to write existing file: %v", err)
 	}
 
-	init := NewInitializer()
+	init := NewInitializer(parsing.NewParser(), serialization.NewSerializer())
 	results, err := init.Initialize(context.Background(), &application.InitializeRequest{
 		Library:   lib,
 		Platform:  "opencode",
@@ -146,7 +148,7 @@ func TestInitializeResources_ResourceNotFound(t *testing.T) {
 		Resources: map[string]map[string]library.Resource{},
 	}
 
-	init := NewInitializer()
+	init := NewInitializer(parsing.NewParser(), serialization.NewSerializer())
 	_, err := init.Initialize(context.Background(), &application.InitializeRequest{
 		Library:   lib,
 		Platform:  "opencode",
@@ -181,7 +183,7 @@ func TestInitialize_WithPresetRefs(t *testing.T) {
 		t.Fatalf("ResolvePreset() error = %v", err)
 	}
 
-	init := NewInitializer()
+	init := NewInitializer(parsing.NewParser(), serialization.NewSerializer())
 	results, err := init.Initialize(context.Background(), &application.InitializeRequest{
 		Library:   lib,
 		Platform:  "opencode",

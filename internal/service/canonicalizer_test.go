@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"gitlab.com/amoconst/germinator/internal/application"
+	"gitlab.com/amoconst/germinator/internal/infrastructure/parsing"
+	"gitlab.com/amoconst/germinator/internal/infrastructure/serialization"
 	"gitlab.com/amoconst/germinator/internal/models"
 )
 
@@ -208,7 +210,7 @@ func TestCanonicalizeDocumentRoundTrip(t *testing.T) {
 	}
 
 	platformOutput := filepath.Join(tmpDir, "platform.md")
-	t2 := NewTransformer()
+	t2 := NewTransformer(parsing.NewParser(), serialization.NewSerializer())
 
 	_, err = t2.Transform(context.Background(), &application.TransformRequest{
 		InputPath:  canonicalOutput,

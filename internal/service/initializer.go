@@ -10,16 +10,20 @@ import (
 	"gitlab.com/amoconst/germinator/internal/application"
 	"gitlab.com/amoconst/germinator/internal/domain"
 	"gitlab.com/amoconst/germinator/internal/infrastructure/library"
-	"gitlab.com/amoconst/germinator/internal/infrastructure/parsing"
-	"gitlab.com/amoconst/germinator/internal/infrastructure/serialization"
 )
 
 // initializer implements the application.Initializer interface.
-type initializer struct{}
+type initializer struct {
+	parser     application.Parser
+	serializer application.Serializer
+}
 
 // NewInitializer creates a new Initializer instance.
-func NewInitializer() application.Initializer {
-	return &initializer{}
+func NewInitializer(parser application.Parser, serializer application.Serializer) application.Initializer {
+	return &initializer{
+		parser:     parser,
+		serializer: serializer,
+	}
 }
 
 // Initialize installs resources from the library to the target directory.
@@ -71,7 +75,7 @@ func (i *initializer) Initialize(_ context.Context, req *application.InitializeR
 		}
 
 		// Load the document
-		doc, err := parsing.LoadDocument(inputPath, req.Platform)
+		doc, err := i.parser.LoadDocument(inputPath, req.Platform)
 		if err != nil {
 			result.Error = err
 			results = append(results, result)
@@ -79,7 +83,7 @@ func (i *initializer) Initialize(_ context.Context, req *application.InitializeR
 		}
 
 		// Render the document
-		rendered, err := serialization.RenderDocument(doc, req.Platform)
+		rendered, err := i.serializer.RenderDocument(doc, req.Platform)
 		if err != nil {
 			result.Error = err
 			results = append(results, result)
