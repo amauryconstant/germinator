@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"gitlab.com/amoconst/germinator/internal/application"
+	"gitlab.com/amoconst/germinator/internal/infrastructure/parsing"
+	"gitlab.com/amoconst/germinator/internal/infrastructure/serialization"
 	"gitlab.com/amoconst/germinator/internal/service"
 )
 
@@ -20,10 +22,13 @@ type ServiceContainer struct {
 
 // NewServiceContainer creates a new ServiceContainer with all services initialized.
 func NewServiceContainer() *ServiceContainer {
+	parser := parsing.NewParser()
+	serializer := serialization.NewSerializer()
+
 	return &ServiceContainer{
-		Transformer:   service.NewTransformer(),
+		Transformer:   service.NewTransformer(parser, serializer),
 		Validator:     service.NewValidator(),
 		Canonicalizer: service.NewCanonicalizer(),
-		Initializer:   service.NewInitializer(),
+		Initializer:   service.NewInitializer(parser, serializer),
 	}
 }

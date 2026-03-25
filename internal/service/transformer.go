@@ -8,8 +8,6 @@ import (
 
 	"gitlab.com/amoconst/germinator/internal/application"
 	"gitlab.com/amoconst/germinator/internal/domain"
-	"gitlab.com/amoconst/germinator/internal/infrastructure/parsing"
-	"gitlab.com/amoconst/germinator/internal/infrastructure/serialization"
 )
 
 const (
@@ -37,21 +35,27 @@ func validatePlatform(platform string) []error {
 }
 
 // transformer implements the application.Transformer interface.
-type transformer struct{}
+type transformer struct {
+	parser     application.Parser
+	serializer application.Serializer
+}
 
 // NewTransformer creates a new Transformer instance.
-func NewTransformer() application.Transformer {
-	return &transformer{}
+func NewTransformer(parser application.Parser, serializer application.Serializer) application.Transformer {
+	return &transformer{
+		parser:     parser,
+		serializer: serializer,
+	}
 }
 
 // Transform transforms a document to target platform format.
 func (t *transformer) Transform(_ context.Context, req *application.TransformRequest) (*domain.TransformResult, error) {
-	doc, err := parsing.LoadDocument(req.InputPath, req.Platform)
+	doc, err := t.parser.LoadDocument(req.InputPath, req.Platform)
 	if err != nil {
 		return nil, fmt.Errorf("loading document: %w", err)
 	}
 
-	rendered, err := serialization.RenderDocument(doc, req.Platform)
+	rendered, err := t.serializer.RenderDocument(doc, req.Platform)
 	if err != nil {
 		return nil, domain.NewTransformError("render", req.Platform, "failed to render document", err)
 	}

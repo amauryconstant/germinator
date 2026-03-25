@@ -31,3 +31,15 @@ type Initializer interface {
 	// Initialize installs resources from the library to the target directory.
 	Initialize(ctx context.Context, req *InitializeRequest) ([]domain.InitializeResult, error)
 }
+
+// Parser defines the interface for document parsing operations.
+type Parser interface {
+	// LoadDocument loads and parses a document from the given path.
+	LoadDocument(path string, platform string) (interface{}, error)
+}
+
+// Serializer defines the interface for document serialization operations.
+type Serializer interface {
+	// RenderDocument renders a document to the target platform format.
+	RenderDocument(doc interface{}, platform string) (string, error)
+}

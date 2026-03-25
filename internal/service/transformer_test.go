@@ -10,6 +10,8 @@ import (
 
 	"gitlab.com/amoconst/germinator/internal/application"
 	gerrors "gitlab.com/amoconst/germinator/internal/domain"
+	"gitlab.com/amoconst/germinator/internal/infrastructure/parsing"
+	"gitlab.com/amoconst/germinator/internal/infrastructure/serialization"
 )
 
 func TestTransformDocumentSuccess(t *testing.T) {
@@ -31,7 +33,7 @@ This is test content
 		t.Fatalf("Failed to create input file: %v", err)
 	}
 
-	tr := NewTransformer()
+	tr := NewTransformer(parsing.NewParser(), serialization.NewSerializer())
 	_, err := tr.Transform(context.Background(), &application.TransformRequest{
 		InputPath:  inputFile,
 		OutputPath: outputFile,
@@ -69,7 +71,7 @@ content`
 		t.Fatalf("Failed to create input file: %v", err)
 	}
 
-	tr := NewTransformer()
+	tr := NewTransformer(parsing.NewParser(), serialization.NewSerializer())
 	_, err := tr.Transform(context.Background(), &application.TransformRequest{
 		InputPath:  inputFile,
 		OutputPath: outputFile,
@@ -99,7 +101,7 @@ content`
 		t.Fatalf("Failed to create input file: %v", err)
 	}
 
-	tr := NewTransformer()
+	tr := NewTransformer(parsing.NewParser(), serialization.NewSerializer())
 	_, err := tr.Transform(context.Background(), &application.TransformRequest{
 		InputPath:  inputFile,
 		OutputPath: outputFile,
@@ -202,7 +204,7 @@ Reviews code changes and provides constructive feedback.
 		t.Fatalf("Failed to create input file: %v", err)
 	}
 
-	tr := NewTransformer()
+	tr := NewTransformer(parsing.NewParser(), serialization.NewSerializer())
 	for _, platform := range []string{"claude-code", "opencode"} {
 		t.Run(platform, func(t *testing.T) {
 			platformOutputFile := filepath.Join(tmpDir, "output-"+platform+".md")
@@ -366,7 +368,7 @@ Memory content`,
 		},
 	}
 
-	tr := NewTransformer()
+	tr := NewTransformer(parsing.NewParser(), serialization.NewSerializer())
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			for _, platform := range []string{"claude-code", "opencode"} {
@@ -407,7 +409,7 @@ Memory content`,
 }
 
 func TestTransformDocumentReturnsTypedParseError(t *testing.T) {
-	tr := NewTransformer()
+	tr := NewTransformer(parsing.NewParser(), serialization.NewSerializer())
 	t.Run("invalid YAML returns ParseError", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		inputFile := filepath.Join(tmpDir, "test-agent.md")
@@ -483,7 +485,7 @@ Content`
 }
 
 func TestTransformDocumentReturnsTypedConfigError(t *testing.T) {
-	tr := NewTransformer()
+	tr := NewTransformer(parsing.NewParser(), serialization.NewSerializer())
 	t.Run("invalid platform returns ConfigError", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		inputFile := filepath.Join(tmpDir, "test-agent.md")
@@ -524,7 +526,7 @@ Content`
 }
 
 func TestTransformDocumentReturnsTypedFileError(t *testing.T) {
-	tr := NewTransformer()
+	tr := NewTransformer(parsing.NewParser(), serialization.NewSerializer())
 	t.Run("file not found returns FileError", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		nonExistentFile := filepath.Join(tmpDir, "nonexistent-agent.md")
