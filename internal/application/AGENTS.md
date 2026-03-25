@@ -11,7 +11,7 @@ Service interfaces and data transfer objects for dependency injection and testab
 
 | File | Purpose |
 |------|---------|
-| `interfaces.go` | Service interface definitions (Transformer, Validator, Canonicalizer, Initializer) |
+| `interfaces.go` | Service interfaces (Transformer, Validator, Canonicalizer, Initializer) and infrastructure interfaces (Parser, Serializer) |
 | `requests.go` | Request types for service operations |
 
 **Note**: Result types have been moved to `internal/domain/results.go` as part of the domain consolidation.
@@ -28,6 +28,23 @@ All service methods take `context.Context` as first parameter (idiomatic Go).
 | Validator | `Validate(ctx, *ValidateRequest) (*domain.ValidateResult, error)` | Validate document |
 | Canonicalizer | `Canonicalize(ctx, *CanonicalizeRequest) (*domain.CanonicalizeResult, error)` | Convert platform → canonical |
 | Initializer | `Initialize(ctx, *InitializeRequest) ([]domain.InitializeResult, error)` | Install library resources |
+
+---
+
+# Infrastructure Interfaces
+
+Interfaces for dependency injection of infrastructure services, enabling unit testing without real I/O.
+
+| Interface | Method | Purpose |
+|-----------|--------|---------|
+| Parser | `LoadDocument(path, platform) (*domain.Document, error)` | Document loading abstraction |
+| Serializer | `RenderDocument(doc *domain.Document, platform string) (string, error)` | Document rendering abstraction |
+
+**Location**: `internal/application/interfaces.go`
+
+**Implementation**: Concrete adapters in `internal/infrastructure/parsing/` and `internal/infrastructure/serialization/`
+
+**Usage**: Injected into `Transformer` and `Initializer` services via constructors.
 
 ---
 
@@ -71,7 +88,7 @@ result, err := cfg.Services.Transformer.Transform(ctx, &application.TransformReq
 
 ## ServiceContainer
 
-`cmd/container.go` wires implementations:
+`cmd/container.go` wires implementations with infrastructure injection:
 
 ```go
 type ServiceContainer struct {
@@ -82,24 +99,32 @@ type ServiceContainer struct {
 }
 
 func NewServiceContainer() *ServiceContainer {
+    // Create infrastructure adapters
+    parser := &parsingParser{}      // implements Parser interface
+    serializer := &serializationSerializer{}  // implements Serializer interface
+
     return &ServiceContainer{
-        Transformer:   services.NewTransformer(),
+        Transformer:   services.NewTransformer(parser, serializer),
         Validator:     services.NewValidator(),
-        Canonicalizer: services.NewCanonicalizer(),
-        Initializer:   services.NewInitializer(),
+        Canonicalizer: services.NewCanonicalizer(),  // uses ParsePlatformDocument/MarshalCanonical
+        Initializer:   services.NewInitializer(parser, serializer),
     }
 }
 ```
+
+**Note**: `Canonicalizer` is excluded from infrastructure injection because it uses `ParsePlatformDocument` and `MarshalCanonical` (different functions requiring separate interfaces).
 
 ---
 
 # Implementations
 
 Concrete implementations in `internal/service/`:
-- `service.NewTransformer()` → implements `application.Transformer`
+- `service.NewTransformer(parser Parser, serializer Serializer)` → implements `application.Transformer`
 - `service.NewValidator()` → implements `application.Validator`
 - `service.NewCanonicalizer()` → implements `application.Canonicalizer`
-- `service.NewInitializer()` → implements `application.Initializer`
+- `service.NewInitializer(parser Parser, serializer Serializer)` → implements `application.Initializer`
+
+**Note**: `Transformer` and `Initializer` require `Parser` and `Serializer` for testability. `Canonicalizer` and `Validator` use different infrastructure patterns.
 
 ---
 

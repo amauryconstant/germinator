@@ -24,21 +24,27 @@ Service implementations for `internal/application` interfaces.
 Each service is a struct with methods implementing `application` interfaces:
 
 ```go
-type transformer struct{}
+type transformer struct {
+    parser     application.Parser
+    serializer application.Serializer
+}
 
-func NewTransformer() application.Transformer {
-    return &transformer{}
+func NewTransformer(parser application.Parser, serializer application.Serializer) application.Transformer {
+    return &transformer{
+        parser:     parser,
+        serializer: serializer,
+    }
 }
 
 func (t *transformer) Transform(ctx context.Context, req *application.TransformRequest) (*application.TransformResult, error) {
-    // Implementation
+    // Implementation uses t.parser and t.serializer
 }
 
 // Compile-time interface check
 var _ application.Transformer = (*transformer)(nil)
 ```
 
-**Constructors**: `NewTransformer()`, `NewValidator()`, `NewCanonicalizer()`, `NewInitializer()`
+**Constructors**: `NewTransformer(parser, serializer)`, `NewValidator()`, `NewCanonicalizer()`, `NewInitializer(parser, serializer)`
 
 **Pattern**: Constructor returns interface type, implementation is private struct.
 
@@ -170,7 +176,7 @@ See `test/AGENTS.md` for golden file testing patterns, fixture structure, and up
 
 # Integration with Core Package
 
-**Dependencies**: `core.LoadDocument`, `core.DetectType`, `core.ParseDocument`, `core.RenderDocument`
+**Dependencies**: `Transformer` and `Initializer` use injected `Parser` and `Serializer` interfaces instead of direct infrastructure calls. `Validator` uses `DetectType`, `ParseDocument`. `Canonicalizer` uses `ParsePlatformDocument`, `MarshalCanonical`.
 
 **Library**: `internal/infrastructure/library/` provides resource loading, resolution, and output path derivation.
 
