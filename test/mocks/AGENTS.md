@@ -1,12 +1,62 @@
 # Mock Infrastructure
 
-Mock implementations of application service interfaces for isolated unit testing.
+Mock implementations of application interfaces for isolated unit testing.
 
 ## Purpose
 
-This package provides testify/mock implementations of all application service interfaces, enabling tests to isolate command handlers and application logic from real service implementations. Mocks are optional - tests can choose whether to use mocks or real implementations based on their testing strategy.
+This package provides testify/mock implementations:
+- **Service interfaces**: `Transformer`, `Validator`, `Canonicalizer`, `Initializer`
+- **Infrastructure interfaces**: `Parser`, `Serializer`
+
+Mocks enable tests to isolate business logic from real implementations. Tests choose mocks or real implementations based on testing strategy.
 
 ## Available Mocks
+
+### MockParser
+
+**Interface**: `application.Parser`
+
+**Methods**:
+- `LoadDocument(path string, platform string) (*domain.Document, error)`
+
+**Use Cases**:
+- Unit test `Transformer` and `Initializer` without filesystem I/O
+- Simulate document loading errors
+- Test service behavior with specific document content
+
+**Example**:
+```go
+mockParser := new(mocks.MockParser)
+mockParser.On("LoadDocument", "/path/doc.md", "opencode").
+    Return(&domain.Document{Content: "test"}, nil)
+
+doc, err := mockParser.LoadDocument("/path/doc.md", "opencode")
+```
+
+---
+
+### MockSerializer
+
+**Interface**: `application.Serializer`
+
+**Methods**:
+- `RenderDocument(doc *domain.Document, platform string) (string, error)`
+
+**Use Cases**:
+- Unit test `Transformer` and `Initializer` without serialization
+- Simulate render failures
+- Verify rendered output
+
+**Example**:
+```go
+mockSerializer := new(mocks.MockSerializer)
+mockSerializer.On("RenderDocument", mock.Anything, "opencode").
+    Return("---\ncontent\n---", nil)
+
+output, err := mockSerializer.RenderDocument(doc, "opencode")
+```
+
+---
 
 ### MockTransformer
 
