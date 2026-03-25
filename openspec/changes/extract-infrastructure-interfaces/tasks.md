@@ -12,16 +12,16 @@
 ## 3. Update Service Constructors
 
 - [ ] 3.1 Update `NewTransformer(parser Parser, serializer Serializer)` signature in `internal/service/`
-- [ ] 3.2 Update `NewCanonicalizer(parser Parser, serializer Serializer)` signature in `internal/service/`
-- [ ] 3.3 Update `NewInitializer(parser Parser, serializer Serializer)` signature in `internal/service/`
-- [ ] 3.4 Update service implementations to use injected interfaces instead of direct calls
+- [ ] 3.2 Update `NewInitializer(parser Parser, serializer Serializer)` signature in `internal/service/`
+- [ ] 3.3 Update `Transformer` implementation to use injected interfaces instead of direct calls
+- [ ] 3.4 Update `Initializer` implementation to use injected interfaces instead of direct calls
 - [ ] 3.5 Add compile-time interface checks for services
 
 ## 4. Update ServiceContainer Wiring
 
 - [ ] 4.1 Update `NewServiceContainer()` to create Parser and Serializer instances
-- [ ] 4.2 Pass infrastructure to service constructors
-- [ ] 4.3 Verify all services compile and wire correctly
+- [ ] 4.2 Pass infrastructure to `NewTransformer` and `NewInitializer` constructors
+- [ ] 4.3 Verify all services compile and wire correctly (Canonicalizer unchanged)
 
 ## 5. Create Mocks for Testing
 
@@ -31,12 +31,10 @@
 ## 6. Add Unit Tests with Mocks
 
 - [ ] 6.1 Add unit test for Transformer using MockParser and MockSerializer
-- [ ] 6.2 Add unit test for Canonicalizer using MockParser and MockSerializer
-- [ ] 6.3 Add unit test for Initializer using MockParser and MockSerializer
+- [ ] 6.2 Add unit test for Initializer using MockParser and MockSerializer
 
 ## 7. Verify and Clean Up
 
 - [ ] 7.1 Run `mise run lint` and fix any issues
 - [ ] 7.2 Run `mise run test` and verify all tests pass
 - [ ] 7.3 Run `mise run build` and verify binary builds
-- [ ] 7.4 Update AGENTS.md files if needed

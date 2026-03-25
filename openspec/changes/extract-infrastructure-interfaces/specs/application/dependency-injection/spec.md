@@ -29,7 +29,7 @@ The system SHALL provide a `ServiceContainer` struct that groups service instanc
 
 ### Requirement: Commands receive configuration via constructor
 
-Each command SHALL have a constructor function `NewXCommand(config *CommandConfig)` that returns a configured `*cobra.Command`.
+Each command SHALL have a constructor function `NewXCommand(config *CommandConfig)` that returns a `*cobra.Command`.
 
 #### Scenario: Validate command constructor
 - **WHEN** `NewValidateCommand(config)` is called
@@ -83,10 +83,9 @@ The `main.go` file SHALL be the composition root where all services are wired an
 
 #### Scenario: Services are wired in main
 - **WHEN** main() executes
-- **THEN** infrastructure implementations are created (Parser, Serializer)
-- **AND** `services.NewTransformer(parser, serializer)` is called
+- **THEN** `services.NewTransformer(parser, serializer)` is called
 - **AND** `services.NewValidator()` is called
-- **AND** `services.NewCanonicalizer(parser, serializer)` is called
+- **AND** `services.NewCanonicalizer()` is called
 - **AND** `services.NewInitializer(parser, serializer)` is called
 - **AND** each is assigned to ServiceContainer field
 
@@ -144,7 +143,7 @@ The system SHALL provide `NewServiceContainer()` that returns a fully populated 
 - **WHEN** `NewServiceContainer()` is called
 - **THEN** it SHALL create a Parser implementation
 - **AND** it SHALL create a Serializer implementation
-- **AND** it SHALL pass these to service constructors that require them
+- **AND** it SHALL pass these to NewTransformer and NewInitializer constructors
 
 ---
 
@@ -159,24 +158,24 @@ services.NewCanonicalizer()
 services.NewInitializer()
 ```
 
-**New behavior:** Services receive infrastructure interfaces via constructor injection:
+**New behavior:** Transformer and Initializer receive infrastructure interfaces via constructor injection; Canonicalizer and Validator remain unchanged:
 ```
 parser := &parsingParser{}
 serializer := &serializationSerializer{}
 services.NewTransformer(parser, serializer)
-services.NewCanonicalizer(parser, serializer)
+services.NewCanonicalizer()  // Unchanged - uses ParsePlatformDocument/MarshalCanonical
 services.NewInitializer(parser, serializer)
 ```
 
 ### Requirement: ServiceContainer constructor populates all services
 
-**Added behavior:** ServiceContainer now creates infrastructure implementations and passes them to services:
+**Added behavior:** ServiceContainer now creates infrastructure implementations and passes them to Transformer and Initializer:
 
 #### Scenario: NewServiceContainer creates infrastructure implementations
 - **WHEN** `NewServiceContainer()` is called
 - **THEN** it SHALL create a Parser implementation (e.g., `parsingParser`)
 - **AND** it SHALL create a Serializer implementation (e.g., `serializationSerializer`)
 - **AND** it SHALL pass Parser and Serializer to `NewTransformer(parser, serializer)`
-- **AND** it SHALL pass Parser and Serializer to `NewCanonicalizer(parser, serializer)`
 - **AND** it SHALL pass Parser and Serializer to `NewInitializer(parser, serializer)`
+- **AND** Canonicalizer SHALL be created with `NewCanonicalizer()` (uses different infrastructure)
 - **AND** Validator SHALL be created with `NewValidator()` (no infrastructure dependencies)

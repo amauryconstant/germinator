@@ -44,7 +44,7 @@ The system SHALL provide a `Serializer` interface in `internal/application/` tha
 - **THEN** its `RenderDocument` method SHALL call `serialization.RenderDocument(doc, platform)`
 - **AND** return the same result
 
-### Requirement: Parser and Serializer are used by services
+### Requirement: Parser and Serializer are used by Transformer and Initializer
 
 Services that perform transformation SHALL receive Parser and Serializer instances via constructor.
 
@@ -52,11 +52,6 @@ Services that perform transformation SHALL receive Parser and Serializer instanc
 - **WHEN** `NewTransformer(parser, serializer)` is called
 - **THEN** the returned Transformer SHALL use the provided parser for LoadDocument
 - **AND** the returned Transformer SHALL use the provided serializer for RenderDocument
-
-#### Scenario: Canonicalizer receives Parser and Serializer
-- **WHEN** `NewCanonicalizer(parser, serializer)` is called
-- **THEN** the returned Canonicalizer SHALL use the provided parser for ParsePlatformDocument
-- **AND** the returned Canonicalizer SHALL use the provided serializer for MarshalCanonical
 
 #### Scenario: Initializer receives Parser and Serializer
 - **WHEN** `NewInitializer(parser, serializer)` is called

@@ -14,7 +14,7 @@ The service layer currently directly instantiates infrastructure dependencies (`
 
 - Extract `Parser` interface from `parsing.LoadDocument` function
 - Extract `Serializer` interface from `serialization.RenderDocument` function
-- Inject `Parser` and `Serializer` into `Transformer`, `Canonicalizer`, and `Initializer` services via constructor
+- Inject `Parser` and `Serializer` into `Transformer` and `Initializer` services via constructor
 - Update service constructors to accept infrastructure interfaces as parameters
 - Create mocks for `Parser` and `Serializer` interfaces to enable unit testing
 
@@ -33,5 +33,6 @@ The service layer currently directly instantiates infrastructure dependencies (`
 
 - **Affected packages**: `internal/service/`, `internal/application/`, `internal/infrastructure/parsing/`, `internal/infrastructure/serialization/`
 - **Breaking**: Service constructors change signatures (`NewTransformer(parser, serializer)` instead of `NewTransformer()`)
-- **Test impact**: Enables unit testing of `Transformer`, `Canonicalizer`, `Initializer` without filesystem or YAML parsing
+- **Test impact**: Enables unit testing of `Transformer` and `Initializer` without filesystem or YAML parsing
 - **CLI impact**: None - internal refactor only
+- **Note**: `Canonicalizer` is excluded from this change because it uses `ParsePlatformDocument` and `MarshalCanonical` (different infrastructure functions requiring separate interfaces)
