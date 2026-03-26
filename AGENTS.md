@@ -151,34 +151,34 @@ Hooks: gofmt, govet, golangci-lint, YAML/TOML/JSON validation, file hygiene.
 | New platform support            | Use OpenSpec           |
 | Refactor / architectural change | Use OpenSpec           |
 | Quick fix (1-2 lines)           | Skip OpenSpec          |
-| Unclear requirements            | openspec-explore first |
+| Unclear requirements            | osc-explore first |
 
 ### Lifecycle
 
 ```mermaid
 graph TB
     subgraph Exploration["Exploration"]
-        E1[openspec-explore]
+        E1[osc-explore]
     end
 
     subgraph Planning["Planning"]
-        P1[openspec-new-change]
-        P2[openspec-continue-change<br/>or openspec-ff-change]
-        P3[openspec-review-artifacts]
-        P4[openspec-modify-artifacts]
+        P1[osc-new-change]
+        P2[osc-continue-change<br/>or osc-ff-change]
+        P3[osx-review-artifacts]
+        P4[osx-modify-artifacts]
     end
 
     subgraph Implementation["Implementation"]
-        I1[openspec-apply-change]
-        I2[openspec-review-test-compliance]
+        I1[osc-apply-change]
+        I2[osx-review-test-compliance]
     end
 
     subgraph Completion["Completion"]
-        C1[openspec-verify-change]
-        C2[openspec-maintain-ai-docs]
-        C3[openspec-sync-specs]
-        C4[openspec-archive-change<br/>or bulk-archive]
-        C5[openspec-generate-changelog]
+        C1[osc-verify-change]
+        C2[osx-maintain-ai-docs]
+        C3[osc-sync-specs]
+        C4[osc-archive-change<br/>or bulk-archive]
+        C5[osx-generate-changelog]
     end
 
     E1 --> P1 --> P2 --> P3 --> I1 --> C1 --> C2 --> C4 --> C5
@@ -196,20 +196,20 @@ graph TB
 
 | Phase              | Skill                             | Purpose                                          |
 | ------------------ | --------------------------------- | ------------------------------------------------ |
-| **Exploration**    | `openspec-explore`                | Think through ideas                              |
-| **Planning**       | `openspec-new-change`             | Create change folder                             |
-|                    | `openspec-continue-change`        | Create one artifact                              |
-|                    | `openspec-ff-change`              | Create all artifacts at once                     |
-|                    | `openspec-review-artifacts`       | Review for quality                               |
-|                    | `openspec-modify-artifacts`       | Update artifacts _(also in Implementation)_      |
-| **Implementation** | `openspec-apply-change`           | Implement tasks                                  |
-|                    | `openspec-review-test-compliance` | Check spec→test alignment _(also in Completion)_ |
-| **Completion**     | `openspec-verify-change`          | Validate implementation                          |
-|                    | `openspec-maintain-ai-docs`       | Update AGENTS.md                                 |
-|                    | `openspec-sync-specs`             | Merge delta specs (optional)                     |
-|                    | `openspec-archive-change`         | Finalize single change                           |
-|                    | `openspec-bulk-archive-change`    | Archive multiple changes                         |
-|                    | `openspec-generate-changelog`     | Generate CHANGELOG.md                            |
+| **Exploration**    | `osc-explore`                | Think through ideas                              |
+| **Planning**       | `osc-new-change`             | Create change folder                             |
+|                    | `osc-continue-change`        | Create one artifact                              |
+|                    | `osc-ff-change`              | Create all artifacts at once                     |
+|                    | `osx-review-artifacts`       | Review for quality                               |
+|                    | `osx-modify-artifacts`       | Update artifacts _(also in Implementation)_      |
+| **Implementation** | `osc-apply-change`           | Implement tasks                                  |
+|                    | `osx-review-test-compliance` | Check spec→test alignment _(also in Completion)_ |
+| **Completion**     | `osc-verify-change`          | Validate implementation                          |
+|                    | `osx-maintain-ai-docs`       | Update AGENTS.md                                 |
+|                    | `osc-sync-specs`             | Merge delta specs (optional)                     |
+|                    | `osc-archive-change`         | Finalize single change                           |
+|                    | `osc-bulk-archive-change`    | Archive multiple changes                         |
+|                    | `osx-generate-changelog`     | Generate CHANGELOG.md                            |
 
 ### Project Conventions
 
