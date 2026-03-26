@@ -116,11 +116,20 @@ graph LR
 
 ## Release
 
-| Command                   | Purpose                                       |
-| ------------------------- | --------------------------------------------- |
-| mise run release:validate | Clean tree check                              |
-| mise run release:dry-run  | Test GoReleaser                               |
-| mise run release:tag      | Create and push git tag (patch\|minor\|major) |
+| Command              | Purpose                                        |
+| -------------------- | ---------------------------------------------- |
+| mise run release     | Validate, update changelog, commit, and tag   |
+| mise run release:check | Validate prerequisites (no execution)         |
+| mise run release:prepare | Validate and preview operations             |
+| mise run test:release | Test GoReleaser release flow (build only)     |
+
+Workflow:
+1. `mise run osx-changelog` - Generate changelog from archived OpenSpec changes
+2. `mise run release:check` - Validate prerequisites
+3. `mise run release:prepare <patch|minor|major>` - Preview what would happen
+4. `mise run release <patch|minor|major>` - Execute release when ready
+
+Optional: `mise run test:release` - Test goreleaser build without publishing
 
 ## Pre-Commit Hooks
 
