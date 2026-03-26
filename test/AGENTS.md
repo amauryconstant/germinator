@@ -137,8 +137,6 @@ tests := []struct {
 
 ## Mock Testing
 
-### Overview
-
 Mock infrastructure provides testify/mock implementations of all application service interfaces, enabling isolated unit testing without real implementations. Mocks are optional - tests can choose whether to use mocks or real implementations based on their testing strategy.
 
 ### Available Mocks
@@ -310,7 +308,7 @@ mockValidator.On("Validate", ctx, req2).Return(result2, nil).After(mockValidator
 | Golden file tests | | ✓ |
 | E2E tests | | ✓ |
 
-### Best Practices
+### Mock Testing Guidelines
 
 #### DO:
 
