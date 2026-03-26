@@ -61,8 +61,15 @@ description = "Run E2E tests (full CLI workflow)"
 run = "go test -tags=e2e ./test/e2e/..."
 
 [tasks."test:coverage"]
-description = "Run unit tests with coverage"
-run = "go test ./... -cover -coverprofile=coverage_unit.out"
+description = "Run all tests with coverage"
+run = [
+    { tasks = [
+        "test:coverage:unit",
+        "test:coverage:golden",
+        "test:coverage:integration",
+        "test:coverage:e2e",
+    ] },
+]
 
 [tasks."test:coverage:unit"]
 description = "Run unit tests with coverage"
@@ -80,9 +87,9 @@ run = "go test -tags=integration ./... -cover -coverprofile=coverage_integration
 description = "Run E2E tests with coverage"
 run = "go test -tags=e2e ./test/e2e/... -cover -coverprofile=coverage_e2e.out"
 
-[tasks."test:coverage:all"]
-description = "Run all tests with coverage profiles"
-run = "go test ./... -cover -coverprofile=coverage_unit.out && go test -tags=golden ./internal/services -cover -coverprofile=coverage_golden.out -v && go test -tags=integration ./internal/core -cover -coverprofile=coverage_integration.out -v && go test -tags=e2e ./test/e2e/... -cover -coverprofile=coverage_e2e.out"
+[tasks."test:release"]
+description = "Test GoReleaser release flow (build only, no publish)"
+run = "goreleaser release --skip=publish --clean"
 
 [tasks.check]
 description = "Run all validation checks"
@@ -92,8 +99,11 @@ depends = ["lint", "format", "test", "build"]
 # Release Management
 # ========================
 
-[tasks."release:dry-run"]
-description = "Test GoReleaser without creating release"
-run = "goreleaser release --skip=publish --clean"
+[tasks.release]
+description = "Validate, update changelog, commit, and tag a release"
+run = [
+    { task = "release:prepare" },
+    { task = "release:tag" },
+]
 
 # Note: CI Docker image is built automatically by GitLab CI when Dockerfile.ci or .mise/config.toml changes
