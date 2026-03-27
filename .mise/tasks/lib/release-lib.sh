@@ -174,7 +174,7 @@ release_lib_update_changelog() {
       print
       next
     }
-    in_unreleased { next }
+    in_unreleased { print; next }
     { print }
   ' CHANGELOG.md > "$temp_file"
 }
