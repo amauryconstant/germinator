@@ -101,9 +101,11 @@ depends = ["lint", "format", "test", "build"]
 
 [tasks.release]
 description = "Validate, update changelog, commit, and tag a release"
-run = [
-    { task = "release:prepare" },
-    { task = "release:tag" },
-]
+usage = '''
+arg "<bump_type>" help="Version bump type" {
+    choices "patch" "minor" "major"
+}
+'''
+run = "mise run release:prepare ${usage_bump_type} && mise run release:tag ${usage_bump_type}"
 
 # Note: CI Docker image is built automatically by GitLab CI when Dockerfile.ci or .mise/config.toml changes
