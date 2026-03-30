@@ -75,3 +75,13 @@ func ReadFile(path string) (string, error) {
 	}
 	return string(data), nil
 }
+
+// TempDir creates a temporary directory for testing
+// The caller is responsible for cleanup
+func TempDir() string {
+	tmpDir, err := os.MkdirTemp("", "germinator-e2e-*")
+	if err != nil {
+		panic("Failed to create temp dir: " + err.Error())
+	}
+	return tmpDir
+}

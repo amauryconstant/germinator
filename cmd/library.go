@@ -35,6 +35,7 @@ Subcommands:
 	cmd.AddCommand(NewLibraryResourcesCommand(cfg, &libraryPath))
 	cmd.AddCommand(NewLibraryPresetsCommand(cfg, &libraryPath))
 	cmd.AddCommand(NewLibraryShowCommand(cfg, &libraryPath))
+	cmd.AddCommand(NewLibraryInitCommand(cfg))
 
 	return cmd
 }
