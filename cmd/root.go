@@ -28,6 +28,7 @@ Germinator source format and adapts it for target platforms like Claude Code and
 	cmd.AddCommand(NewLibraryCommand(cfg))
 	cmd.AddCommand(NewInitCommand(cfg))
 	cmd.AddCommand(NewCompletionCommand(cfg))
+	cmd.AddCommand(NewConfigCommand(cfg))
 
 	// Initialize carapace for enhanced completions
 	carapace.Gen(cmd)
