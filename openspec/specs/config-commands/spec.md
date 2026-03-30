@@ -39,7 +39,7 @@ The `germinator config init` command SHALL create a new config file with explana
 
 ### Requirement: Config init output contains all fields
 
-The scaffolded config file SHALL contain entries for all configurable fields with explanatory comments.
+The scaffolded config file SHALL contain entries for all configurable fields with explanatory comments. All field values SHALL be commented out by default, requiring users to explicitly uncomment settings they wish to override.
 
 #### Scenario: Config contains library field
 
@@ -56,8 +56,9 @@ The scaffolded config file SHALL contain entries for all configurable fields wit
 #### Scenario: Config contains completion settings
 
 - **WHEN** config file is scaffolded
-- **THEN** file contains `[completion]` table with `timeout` and `cache_ttl` fields
-- **AND** each field has a comment explaining its purpose and default value
+- **THEN** file contains `[completion]` table header (active, not commented)
+- **AND** file contains `# timeout` field with comment explaining its purpose and default value
+- **AND** file contains `# cache_ttl` field with comment explaining its purpose and default value
 
 ### Requirement: Config validate checks existing config
 

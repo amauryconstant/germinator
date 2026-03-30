@@ -135,14 +135,14 @@ func TestConfigInitCommand_ScaffoldedContent(t *testing.T) {
 		t.Fatalf("Failed to read config file: %v", err)
 	}
 
-	// Check all expected fields are present
+	// Check all expected fields are present (commented)
 	expectedContent := []string{
 		"# Germinator configuration",
-		"library = \"~/.config/germinator/library\"",
-		"platform = \"\"",
+		"# library = \"~/.local/share/germinator/library\"",
+		"# platform = \"\"",
 		"[completion]",
-		`timeout = "500ms"`,
-		`cache_ttl = "5s"`,
+		"# timeout = \"500ms\"",
+		"# cache_ttl = \"5s\"",
 	}
 
 	for _, expected := range expectedContent {

@@ -15,23 +15,26 @@ import (
 )
 
 // scaffoldedConfig is the default config file content with explanatory comments.
+// All settings are commented out by default, requiring users to explicitly uncomment
+// and configure only the settings they want to override.
 const scaffoldedConfig = `# Germinator configuration
 # https://github.com/anomalyco/germinator
 #
 # This file configures germinator's global behavior.
 # All settings are optional - defaults are used if omitted.
+# Settings below are commented out; uncomment and customize as needed.
 
 # Path to your library directory containing skills, agents, commands, and presets.
 # The library must contain a library.yaml index file.
 # Supports ~ expansion for home directory.
-# Default: ~/.config/germinator/library
-library = "~/.config/germinator/library"
+# Default: ~/.local/share/germinator/library (or $XDG_DATA_HOME/germinator/library if set)
+# library = "~/.local/share/germinator/library"
 
 # Default platform when --platform is not specified.
 # Options: "opencode" (default), "claude-code"
 # Leave empty to require --platform on every command.
 # Default: "" (none)
-platform = ""
+# platform = ""
 
 # Shell completion configuration
 [completion]
@@ -39,12 +42,12 @@ platform = ""
 # Maximum time to wait for library loading during completion suggestions.
 # Lower values = faster but may timeout on large libraries.
 # Default: "500ms"
-timeout = "500ms"
+# timeout = "500ms"
 
 # How long to cache library data for completion performance.
 # Higher values = faster completions but may show stale results.
 # Default: "5s"
-cache_ttl = "5s"
+# cache_ttl = "5s"
 `
 
 // NewConfigCommand creates the config command group with init and validate subcommands.

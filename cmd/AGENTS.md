@@ -395,12 +395,14 @@ Scaffold and validate germinator configuration files.
 
 ## Config Init
 
-Scaffolds `~/.config/germinator/config.toml` (or custom path) with explanatory comments.
+Scaffolds `~/.config/germinator/config.toml` (or custom path) with **all settings commented out** by default.
 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--output` | XDG config path | Output file path |
 | `--force` | false | Overwrite existing file |
+
+Settings are commented to allow selective override; users uncomment only what they need.
 
 ```bash
 # Scaffold default config
