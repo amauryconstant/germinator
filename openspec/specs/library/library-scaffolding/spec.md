@@ -21,9 +21,10 @@ The system SHALL create a new library directory at the specified path with a val
 - **AND** directory `/tmp/my-library/memory/` is created
 
 #### Scenario: Create library at default path
-- **GIVEN** no library exists at `~/.config/germinator/library/`
+- **GIVEN** no library exists at `~/.local/share/germinator/library/`
 - **WHEN** `germinator library init` is executed
-- **THEN** library is created at `~/.config/germinator/library/`
+- **THEN** library is created at `~/.local/share/germinator/library/`
+- **OR** if `XDG_DATA_HOME` is set, library is created at `$XDG_DATA_HOME/germinator/library/`
 
 ### Requirement: Validate created library
 

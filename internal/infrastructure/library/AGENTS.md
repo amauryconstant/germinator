@@ -48,7 +48,7 @@ type Resources struct {
 
 ## Library Discovery
 
-Priority: explicit path > `GERMINATOR_LIBRARY` env > `~/.config/germinator/library/`
+Priority: explicit path > `GERMINATOR_LIBRARY` env > `$XDG_DATA_HOME/germinator/library/` or `~/.local/share/germinator/library/`
 
 ```go
 // Get default library path

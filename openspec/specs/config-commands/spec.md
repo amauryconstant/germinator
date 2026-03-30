@@ -45,7 +45,7 @@ The scaffolded config file SHALL contain entries for all configurable fields wit
 
 - **WHEN** config file is scaffolded
 - **THEN** file contains `# library` field with comment explaining it accepts a path
-- **AND** default value `~/.config/germinator/library` is set
+- **AND** default value `~/.local/share/germinator/library` is set (uses `XDG_DATA_HOME` if set)
 
 #### Scenario: Config contains platform field
 

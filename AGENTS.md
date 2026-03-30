@@ -136,7 +136,7 @@ graph LR
 | `germinator library init`  | Scaffold a new library directory structure   |
 
 **Library init flags:**
-- `--path <path>` - Library location (default: `~/.config/germinator/library/`)
+- `--path <path>` - Library location (default: `$XDG_DATA_HOME/germinator/library/` or `~/.local/share/germinator/library/`)
 - `--dry-run` - Preview changes without creating files
 - `--force` - Overwrite existing library
 

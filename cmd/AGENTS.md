@@ -263,7 +263,7 @@ Scaffolds a new library directory with `library.yaml` and empty resource directo
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--path` | `~/.config/germinator/library/` | Path to create library |
+| `--path` | `$XDG_DATA_HOME/germinator/library/` or `~/.local/share/germinator/library/` | Path to create library |
 | `--dry-run` | false | Preview changes without creating files |
 | `--force` | false | Overwrite existing library |
 
@@ -283,7 +283,7 @@ germinator library init --force
 
 ## Library Path Discovery
 
-Priority: `--library` flag > `GERMINATOR_LIBRARY` env > `~/.config/germinator/library/`
+Priority: `--library` flag > `GERMINATOR_LIBRARY` env > `$XDG_DATA_HOME/germinator/library/` or `~/.local/share/germinator/library/`
 
 ```bash
 # Use default path

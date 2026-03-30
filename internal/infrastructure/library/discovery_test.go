@@ -46,13 +46,26 @@ func TestFindLibrary(t *testing.T) {
 func TestDefaultLibraryPath(t *testing.T) {
 	path := DefaultLibraryPath()
 
-	// Should contain germinator/library
 	if !filepath.IsAbs(path) {
 		t.Errorf("DefaultLibraryPath() should return absolute path, got %s", path)
 	}
+}
 
-	if !filepath.IsAbs(path) {
-		t.Errorf("DefaultLibraryPath() should be absolute, got %s", path)
+func TestDefaultLibraryPathXDGDataHome(t *testing.T) {
+	original := os.Getenv("XDG_DATA_HOME")
+	t.Cleanup(func() {
+		os.Setenv("XDG_DATA_HOME", original) //nolint:errcheck
+	})
+
+	if err := os.Setenv("XDG_DATA_HOME", "/custom/data"); err != nil {
+		t.Fatalf("Failed to set XDG_DATA_HOME: %v", err)
+	}
+
+	path := DefaultLibraryPath()
+
+	expected := filepath.Join("/custom/data", "germinator", "library")
+	if path != expected {
+		t.Errorf("DefaultLibraryPath() with XDG_DATA_HOME = %q, got %q, want %q", "/custom/data", path, expected)
 	}
 }
 
