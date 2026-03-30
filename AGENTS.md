@@ -12,6 +12,7 @@ graph LR
         C[canonicalize]
         VER[version]
         L[library]
+        CNF[config]
         I[init]
     end
 
@@ -113,6 +114,20 @@ graph LR
 | mise run test:coverage | Run tests with coverage                    |
 | mise run clean         | Clean artifacts                            |
 | mise tasks             | List all tasks                             |
+
+## Config Commands
+
+| Command                       | Purpose                                      |
+| ------------------------------ | -------------------------------------------- |
+| `germinator config init`       | Scaffold a config file with documented fields |
+| `germinator config validate`   | Validate an existing config file             |
+
+**Config init flags:**
+- `--output <path>` - Output file path (default: `~/.config/germinator/config.toml`)
+- `--force` - Overwrite existing file
+
+**Config validate flags:**
+- `--output <path>` - Config file to validate (default: `~/.config/germinator/config.toml`)
 
 ## Release
 

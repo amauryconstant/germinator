@@ -27,7 +27,7 @@ Cobra-based CLI with platform-specific validation, typed errors, and verbosity c
 | `error_handler.go` | Error categorization and exit code handling |
 | `error_formatter.go` | Typed error formatting with contextual hints |
 | `verbose.go` | Verbosity levels and output helpers |
-| `config.go` | CommandConfig struct for DI |
+| `config.go` | Config command group (init, validate) and CommandConfig struct |
 
 ---
 
@@ -353,6 +353,57 @@ germinator init --platform opencode --preset git-workflow --output /project
 - File exists error without `--force`
 - Resource not found error for missing resources
 - Preset not found error for missing presets
+
+---
+
+# Config Command
+
+Scaffold and validate germinator configuration files.
+
+## Subcommands
+
+| Command | Description |
+|---------|-------------|
+| `config init` | Scaffold a config file with documented fields |
+| `config validate` | Validate an existing config file |
+
+## Config Init
+
+Scaffolds `~/.config/germinator/config.toml` (or custom path) with explanatory comments.
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--output` | XDG config path | Output file path |
+| `--force` | false | Overwrite existing file |
+
+```bash
+# Scaffold default config
+germinator config init
+
+# Custom output path
+germinator config init --output /path/to/config.toml
+
+# Overwrite existing
+germinator config init --force
+```
+
+## Config Validate
+
+Validates a config file is parseable and conformant.
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--output` | XDG config path | Config file to validate |
+
+```bash
+# Validate default config
+germinator config validate
+
+# Validate custom path
+germinator config validate --output /path/to/config.toml
+```
+
+**Returns:** Success (0), NotFound (6), Config error (3), Parse error (1)
 
 ---
 
