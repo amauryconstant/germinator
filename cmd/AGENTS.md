@@ -18,7 +18,8 @@ Cobra-based CLI with platform-specific validation, typed errors, and verbosity c
 | `validate.go` | Validate document against platform rules |
 | `canonicalize.go` | Convert platform document to canonical format |
 | `version.go` | Display version, commit, build date |
-| `library.go` | Library management commands (resources, presets, show) |
+| `library.go` | Library management commands (init, resources, presets, show) |
+| `library_init.go` | Library init subcommand (scaffolding new libraries) |
 | `init.go` | Install resources from library to project |
 | `completion.go` | Shell completion command (carapace-based, multi-shell) |
 | `completions.go` | Dynamic completion actions with caching |
@@ -251,9 +252,34 @@ Manage the canonical resource library containing skills, agents, commands, and m
 
 | Command | Description |
 |---------|-------------|
+| `library init` | Scaffold a new library directory structure |
 | `library resources` | List all resources in library (grouped by type) |
 | `library presets` | List all presets in library |
 | `library show <ref>` | Display resource or preset details |
+
+### Library Init
+
+Scaffolds a new library directory with `library.yaml` and empty resource directories.
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--path` | `~/.config/germinator/library/` | Path to create library |
+| `--dry-run` | false | Preview changes without creating files |
+| `--force` | false | Overwrite existing library |
+
+```bash
+# Create at default path
+germinator library init
+
+# Custom location
+germinator library init --path /tmp/my-library
+
+# Preview
+germinator library init --dry-run
+
+# Overwrite existing
+germinator library init --force
+```
 
 ## Library Path Discovery
 

@@ -129,6 +129,25 @@ graph LR
 **Config validate flags:**
 - `--output <path>` - Config file to validate (default: `~/.config/germinator/config.toml`)
 
+## Library Commands
+
+| Command                    | Purpose                                      |
+| -------------------------- | -------------------------------------------- |
+| `germinator library init`  | Scaffold a new library directory structure   |
+
+**Library init flags:**
+- `--path <path>` - Library location (default: `~/.config/germinator/library/`)
+- `--dry-run` - Preview changes without creating files
+- `--force` - Overwrite existing library
+
+**Examples:**
+```bash
+germinator library init                          # Create at default path
+germinator library init --path /tmp/my-library   # Custom location
+germinator library init --dry-run                # Preview only
+germinator library init --force                 # Overwrite existing
+```
+
 ## Release
 
 | Command              | Purpose                                        |
