@@ -18,7 +18,10 @@ outputs = ["bin/germinator"]
 
 [tasks."build:local"]
 description = "Build and install germinator locally for testing"
-run = "mkdir -p $HOME/.local/bin && go build -ldflags=\"-X gitlab.com/amoconst/germinator/internal/version.Version=$(git describe --tags --always --dirty 2>/dev/null || echo dev)\" -o $HOME/.local/bin/germinator ."
+run = [
+ {task="build"},
+ "cp bin/germinator $HOME/.local/bin"
+]
 
 [tasks."build:clean"]
 description = "Clean build artifacts"
