@@ -8,8 +8,8 @@ release_lib_validate_environment() {
     return 1
   fi
 
-  if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
-    echo "Error: Working directory has uncommitted changes"
+  if [ -n "$(git status --porcelain | grep -v 'CHANGELOG.md')" ]; then
+    echo "Error: Working directory has uncommitted changes (excluding CHANGELOG.md)"
     return 1
   fi
 
@@ -187,7 +187,7 @@ release_lib_check() {
 
   echo "[1/4] Validating environment..."
   release_lib_validate_environment
-  echo "✅ Environment OK (git repo, main branch, clean working directory)"
+  echo "✅ Environment OK (git repo, main branch, clean working directory except CHANGELOG.md)"
   echo ""
 
   echo "[2/4] Validating CHANGELOG.md..."
