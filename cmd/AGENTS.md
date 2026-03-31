@@ -20,6 +20,8 @@ Cobra-based CLI with platform-specific validation, typed errors, and verbosity c
 | `version.go` | Display version, commit, build date |
 | `library.go` | Library management commands (init, resources, presets, show) |
 | `library_init.go` | Library init subcommand (scaffolding new libraries) |
+| `library_add.go` | Library add subcommand (import resources) |
+| `library_create.go` | Library create subcommand (create presets) |
 | `init.go` | Install resources from library to project |
 | `completion.go` | Shell completion command (carapace-based, multi-shell) |
 | `completions.go` | Dynamic completion actions with caching |
@@ -253,8 +255,10 @@ Manage the canonical resource library containing skills, agents, commands, and m
 | Command | Description |
 |---------|-------------|
 | `library init` | Scaffold a new library directory structure |
+| `library add` | Import a resource to the library |
 | `library resources` | List all resources in library (grouped by type) |
 | `library presets` | List all presets in library |
+| `library create preset` | Create a new preset |
 | `library show <ref>` | Display resource or preset details |
 
 ### Library Init
@@ -320,6 +324,35 @@ git-workflow - Git workflow tools
   - skill/commit
   - skill/merge-request
 ```
+
+## Library Create Preset
+
+Create a new preset that references existing resources in the library.
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--resources` | (required) | Comma-separated resource references (e.g., `skill/commit,agent/reviewer`) |
+| `--description` | empty | Preset description |
+| `--force` | false | Overwrite existing preset |
+| `--library` | XDG default | Path to library directory |
+
+Validation: Fails if referenced resources don't exist; fails if preset exists without `--force`.
+
+```bash
+# Create preset with single resource
+germinator library create preset commit-tools --resources skill/commit
+
+# Create preset with multiple resources
+germinator library create preset git-workflow --resources skill/commit,skill/pr
+
+# Create with description
+germinator library create preset dev-setup --resources skill/build,agent/reviewer --description "Development setup"
+
+# Overwrite existing preset
+germinator library create preset git-workflow --resources skill/commit --force
+```
+
+**Output:** Displays preset name, description, and resources on success.
 
 ---
 

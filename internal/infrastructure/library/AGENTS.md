@@ -18,12 +18,14 @@ Library management for canonical resources (skills, agents, commands, memory).
 | `lister.go` | `ListResources()` - groups resources by type |
 | `resolver.go` | `ResolveResource()` - resolves refs to full paths |
 | `adder.go` | `AddResource()` - imports resources into library |
+| `saver.go` | `SaveLibrary()`, `AddPreset()`, `PresetExists()` |
 | `library_test.go` | Tests for Library struct and Exists |
 | `loader_test.go` | Tests for LoadLibrary |
 | `lister_test.go` | Tests for ListResources |
 | `resolver_test.go` | Tests for ResolveResource |
 | `discovery_test.go` | Tests for FindLibrary |
 | `adder_test.go` | Tests for AddResource |
+| `saver_test.go` | Tests for SaveLibrary and AddPreset |
 
 ## Core Types
 
@@ -132,3 +134,22 @@ Platform detection: `--platform` flag > frontmatter `platform:` > auto-detect fr
 Target path: `{library}/{type}s/{name}.md` (e.g., `library/agents/reviewer.md`)
 
 Validation: Validates canonical document before adding; validates library.yaml after update.
+
+## Preset Management
+
+```go
+// SaveLibrary persists the library to library.yaml
+SaveLibrary(lib *Library) error
+
+// AddPreset adds a preset to the library in-memory
+AddPreset(lib *Library, preset Preset) error
+
+// PresetExists checks if a preset with the given name exists
+PresetExists(lib *Library, name string) bool
+```
+
+**SaveLibrary**: Marshals the entire library struct and writes to `{RootPath}/library.yaml`. Creates directory if needed.
+
+**AddPreset**: Validates preset before adding; initializes Presets map if nil.
+
+**PresetExists**: Returns false if library or Presets map is nil.

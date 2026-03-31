@@ -131,10 +131,11 @@ graph LR
 
 ## Library Commands
 
-| Command                    | Purpose                                      |
-| -------------------------- | -------------------------------------------- |
-| `germinator library init`  | Scaffold a new library directory structure   |
-| `germinator library add`    | Import a resource to the library             |
+| Command                              | Purpose                                      |
+| ------------------------------------ | -------------------------------------------- |
+| `germinator library init`            | Scaffold a new library directory structure   |
+| `germinator library add`              | Import a resource to the library             |
+| `germinator library create preset`   | Create a new preset in the library           |
 
 **Library init flags:**
 - `--path <path>` - Library location (default: `$XDG_DATA_HOME/germinator/library/` or `~/.local/share/germinator/library/`)
@@ -164,6 +165,19 @@ germinator library add ~/code-reviewer.md --type agent          # Import agent
 germinator library add ./skill-commit.md --platform opencode    # Import OpenCode skill
 germinator library add resource.md --dry-run                    # Preview only
 germinator library add resource.md --force                      # Replace if exists
+```
+
+**Library create preset flags:**
+- `--resources <refs>` - Comma-separated resource references (required, e.g., `skill/commit,agent/reviewer`)
+- `--description <desc>` - Preset description (optional)
+- `--force` - Overwrite existing preset
+- `--library <path>` - Library path (uses `GERMINATOR_LIBRARY` env or default if omitted)
+
+**Examples:**
+```bash
+germinator library create preset git-workflow --resources skill/commit,skill/pr
+germinator library create preset dev-setup --resources skill/build,agent/reviewer --description "Development setup"
+germinator library create preset old-preset --resources skill/commit --force
 ```
 
 ## Release
