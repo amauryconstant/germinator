@@ -122,3 +122,23 @@ func formatPresetDetails(lib *library.Library, name string) (string, error) {
 
 	return sb.String(), nil
 }
+
+// formatPresetOutput formats a preset for command output (e.g., after creation).
+func formatPresetOutput(lib *library.Library, name string) string {
+	preset, ok := lib.Presets[name]
+	if !ok {
+		return fmt.Sprintf("Preset '%s' created successfully.\n", name)
+	}
+
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "Preset '%s' created successfully.\n", name)
+	if preset.Description != "" {
+		fmt.Fprintf(&sb, "Description: %s\n", preset.Description)
+	}
+	sb.WriteString("Resources:\n")
+	for _, ref := range preset.Resources {
+		fmt.Fprintf(&sb, "  - %s\n", ref)
+	}
+
+	return sb.String()
+}
