@@ -5,8 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.8.0] - 2026-03-30
+## [0.9.0] - 2026-03-31
 
+
+### Added
+
+- Add `config init` and `config validate` commands for scaffolding and validating configuration files (config-init-command)
+- Add `library init` command for scaffolding library directory structures with `library.yaml` and resource subdirectories (library-init)
+- Add `library create preset` command for creating presets in the library with validation and overwrite protection (create-library-preset-command)
+- Add `library add` command for importing resources into the library with auto-detection, canonicalization, and validation (library-add)
+
+### Changed
+
+- Update release validation to allow unstaged CHANGELOG.md for same-commit changelog updates and release
+
+## [0.8.0] - 2026-03-30
 
 ### Added
 
