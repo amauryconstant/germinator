@@ -17,11 +17,13 @@ Library management for canonical resources (skills, agents, commands, memory).
 | `discovery.go` | `FindLibrary()`, `DefaultLibraryPath()` |
 | `lister.go` | `ListResources()` - groups resources by type |
 | `resolver.go` | `ResolveResource()` - resolves refs to full paths |
+| `adder.go` | `AddResource()` - imports resources into library |
 | `library_test.go` | Tests for Library struct and Exists |
 | `loader_test.go` | Tests for LoadLibrary |
 | `lister_test.go` | Tests for ListResources |
 | `resolver_test.go` | Tests for ResolveResource |
 | `discovery_test.go` | Tests for FindLibrary |
+| `adder_test.go` | Tests for AddResource |
 
 ## Core Types
 
@@ -106,3 +108,27 @@ type ResourceList struct {
 // Resolve ref to full path (e.g., "skill/commit" -> "/path/to/skills/commit")
 ResolveResource(libPath, ref string) (string, error)
 ```
+
+## Adding Resources
+
+```go
+type AddOptions struct {
+    SourcePath   string  // Source file to import
+    Name         string  // Resource name (auto-detected if empty)
+    Description  string  // Resource description (auto-detected if empty)
+    Type         string  // Resource type: agent, command, skill, memory (auto-detected)
+    Platform     string  // Source platform: opencode, claude-code (auto-detected)
+    LibraryPath  string  // Target library path
+    DryRun       bool    // Preview without modifying
+    Force        bool    // Overwrite existing
+}
+
+// Add resource to library (imports, canonicalizes if needed, validates, registers)
+AddResource(opts AddOptions) error
+```
+
+Type detection priority: `--type` flag > frontmatter `type:` > filename pattern
+Platform detection: `--platform` flag > frontmatter `platform:` > auto-detect from content
+Target path: `{library}/{type}s/{name}.md` (e.g., `library/agents/reviewer.md`)
+
+Validation: Validates canonical document before adding; validates library.yaml after update.

@@ -134,6 +134,7 @@ graph LR
 | Command                    | Purpose                                      |
 | -------------------------- | -------------------------------------------- |
 | `germinator library init`  | Scaffold a new library directory structure   |
+| `germinator library add`    | Import a resource to the library             |
 
 **Library init flags:**
 - `--path <path>` - Library location (default: `$XDG_DATA_HOME/germinator/library/` or `~/.local/share/germinator/library/`)
@@ -146,6 +147,23 @@ germinator library init                          # Create at default path
 germinator library init --path /tmp/my-library   # Custom location
 germinator library init --dry-run                # Preview only
 germinator library init --force                 # Overwrite existing
+```
+
+**Library add flags:**
+- `--name <name>` - Resource name (auto-detected from frontmatter or filename if omitted)
+- `--description <desc>` - Resource description (auto-detected if omitted)
+- `--type <type>` - Resource type: `agent`, `command`, `skill`, or `memory` (auto-detected if omitted)
+- `--platform <platform>` - Source platform: `opencode` or `claude-code` (auto-detected if omitted)
+- `--library <path>` - Library path (uses `GERMINATOR_LIBRARY` env or default if omitted)
+- `--dry-run` - Preview changes without modifying library
+- `--force` - Overwrite existing resource with same name
+
+**Examples:**
+```bash
+germinator library add ~/code-reviewer.md --type agent          # Import agent
+germinator library add ./skill-commit.md --platform opencode    # Import OpenCode skill
+germinator library add resource.md --dry-run                    # Preview only
+germinator library add resource.md --force                      # Replace if exists
 ```
 
 ## Release

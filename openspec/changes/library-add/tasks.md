@@ -28,7 +28,7 @@
 
 ## 4. Documentation
 
-- [ ] 4.1 Add `library add` to AGENTS.md command table
+- [x] 4.1 Add `library add` to AGENTS.md command table
 - [x] 4.2 Update library command help text to include `add` subcommand
 
 ## Notes
