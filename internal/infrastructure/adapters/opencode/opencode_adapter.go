@@ -2,6 +2,7 @@ package opencode
 
 import (
 	"fmt"
+	"sort"
 
 	"gitlab.com/amoconst/germinator/internal/domain"
 	"gitlab.com/amoconst/germinator/internal/infrastructure/adapters"
@@ -163,6 +164,9 @@ func (a *Adapter) parseAgent(input map[string]interface{}) (*domain.Agent, error
 		}
 		agent.Targets["opencode"]["skills"] = skillNames
 	}
+
+	sort.Strings(agent.Tools)
+	sort.Strings(agent.DisallowedTools)
 
 	return agent, nil
 }

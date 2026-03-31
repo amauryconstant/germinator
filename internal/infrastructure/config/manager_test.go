@@ -83,12 +83,19 @@ library = "/custom/library/path"
 		t.Fatalf("failed to write config: %v", err)
 	}
 
-	// Set HOME to temp dir
+	// Save and clear env vars to ensure test isolation
+	origXDG := os.Getenv("XDG_CONFIG_HOME")
 	origHome := os.Getenv("HOME")
+	if err := os.Setenv("XDG_CONFIG_HOME", ""); err != nil {
+		t.Fatalf("Setenv failed: %v", err)
+	}
 	if err := os.Setenv("HOME", tmpDir); err != nil {
 		t.Fatalf("Setenv failed: %v", err)
 	}
-	defer func() { _ = os.Setenv("HOME", origHome) }()
+	defer func() {
+		_ = os.Setenv("XDG_CONFIG_HOME", origXDG)
+		_ = os.Setenv("HOME", origHome)
+	}()
 
 	mgr := NewConfigManager()
 	err := mgr.Load()
@@ -156,12 +163,19 @@ func TestConfigManagerLoad_InvalidPlatform(t *testing.T) {
 		t.Fatalf("failed to write config: %v", err)
 	}
 
-	// Set HOME to temp dir
+	// Save and clear env vars to ensure test isolation
+	origXDG := os.Getenv("XDG_CONFIG_HOME")
 	origHome := os.Getenv("HOME")
+	if err := os.Setenv("XDG_CONFIG_HOME", ""); err != nil {
+		t.Fatalf("Setenv failed: %v", err)
+	}
 	if err := os.Setenv("HOME", tmpDir); err != nil {
 		t.Fatalf("Setenv failed: %v", err)
 	}
-	defer func() { _ = os.Setenv("HOME", origHome) }()
+	defer func() {
+		_ = os.Setenv("XDG_CONFIG_HOME", origXDG)
+		_ = os.Setenv("HOME", origHome)
+	}()
 
 	mgr := NewConfigManager()
 	err := mgr.Load()
@@ -191,12 +205,19 @@ func TestConfigManagerLoad_InvalidTOML(t *testing.T) {
 		t.Fatalf("failed to write config: %v", err)
 	}
 
-	// Set HOME to temp dir
+	// Save and clear env vars to ensure test isolation
+	origXDG := os.Getenv("XDG_CONFIG_HOME")
 	origHome := os.Getenv("HOME")
+	if err := os.Setenv("XDG_CONFIG_HOME", ""); err != nil {
+		t.Fatalf("Setenv failed: %v", err)
+	}
 	if err := os.Setenv("HOME", tmpDir); err != nil {
 		t.Fatalf("Setenv failed: %v", err)
 	}
-	defer func() { _ = os.Setenv("HOME", origHome) }()
+	defer func() {
+		_ = os.Setenv("XDG_CONFIG_HOME", origXDG)
+		_ = os.Setenv("HOME", origHome)
+	}()
 
 	mgr := NewConfigManager()
 	err := mgr.Load()
@@ -221,12 +242,19 @@ func TestConfigManagerLoad_TildeExpansion(t *testing.T) {
 		t.Fatalf("failed to write config: %v", err)
 	}
 
-	// Set HOME to temp dir
+	// Save and clear env vars to ensure test isolation
+	origXDG := os.Getenv("XDG_CONFIG_HOME")
 	origHome := os.Getenv("HOME")
+	if err := os.Setenv("XDG_CONFIG_HOME", ""); err != nil {
+		t.Fatalf("Setenv failed: %v", err)
+	}
 	if err := os.Setenv("HOME", tmpDir); err != nil {
 		t.Fatalf("Setenv failed: %v", err)
 	}
-	defer func() { _ = os.Setenv("HOME", origHome) }()
+	defer func() {
+		_ = os.Setenv("XDG_CONFIG_HOME", origXDG)
+		_ = os.Setenv("HOME", origHome)
+	}()
 
 	mgr := NewConfigManager()
 	err := mgr.Load()

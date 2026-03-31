@@ -1,11 +1,9 @@
 ---
 name: commit
-description: Git commit best practices
+description: Modified description
 tools:
   - bash
-  - read
-  - write
 ---
-# Commit Skill
+# Modified Commit Skill
 
-Write concise, imperative commit messages.
+Modified content

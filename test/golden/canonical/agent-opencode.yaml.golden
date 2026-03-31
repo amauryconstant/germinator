@@ -3,8 +3,8 @@ name: code-reviewer
 description: Expert code review specialist
 tools:
   - bash
-  - read
   - grep
+  - read
 permissionPolicy: balanced
 behavior:
   mode: primary
