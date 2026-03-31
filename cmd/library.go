@@ -24,7 +24,8 @@ that can be installed to projects using the init command.
 Subcommands:
   resources  List all resources in the library
   presets    List all presets in the library
-  show       Display details of a resource or preset`,
+  show       Display details of a resource or preset
+  add        Add a resource to the library`,
 		Run: func(c *cobra.Command, _ []string) {
 			_ = c.Help()
 		},
@@ -36,6 +37,7 @@ Subcommands:
 	cmd.AddCommand(NewLibraryPresetsCommand(cfg, &libraryPath))
 	cmd.AddCommand(NewLibraryShowCommand(cfg, &libraryPath))
 	cmd.AddCommand(NewLibraryInitCommand(cfg))
+	cmd.AddCommand(NewLibraryAddCommand(cfg, &libraryPath))
 
 	return cmd
 }
