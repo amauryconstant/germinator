@@ -19,10 +19,6 @@ The library system currently supports listing, showing, and installing resources
 
 - `library-resource-import`: Import existing canonical or platform documents into the library with automatic type detection, canonicalization, validation, and library.yaml registration
 
-### Modified Capabilities
-
-- `library-system`: Add capability to update library.yaml with new resource entries (new `AddResource` function)
-
 ## Impact
 
 - New command: `cmd/library_add.go`

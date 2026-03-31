@@ -4,7 +4,7 @@
 
 The Library Resource Import capability enables importing existing canonical or platform documents into the library. It handles type detection, canonicalization, validation, file copying, and library.yaml updates.
 
-## Requirements
+## ADDED Requirements
 
 ### Requirement: Import resource to library
 
