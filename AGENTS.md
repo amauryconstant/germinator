@@ -180,6 +180,21 @@ germinator library create preset dev-setup --resources skill/build,agent/reviewe
 germinator library create preset old-preset --resources skill/commit --force
 ```
 
+**Library remove resource flags:**
+- `--json` - Output as JSON (for scripting)
+- `--library <path>` - Library path (uses `GERMINATOR_LIBRARY` env or default if omitted)
+
+**Library remove preset flags:**
+- `--json` - Output as JSON (for scripting)
+- `--library <path>` - Library path (uses `GERMINATOR_LIBRARY` env or default if omitted)
+
+**Examples:**
+```bash
+germinator library remove resource skill/commit          # Remove a skill
+germinator library remove resource agent/reviewer --json  # Remove with JSON output
+germinator library remove preset git-workflow             # Remove a preset
+```
+
 ## Release
 
 | Command              | Purpose                                        |

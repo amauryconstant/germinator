@@ -19,6 +19,7 @@ Library management for canonical resources (skills, agents, commands, memory).
 | `resolver.go` | `ResolveResource()` - resolves refs to full paths |
 | `adder.go` | `AddResource()` - imports resources into library |
 | `saver.go` | `SaveLibrary()`, `AddPreset()`, `PresetExists()` |
+| `remover.go` | `RemoveResource()`, `RemovePreset()` - remove resources/presets |
 | `library_test.go` | Tests for Library struct and Exists |
 | `loader_test.go` | Tests for LoadLibrary |
 | `lister_test.go` | Tests for ListResources |
@@ -26,6 +27,7 @@ Library management for canonical resources (skills, agents, commands, memory).
 | `discovery_test.go` | Tests for FindLibrary |
 | `adder_test.go` | Tests for AddResource |
 | `saver_test.go` | Tests for SaveLibrary and AddPreset |
+| `remover_test.go` | Tests for RemoveResource and RemovePreset |
 
 ## Core Types
 
@@ -153,3 +155,68 @@ PresetExists(lib *Library, name string) bool
 **AddPreset**: Validates preset before adding; initializes Presets map if nil.
 
 **PresetExists**: Returns false if library or Presets map is nil.
+
+## Removing Resources
+
+```go
+type RemoveResourceOptions struct {
+    Ref        string // e.g., "skill/commit"
+    LibraryPath string
+    JSON       bool
+}
+
+type RemovePresetOptions struct {
+    Name        string
+    LibraryPath string
+    JSON       bool
+}
+
+// RemoveResource removes a resource from the library (deletes file + YAML entry)
+RemoveResource(opts RemoveResourceOptions) error
+
+// RemovePreset removes a preset from the library YAML
+RemovePreset(opts RemovePresetOptions) error
+```
+
+### RemoveResource Flow
+
+1. Parse ref (e.g., "skill/commit") → type, name
+2. Load library from `{libraryPath}/library.yaml`
+3. Verify resource exists → error if not
+4. Check no presets reference this resource → error if in use
+5. Delete physical file: `{libraryPath}/{type}s/{name}.md`
+6. Remove from library.yaml: `Resources[type][name]`
+7. Save library.yaml
+8. Output (--json or human)
+
+### RemovePreset Flow
+
+1. Parse name (e.g., "git-workflow")
+2. Load library from `{libraryPath}/library.yaml`
+3. Verify preset exists → error if not
+4. Capture resources list for output
+5. Remove from library.yaml: `Presets[name]`
+6. Save library.yaml
+7. Output (--json or human)
+
+### JSON Output
+
+**Resource removal:**
+```json
+{
+  "type": "resource",
+  "resourceType": "skill",
+  "name": "commit",
+  "fileDeleted": "/path/to/library/skills/commit.md",
+  "libraryPath": "/path/to/library"
+}
+```
+
+**Preset removal:**
+```json
+{
+  "type": "preset",
+  "name": "git-workflow",
+  "resourcesRemoved": ["skill/commit", "skill/pr"]
+}
+```
