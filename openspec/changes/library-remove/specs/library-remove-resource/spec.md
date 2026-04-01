@@ -107,7 +107,7 @@ The system SHALL support a `--json` flag that outputs structured JSON instead of
   "type": "resource",
   "resourceType": "skill",
   "name": "commit",
-  "fileDeleted": "skills/commit.md",
+  "fileDeleted": "/path/to/library/skills/commit.md",
   "libraryPath": "/path/to/library"
 }
 ```
