@@ -20,8 +20,9 @@ Cobra-based CLI with platform-specific validation, typed errors, and verbosity c
 | `version.go` | Display version, commit, build date |
 | `library.go` | Library management commands (init, resources, presets, show) |
 | `library_init.go` | Library init subcommand (scaffolding new libraries) |
-| `library_add.go` | Library add subcommand (import resources) |
+| `library_add.go` | Library add subcommand (import resources, discover orphans) |
 | `library_create.go` | Library create subcommand (create presets) |
+| `library_refresh.go` | Library refresh subcommand (sync metadata from files) |
 | `init.go` | Install resources from library to project |
 | `completion.go` | Shell completion command (carapace-based, multi-shell) |
 | `completions.go` | Dynamic completion actions with caching |
@@ -256,6 +257,7 @@ Manage the canonical resource library containing skills, agents, commands, and m
 |---------|-------------|
 | `library init` | Scaffold a new library directory structure |
 | `library add` | Import a resource to the library |
+| `library refresh` | Sync metadata from resource files into library.yaml |
 | `library resources` | List all resources in library (grouped by type) |
 | `library presets` | List all presets in library |
 | `library create preset` | Create a new preset |
@@ -284,6 +286,37 @@ germinator library init --dry-run
 # Overwrite existing
 germinator library init --force
 ```
+
+## Library Refresh
+
+Syncs metadata from registered resource files into `library.yaml`. Updates description from frontmatter when stale, discovers renamed files by searching directories.
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--library` | XDG default | Path to library directory |
+| `--dry-run` | false | Preview changes without modifying |
+| `--force` | false | Skip resources with conflicts |
+| `--json` | false | Output as JSON |
+
+```bash
+# Sync metadata from files
+germinator library refresh
+
+# Preview what would change
+germinator library refresh --dry-run
+
+# Skip conflicts
+germinator library refresh --force
+
+# JSON output for scripting
+germinator library refresh --json
+```
+
+**What it does:**
+- Updates `description` from frontmatter when stale
+- Updates `path` when file renamed (only if frontmatter name matches entry key)
+- Skips missing files silently
+- Collects all errors and reports at end (exit code 1 if any errors)
 
 ## Library Path Discovery
 

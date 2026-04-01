@@ -17,7 +17,8 @@ Library management for canonical resources (skills, agents, commands, memory).
 | `discovery.go` | `FindLibrary()`, `DefaultLibraryPath()` |
 | `lister.go` | `ListResources()` - groups resources by type |
 | `resolver.go` | `ResolveResource()` - resolves refs to full paths |
-| `adder.go` | `AddResource()` - imports resources into library |
+| `adder.go` | `AddResource()` - imports resources into library; also `DiscoverOrphans()` for orphan discovery |
+| `refresher.go` | `RefreshLibrary()` - syncs metadata from resource files into library.yaml |
 | `saver.go` | `SaveLibrary()`, `AddPreset()`, `PresetExists()` |
 | `remover.go` | `RemoveResource()`, `RemovePreset()` - remove resources/presets |
 | `validator.go` | `ValidateLibrary()` - checks library integrity (missing files, ghosts, orphans, malformed) |
@@ -26,7 +27,8 @@ Library management for canonical resources (skills, agents, commands, memory).
 | `lister_test.go` | Tests for ListResources |
 | `resolver_test.go` | Tests for ResolveResource |
 | `discovery_test.go` | Tests for FindLibrary |
-| `adder_test.go` | Tests for AddResource |
+| `adder_test.go` | Tests for AddResource and DiscoverOrphans |
+| `refresher_test.go` | Tests for RefreshLibrary |
 | `saver_test.go` | Tests for SaveLibrary and AddPreset |
 | `remover_test.go` | Tests for RemoveResource and RemovePreset |
 | `validator_test.go` | Tests for ValidateLibrary and fix operations |
@@ -248,3 +250,83 @@ FixLibrary(libPath string) ([]Issue, error)
 - `--fix` removes missing file entries and strips ghost preset references
 - Orphaned files are informational only (not auto-deleted)
 - Malformed frontmatter cannot be auto-repaired
+
+## Refresh
+
+```go
+type RefreshOptions struct {
+    LibraryPath string
+    DryRun      bool
+    Force       bool
+}
+
+type RefreshResult struct {
+    Refreshed []RefreshChange
+    Skipped   []RefreshSkipped
+    Errors    []RefreshError
+}
+
+type RefreshChange struct {
+    Ref   string
+    Field string // "description" or "path"
+    Old   string
+    New   string
+}
+
+type RefreshSkipped struct {
+    Ref    string
+    Reason string // "missing_file"
+}
+
+type RefreshError struct {
+    Ref    string
+    Reason string // "name_mismatch", "malformed_frontmatter"
+}
+
+// RefreshLibrary syncs metadata from registered resource files into library.yaml
+RefreshLibrary(opts RefreshOptions) (*RefreshResult, error)
+```
+
+### Refresh Behavior
+
+| Scenario | Action |
+|----------|--------|
+| Description stale | Update from frontmatter |
+| File renamed, name matches key | Update path |
+| File renamed, name mismatch | Error (use `--force` to skip) |
+| File missing | Skip silently |
+| Malformed frontmatter | Error (use `--force` to skip) |
+
+- **Collects all errors**: Does not fail on first error; reports all at end
+- **Exit code 1** if any errors occurred
+- **--force** skips conflicting resources instead of erroring
+
+## Orphan Discovery
+
+```go
+type DiscoverOptions struct {
+    LibraryPath string
+    DryRun      bool
+    Force       bool
+}
+
+type Orphan struct {
+    Name        string
+    Type        string // "skill", "agent", "command", "memory"
+    Description string
+    Path        string
+    HasConflict bool // true if name matches existing resource
+}
+
+// DiscoverOrphans finds resource files not registered in library.yaml
+DiscoverOrphans(opts DiscoverOptions) ([]Orphan, error)
+```
+
+### Discover Behavior
+
+- Scans `skills/`, `agents/`, `commands/`, `memory/` directories
+- Type detected from directory (authoritative)
+- Name from frontmatter `name` field or filename fallback
+- Description from frontmatter `description` field
+- **Report-only by default**: Use `--force` to actually register orphans
+- **Conflict detection**: Orphan name matching existing resource is flagged

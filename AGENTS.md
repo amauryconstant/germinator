@@ -158,6 +158,7 @@ germinator library init --force                 # Overwrite existing
 - `--library <path>` - Library path (uses `GERMINATOR_LIBRARY` env or default if omitted)
 - `--dry-run` - Preview changes without modifying library
 - `--force` - Overwrite existing resource with same name
+- `--discover` - Find orphaned files not in library.yaml (report-only unless `--force` is also specified)
 
 **Examples:**
 ```bash
@@ -165,6 +166,8 @@ germinator library add ~/code-reviewer.md --type agent          # Import agent
 germinator library add ./skill-commit.md --platform opencode    # Import OpenCode skill
 germinator library add resource.md --dry-run                    # Preview only
 germinator library add resource.md --force                      # Replace if exists
+germinator library add --discover                               # Find orphaned files
+germinator library add --discover --force                        # Find and register orphans
 ```
 
 **Library create preset flags:**
@@ -208,6 +211,26 @@ germinator library validate --fix                        # Auto-fix issues
 ```
 
 **Exit codes:** `0` clean, `5` validation errors, `1` unexpected errors
+
+**Library refresh flags:**
+- `--library <path>` - Library path (uses `GERMINATOR_LIBRARY` env or default if omitted)
+- `--dry-run` - Preview changes without modifying library
+- `--force` - Skip resources with conflicts (name mismatch)
+- `--json` - Output as JSON (for scripting)
+
+**Examples:**
+```bash
+germinator library refresh                              # Sync metadata from files
+germinator library refresh --dry-run                    # Preview what would change
+germinator library refresh --force                       # Skip conflicts
+germinator library refresh --json                        # JSON output for scripts
+```
+
+**What it does:**
+- Updates `description` from frontmatter when stale
+- Updates `path` when file renamed (if frontmatter name matches entry key)
+- Skips missing files silently (use `validate --fix` to remove entries)
+- Collects all errors and reports at end (exit code 1 if any errors)
 
 ## Release
 
