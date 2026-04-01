@@ -195,6 +195,20 @@ germinator library remove resource agent/reviewer --json  # Remove with JSON out
 germinator library remove preset git-workflow             # Remove a preset
 ```
 
+**Library validate flags:**
+- `--library <path>` - Library path (uses `GERMINATOR_LIBRARY` env or default if omitted)
+- `--fix` - Auto-cleanup `library.yaml` (removes missing entries, strips ghost preset refs)
+- `--json` - Output as JSON (for scripting)
+
+**Examples:**
+```bash
+germinator library validate                              # Check library integrity
+germinator library validate --json                        # JSON output for scripts
+germinator library validate --fix                        # Auto-fix issues
+```
+
+**Exit codes:** `0` clean, `5` validation errors, `1` unexpected errors
+
 ## Release
 
 | Command              | Purpose                                        |

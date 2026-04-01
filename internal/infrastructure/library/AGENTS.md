@@ -20,6 +20,7 @@ Library management for canonical resources (skills, agents, commands, memory).
 | `adder.go` | `AddResource()` - imports resources into library |
 | `saver.go` | `SaveLibrary()`, `AddPreset()`, `PresetExists()` |
 | `remover.go` | `RemoveResource()`, `RemovePreset()` - remove resources/presets |
+| `validator.go` | `ValidateLibrary()` - checks library integrity (missing files, ghosts, orphans, malformed) |
 | `library_test.go` | Tests for Library struct and Exists |
 | `loader_test.go` | Tests for LoadLibrary |
 | `lister_test.go` | Tests for ListResources |
@@ -28,6 +29,7 @@ Library management for canonical resources (skills, agents, commands, memory).
 | `adder_test.go` | Tests for AddResource |
 | `saver_test.go` | Tests for SaveLibrary and AddPreset |
 | `remover_test.go` | Tests for RemoveResource and RemovePreset |
+| `validator_test.go` | Tests for ValidateLibrary and fix operations |
 
 ## Core Types
 
@@ -220,3 +222,29 @@ RemovePreset(opts RemovePresetOptions) error
   "resourcesRemoved": ["skill/commit", "skill/pr"]
 }
 ```
+
+## Validation
+
+```go
+// ValidateLibrary checks library integrity and returns issues
+ValidateLibrary(libPath string) ([]Issue, error)
+
+// FixLibrary auto-repairs library.yaml (removes missing entries, strips ghost refs)
+FixLibrary(libPath string) ([]Issue, error)
+```
+
+### Issue Types
+
+| Type | Severity | Description | Fix Action |
+|------|----------|-------------|------------|
+| `missing-file` | error | Entry in library.yaml but file doesn't exist | Remove entry |
+| `ghost-resource` | error | Preset references non-existent resource | Strip ref from preset |
+| `orphan` | warning | File exists on disk but not in library.yaml | None (informational) |
+| `malformed` | error | Resource file has invalid YAML frontmatter | None (manual fix required) |
+
+### Fix Behavior
+
+- **Conservative**: Only modifies `library.yaml`, never deletes actual files
+- `--fix` removes missing file entries and strips ghost preset references
+- Orphaned files are informational only (not auto-deleted)
+- Malformed frontmatter cannot be auto-repaired
