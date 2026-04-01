@@ -153,5 +153,8 @@ func outputRefreshJSON(c *cobra.Command, result *library.RefreshResult) error {
 	sb.WriteString("}\n")
 
 	_, err := c.OutOrStdout().Write([]byte(sb.String()))
-	return fmt.Errorf("writing JSON output: %w", err)
+	if err != nil {
+		return fmt.Errorf("writing JSON output: %w", err)
+	}
+	return nil
 }

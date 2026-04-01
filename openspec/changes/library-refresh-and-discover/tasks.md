@@ -9,7 +9,7 @@
 - [x] 1.7 Implement name mismatch conflict detection
 - [x] 1.8 Implement malformed frontmatter error handling
 - [x] 1.9 Implement error collection (all errors collected, not fail-fast)
-- [ ] 1.10 Add `refresher_test.go` with table-driven tests for all scenarios
+- [x] 1.10 Add `refresher_test.go` with table-driven tests for all scenarios
 
 ## 2. Library Refresh CLI Command
 
@@ -33,11 +33,11 @@
 
 ## 4. Testing
 
-- [ ] 4.1 Add unit tests for `RefreshLibrary` in `refresher_test.go`
-- [ ] 4.2 Add unit tests for orphan discovery in `adder_test.go`
-- [ ] 4.3 Create `test/e2e/library_refresh_test.go` with E2E scenarios
-- [ ] 4.4 Create `test/e2e/library_discover_test.go` with E2E scenarios
-- [ ] 4.5 Add fixtures for refresh and discover test scenarios
+- [x] 4.1 Add unit tests for `RefreshLibrary` in `refresher_test.go`
+- [x] 4.2 Add unit tests for orphan discovery in `adder_test.go` (TestDiscoverOrphans exists in refresher_test.go)
+- [x] 4.3 Create `test/e2e/library_refresh_test.go` with E2E scenarios
+- [x] 4.4 Create `test/e2e/library_discover_test.go` with E2E scenarios
+- [x] 4.5 Add fixtures for refresh and discover test scenarios (existing fixtures library used)
 
 ## 5. Integration
 

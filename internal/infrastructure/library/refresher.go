@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	yaml "gopkg.in/yaml.v3"
 )
@@ -76,64 +77,17 @@ func RefreshLibrary(opts RefreshOptions) (*RefreshResult, error) {
 // processResource processes a single resource for refresh.
 func processResource(opts RefreshOptions, lib *Library, ref, resType, name string, res Resource, result *RefreshResult) {
 	filePath := filepath.Join(lib.RootPath, res.Path)
+	originalPath := filePath
+	fileRenamed := false
 
-	// Check if file exists
+	// Check if file exists - if not, search directory
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		// Skip missing files silently (left to validate --fix)
-		return
-	}
-
-	// Extract frontmatter name for conflict checking
-	frontmatterName := extractFrontmatterField(filePath, "name")
-
-	// Check for name mismatch conflict
-	if frontmatterName != "" && frontmatterName != name {
-		// Error only if not force mode
-		if !opts.Force {
-			result.Errors = append(result.Errors, RefreshError{
-				Ref:   ref,
-				Type:  "name_mismatch",
-				Field: "name",
-			})
-		}
-		// Skip regardless of force flag when there's a name mismatch
-		result.Skipped = append(result.Skipped, SkipInfo{
-			Ref:    ref,
-			Reason: "name_mismatch",
-		})
-		return
-	}
-
-	// Extract frontmatter description
-	frontmatterDesc := extractFrontmatterField(filePath, "description")
-
-	// Determine if frontmatter is malformed (invalid YAML syntax)
-	yamlContent, yamlErr := extractFrontmatter(filePath)
-	if yamlErr == nil && yamlContent != "" {
-		// Try to parse the YAML
-		var frontmatter map[string]interface{}
-		if err := yaml.Unmarshal([]byte(yamlContent), &frontmatter); err != nil {
-			// Malformed YAML
-			result.Errors = append(result.Errors, RefreshError{
-				Ref:   ref,
-				Type:  "malformed_frontmatter",
-				Field: "frontmatter",
-			})
-			result.Skipped = append(result.Skipped, SkipInfo{
-				Ref:    ref,
-				Reason: "malformed_frontmatter",
-			})
-			return
-		}
-	}
-
-	// Check if we need to search for the file in the directory (renamed file)
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		// File not at registered path, search directory
 		dirPath := filepath.Join(lib.RootPath, resType+"s")
 		foundPath, foundName := searchForFile(dirPath, name)
+
 		if foundPath != "" && foundName == name {
-			// Verify frontmatter name matches
+			// Found renamed file, update path
+			filePath = foundPath
 			if !opts.DryRun {
 				res.Path = resType + "s/" + filepath.Base(foundPath)
 				lib.Resources[resType][name] = res
@@ -141,13 +95,46 @@ func processResource(opts RefreshOptions, lib *Library, ref, resType, name strin
 			result.Refreshed = append(result.Refreshed, RefreshChange{
 				Ref:   ref,
 				Field: "path",
-				Old:   res.Path,
-				New:   resType + "s/" + filepath.Base(foundPath),
+				Old:   originalPath,
+				New:   foundPath,
 			})
+			fileRenamed = true
+		} else if foundPath != "" {
+			// Found a file but name doesn't match
+			recordNameMismatch(opts, ref, result)
+			return
+		} else {
+			// File not found at registered path and not found in directory
+			// Skip silently (left to validate --fix)
+			return
 		}
 	}
 
+	// Check for name mismatch conflict (only if file wasn't renamed)
+	if !fileRenamed {
+		frontmatterName := extractFrontmatterField(filePath, "name")
+		if frontmatterName != "" && frontmatterName != name {
+			recordNameMismatch(opts, ref, result)
+			return
+		}
+	}
+
+	// Check for malformed frontmatter
+	if isMalformedFrontmatter(filePath) {
+		result.Errors = append(result.Errors, RefreshError{
+			Ref:   ref,
+			Type:  "malformed_frontmatter",
+			Field: "frontmatter",
+		})
+		result.Skipped = append(result.Skipped, SkipInfo{
+			Ref:    ref,
+			Reason: "malformed_frontmatter",
+		})
+		return
+	}
+
 	// Update description if different
+	frontmatterDesc := extractFrontmatterField(filePath, "description")
 	if frontmatterDesc != "" && frontmatterDesc != res.Description {
 		if !opts.DryRun {
 			res.Description = frontmatterDesc
@@ -162,7 +149,50 @@ func processResource(opts RefreshOptions, lib *Library, ref, resType, name strin
 	}
 }
 
+// recordNameMismatch records a name mismatch error and skip.
+func recordNameMismatch(opts RefreshOptions, ref string, result *RefreshResult) {
+	if !opts.Force {
+		result.Errors = append(result.Errors, RefreshError{
+			Ref:   ref,
+			Type:  "name_mismatch",
+			Field: "name",
+		})
+	}
+	result.Skipped = append(result.Skipped, SkipInfo{
+		Ref:    ref,
+		Reason: "name_mismatch",
+	})
+}
+
+// isMalformedFrontmatter checks if the file has malformed frontmatter.
+func isMalformedFrontmatter(filePath string) bool {
+	yamlContent, yamlErr := extractFrontmatter(filePath)
+
+	// Check for malformed frontmatter: file starts with --- but extractFrontmatter returned empty
+	if yamlErr == nil && yamlContent == "" {
+		// Check if raw file content starts with --- (malformed if so)
+		content, err := os.ReadFile(filePath) //nolint:gosec // G304: filePath is derived from library resource path, not user input
+		if err != nil {
+			return false
+		}
+		lines := strings.Split(string(content), "\n")
+		return len(lines) > 0 && strings.TrimSpace(lines[0]) == "---"
+	}
+
+	// Check if YAML parsing fails
+	if yamlErr == nil && yamlContent != "" {
+		var frontmatter map[string]interface{}
+		if err := yaml.Unmarshal([]byte(yamlContent), &frontmatter); err != nil {
+			return true
+		}
+	}
+
+	return false
+}
+
 // searchForFile searches a directory for a file with matching frontmatter name.
+// Returns (path, name, found) where found is true if a file was located,
+// regardless of whether the name matched.
 func searchForFile(dirPath, targetName string) (string, string) {
 	entries, err := os.ReadDir(dirPath)
 	if err != nil {
@@ -176,6 +206,11 @@ func searchForFile(dirPath, targetName string) (string, string) {
 		filePath := filepath.Join(dirPath, entry.Name())
 		name := extractFrontmatterField(filePath, "name")
 		if name == targetName {
+			return filePath, name
+		}
+		// Found a file but name doesn't match - return it anyway
+		// so the caller can distinguish "found with mismatch" from "not found"
+		if name != "" {
 			return filePath, name
 		}
 	}
