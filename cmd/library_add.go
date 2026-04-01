@@ -22,24 +22,39 @@ func NewLibraryAddCommand(cfg *CommandConfig, libraryPath *string) *cobra.Comman
 		platform    string
 		force       bool
 		dryRun      bool
+		discover    bool
 	}
 
 	cmd := &cobra.Command{
-		Use:   "add <source>",
+		Use:   "add [source]",
 		Short: "Add a resource to the library",
 		Long: `Add a resource from a source file to the library.
 
 The source can be a canonical document or a platform-specific document.
 Type, name, and description are auto-detected if not provided.
 
+Alternatively, use --discover to find orphaned resource files not in library.yaml.
+
 Examples:
   germinator library add skill-commit.md
   germinator library add agent-reviewer.md --type agent
   germinator library add code-reviewer.md --platform opencode
-  germinator library add skill-commit.md --dry-run`,
-		Args: cobra.ExactArgs(1),
+  germinator library add skill-commit.md --dry-run
+  germinator library add --discover
+  germinator library add --discover --force`,
+		Args: func(_ *cobra.Command, args []string) error {
+			// If --discover is set, no source is required
+			if opts.discover {
+				return nil
+			}
+			// Otherwise, exactly one argument required
+			if len(args) != 1 {
+				return errors.New("requires a source file argument (or use --discover to find orphans)")
+			}
+			return nil
+		},
 		RunE: func(c *cobra.Command, args []string) error {
-			return runLibraryAdd(c, cfg, libraryPath, &opts, args[0])
+			return runLibraryAdd(c, cfg, libraryPath, &opts, args)
 		},
 	}
 
@@ -49,6 +64,7 @@ Examples:
 	cmd.Flags().StringVar(&opts.platform, "platform", "", "Source platform (opencode, claude-code)")
 	cmd.Flags().BoolVar(&opts.force, "force", false, "Overwrite existing resource")
 	cmd.Flags().BoolVar(&opts.dryRun, "dry-run", false, "Preview changes without adding")
+	cmd.Flags().BoolVar(&opts.discover, "discover", false, "Discover orphaned resource files not in library.yaml")
 
 	return cmd
 }
@@ -61,7 +77,8 @@ func runLibraryAdd(c *cobra.Command, cfg *CommandConfig, libraryPath *string, op
 	platform    string
 	force       bool
 	dryRun      bool
-}, source string) error {
+	discover    bool
+}, args []string) error {
 	verbosity, _ := c.Flags().GetCount("verbose")
 	cfg.Verbosity = Verbosity(verbosity)
 
@@ -70,6 +87,14 @@ func runLibraryAdd(c *cobra.Command, cfg *CommandConfig, libraryPath *string, op
 	path := library.FindLibrary(*libraryPath, envPath)
 
 	VerbosePrint(cfg, "Using library at: %s", path)
+
+	// Handle discover mode
+	if opts.discover {
+		return runLibraryDiscover(c, cfg, path, opts)
+	}
+
+	// Normal add mode - args[0] is the source
+	source := args[0]
 
 	// Detect resource type
 	resType := detectResourceType(source, opts.resType)
@@ -106,6 +131,54 @@ func runLibraryAdd(c *cobra.Command, cfg *CommandConfig, libraryPath *string, op
 	})
 	if err != nil {
 		return fmt.Errorf("adding resource: %w", err)
+	}
+
+	return nil
+}
+
+// runLibraryDiscover executes the orphan discovery logic.
+func runLibraryDiscover(c *cobra.Command, _ *CommandConfig, path string, opts *struct {
+	name        string
+	description string
+	resType     string
+	platform    string
+	force       bool
+	dryRun      bool
+	discover    bool
+}) error {
+	result, err := library.DiscoverOrphans(library.DiscoverOptions{
+		LibraryPath: path,
+		DryRun:      opts.dryRun,
+		Force:       opts.force,
+	})
+	if err != nil {
+		return fmt.Errorf("discovering orphans: %w", err)
+	}
+
+	// Output results
+	if opts.dryRun {
+		_, _ = fmt.Fprintln(c.OutOrStdout(), "Dry-run: no changes made")
+	}
+
+	if len(result.Orphans) > 0 {
+		_, _ = fmt.Fprintln(c.OutOrStdout(), "\nOrphaned resources:")
+		for _, orphan := range result.Orphans {
+			_, _ = fmt.Fprintf(c.OutOrStdout(), "  %s/%s - %s\n", orphan.Type, orphan.Name, orphan.Description)
+		}
+	}
+
+	if len(result.Added) > 0 {
+		_, _ = fmt.Fprintln(c.OutOrStdout(), "\nRegistered:")
+		for _, added := range result.Added {
+			_, _ = fmt.Fprintf(c.OutOrStdout(), "  %s/%s\n", added.Type, added.Name)
+		}
+	}
+
+	if len(result.Conflicts) > 0 {
+		_, _ = fmt.Fprintln(c.OutOrStdout(), "\nConflicts:")
+		for _, conflict := range result.Conflicts {
+			_, _ = fmt.Fprintf(c.OutOrStdout(), "  %s/%s: %s\n", conflict.Orphan.Type, conflict.Orphan.Name, conflict.Issue)
+		}
 	}
 
 	return nil

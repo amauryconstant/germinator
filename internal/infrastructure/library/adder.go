@@ -428,3 +428,158 @@ func extractNameFromFilename(source string) string {
 
 	return name
 }
+
+// DiscoverOptions contains options for discovering orphaned resources.
+type DiscoverOptions struct {
+	LibraryPath string
+	DryRun      bool
+	Force       bool
+}
+
+// DiscoverOrphan represents an orphaned resource found during discovery.
+type DiscoverOrphan struct {
+	Type        string
+	Name        string
+	Description string
+	Path        string
+}
+
+// DiscoverResult contains the result of an orphan discovery operation.
+type DiscoverResult struct {
+	Orphans   []DiscoverOrphan
+	Added     []DiscoverOrphan
+	Conflicts []DiscoverConflict
+}
+
+// DiscoverConflict represents a conflict during orphan discovery.
+type DiscoverConflict struct {
+	Orphan DiscoverOrphan
+	Issue  string
+}
+
+// DiscoverOrphans scans library directories for orphaned resource files.
+func DiscoverOrphans(opts DiscoverOptions) (*DiscoverResult, error) {
+	// Load the library to get registered resources
+	lib, err := LoadLibrary(opts.LibraryPath)
+	if err != nil {
+		return nil, fmt.Errorf("loading library: %w", err)
+	}
+
+	result := &DiscoverResult{}
+
+	// Scan each resource directory
+	directories := map[string]string{
+		"skills":   "skill",
+		"agents":   "agent",
+		"commands": "command",
+		"memory":   "memory",
+	}
+
+	for dir, resType := range directories {
+		dirPath := filepath.Join(opts.LibraryPath, dir)
+		if err := scanDirectory(dirPath, resType, lib, opts, result); err != nil {
+			return nil, err
+		}
+	}
+
+	// If force and no conflicts, register orphans
+	if opts.Force && len(result.Conflicts) == 0 && !opts.DryRun {
+		for _, orphan := range result.Orphans {
+			if err := registerOrphan(opts.LibraryPath, orphan); err != nil {
+				return nil, err
+			}
+			result.Added = append(result.Added, orphan)
+		}
+	}
+
+	return result, nil
+}
+
+// scanDirectory scans a single resource directory for orphans.
+func scanDirectory(dirPath, resType string, lib *Library, _ DiscoverOptions, result *DiscoverResult) error {
+	entries, err := os.ReadDir(dirPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil // Directory doesn't exist, skip
+		}
+		return fmt.Errorf("reading directory %s: %w", dirPath, err)
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		filePath := filepath.Join(dirPath, entry.Name())
+		orphan := detectOrphan(filePath, resType)
+
+		// Check if already registered
+		if isRegistered(lib, resType, orphan.Name) {
+			continue
+		}
+
+		// Check for name conflict with other type
+		if hasNameConflict(lib, orphan.Name) {
+			result.Conflicts = append(result.Conflicts, DiscoverConflict{
+				Orphan: orphan,
+				Issue:  "name_conflict",
+			})
+			continue
+		}
+
+		result.Orphans = append(result.Orphans, orphan)
+	}
+
+	return nil
+}
+
+// detectOrphan detects orphan metadata from a file.
+func detectOrphan(filePath, resType string) DiscoverOrphan {
+	orphan := DiscoverOrphan{
+		Type: resType,
+		Path: filePath,
+	}
+
+	// Try to get name from frontmatter first, then filename
+	if name := extractFrontmatterField(filePath, "name"); name != "" {
+		orphan.Name = name
+	} else {
+		orphan.Name = extractNameFromFilename(filePath)
+	}
+
+	// Get description from frontmatter
+	orphan.Description = extractFrontmatterField(filePath, "description")
+
+	return orphan
+}
+
+// isRegistered checks if a resource is already registered in the library.
+func isRegistered(lib *Library, resType, name string) bool {
+	typeMap, exists := lib.Resources[resType]
+	if !exists {
+		return false
+	}
+	_, exists = typeMap[name]
+	return exists
+}
+
+// hasNameConflict checks if the orphan name conflicts with resources of other types.
+func hasNameConflict(lib *Library, name string) bool {
+	for _, resources := range lib.Resources {
+		if _, exists := resources[name]; exists {
+			return true
+		}
+	}
+	return false
+}
+
+// registerOrphan adds an orphan to the library.
+func registerOrphan(libraryPath string, orphan DiscoverOrphan) error {
+	// Add to library.yaml using existing function
+	err := addResourceToLibrary(libraryPath, orphan.Type, orphan.Name, orphan.Path, orphan.Description)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
