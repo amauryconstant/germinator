@@ -27,7 +27,8 @@ Subcommands:
   show       Display details of a resource or preset
   add        Add a resource to the library
   create     Create resources in the library
-  remove     Remove a resource or preset from the library`,
+  remove     Remove a resource or preset from the library
+  validate   Validate library integrity`,
 		Run: func(c *cobra.Command, _ []string) {
 			_ = c.Help()
 		},
@@ -42,6 +43,7 @@ Subcommands:
 	cmd.AddCommand(NewLibraryAddCommand(cfg, &libraryPath))
 	cmd.AddCommand(NewLibraryCreateCommand(cfg, &libraryPath))
 	cmd.AddCommand(NewLibraryRemoveCommand(cfg, &libraryPath))
+	cmd.AddCommand(NewLibraryValidateCommand(cfg, &libraryPath))
 
 	return cmd
 }
