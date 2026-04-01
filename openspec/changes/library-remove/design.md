@@ -60,7 +60,7 @@ The library system is structured as:
   "type": "resource",
   "resourceType": "skill",
   "name": "commit",
-  "fileDeleted": "skills/commit.md",
+  "fileDeleted": "/path/to/library/skills/commit.md",
   "libraryPath": "/path/to/library"
 }
 ```
