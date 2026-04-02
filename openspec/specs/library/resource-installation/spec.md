@@ -77,14 +77,29 @@ The system SHALL preview changes without writing files in dry-run mode.
 - **WHEN** InitializeResources is called
 - **THEN** output paths are printed but no files are written
 
-### Requirement: Fail-fast on errors
+### Requirement: Process all resources regardless of errors
 
-The system SHALL stop processing on first error (fail-fast strategy).
+The system SHALL process all resources in the request, continuing on individual errors.
 
-#### Scenario: Fail-fast on error
+#### Scenario: Process all resources with mixed results
 - **GIVEN** resources `["skill/commit", "skill/invalid", "skill/merge-request"]`
 - **WHEN** InitializeResources is called and `skill/invalid` fails
-- **THEN** processing stops at the error, `skill/merge-request` is not processed
+- **THEN** `skill/commit` is processed successfully
+- **AND** `skill/invalid` has an error in its result
+- **AND** `skill/merge-request` is processed
+
+#### Scenario: Return all results even on errors
+- **GIVEN** a batch of resources with some failures
+- **WHEN** InitializeResources is called
+- **THEN** a result is returned for every resource
+- **AND** successful results have no error
+- **AND** failed results have the error set
+
+#### Scenario: Continue through file write errors
+- **GIVEN** resources where one fails to write due to permissions
+- **WHEN** InitializeResources is called
+- **THEN** the failing resource has an error in its result
+- **AND** other resources are still processed
 
 ### Requirement: Create output directories
 
