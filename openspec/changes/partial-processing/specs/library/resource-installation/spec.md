@@ -31,3 +31,16 @@ The system SHALL process all resources in the request, continuing on individual 
 - **WHEN** InitializeResources is called
 - **THEN** the failing resource has an error in its result
 - **AND** other resources are still processed
+
+## REMOVED Requirements
+
+### Requirement: Fail-fast on errors
+
+The system SHALL stop processing on first error (fail-fast strategy).
+
+#### Scenario: Fail-fast on error
+- **GIVEN** resources `["skill/commit", "skill/invalid", "skill/merge-request"]`
+- **WHEN** InitializeResources is called and `skill/invalid` fails
+- **THEN** processing stops at the error, `skill/merge-request` is not processed
+
+**Migration**: This requirement is replaced by "Process all resources regardless of errors" in MODIFIED Requirements. The new behavior continues processing all resources and collects individual results instead of stopping on the first error.
