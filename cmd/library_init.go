@@ -1,11 +1,25 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
 	"gitlab.com/amoconst/germinator/internal/infrastructure/library"
 )
+
+// InitJSONOutput represents JSON output for library init.
+type InitJSONOutput struct {
+	Path    string `json:"path"`
+	DryRun  bool   `json:"dryRun"`
+	Created bool   `json:"created"`
+}
+
+// InitErrorJSON represents JSON output for library init error.
+type InitErrorJSON struct {
+	Error string `json:"error"`
+	Path  string `json:"path"`
+}
 
 // NewLibraryInitCommand creates the library init subcommand.
 func NewLibraryInitCommand(cfg *CommandConfig) *cobra.Command {
@@ -30,7 +44,8 @@ Examples:
   germinator library init
   germinator library init --path /tmp/my-library
   germinator library init --dry-run
-  germinator library init --force`,
+  germinator library init --force
+  germinator library init --json`,
 		RunE: func(c *cobra.Command, _ []string) error {
 			verbosity, _ := c.Flags().GetCount("verbose")
 			cfg.Verbosity = Verbosity(verbosity)
@@ -50,13 +65,34 @@ Examples:
 				Force:  opts.force,
 			})
 			if err != nil {
+				jsonFlag, _ := c.Flags().GetBool("json")
+				if jsonFlag {
+					errOutput := InitErrorJSON{
+						Error: err.Error(),
+						Path:  path,
+					}
+					jsonErr, _ := json.Marshal(errOutput)
+					_, _ = fmt.Fprintln(c.OutOrStderr(), string(jsonErr))
+				}
 				return fmt.Errorf("creating library: %w", err)
 			}
 
-			if opts.dryRun {
-				VerbosePrint(cfg, "Dry run complete - no changes made")
+			// Output success
+			jsonFlag, _ := c.Flags().GetBool("json")
+			if jsonFlag {
+				output := InitJSONOutput{
+					Path:    path,
+					DryRun:  opts.dryRun,
+					Created: !opts.dryRun,
+				}
+				jsonOutput, _ := json.Marshal(output)
+				_, _ = fmt.Fprintln(c.OutOrStdout(), string(jsonOutput))
 			} else {
-				VerbosePrint(cfg, "Library created successfully at: %s", path)
+				if opts.dryRun {
+					VerbosePrint(cfg, "Dry run complete - no changes made")
+				} else {
+					VerbosePrint(cfg, "Library created successfully at: %s", path)
+				}
 			}
 
 			return nil

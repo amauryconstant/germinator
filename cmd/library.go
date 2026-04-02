@@ -36,6 +36,7 @@ Subcommands:
 	}
 
 	cmd.PersistentFlags().StringVar(&libraryPath, "library", "", "Path to library directory (default: ~/.config/germinator/library/)")
+	cmd.PersistentFlags().Bool("json", false, "Output as JSON")
 
 	cmd.AddCommand(NewLibraryResourcesCommand(cfg, &libraryPath))
 	cmd.AddCommand(NewLibraryPresetsCommand(cfg, &libraryPath))
@@ -61,7 +62,8 @@ Resources are displayed in sections: Skills, Agents, Commands, Memory.
 
 Example:
   germinator library resources
-  germinator library resources --library /path/to/library`,
+  germinator library resources --library /path/to/library
+  germinator library resources --json`,
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
 			verbosity, _ := c.Flags().GetCount("verbose")
@@ -77,6 +79,12 @@ Example:
 			lib, err := library.LoadLibrary(path)
 			if err != nil {
 				return fmt.Errorf("loading library: %w", err)
+			}
+
+			// Check for JSON output
+			jsonFlag, _ := c.Flags().GetBool("json")
+			if jsonFlag {
+				return outputResourcesJSON(c, lib)
 			}
 
 			// List resources
@@ -96,7 +104,8 @@ func NewLibraryPresetsCommand(cfg *CommandConfig, libraryPath *string) *cobra.Co
 
 Example:
   germinator library presets
-  germinator library presets --library /path/to/library`,
+  germinator library presets --library /path/to/library
+  germinator library presets --json`,
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
 			verbosity, _ := c.Flags().GetCount("verbose")
@@ -112,6 +121,12 @@ Example:
 			lib, err := library.LoadLibrary(path)
 			if err != nil {
 				return fmt.Errorf("loading library: %w", err)
+			}
+
+			// Check for JSON output
+			jsonFlag, _ := c.Flags().GetBool("json")
+			if jsonFlag {
+				return outputPresetsJSON(c, lib)
 			}
 
 			// List presets
@@ -135,7 +150,9 @@ For presets, use the preset/ prefix (e.g., preset/git-workflow)
 Examples:
   germinator library show skill/commit
   germinator library show preset/git-workflow
-  germinator library show agent/reviewer --library /path/to/library`,
+  germinator library show agent/reviewer --library /path/to/library
+  germinator library show skill/commit --json
+  germinator library show preset/git-workflow --json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			verbosity, _ := c.Flags().GetCount("verbose")
@@ -155,9 +172,15 @@ Examples:
 				return fmt.Errorf("loading library: %w", err)
 			}
 
+			// Check for JSON output
+			jsonFlag, _ := c.Flags().GetBool("json")
+
 			// Check if it's a preset reference
 			if len(ref) > 7 && ref[:7] == "preset/" {
 				presetName := ref[7:]
+				if jsonFlag {
+					return outputShowPresetJSON(c, lib, presetName)
+				}
 				output, err := formatPresetDetails(lib, presetName)
 				if err != nil {
 					return err
@@ -172,6 +195,9 @@ Examples:
 			}
 
 			// Show resource details
+			if jsonFlag {
+				return outputShowResourceJSON(c, lib, ref)
+			}
 			output, err := formatResourceDetails(lib, ref)
 			if err != nil {
 				return err

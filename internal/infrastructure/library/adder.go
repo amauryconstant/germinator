@@ -108,7 +108,6 @@ func AddResource(opts AddOptions) error {
 		return fmt.Errorf("validating updated library: %w", err)
 	}
 
-	fmt.Printf("Added resource: %s\n", resourceKey)
 	return nil
 }
 

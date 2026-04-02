@@ -14,7 +14,6 @@ func NewLibraryRefreshCommand(cfg *CommandConfig, libraryPath *string) *cobra.Co
 	var opts struct {
 		dryRun bool
 		force  bool
-		json   bool
 	}
 
 	cmd := &cobra.Command{
@@ -38,7 +37,6 @@ Examples:
 
 	cmd.Flags().BoolVar(&opts.dryRun, "dry-run", false, "Preview changes without modifying library.yaml")
 	cmd.Flags().BoolVar(&opts.force, "force", false, "Skip resources with conflicts")
-	cmd.Flags().BoolVar(&opts.json, "json", false, "Output as JSON")
 
 	return cmd
 }
@@ -47,7 +45,6 @@ Examples:
 func runLibraryRefresh(c *cobra.Command, cfg *CommandConfig, libraryPath *string, opts *struct {
 	dryRun bool
 	force  bool
-	json   bool
 }) error {
 	verbosity, _ := c.Flags().GetCount("verbose")
 	cfg.Verbosity = Verbosity(verbosity)
@@ -69,7 +66,8 @@ func runLibraryRefresh(c *cobra.Command, cfg *CommandConfig, libraryPath *string
 	}
 
 	// Output results
-	if opts.json {
+	jsonFlag, _ := c.Flags().GetBool("json")
+	if jsonFlag {
 		return outputRefreshJSON(c, result)
 	}
 

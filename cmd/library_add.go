@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -12,6 +13,44 @@ import (
 	"gitlab.com/amoconst/germinator/internal/application"
 	"gitlab.com/amoconst/germinator/internal/infrastructure/library"
 )
+
+// AddResourceJSONOutput represents JSON output for successful resource add.
+type AddResourceJSONOutput struct {
+	Type        string `json:"type"`
+	Name        string `json:"name"`
+	Path        string `json:"path"`
+	LibraryPath string `json:"libraryPath"`
+}
+
+// AddResourceErrorJSON represents JSON output for failed resource add.
+type AddResourceErrorJSON struct {
+	Error string `json:"error"`
+	Type  string `json:"type,omitempty"`
+	Name  string `json:"name,omitempty"`
+}
+
+// DiscoverJSONOutput represents JSON output for orphan discovery.
+type DiscoverJSONOutput struct {
+	Orphans     []DiscoverOrphanJSON   `json:"orphans,omitempty"`
+	Added       []DiscoverOrphanJSON   `json:"added,omitempty"`
+	Conflicts   []DiscoverConflictJSON `json:"conflicts,omitempty"`
+	DryRun      bool                   `json:"dryRun"`
+	LibraryPath string                 `json:"libraryPath"`
+}
+
+// DiscoverOrphanJSON represents an orphaned resource in JSON output.
+type DiscoverOrphanJSON struct {
+	Type        string `json:"type"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	Path        string `json:"path"`
+}
+
+// DiscoverConflictJSON represents a conflict during orphan discovery.
+type DiscoverConflictJSON struct {
+	Orphan DiscoverOrphanJSON `json:"orphan"`
+	Issue  string             `json:"issue"`
+}
 
 // NewLibraryAddCommand creates the library add subcommand.
 func NewLibraryAddCommand(cfg *CommandConfig, libraryPath *string) *cobra.Command {
@@ -130,7 +169,34 @@ func runLibraryAdd(c *cobra.Command, cfg *CommandConfig, libraryPath *string, op
 		Force:       opts.force,
 	})
 	if err != nil {
+		jsonFlag, _ := c.Flags().GetBool("json")
+		if jsonFlag {
+			errOutput := AddResourceErrorJSON{
+				Error: err.Error(),
+				Type:  resType,
+				Name:  name,
+			}
+			jsonErr, _ := json.Marshal(errOutput)
+			_, _ = fmt.Fprintln(c.OutOrStderr(), string(jsonErr))
+		}
 		return fmt.Errorf("adding resource: %w", err)
+	}
+
+	// Output success
+	jsonFlag, _ := c.Flags().GetBool("json")
+	if jsonFlag {
+		// Derive the path from library structure
+		resourcePath := fmt.Sprintf("%ss/%s.md", resType, name)
+		output := AddResourceJSONOutput{
+			Type:        resType,
+			Name:        name,
+			Path:        resourcePath,
+			LibraryPath: path,
+		}
+		jsonOutput, _ := json.Marshal(output)
+		_, _ = fmt.Fprintln(c.OutOrStdout(), string(jsonOutput))
+	} else {
+		fmt.Printf("Added resource: %s/%s\n", resType, name)
 	}
 
 	return nil
@@ -155,7 +221,13 @@ func runLibraryDiscover(c *cobra.Command, _ *CommandConfig, path string, opts *s
 		return fmt.Errorf("discovering orphans: %w", err)
 	}
 
-	// Output results
+	// Check for JSON output
+	jsonFlag, _ := c.Flags().GetBool("json")
+	if jsonFlag {
+		return outputDiscoverJSON(c, result, path, opts.dryRun)
+	}
+
+	// Output results (human-readable)
 	if opts.dryRun {
 		_, _ = fmt.Fprintln(c.OutOrStdout(), "Dry-run: no changes made")
 	}
@@ -181,6 +253,54 @@ func runLibraryDiscover(c *cobra.Command, _ *CommandConfig, path string, opts *s
 		}
 	}
 
+	return nil
+}
+
+// outputDiscoverJSON outputs discovery results as JSON.
+func outputDiscoverJSON(c *cobra.Command, result *library.DiscoverResult, path string, dryRun bool) error {
+	output := DiscoverJSONOutput{
+		Orphans:     make([]DiscoverOrphanJSON, 0, len(result.Orphans)),
+		Added:       make([]DiscoverOrphanJSON, 0, len(result.Added)),
+		Conflicts:   make([]DiscoverConflictJSON, 0, len(result.Conflicts)),
+		DryRun:      dryRun,
+		LibraryPath: path,
+	}
+
+	for _, orphan := range result.Orphans {
+		output.Orphans = append(output.Orphans, DiscoverOrphanJSON{
+			Type:        orphan.Type,
+			Name:        orphan.Name,
+			Description: orphan.Description,
+			Path:        orphan.Path,
+		})
+	}
+
+	for _, added := range result.Added {
+		output.Added = append(output.Added, DiscoverOrphanJSON{
+			Type:        added.Type,
+			Name:        added.Name,
+			Description: added.Description,
+			Path:        added.Path,
+		})
+	}
+
+	for _, conflict := range result.Conflicts {
+		output.Conflicts = append(output.Conflicts, DiscoverConflictJSON{
+			Orphan: DiscoverOrphanJSON{
+				Type:        conflict.Orphan.Type,
+				Name:        conflict.Orphan.Name,
+				Description: conflict.Orphan.Description,
+				Path:        conflict.Orphan.Path,
+			},
+			Issue: conflict.Issue,
+		})
+	}
+
+	encoder := json.NewEncoder(c.OutOrStdout())
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(output); err != nil {
+		return fmt.Errorf("encoding JSON output: %w", err)
+	}
 	return nil
 }
 

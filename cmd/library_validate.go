@@ -14,8 +14,7 @@ import (
 // NewLibraryValidateCommand creates the library validate subcommand.
 func NewLibraryValidateCommand(cfg *CommandConfig, libraryPath *string) *cobra.Command {
 	var opts struct {
-		fix  bool
-		json bool
+		fix bool
 	}
 
 	cmd := &cobra.Command{
@@ -44,15 +43,13 @@ Examples:
 	}
 
 	cmd.Flags().BoolVar(&opts.fix, "fix", false, "Auto-clean library.yaml (removes missing entries and ghost preset refs)")
-	cmd.Flags().BoolVar(&opts.json, "json", false, "Output as JSON")
 
 	return cmd
 }
 
 // runLibraryValidate executes the library validate logic.
 func runLibraryValidate(c *cobra.Command, cfg *CommandConfig, libraryPath *string, opts *struct {
-	fix  bool
-	json bool
+	fix bool
 }) error {
 	verbosity, _ := c.Flags().GetCount("verbose")
 	cfg.Verbosity = Verbosity(verbosity)
@@ -86,7 +83,8 @@ func runLibraryValidate(c *cobra.Command, cfg *CommandConfig, libraryPath *strin
 	}
 
 	// Output results
-	if opts.json {
+	jsonFlag, _ := c.Flags().GetBool("json")
+	if jsonFlag {
 		return outputJSON(c, result)
 	}
 	return outputHuman(c, cfg, result, opts.fix)

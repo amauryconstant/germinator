@@ -32,10 +32,6 @@ Subcommands:
 
 // NewLibraryRemoveResourceCommand creates the library remove resource subcommand.
 func NewLibraryRemoveResourceCommand(cfg *CommandConfig, libraryPath *string) *cobra.Command {
-	var opts struct {
-		json bool
-	}
-
 	cmd := &cobra.Command{
 		Use:   "resource <ref>",
 		Short: "Remove a resource from the library",
@@ -63,10 +59,10 @@ Examples:
 			result, err := library.RemoveResource(library.RemoveResourceOptions{
 				Ref:         ref,
 				LibraryPath: path,
-				JSON:        opts.json,
 			})
 			if err != nil {
-				if opts.json {
+				jsonFlag, _ := c.Flags().GetBool("json")
+				if jsonFlag {
 					errOutput := library.RemoveResourceError{
 						Error:        err.Error(),
 						Type:         "resource",
@@ -79,7 +75,8 @@ Examples:
 				return fmt.Errorf("removing resource: %w", err)
 			}
 
-			if opts.json {
+			jsonFlag, _ := c.Flags().GetBool("json")
+			if jsonFlag {
 				jsonOutput, _ := json.Marshal(result)
 				_, _ = fmt.Fprintln(c.OutOrStdout(), string(jsonOutput))
 			} else {
@@ -90,17 +87,11 @@ Examples:
 		},
 	}
 
-	cmd.Flags().BoolVar(&opts.json, "json", false, "Output as JSON")
-
 	return cmd
 }
 
 // NewLibraryRemovePresetCommand creates the library remove preset subcommand.
 func NewLibraryRemovePresetCommand(cfg *CommandConfig, libraryPath *string) *cobra.Command {
-	var opts struct {
-		json bool
-	}
-
 	cmd := &cobra.Command{
 		Use:   "preset <name>",
 		Short: "Remove a preset from the library",
@@ -127,10 +118,10 @@ Examples:
 			result, err := library.RemovePreset(library.RemovePresetOptions{
 				Name:        name,
 				LibraryPath: path,
-				JSON:        opts.json,
 			})
 			if err != nil {
-				if opts.json {
+				jsonFlag, _ := c.Flags().GetBool("json")
+				if jsonFlag {
 					errOutput := library.RemovePresetError{
 						Error: err.Error(),
 						Type:  "preset",
@@ -142,7 +133,8 @@ Examples:
 				return fmt.Errorf("removing preset: %w", err)
 			}
 
-			if opts.json {
+			jsonFlag, _ := c.Flags().GetBool("json")
+			if jsonFlag {
 				jsonOutput, _ := json.Marshal(result)
 				_, _ = fmt.Fprintln(c.OutOrStdout(), string(jsonOutput))
 			} else {
@@ -152,8 +144,6 @@ Examples:
 			return nil
 		},
 	}
-
-	cmd.Flags().BoolVar(&opts.json, "json", false, "Output as JSON")
 
 	return cmd
 }
