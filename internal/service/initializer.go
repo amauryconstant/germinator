@@ -3,7 +3,7 @@ package service
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"os"
 	"path/filepath"
 
@@ -27,7 +27,8 @@ func NewInitializer(parser application.Parser, serializer application.Serializer
 }
 
 // Initialize installs resources from the library to the target directory.
-// It uses fail-fast error handling - stops on first error.
+// It uses partial processing - continues on individual errors, collecting all results.
+// Returns error only if ALL resources fail; returns nil if at least one succeeds.
 func (i *initializer) Initialize(_ context.Context, req *application.InitializeRequest) ([]domain.InitializeResult, error) {
 	results := make([]domain.InitializeResult, 0, len(req.Refs))
 
@@ -39,7 +40,7 @@ func (i *initializer) Initialize(_ context.Context, req *application.InitializeR
 		if err != nil {
 			result.Error = err
 			results = append(results, result)
-			return results, fmt.Errorf("resolving resource %q: %w", ref, err)
+			continue
 		}
 		result.InputPath = inputPath
 
@@ -48,14 +49,14 @@ func (i *initializer) Initialize(_ context.Context, req *application.InitializeR
 		if err != nil {
 			result.Error = err
 			results = append(results, result)
-			return results, fmt.Errorf("parsing ref %q: %w", ref, err)
+			continue
 		}
 
 		outputPath, err := library.GetOutputPath(typ, name, req.Platform, req.OutputDir)
 		if err != nil {
 			result.Error = err
 			results = append(results, result)
-			return results, fmt.Errorf("getting output path for %s/%s: %w", typ, name, err)
+			continue
 		}
 		result.OutputPath = outputPath
 
@@ -64,7 +65,7 @@ func (i *initializer) Initialize(_ context.Context, req *application.InitializeR
 			if _, err := os.Stat(outputPath); err == nil {
 				result.Error = domain.NewFileError(outputPath, "write", "file exists (use --force to overwrite)", nil)
 				results = append(results, result)
-				return results, result.Error
+				continue
 			}
 		}
 
@@ -79,7 +80,7 @@ func (i *initializer) Initialize(_ context.Context, req *application.InitializeR
 		if err != nil {
 			result.Error = err
 			results = append(results, result)
-			return results, fmt.Errorf("loading document from %q: %w", inputPath, err)
+			continue
 		}
 
 		// Render the document
@@ -87,7 +88,7 @@ func (i *initializer) Initialize(_ context.Context, req *application.InitializeR
 		if err != nil {
 			result.Error = err
 			results = append(results, result)
-			return results, fmt.Errorf("rendering document for %s: %w", req.Platform, err)
+			continue
 		}
 
 		// Create output directory
@@ -95,17 +96,30 @@ func (i *initializer) Initialize(_ context.Context, req *application.InitializeR
 		if err := os.MkdirAll(outputDir, 0755); err != nil { //nolint:gosec // G301: User owns output directory, 0755 is standard permission
 			result.Error = domain.NewFileError(outputPath, "mkdir", "failed to create output directory", err)
 			results = append(results, result)
-			return results, result.Error
+			continue
 		}
 
 		// Write the file
 		if err := os.WriteFile(outputPath, []byte(rendered), 0644); err != nil { //nolint:gosec // G306: User owns output file, 0644 is standard readable permission
 			result.Error = domain.NewFileError(outputPath, "write", "failed to write output file", err)
 			results = append(results, result)
-			return results, result.Error
+			continue
 		}
 
 		results = append(results, result)
+	}
+
+	// Return error only if ALL resources failed
+	hasSuccess := false
+	for _, r := range results {
+		if r.Error == nil {
+			hasSuccess = true
+			break
+		}
+	}
+	if !hasSuccess && len(results) > 0 {
+		// All resources failed - return an aggregate error
+		return results, errors.New("all resources failed to initialize")
 	}
 
 	return results, nil

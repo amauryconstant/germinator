@@ -117,23 +117,31 @@ Examples:
 				DryRun:    dryRun,
 				Force:     force,
 			})
-			if err != nil {
-				// Print any partial results
-				for _, r := range results {
-					if r.Error != nil {
-						fmt.Fprintf(os.Stderr, "Error: %s: %v\n", r.Ref, r.Error)
-					}
+
+			// Calculate success/fail counts
+			successCount := 0
+			failCount := 0
+			for _, r := range results {
+				if r.Error == nil {
+					successCount++
+				} else {
+					failCount++
 				}
-				return fmt.Errorf("initializing resources: %w", err)
 			}
 
-			// Output results
+			// Output results - always show per-resource status
 			if dryRun {
 				_, _ = fmt.Fprint(c.OutOrStdout(), formatDryRunOutput(results))
-				_, _ = fmt.Fprintln(c.OutOrStdout(), "\nDry run complete. No files were written.")
+				_, _ = fmt.Fprint(c.OutOrStdout(), formatInitializeSummary(successCount, failCount))
+				_, _ = fmt.Fprintln(c.OutOrStdout(), "Dry run complete. No files were written.")
 			} else {
 				_, _ = fmt.Fprint(c.OutOrStdout(), formatSuccessOutput(results))
-				_, _ = fmt.Fprintf(c.OutOrStdout(), "\nSuccessfully installed %d resource(s).\n", len(results))
+				_, _ = fmt.Fprint(c.OutOrStdout(), formatInitializeSummary(successCount, failCount))
+			}
+
+			// Return error only if all resources failed
+			if err != nil {
+				return fmt.Errorf("initializing resources: %w", err)
 			}
 			return nil
 		},

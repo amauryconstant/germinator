@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"gitlab.com/amoconst/germinator/internal/application"
@@ -245,18 +246,226 @@ func TestFormatSuccessOutput(t *testing.T) {
 	}
 }
 
+// formatDryRunOutput and formatSuccessOutput are local copies for testing
+// since the actual formatters are in cmd/formatters.go
 func formatDryRunOutput(results []domain.InitializeResult) string {
-	output := ""
+	var output strings.Builder
 	for _, result := range results {
-		output += "Would write: " + result.OutputPath + "\n  from: " + result.InputPath + "\n"
+		output.WriteString("Would write: ")
+		output.WriteString(result.OutputPath)
+		output.WriteString("\n  from: ")
+		output.WriteString(result.InputPath)
+		output.WriteString("\n")
 	}
-	return output
+	return output.String()
 }
 
 func formatSuccessOutput(results []domain.InitializeResult) string {
-	output := ""
+	var output strings.Builder
 	for _, result := range results {
-		output += "Installed: " + result.Ref + " -> " + result.OutputPath + "\n"
+		output.WriteString("Installed: ")
+		output.WriteString(result.Ref)
+		output.WriteString(" -> ")
+		output.WriteString(result.OutputPath)
+		output.WriteString("\n")
 	}
-	return output
+	return output.String()
+}
+
+// Partial processing tests
+
+func TestInitialize_PartialSuccess(t *testing.T) {
+	// Load test library
+	fixturePath := filepath.Join("..", "..", "test", "fixtures", "library")
+	absPath, err := filepath.Abs(fixturePath)
+	if err != nil {
+		t.Fatalf("Failed to get absolute path: %v", err)
+	}
+
+	lib, err := library.LoadLibrary(absPath)
+	if err != nil {
+		t.Fatalf("LoadLibrary() error = %v", err)
+	}
+
+	outputDir := t.TempDir()
+
+	// Create a valid resource path for one of the refs
+	validOutputPath := filepath.Join(outputDir, ".opencode", "skills", "commit", "SKILL.md")
+	if err := os.MkdirAll(filepath.Dir(validOutputPath), 0755); err != nil {
+		t.Fatalf("Failed to create output directory: %v", err)
+	}
+
+	init := NewInitializer(parsing.NewParser(), serialization.NewSerializer())
+	// First ref exists, second ref doesn't - partial success
+	results, err := init.Initialize(context.Background(), &application.InitializeRequest{
+		Library:   lib,
+		Platform:  "opencode",
+		OutputDir: outputDir,
+		Refs:      []string{"skill/commit", "skill/nonexistent"},
+		DryRun:    false,
+		Force:     false,
+	})
+
+	// Should return nil error (at least one succeeded)
+	if err != nil {
+		t.Errorf("Initialize() expected nil error on partial success, got: %v", err)
+	}
+
+	// Should return 2 results
+	if len(results) != 2 {
+		t.Errorf("Expected 2 results, got %d", len(results))
+	}
+
+	// First result should be successful
+	if results[0].Error != nil {
+		t.Errorf("First result expected no error, got: %v", results[0].Error)
+	}
+
+	// Second result should have error
+	if results[1].Error == nil {
+		t.Error("Second result expected error for nonexistent resource")
+	}
+}
+
+func TestInitialize_AllResourcesFail(t *testing.T) {
+	lib := &library.Library{
+		RootPath:  t.TempDir(),
+		Resources: map[string]map[string]library.Resource{},
+	}
+
+	init := NewInitializer(parsing.NewParser(), serialization.NewSerializer())
+	results, err := init.Initialize(context.Background(), &application.InitializeRequest{
+		Library:   lib,
+		Platform:  "opencode",
+		OutputDir: t.TempDir(),
+		Refs:      []string{"skill/nonexistent1", "skill/nonexistent2"},
+		DryRun:    false,
+		Force:     false,
+	})
+
+	// Should return error when ALL resources fail
+	if err == nil {
+		t.Error("Initialize() expected error when all resources fail")
+	}
+
+	// Should still return 2 results
+	if len(results) != 2 {
+		t.Errorf("Expected 2 results, got %d", len(results))
+	}
+
+	// All results should have errors
+	for i, r := range results {
+		if r.Error == nil {
+			t.Errorf("Result %d expected error, got nil", i)
+		}
+	}
+}
+
+func TestInitialize_AllResultsReturnedRegardlessOfErrors(t *testing.T) {
+	// Load test library
+	fixturePath := filepath.Join("..", "..", "test", "fixtures", "library")
+	absPath, err := filepath.Abs(fixturePath)
+	if err != nil {
+		t.Fatalf("Failed to get absolute path: %v", err)
+	}
+
+	lib, err := library.LoadLibrary(absPath)
+	if err != nil {
+		t.Fatalf("LoadLibrary() error = %v", err)
+	}
+
+	outputDir := t.TempDir()
+
+	// Create a file exists scenario for one resource
+	outputPath := filepath.Join(outputDir, ".opencode", "skills", "commit", "SKILL.md")
+	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
+		t.Fatalf("Failed to create output directory: %v", err)
+	}
+	if err := os.WriteFile(outputPath, []byte("existing"), 0644); err != nil {
+		t.Fatalf("Failed to write existing file: %v", err)
+	}
+
+	init := NewInitializer(parsing.NewParser(), serialization.NewSerializer())
+	results, err := init.Initialize(context.Background(), &application.InitializeRequest{
+		Library:   lib,
+		Platform:  "opencode",
+		OutputDir: outputDir,
+		Refs:      []string{"skill/commit", "skill/nonexistent", "skill/merge-request"},
+		DryRun:    false,
+		Force:     false,
+	})
+
+	// Should return nil error (at least one succeeded - merge-request)
+	if err != nil {
+		t.Errorf("Initialize() expected nil error on partial success, got: %v", err)
+	}
+
+	// Should return 3 results - all resources processed
+	if len(results) != 3 {
+		t.Errorf("Expected 3 results, got %d", len(results))
+	}
+
+	// All 3 refs should be represented
+	refs := make(map[string]bool)
+	for _, r := range results {
+		refs[r.Ref] = true
+	}
+	if !refs["skill/commit"] || !refs["skill/nonexistent"] || !refs["skill/merge-request"] {
+		t.Error("Expected results for all 3 refs")
+	}
+}
+
+func TestInitialize_ContinuesAfterFileExistsError(t *testing.T) {
+	// Load test library
+	fixturePath := filepath.Join("..", "..", "test", "fixtures", "library")
+	absPath, err := filepath.Abs(fixturePath)
+	if err != nil {
+		t.Fatalf("Failed to get absolute path: %v", err)
+	}
+
+	lib, err := library.LoadLibrary(absPath)
+	if err != nil {
+		t.Fatalf("LoadLibrary() error = %v", err)
+	}
+
+	outputDir := t.TempDir()
+
+	// Create the first output file to simulate existing file
+	outputPath1 := filepath.Join(outputDir, ".opencode", "skills", "commit", "SKILL.md")
+	if err := os.MkdirAll(filepath.Dir(outputPath1), 0755); err != nil {
+		t.Fatalf("Failed to create output directory: %v", err)
+	}
+	if err := os.WriteFile(outputPath1, []byte("existing"), 0644); err != nil {
+		t.Fatalf("Failed to write existing file: %v", err)
+	}
+
+	init := NewInitializer(parsing.NewParser(), serialization.NewSerializer())
+	results, err := init.Initialize(context.Background(), &application.InitializeRequest{
+		Library:   lib,
+		Platform:  "opencode",
+		OutputDir: outputDir,
+		Refs:      []string{"skill/commit", "skill/merge-request"},
+		DryRun:    false,
+		Force:     false,
+	})
+
+	// Should return nil error (merge-request succeeded)
+	if err != nil {
+		t.Errorf("Initialize() expected nil error on partial success, got: %v", err)
+	}
+
+	// Should return 2 results
+	if len(results) != 2 {
+		t.Errorf("Expected 2 results, got %d", len(results))
+	}
+
+	// First result should have file exists error
+	if results[0].Error == nil {
+		t.Error("First result expected file exists error")
+	}
+
+	// Second result should be successful
+	if results[1].Error != nil {
+		t.Errorf("Second result expected no error, got: %v", results[1].Error)
+	}
 }

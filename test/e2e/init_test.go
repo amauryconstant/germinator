@@ -50,7 +50,7 @@ var _ = Describe("Init Command", func() {
 				"--output", tmpDir, "--force",
 			)
 			cli.ShouldSucceed(session)
-			cli.ShouldOutput(session, "Successfully installed")
+			cli.ShouldOutput(session, "Initialized 1 resource(s)")
 
 			content, err := os.ReadFile(outputPath)
 			Expect(err).NotTo(HaveOccurred())
@@ -69,7 +69,8 @@ var _ = Describe("Init Command", func() {
 				"--output", tmpDir,
 			)
 			Expect(session.ExitCode()).To(BeNumerically(">", 0))
-			cli.ShouldErrorOutput(session, "exists")
+			// Error details are now in stdout as "Failed: skill/commit (file exists ...)"
+			cli.ShouldOutput(session, "exists")
 		})
 	})
 
@@ -80,7 +81,7 @@ var _ = Describe("Init Command", func() {
 				"--output", tmpDir,
 			)
 			cli.ShouldSucceed(session)
-			cli.ShouldOutput(session, "Successfully installed 2 resource(s)")
+			cli.ShouldOutput(session, "Initialized 2 resource(s)")
 
 			Expect(filepath.Join(tmpDir, ".opencode", "skills", "commit", "SKILL.md")).To(BeAnExistingFile())
 			Expect(filepath.Join(tmpDir, ".opencode", "skills", "merge-request", "SKILL.md")).To(BeAnExistingFile())
@@ -94,7 +95,8 @@ var _ = Describe("Init Command", func() {
 				"--output", tmpDir,
 			)
 			Expect(session.ExitCode()).To(BeNumerically(">", 0))
-			cli.ShouldErrorOutput(session, "nonexistent")
+			// Error details are now in stdout as "Failed: skill/nonexistent (resource not found)"
+			cli.ShouldOutput(session, "nonexistent")
 		})
 	})
 
@@ -178,7 +180,7 @@ var _ = Describe("Init Command", func() {
 				"--output", tmpDir,
 			)
 			cli.ShouldSucceed(session)
-			cli.ShouldOutput(session, "Successfully installed")
+			cli.ShouldOutput(session, "Initialized 1 resource(s)")
 			Expect(filepath.Join(tmpDir, ".claude", "skills", "commit", "SKILL.md")).To(BeAnExistingFile())
 		})
 	})

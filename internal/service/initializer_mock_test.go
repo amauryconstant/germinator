@@ -74,7 +74,7 @@ Commit content`
 		mockSerializer.AssertExpectations(t)
 	})
 
-	t.Run("parser error propagates error", func(t *testing.T) {
+	t.Run("parser error returns error when all resources fail", func(t *testing.T) {
 		mockParser := new(mocks.MockParser)
 		mockSerializer := new(mocks.MockSerializer)
 
@@ -119,16 +119,18 @@ Commit content`
 			Force:     true,
 		})
 
+		// With partial processing, error is returned when ALL resources fail
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "loading document")
+		assert.Contains(t, err.Error(), "all resources failed to initialize")
 		assert.Len(t, results, 1)
 		assert.Error(t, results[0].Error)
+		assert.Contains(t, results[0].Error.Error(), "parse error")
 
 		mockParser.AssertExpectations(t)
 		mockSerializer.AssertNotCalled(t, "RenderDocument")
 	})
 
-	t.Run("serializer error propagates error", func(t *testing.T) {
+	t.Run("serializer error returns error when all resources fail", func(t *testing.T) {
 		mockParser := new(mocks.MockParser)
 		mockSerializer := new(mocks.MockSerializer)
 
@@ -174,10 +176,12 @@ Commit content`
 			Force:     true,
 		})
 
+		// With partial processing, error is returned when ALL resources fail
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "rendering document")
+		assert.Contains(t, err.Error(), "all resources failed to initialize")
 		assert.Len(t, results, 1)
 		assert.Error(t, results[0].Error)
+		assert.Contains(t, results[0].Error.Error(), "render error")
 
 		mockParser.AssertExpectations(t)
 		mockSerializer.AssertExpectations(t)
