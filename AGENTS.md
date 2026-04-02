@@ -167,8 +167,15 @@ germinator library init --force                 # Overwrite existing
 - `--library <path>` - Library path (uses `GERMINATOR_LIBRARY` env or default if omitted)
 - `--dry-run` - Preview changes without modifying library
 - `--force` - Overwrite existing resource with same name
-- `--discover` - Find orphaned files not in library.yaml (report-only unless `--force` is also specified)
+- `--discover` - Find orphaned files not in library.yaml (recursive, report-only unless `--force` is also specified)
+- `--batch` - Batch mode: process all discovered orphans continuously (use with `--discover --force`)
 - `--json` - Output as JSON (inherited from parent)
+
+**Discover behavior:**
+- Scans `skills/`, `agents/`, `commands/`, `memory/` directories recursively
+- Returns orphan info with path, type, name, and optional issue (e.g., "name_conflict")
+- Summary includes: TotalScanned, TotalOrphans, TotalAdded, TotalSkipped, TotalFailed
+- Batch mode continues processing on individual errors (skips failed orphans)
 
 **Examples:**
 ```bash
@@ -176,8 +183,9 @@ germinator library add ~/code-reviewer.md --type agent          # Import agent
 germinator library add ./skill-commit.md --platform opencode    # Import OpenCode skill
 germinator library add resource.md --dry-run                    # Preview only
 germinator library add resource.md --force                      # Replace if exists
-germinator library add --discover                               # Find orphaned files
+germinator library add --discover                               # Find orphaned files (recursive)
 germinator library add --discover --force                        # Find and register orphans
+germinator library add --discover --batch --force                # Batch: discover all, add all (skip conflicts)
 ```
 
 **Library create preset flags:**

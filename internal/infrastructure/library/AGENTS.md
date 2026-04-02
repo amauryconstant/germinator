@@ -308,25 +308,58 @@ type DiscoverOptions struct {
     LibraryPath string
     DryRun      bool
     Force       bool
+    Batch       bool // Process all orphans continuously
 }
 
-type Orphan struct {
-    Name        string
-    Type        string // "skill", "agent", "command", "memory"
-    Description string
-    Path        string
-    HasConflict bool // true if name matches existing resource
+type OrphanInfo struct {
+    Path  string `json:"path"`
+    Type  string `json:"type"` // "skill", "agent", "command", "memory"
+    Name  string `json:"name"`
+    Issue string `json:"issue,omitempty"` // "name_conflict" or empty
+}
+
+type ConflictInfo struct {
+    Orphan OrphanInfo `json:"orphan"`
+    Issue  string    `json:"issue"` // "name_conflict"
+}
+
+type AddSuccess struct {
+    Type string `json:"type"`
+    Name string `json:"name"`
+    Path string `json:"path"`
+}
+
+type DiscoverSummary struct {
+    TotalScanned  int `json:"totalScanned"`
+    TotalOrphans  int `json:"totalOrphans"`
+    TotalAdded    int `json:"totalAdded"`
+    TotalSkipped  int `json:"totalSkipped"`
+    TotalFailed   int `json:"totalFailed"`
+}
+
+type DiscoverResult struct {
+    Orphans   []OrphanInfo   `json:"orphans"`
+    Added     []AddSuccess   `json:"added"`
+    Conflicts []ConflictInfo `json:"conflicts"`
+    Summary   DiscoverSummary `json:"summary"`
 }
 
 // DiscoverOrphans finds resource files not registered in library.yaml
-DiscoverOrphans(opts DiscoverOptions) ([]Orphan, error)
+DiscoverOrphans(opts DiscoverOptions) (*DiscoverResult, error)
 ```
 
 ### Discover Behavior
 
-- Scans `skills/`, `agents/`, `commands/`, `memory/` directories
-- Type detected from directory (authoritative)
+- Scans `skills/`, `agents/`, `commands/`, `memory/` directories **recursively**
+- Type detected from top-level directory (authoritative)
 - Name from frontmatter `name` field or filename fallback
-- Description from frontmatter `description` field
 - **Report-only by default**: Use `--force` to actually register orphans
-- **Conflict detection**: Orphan name matching existing resource is flagged
+- **Conflict detection**: Orphan name matching existing resource is flagged with `Issue: "name_conflict"`
+
+### Batch Mode
+
+When `--batch` is enabled with `--force`:
+- Processes all discovered orphans continuously
+- Skips individual registration errors without stopping
+- Reports TotalAdded, TotalSkipped, TotalFailed in summary
+- Use `--dry-run` to preview without modifying
