@@ -82,7 +82,7 @@ library.ResolveResource → core.LoadDocument → core.RenderDocument → WriteF
 
 **Result**: `[]InitializeResult` - Per-resource results with Ref, InputPath, OutputPath, Error
 
-**Error handling**: Fail-fast - stops on first error.
+**Error handling**: Continue-on-error - processes all resources, collecting individual results. Returns `nil` error if at least one succeeds; returns error only if all fail.
 
 **File permissions**: `0644` (rw-r--r--)
 

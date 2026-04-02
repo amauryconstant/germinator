@@ -441,10 +441,25 @@ germinator init --platform opencode --preset git-workflow --output /project
 
 ## Error Handling
 
-- Fail-fast: Stops on first error
-- File exists error without `--force`
-- Resource not found error for missing resources
-- Preset not found error for missing presets
+**Partial Processing**: The init command processes all resources regardless of individual failures, collecting per-resource results.
+
+| Scenario | Behavior |
+|----------|----------|
+| At least one resource succeeds | Returns success (exit 0), displays per-resource status and summary |
+| All resources fail | Returns error (exit 1), individual errors visible in results |
+| File exists without `--force` | Returns error for that resource, continues with others |
+| Resource not found | Returns error for that resource, continues with others |
+
+**Result reporting**: Each resource gets its own `InitializeResult` with individual error status. Use `--json` for structured output.
+
+**Examples**:
+```bash
+# See all successes and failures in one run
+germinator init --platform opencode --resources skill/commit,skill/invalid,skill/pr
+
+# JSON output for scripting
+germinator init --platform opencode --resources skill/commit,skill/invalid --json
+```
 
 ---
 
