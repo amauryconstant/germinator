@@ -136,11 +136,20 @@ graph LR
 | `germinator library init`            | Scaffold a new library directory structure   |
 | `germinator library add`              | Import a resource to the library             |
 | `germinator library create preset`   | Create a new preset in the library           |
+| `germinator library resources`      | List all resources (grouped by type)         |
+| `germinator library presets`         | List all presets                             |
+| `germinator library show <ref>`      | Display resource or preset details            |
+| `germinator library refresh`         | Sync metadata from resource files             |
+| `germinator library remove`          | Remove resource or preset                    |
+| `germinator library validate`        | Check library integrity                      |
+
+**Global `--json` flag:** All `germinator library` subcommands support `--json` for machine-readable output (inherited from parent command).
 
 **Library init flags:**
 - `--path <path>` - Library location (default: `$XDG_DATA_HOME/germinator/library/` or `~/.local/share/germinator/library/`)
 - `--dry-run` - Preview changes without creating files
 - `--force` - Overwrite existing library
+- `--json` - Output as JSON (inherited from parent)
 
 **Examples:**
 ```bash
@@ -159,6 +168,7 @@ germinator library init --force                 # Overwrite existing
 - `--dry-run` - Preview changes without modifying library
 - `--force` - Overwrite existing resource with same name
 - `--discover` - Find orphaned files not in library.yaml (report-only unless `--force` is also specified)
+- `--json` - Output as JSON (inherited from parent)
 
 **Examples:**
 ```bash
@@ -183,13 +193,44 @@ germinator library create preset dev-setup --resources skill/build,agent/reviewe
 germinator library create preset old-preset --resources skill/commit --force
 ```
 
-**Library remove resource flags:**
-- `--json` - Output as JSON (for scripting)
+**Library resources flags:**
 - `--library <path>` - Library path (uses `GERMINATOR_LIBRARY` env or default if omitted)
+- `--json` - Output as JSON (inherited from parent)
+
+**Examples:**
+```bash
+germinator library resources                              # List all resources grouped by type
+germinator library resources --json                        # JSON output: {"resources": {...}}
+```
+
+**Library presets flags:**
+- `--library <path>` - Library path (uses `GERMINATOR_LIBRARY` env or default if omitted)
+- `--json` - Output as JSON (inherited from parent)
+
+**Examples:**
+```bash
+germinator library presets                               # List all presets
+germinator library presets --json                         # JSON output: {"presets": {...}}
+```
+
+**Library show flags:**
+- `--library <path>` - Library path (uses `GERMINATOR_LIBRARY` env or default if omitted)
+- `--json` - Output as JSON (inherited from parent)
+
+**Examples:**
+```bash
+germinator library show skill/commit                     # Show resource details
+germinator library show skill/commit --json               # JSON output
+germinator library show preset/git-workflow --json        # Show preset as JSON
+```
+
+**Library remove resource flags:**
+- `--library <path>` - Library path (uses `GERMINATOR_LIBRARY` env or default if omitted)
+- `--json` - Output as JSON (inherited from parent)
 
 **Library remove preset flags:**
-- `--json` - Output as JSON (for scripting)
 - `--library <path>` - Library path (uses `GERMINATOR_LIBRARY` env or default if omitted)
+- `--json` - Output as JSON (inherited from parent)
 
 **Examples:**
 ```bash
@@ -201,7 +242,7 @@ germinator library remove preset git-workflow             # Remove a preset
 **Library validate flags:**
 - `--library <path>` - Library path (uses `GERMINATOR_LIBRARY` env or default if omitted)
 - `--fix` - Auto-cleanup `library.yaml` (removes missing entries, strips ghost preset refs)
-- `--json` - Output as JSON (for scripting)
+- `--json` - Output as JSON (inherited from parent)
 
 **Examples:**
 ```bash
@@ -216,7 +257,7 @@ germinator library validate --fix                        # Auto-fix issues
 - `--library <path>` - Library path (uses `GERMINATOR_LIBRARY` env or default if omitted)
 - `--dry-run` - Preview changes without modifying library
 - `--force` - Skip resources with conflicts (name mismatch)
-- `--json` - Output as JSON (for scripting)
+- `--json` - Output as JSON (inherited from parent)
 
 **Examples:**
 ```bash
