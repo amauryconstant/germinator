@@ -18,7 +18,6 @@ The `germinator library` command lacks a consistent JSON output mode across its 
 ### Modified Capabilities
 
 - `library-system`: Extend to support JSON-formatted output for list operations (resources, presets)
-- `library-resource-import`: Extend BatchAddResult to support JSON serialization
 - `library-scaffolding`: Extend init command to support JSON output
 - `library-remove-resource`: Already has JSON support, ensure consistent behavior
 - `library-validation`: Already has JSON support, ensure consistent behavior

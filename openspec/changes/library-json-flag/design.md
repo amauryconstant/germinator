@@ -39,9 +39,9 @@ Currently, each subcommand defines its own `--json` flag locally. This creates d
 
 ### Decision 2: JSON Output Check Pattern
 
-**Choice:** Each subcommand's `RunE` function checks `c.Flags().Changed("json")` or retrieves the flag value via `c.Flags().GetBool("json")`.
+**Choice:** Each subcommand's `RunE` function retrieves the inherited flag value via `c.Flags().GetBool("json")`.
 
-**Rationale:** This follows the existing pattern in `library_refresh.go` where the flag is checked within the `RunE` function.
+**Rationale:** The existing code uses `opts.json` bound via `cmd.Flags().BoolVar(&opts.json, ...)`, but for inherited persistent flags (defined on parent command), we must use `c.Flags().GetBool("json")` since there's no local struct to bind to. Then check `if jsonFlag { ... }` to route to JSON output.
 
 **Alternatives Considered:**
 - Pre-execute hook to intercept: Overly complex

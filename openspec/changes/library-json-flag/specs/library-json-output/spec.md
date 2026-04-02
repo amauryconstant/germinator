@@ -25,6 +25,26 @@ The `germinator library` parent command SHALL accept a `--json` flag that is inh
 - **WHEN** user runs `germinator library presets --help`
 - **THEN** the `--json` flag is available
 
+#### Scenario: JSON flag inherited by add subcommand
+- **GIVEN** the `germinator library add` command
+- **WHEN** user runs `germinator library add --help`
+- **THEN** the `--json` flag is available
+
+#### Scenario: JSON flag inherited by remove subcommand
+- **GIVEN** the `germinator library remove` command
+- **WHEN** user runs `germinator library remove --help`
+- **THEN** the `--json` flag is available
+
+#### Scenario: JSON flag inherited by validate subcommand
+- **GIVEN** the `germinator library validate` command
+- **WHEN** user runs `germinator library validate --help`
+- **THEN** the `--json` flag is available
+
+#### Scenario: JSON flag inherited by refresh subcommand
+- **GIVEN** the `germinator library refresh` command
+- **WHEN** user runs `germinator library refresh --help`
+- **THEN** the `--json` flag is available
+
 #### Scenario: JSON flag inherited by show subcommand
 - **GIVEN** the `germinator library show` command
 - **WHEN** user runs `germinator library show --help`
@@ -62,6 +82,49 @@ The `germinator library presets --json` command SHALL output JSON format when th
 - **GIVEN** a library with no presets
 - **WHEN** user runs `germinator library presets --json`
 - **THEN** output is valid JSON: `{"presets": []}`
+
+### Requirement: Library remove outputs JSON when --json is set
+
+The `germinator library remove` subcommands SHALL output JSON format when the `--json` flag is set.
+
+#### Scenario: Remove resource JSON output structure
+- **GIVEN** a library with resource `skill/commit`
+- **WHEN** user runs `germinator library remove resource skill/commit --json`
+- **THEN** output is valid JSON with structure: `{"removed": {"type": "skill", "name": "commit", "path": "..."}}`
+
+#### Scenario: Remove resource error JSON output
+- **GIVEN** a library without resource `skill/nonexistent`
+- **WHEN** user runs `germinator library remove resource skill/nonexistent --json`
+- **THEN** output is valid JSON error with structure: `{"error": "...", "type": "resource", "name": "skill/nonexistent"}`
+
+#### Scenario: Remove preset JSON output structure
+- **GIVEN** a library with preset `git-workflow`
+- **WHEN** user runs `germinator library remove preset git-workflow --json`
+- **THEN** output is valid JSON with structure: `{"removed": {"name": "git-workflow"}}`
+
+#### Scenario: Remove preset error JSON output
+- **GIVEN** a library without preset `nonexistent-preset`
+- **WHEN** user runs `germinator library remove preset nonexistent-preset --json`
+- **THEN** output is valid JSON error with structure: `{"error": "...", "type": "preset", "name": "nonexistent-preset"}`
+
+### Requirement: Library add outputs JSON when --json is set
+
+The `germinator library add --json` command SHALL output JSON format when the `--json` flag is set.
+
+#### Scenario: Add success JSON output structure
+- **GIVEN** valid resource files to add
+- **WHEN** user runs `germinator library add <files> --json`
+- **THEN** output is valid JSON with structure: `{"added": [{"type": "...", "name": "...", "path": "..."}, ...], "count": N}`
+
+#### Scenario: Add with no resources to add
+- **GIVEN** no resource files to add
+- **WHEN** user runs `germinator library add --json`
+- **THEN** output is valid JSON with structure: `{"added": [], "count": 0}`
+
+#### Scenario: Add with partial failures JSON output
+- **GIVEN** some resource files fail to add
+- **WHEN** user runs `germinator library add <files> --json`
+- **THEN** output is valid JSON with structure: `{"added": [...], "failed": [{"path": "...", "error": "..."}], "count": N}`
 
 ### Requirement: Library show outputs JSON when --json is set
 
