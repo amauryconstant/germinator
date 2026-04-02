@@ -433,27 +433,45 @@ type DiscoverOptions struct {
 	LibraryPath string
 	DryRun      bool
 	Force       bool
+	Batch       bool
 }
 
-// DiscoverOrphan represents an orphaned resource found during discovery.
-type DiscoverOrphan struct {
-	Type        string
-	Name        string
-	Description string
-	Path        string
+// OrphanInfo represents an orphaned resource found during discovery.
+type OrphanInfo struct {
+	Path  string `json:"path"`
+	Type  string `json:"type"`
+	Name  string `json:"name"`
+	Issue string `json:"issue,omitempty"` // "name_conflict" or empty
+}
+
+// ConflictInfo represents a conflict during orphan discovery.
+type ConflictInfo struct {
+	Orphan OrphanInfo `json:"orphan"`
+	Issue  string     `json:"issue"`
+}
+
+// AddSuccess represents a successfully added orphan resource.
+type AddSuccess struct {
+	Type string `json:"type"`
+	Name string `json:"name"`
+	Path string `json:"path"`
+}
+
+// DiscoverSummary contains statistics from an orphan discovery operation.
+type DiscoverSummary struct {
+	TotalScanned int `json:"totalScanned"`
+	TotalOrphans int `json:"totalOrphans"`
+	TotalAdded   int `json:"totalAdded"`
+	TotalSkipped int `json:"totalSkipped"`
+	TotalFailed  int `json:"totalFailed"`
 }
 
 // DiscoverResult contains the result of an orphan discovery operation.
 type DiscoverResult struct {
-	Orphans   []DiscoverOrphan
-	Added     []DiscoverOrphan
-	Conflicts []DiscoverConflict
-}
-
-// DiscoverConflict represents a conflict during orphan discovery.
-type DiscoverConflict struct {
-	Orphan DiscoverOrphan
-	Issue  string
+	Orphans   []OrphanInfo    `json:"orphans"`
+	Added     []AddSuccess    `json:"added"`
+	Conflicts []ConflictInfo  `json:"conflicts"`
+	Summary   DiscoverSummary `json:"summary"`
 }
 
 // DiscoverOrphans scans library directories for orphaned resource files.
@@ -481,60 +499,90 @@ func DiscoverOrphans(opts DiscoverOptions) (*DiscoverResult, error) {
 		}
 	}
 
-	// If force and no conflicts, register orphans
-	if opts.Force && len(result.Conflicts) == 0 && !opts.DryRun {
+	// Update summary with totals
+	result.Summary.TotalOrphans = len(result.Orphans)
+
+	// Batch mode: process all orphans continuously, skipping errors
+	if opts.Batch && opts.Force && !opts.DryRun {
+		for _, orphan := range result.Orphans {
+			if err := registerOrphan(opts.LibraryPath, orphan); err != nil {
+				result.Summary.TotalFailed++
+				continue
+			}
+			result.Added = append(result.Added, AddSuccess{
+				Type: orphan.Type,
+				Name: orphan.Name,
+				Path: orphan.Path,
+			})
+			result.Summary.TotalAdded++
+		}
+	} else if opts.Force && len(result.Conflicts) == 0 && !opts.DryRun {
+		// Legacy mode: require no conflicts before registering
 		for _, orphan := range result.Orphans {
 			if err := registerOrphan(opts.LibraryPath, orphan); err != nil {
 				return nil, err
 			}
-			result.Added = append(result.Added, orphan)
+			result.Added = append(result.Added, AddSuccess{
+				Type: orphan.Type,
+				Name: orphan.Name,
+				Path: orphan.Path,
+			})
+			result.Summary.TotalAdded++
 		}
 	}
 
 	return result, nil
 }
 
-// scanDirectory scans a single resource directory for orphans.
+// scanDirectory scans a single resource directory for orphans recursively.
 func scanDirectory(dirPath, resType string, lib *Library, _ DiscoverOptions, result *DiscoverResult) error {
-	entries, err := os.ReadDir(dirPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil // Directory doesn't exist, skip
-		}
-		return fmt.Errorf("reading directory %s: %w", dirPath, err)
-	}
-
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
+	err := filepath.WalkDir(dirPath, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			// Skip entries we can't access - continue walking
+			return nil //nolint:wrapcheck // Intentional: continue walking on access errors
 		}
 
-		filePath := filepath.Join(dirPath, entry.Name())
-		orphan := detectOrphan(filePath, resType)
+		// Skip directories - we only process files
+		if d.IsDir() {
+			return nil
+		}
+
+		// Only process .md files
+		if !strings.HasSuffix(strings.ToLower(path), ".md") {
+			return nil
+		}
+
+		// Increment scanned count for .md files
+		result.Summary.TotalScanned++
+
+		orphan := detectOrphan(path, resType)
 
 		// Check if already registered
 		if isRegistered(lib, resType, orphan.Name) {
-			continue
+			return nil
 		}
 
 		// Check for name conflict with other type
 		if hasNameConflict(lib, orphan.Name) {
-			result.Conflicts = append(result.Conflicts, DiscoverConflict{
+			result.Conflicts = append(result.Conflicts, ConflictInfo{
 				Orphan: orphan,
 				Issue:  "name_conflict",
 			})
-			continue
+			return nil
 		}
 
 		result.Orphans = append(result.Orphans, orphan)
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("walking directory %s: %w", dirPath, err)
 	}
-
 	return nil
 }
 
 // detectOrphan detects orphan metadata from a file.
-func detectOrphan(filePath, resType string) DiscoverOrphan {
-	orphan := DiscoverOrphan{
+func detectOrphan(filePath, resType string) OrphanInfo {
+	orphan := OrphanInfo{
 		Type: resType,
 		Path: filePath,
 	}
@@ -545,9 +593,6 @@ func detectOrphan(filePath, resType string) DiscoverOrphan {
 	} else {
 		orphan.Name = extractNameFromFilename(filePath)
 	}
-
-	// Get description from frontmatter
-	orphan.Description = extractFrontmatterField(filePath, "description")
 
 	return orphan
 }
@@ -573,9 +618,12 @@ func hasNameConflict(lib *Library, name string) bool {
 }
 
 // registerOrphan adds an orphan to the library.
-func registerOrphan(libraryPath string, orphan DiscoverOrphan) error {
+func registerOrphan(libraryPath string, orphan OrphanInfo) error {
+	// Extract description from frontmatter when registering
+	description := extractFrontmatterField(orphan.Path, "description")
+
 	// Add to library.yaml using existing function
-	err := addResourceToLibrary(libraryPath, orphan.Type, orphan.Name, orphan.Path, orphan.Description)
+	err := addResourceToLibrary(libraryPath, orphan.Type, orphan.Name, orphan.Path, description)
 	if err != nil {
 		return err
 	}

@@ -31,25 +31,42 @@ type AddResourceErrorJSON struct {
 
 // DiscoverJSONOutput represents JSON output for orphan discovery.
 type DiscoverJSONOutput struct {
-	Orphans     []DiscoverOrphanJSON   `json:"orphans,omitempty"`
-	Added       []DiscoverOrphanJSON   `json:"added,omitempty"`
-	Conflicts   []DiscoverConflictJSON `json:"conflicts,omitempty"`
-	DryRun      bool                   `json:"dryRun"`
-	LibraryPath string                 `json:"libraryPath"`
+	Orphans     []OrphanInfoJSON    `json:"orphans,omitempty"`
+	Added       []AddSuccessJSON    `json:"added,omitempty"`
+	Conflicts   []ConflictInfoJSON  `json:"conflicts,omitempty"`
+	Summary     DiscoverSummaryJSON `json:"summary,omitempty"`
+	DryRun      bool                `json:"dryRun"`
+	LibraryPath string              `json:"libraryPath"`
 }
 
-// DiscoverOrphanJSON represents an orphaned resource in JSON output.
-type DiscoverOrphanJSON struct {
-	Type        string `json:"type"`
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
-	Path        string `json:"path"`
+// OrphanInfoJSON represents an orphaned resource in JSON output.
+type OrphanInfoJSON struct {
+	Type  string `json:"type"`
+	Name  string `json:"name"`
+	Path  string `json:"path"`
+	Issue string `json:"issue,omitempty"`
 }
 
-// DiscoverConflictJSON represents a conflict during orphan discovery.
-type DiscoverConflictJSON struct {
-	Orphan DiscoverOrphanJSON `json:"orphan"`
-	Issue  string             `json:"issue"`
+// AddSuccessJSON represents a successfully added orphan in JSON output.
+type AddSuccessJSON struct {
+	Type string `json:"type"`
+	Name string `json:"name"`
+	Path string `json:"path"`
+}
+
+// ConflictInfoJSON represents a conflict during orphan discovery.
+type ConflictInfoJSON struct {
+	Orphan OrphanInfoJSON `json:"orphan"`
+	Issue  string         `json:"issue"`
+}
+
+// DiscoverSummaryJSON represents discovery statistics in JSON output.
+type DiscoverSummaryJSON struct {
+	TotalScanned int `json:"totalScanned"`
+	TotalOrphans int `json:"totalOrphans"`
+	TotalAdded   int `json:"totalAdded"`
+	TotalSkipped int `json:"totalSkipped"`
+	TotalFailed  int `json:"totalFailed"`
 }
 
 // NewLibraryAddCommand creates the library add subcommand.
@@ -62,6 +79,7 @@ func NewLibraryAddCommand(cfg *CommandConfig, libraryPath *string) *cobra.Comman
 		force       bool
 		dryRun      bool
 		discover    bool
+		batch       bool
 	}
 
 	cmd := &cobra.Command{
@@ -104,6 +122,7 @@ Examples:
 	cmd.Flags().BoolVar(&opts.force, "force", false, "Overwrite existing resource")
 	cmd.Flags().BoolVar(&opts.dryRun, "dry-run", false, "Preview changes without adding")
 	cmd.Flags().BoolVar(&opts.discover, "discover", false, "Discover orphaned resource files not in library.yaml")
+	cmd.Flags().BoolVar(&opts.batch, "batch", false, "Batch mode: process all orphans continuously (use with --discover --force)")
 
 	return cmd
 }
@@ -117,6 +136,7 @@ func runLibraryAdd(c *cobra.Command, cfg *CommandConfig, libraryPath *string, op
 	force       bool
 	dryRun      bool
 	discover    bool
+	batch       bool
 }, args []string) error {
 	verbosity, _ := c.Flags().GetCount("verbose")
 	cfg.Verbosity = Verbosity(verbosity)
@@ -211,11 +231,13 @@ func runLibraryDiscover(c *cobra.Command, _ *CommandConfig, path string, opts *s
 	force       bool
 	dryRun      bool
 	discover    bool
+	batch       bool
 }) error {
 	result, err := library.DiscoverOrphans(library.DiscoverOptions{
 		LibraryPath: path,
 		DryRun:      opts.dryRun,
 		Force:       opts.force,
+		Batch:       opts.batch,
 	})
 	if err != nil {
 		return fmt.Errorf("discovering orphans: %w", err)
@@ -235,7 +257,7 @@ func runLibraryDiscover(c *cobra.Command, _ *CommandConfig, path string, opts *s
 	if len(result.Orphans) > 0 {
 		_, _ = fmt.Fprintln(c.OutOrStdout(), "\nOrphaned resources:")
 		for _, orphan := range result.Orphans {
-			_, _ = fmt.Fprintf(c.OutOrStdout(), "  %s/%s - %s\n", orphan.Type, orphan.Name, orphan.Description)
+			_, _ = fmt.Fprintf(c.OutOrStdout(), "  %s/%s (%s)\n", orphan.Type, orphan.Name, orphan.Path)
 		}
 	}
 
@@ -253,44 +275,55 @@ func runLibraryDiscover(c *cobra.Command, _ *CommandConfig, path string, opts *s
 		}
 	}
 
+	// Output summary
+	_, _ = fmt.Fprintf(c.OutOrStdout(), "\nSummary: scanned=%d, orphans=%d, added=%d, skipped=%d, failed=%d\n",
+		result.Summary.TotalScanned, result.Summary.TotalOrphans,
+		result.Summary.TotalAdded, result.Summary.TotalSkipped, result.Summary.TotalFailed)
+
 	return nil
 }
 
 // outputDiscoverJSON outputs discovery results as JSON.
 func outputDiscoverJSON(c *cobra.Command, result *library.DiscoverResult, path string, dryRun bool) error {
 	output := DiscoverJSONOutput{
-		Orphans:     make([]DiscoverOrphanJSON, 0, len(result.Orphans)),
-		Added:       make([]DiscoverOrphanJSON, 0, len(result.Added)),
-		Conflicts:   make([]DiscoverConflictJSON, 0, len(result.Conflicts)),
+		Orphans:   make([]OrphanInfoJSON, 0, len(result.Orphans)),
+		Added:     make([]AddSuccessJSON, 0, len(result.Added)),
+		Conflicts: make([]ConflictInfoJSON, 0, len(result.Conflicts)),
+		Summary: DiscoverSummaryJSON{
+			TotalScanned: result.Summary.TotalScanned,
+			TotalOrphans: result.Summary.TotalOrphans,
+			TotalAdded:   result.Summary.TotalAdded,
+			TotalSkipped: result.Summary.TotalSkipped,
+			TotalFailed:  result.Summary.TotalFailed,
+		},
 		DryRun:      dryRun,
 		LibraryPath: path,
 	}
 
 	for _, orphan := range result.Orphans {
-		output.Orphans = append(output.Orphans, DiscoverOrphanJSON{
-			Type:        orphan.Type,
-			Name:        orphan.Name,
-			Description: orphan.Description,
-			Path:        orphan.Path,
+		output.Orphans = append(output.Orphans, OrphanInfoJSON{
+			Type:  orphan.Type,
+			Name:  orphan.Name,
+			Path:  orphan.Path,
+			Issue: orphan.Issue,
 		})
 	}
 
 	for _, added := range result.Added {
-		output.Added = append(output.Added, DiscoverOrphanJSON{
-			Type:        added.Type,
-			Name:        added.Name,
-			Description: added.Description,
-			Path:        added.Path,
+		output.Added = append(output.Added, AddSuccessJSON{
+			Type: added.Type,
+			Name: added.Name,
+			Path: added.Path,
 		})
 	}
 
 	for _, conflict := range result.Conflicts {
-		output.Conflicts = append(output.Conflicts, DiscoverConflictJSON{
-			Orphan: DiscoverOrphanJSON{
-				Type:        conflict.Orphan.Type,
-				Name:        conflict.Orphan.Name,
-				Description: conflict.Orphan.Description,
-				Path:        conflict.Orphan.Path,
+		output.Conflicts = append(output.Conflicts, ConflictInfoJSON{
+			Orphan: OrphanInfoJSON{
+				Type:  conflict.Orphan.Type,
+				Name:  conflict.Orphan.Name,
+				Path:  conflict.Orphan.Path,
+				Issue: conflict.Orphan.Issue,
 			},
 			Issue: conflict.Issue,
 		})
