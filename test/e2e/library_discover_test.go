@@ -256,4 +256,126 @@ description: Env orphan
 			// (empty output is expected)
 		})
 	})
+
+	Describe("library add --discover --batch", func() {
+		It("should process all orphans through batch add pipeline", func() {
+			// Create a library
+			libPath := filepath.Join(tmpDir, "test-library")
+			session := cli.Run("library", "init", "--path", libPath)
+			cli.ShouldSucceed(session)
+
+			// Create orphaned files in multiple directories
+			Expect(os.WriteFile(filepath.Join(libPath, "skills", "batch-orphan1.md"), []byte(`---
+name: batch-orphan1
+description: Batch orphan skill
+---
+# Batch Orphan 1
+`), 0644)).To(Succeed())
+
+			Expect(os.WriteFile(filepath.Join(libPath, "agents", "batch-orphan2.md"), []byte(`---
+name: batch-orphan2
+description: Batch orphan agent
+---
+# Batch Orphan 2
+`), 0644)).To(Succeed())
+
+			// Run discover with batch mode (without force, just reports)
+			session = cli.Run("library", "add", "--discover", "--batch", "--library", libPath)
+			cli.ShouldSucceed(session)
+			cli.ShouldOutput(session, "Orphaned resources:")
+			cli.ShouldOutput(session, "batch-orphan1")
+			cli.ShouldOutput(session, "batch-orphan2")
+		})
+	})
+
+	Describe("library add --discover --batch --force", func() {
+		It("should register all orphans with batch processing", func() {
+			// Create a library
+			libPath := filepath.Join(tmpDir, "test-library")
+			session := cli.Run("library", "init", "--path", libPath)
+			cli.ShouldSucceed(session)
+
+			// Create orphaned files
+			Expect(os.WriteFile(filepath.Join(libPath, "skills", "force-orphan1.md"), []byte(`---
+name: force-orphan1
+description: Force orphan skill
+---
+# Force Orphan 1
+`), 0644)).To(Succeed())
+
+			Expect(os.WriteFile(filepath.Join(libPath, "agents", "force-orphan2.md"), []byte(`---
+name: force-orphan2
+description: Force orphan agent
+---
+# Force Orphan 2
+`), 0644)).To(Succeed())
+
+			// Run discover with batch and force
+			session = cli.Run("library", "add", "--discover", "--batch", "--force", "--library", libPath)
+			cli.ShouldSucceed(session)
+			cli.ShouldOutput(session, "Added 2")
+
+			// Verify resources are registered
+			session = cli.Run("library", "resources", "--library", libPath)
+			cli.ShouldSucceed(session)
+			cli.ShouldOutput(session, "skill/force-orphan1")
+			cli.ShouldOutput(session, "agent/force-orphan2")
+		})
+	})
+
+	Describe("library add --discover --batch --force --dry-run", func() {
+		It("should preview batch registration without modifying library", func() {
+			// Create a library
+			libPath := filepath.Join(tmpDir, "test-library")
+			session := cli.Run("library", "init", "--path", libPath)
+			cli.ShouldSucceed(session)
+
+			// Create orphaned file
+			Expect(os.WriteFile(filepath.Join(libPath, "skills", "dryrun-orphan.md"), []byte(`---
+name: dryrun-orphan
+description: Dry run orphan
+---
+# Dry Run Orphan
+`), 0644)).To(Succeed())
+
+			// Read original library.yaml
+			originalYAML, err := os.ReadFile(filepath.Join(libPath, "library.yaml"))
+			Expect(err).NotTo(HaveOccurred())
+
+			// Run discover with batch, force, and dry-run
+			session = cli.Run("library", "add", "--discover", "--batch", "--force", "--dry-run", "--library", libPath)
+			cli.ShouldSucceed(session)
+			cli.ShouldOutput(session, "Added 1")
+
+			// Verify library.yaml was NOT modified
+			newYAML, err := os.ReadFile(filepath.Join(libPath, "library.yaml"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(newYAML)).To(Equal(string(originalYAML)))
+		})
+	})
+
+	Describe("library add --discover --batch --force --json", func() {
+		It("should output JSON format with batch processing results", func() {
+			// Create a library
+			libPath := filepath.Join(tmpDir, "test-library")
+			session := cli.Run("library", "init", "--path", libPath)
+			cli.ShouldSucceed(session)
+
+			// Create orphaned file
+			Expect(os.WriteFile(filepath.Join(libPath, "skills", "json-orphan.md"), []byte(`---
+name: json-orphan
+description: JSON orphan
+---
+# JSON Orphan
+`), 0644)).To(Succeed())
+
+			// Run discover with batch, force, and JSON
+			session = cli.Run("library", "add", "--discover", "--batch", "--force", "--json", "--library", libPath)
+			cli.ShouldSucceed(session)
+			cli.ShouldOutput(session, `"added"`)
+			cli.ShouldOutput(session, `"skipped"`)
+			cli.ShouldOutput(session, `"failed"`)
+			cli.ShouldOutput(session, `"summary"`)
+		})
+	})
 })

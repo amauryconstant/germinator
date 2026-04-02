@@ -600,3 +600,378 @@ func containsHelper(s, substr string) bool {
 	}
 	return false
 }
+
+func TestBatchAddResources_SingleFile(t *testing.T) {
+	// Create a temp library
+	tmpLibDir := t.TempDir()
+	createTestLibrary(t, tmpLibDir)
+
+	// Create source files
+	tmpSrcDir := t.TempDir()
+	srcPath1 := filepath.Join(tmpSrcDir, "skill-test1.md")
+	srcContent1 := `---
+name: test1-skill
+description: A test skill
+tools:
+  - bash
+---
+# Test Skill 1
+`
+	if err := os.WriteFile(srcPath1, []byte(srcContent1), 0644); err != nil {
+		t.Fatalf("Failed to write test file: %v", err)
+	}
+
+	// Run BatchAddResources
+	result, err := BatchAddResources(BatchAddOptions{
+		Sources:     []string{srcPath1},
+		LibraryPath: tmpLibDir,
+		DryRun:      false,
+		Force:       false,
+	})
+	if err != nil {
+		t.Fatalf("BatchAddResources() error = %v", err)
+	}
+
+	// Verify result
+	if result.Summary.Total != 1 {
+		t.Errorf("Expected Total=1, got %d", result.Summary.Total)
+	}
+	if result.Summary.Added != 1 {
+		t.Errorf("Expected Added=1, got %d", result.Summary.Added)
+	}
+	if result.Summary.Skipped != 0 {
+		t.Errorf("Expected Skipped=0, got %d", result.Summary.Skipped)
+	}
+	if result.Summary.Failed != 0 {
+		t.Errorf("Expected Failed=0, got %d", result.Summary.Failed)
+	}
+
+	// Verify library was updated
+	lib, err := LoadLibrary(tmpLibDir)
+	if err != nil {
+		t.Fatalf("LoadLibrary() error = %v", err)
+	}
+	if _, exists := lib.Resources["skill"]["test1-skill"]; !exists {
+		t.Error("Resource should have been added to library")
+	}
+}
+
+func TestBatchAddResources_MultipleFiles(t *testing.T) {
+	// Create a temp library
+	tmpLibDir := t.TempDir()
+	createTestLibrary(t, tmpLibDir)
+
+	// Create source files
+	tmpSrcDir := t.TempDir()
+	srcPath1 := filepath.Join(tmpSrcDir, "skill-test1.md")
+	srcContent1 := `---
+name: batch-skill1
+description: Batch skill 1
+tools:
+  - bash
+---
+# Batch Skill 1
+`
+	srcPath2 := filepath.Join(tmpSrcDir, "agent-test2.md")
+	srcContent2 := `---
+name: batch-agent
+description: Batch agent
+tools:
+  - bash
+---
+# Batch Agent
+`
+	if err := os.WriteFile(srcPath1, []byte(srcContent1), 0644); err != nil {
+		t.Fatalf("Failed to write test file 1: %v", err)
+	}
+	if err := os.WriteFile(srcPath2, []byte(srcContent2), 0644); err != nil {
+		t.Fatalf("Failed to write test file 2: %v", err)
+	}
+
+	// Run BatchAddResources
+	result, err := BatchAddResources(BatchAddOptions{
+		Sources:     []string{srcPath1, srcPath2},
+		LibraryPath: tmpLibDir,
+		DryRun:      false,
+		Force:       false,
+	})
+	if err != nil {
+		t.Fatalf("BatchAddResources() error = %v", err)
+	}
+
+	// Verify result
+	if result.Summary.Total != 2 {
+		t.Errorf("Expected Total=2, got %d", result.Summary.Total)
+	}
+	if result.Summary.Added != 2 {
+		t.Errorf("Expected Added=2, got %d", result.Summary.Added)
+	}
+
+	// Verify both resources were added
+	lib, err := LoadLibrary(tmpLibDir)
+	if err != nil {
+		t.Fatalf("LoadLibrary() error = %v", err)
+	}
+	if _, exists := lib.Resources["skill"]["batch-skill1"]; !exists {
+		t.Error("batch-skill1 should have been added")
+	}
+	if _, exists := lib.Resources["agent"]["batch-agent"]; !exists {
+		t.Error("batch-agent should have been added")
+	}
+}
+
+func TestBatchAddResources_Directory(t *testing.T) {
+	// Create a temp library
+	tmpLibDir := t.TempDir()
+	createTestLibrary(t, tmpLibDir)
+
+	// Create source directory with nested .md files
+	tmpSrcDir := t.TempDir()
+	subDir := filepath.Join(tmpSrcDir, "subdir")
+	if err := os.MkdirAll(subDir, 0755); err != nil {
+		t.Fatalf("Failed to create subdir: %v", err)
+	}
+
+	srcPath1 := filepath.Join(tmpSrcDir, "skill-dir1.md")
+	srcContent1 := `---
+name: dir-skill1
+description: Directory skill 1
+tools:
+  - bash
+---
+# Dir Skill 1
+`
+	srcPath2 := filepath.Join(subDir, "agent-dir2.md")
+	srcContent2 := `---
+name: dir-agent
+description: Directory agent
+tools:
+  - bash
+---
+# Dir Agent
+`
+	if err := os.WriteFile(srcPath1, []byte(srcContent1), 0644); err != nil {
+		t.Fatalf("Failed to write test file 1: %v", err)
+	}
+	if err := os.WriteFile(srcPath2, []byte(srcContent2), 0644); err != nil {
+		t.Fatalf("Failed to write test file 2: %v", err)
+	}
+
+	// Run BatchAddResources with directory
+	result, err := BatchAddResources(BatchAddOptions{
+		Sources:     []string{tmpSrcDir},
+		LibraryPath: tmpLibDir,
+		DryRun:      false,
+		Force:       false,
+	})
+	if err != nil {
+		t.Fatalf("BatchAddResources() error = %v", err)
+	}
+
+	// Verify both files were found and added
+	if result.Summary.Total != 2 {
+		t.Errorf("Expected Total=2, got %d", result.Summary.Total)
+	}
+	if result.Summary.Added != 2 {
+		t.Errorf("Expected Added=2, got %d", result.Summary.Added)
+	}
+}
+
+func TestBatchAddResources_AlreadyExists(t *testing.T) {
+	// Create a temp library
+	tmpLibDir := t.TempDir()
+	createTestLibrary(t, tmpLibDir)
+
+	// Create and add first resource
+	tmpSrcDir := t.TempDir()
+	srcPath := filepath.Join(tmpSrcDir, "skill-existing.md")
+	srcContent := `---
+name: existing
+description: Existing skill
+tools:
+  - bash
+---
+# Existing Skill
+`
+	if err := os.WriteFile(srcPath, []byte(srcContent), 0644); err != nil {
+		t.Fatalf("Failed to write test file: %v", err)
+	}
+
+	// Add once
+	_, err := BatchAddResources(BatchAddOptions{
+		Sources:     []string{srcPath},
+		LibraryPath: tmpLibDir,
+		DryRun:      false,
+		Force:       false,
+	})
+	if err != nil {
+		t.Fatalf("First BatchAddResources() error = %v", err)
+	}
+
+	// Try to add again
+	result, err := BatchAddResources(BatchAddOptions{
+		Sources:     []string{srcPath},
+		LibraryPath: tmpLibDir,
+		DryRun:      false,
+		Force:       false,
+	})
+	if err != nil {
+		t.Fatalf("Second BatchAddResources() error = %v", err)
+	}
+
+	// Verify skipped
+	if result.Summary.Total != 1 {
+		t.Errorf("Expected Total=1, got %d", result.Summary.Total)
+	}
+	if result.Summary.Added != 0 {
+		t.Errorf("Expected Added=0 on second add, got %d", result.Summary.Added)
+	}
+	if result.Summary.Skipped != 1 {
+		t.Errorf("Expected Skipped=1, got %d", result.Summary.Skipped)
+	}
+	if len(result.Skipped) != 1 {
+		t.Errorf("Expected 1 skipped entry, got %d", len(result.Skipped))
+	}
+	if result.Skipped[0].Issue != "already_exists" {
+		t.Errorf("Expected Issue='already_exists', got %s", result.Skipped[0].Issue)
+	}
+}
+
+func TestBatchAddResources_DryRun(t *testing.T) {
+	// Create a temp library
+	tmpLibDir := t.TempDir()
+	createTestLibrary(t, tmpLibDir)
+
+	// Create source file
+	tmpSrcDir := t.TempDir()
+	srcPath := filepath.Join(tmpSrcDir, "skill-dry.md")
+	srcContent := `---
+name: dry-skill
+description: Dry run skill
+tools:
+  - bash
+---
+# Dry Skill
+`
+	if err := os.WriteFile(srcPath, []byte(srcContent), 0644); err != nil {
+		t.Fatalf("Failed to write test file: %v", err)
+	}
+
+	// Run BatchAddResources with DryRun
+	result, err := BatchAddResources(BatchAddOptions{
+		Sources:     []string{srcPath},
+		LibraryPath: tmpLibDir,
+		DryRun:      true,
+		Force:       false,
+	})
+	if err != nil {
+		t.Fatalf("BatchAddResources() error = %v", err)
+	}
+
+	// Verify added but not actually added
+	if result.Summary.Added != 1 {
+		t.Errorf("Expected Added=1 in dry-run, got %d", result.Summary.Added)
+	}
+
+	// Verify library was NOT modified
+	lib, err := LoadLibrary(tmpLibDir)
+	if err != nil {
+		t.Fatalf("LoadLibrary() error = %v", err)
+	}
+	if _, exists := lib.Resources["skill"]["dry-skill"]; exists {
+		t.Error("Dry-run should not have added resource to library")
+	}
+}
+
+func TestBatchAddResources_WithForce(t *testing.T) {
+	// Create a temp library
+	tmpLibDir := t.TempDir()
+	createTestLibrary(t, tmpLibDir)
+
+	// Create and add first resource
+	tmpSrcDir := t.TempDir()
+	srcPath := filepath.Join(tmpSrcDir, "skill-force.md")
+	srcContent := `---
+name: force-skill
+description: Original description
+tools:
+  - bash
+---
+# Force Skill
+`
+	if err := os.WriteFile(srcPath, []byte(srcContent), 0644); err != nil {
+		t.Fatalf("Failed to write test file: %v", err)
+	}
+
+	// Add once
+	_, err := BatchAddResources(BatchAddOptions{
+		Sources:     []string{srcPath},
+		LibraryPath: tmpLibDir,
+		DryRun:      false,
+		Force:       false,
+	})
+	if err != nil {
+		t.Fatalf("First BatchAddResources() error = %v", err)
+	}
+
+	// Modify the source
+	modifiedContent := `---
+name: force-skill
+description: Updated description
+tools:
+  - read
+---
+# Updated Force Skill
+`
+	if err := os.WriteFile(srcPath, []byte(modifiedContent), 0644); err != nil {
+		t.Fatalf("Failed to write modified test file: %v", err)
+	}
+
+	// Add again with force
+	result, err := BatchAddResources(BatchAddOptions{
+		Sources:     []string{srcPath},
+		LibraryPath: tmpLibDir,
+		DryRun:      false,
+		Force:       true,
+	})
+	if err != nil {
+		t.Fatalf("Second BatchAddResources() error = %v", err)
+	}
+
+	// Verify added (force overwrites)
+	if result.Summary.Added != 1 {
+		t.Errorf("Expected Added=1 with force, got %d", result.Summary.Added)
+	}
+
+	// Verify content was updated
+	existingPath := filepath.Join(tmpLibDir, "skills", "force-skill.md")
+	content, _ := os.ReadFile(existingPath)
+	if !contains(string(content), "Updated Force Skill") {
+		t.Error("Resource content should have been updated with force")
+	}
+}
+
+func TestBatchAddResources_InvalidFile(t *testing.T) {
+	// Create a temp library
+	tmpLibDir := t.TempDir()
+	createTestLibrary(t, tmpLibDir)
+
+	// Run BatchAddResources with nonexistent file
+	result, err := BatchAddResources(BatchAddOptions{
+		Sources:     []string{"/nonexistent/file.md"},
+		LibraryPath: tmpLibDir,
+		DryRun:      false,
+		Force:       false,
+	})
+	if err != nil {
+		t.Fatalf("BatchAddResources() error = %v", err)
+	}
+
+	// Verify failure
+	if result.Summary.Failed != 1 {
+		t.Errorf("Expected Failed=1 for nonexistent file, got %d", result.Summary.Failed)
+	}
+	if len(result.Failed) != 1 {
+		t.Errorf("Expected 1 failed entry, got %d", len(result.Failed))
+	}
+}

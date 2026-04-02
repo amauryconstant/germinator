@@ -285,3 +285,222 @@ description: Test
 	// extraction always produces a non-empty name from files with extensions.
 	// The implementation uses filename as fallback when frontmatter name is missing.
 })
+
+var _ = Describe("Library Add Batch Mode", func() {
+	var (
+		cli    *helpers.GerminatorCLI
+		tmpDir string
+	)
+
+	BeforeEach(func() {
+		cli = helpers.NewGerminatorCLI(BinaryPath())
+		tmpDir = fixtures.TempDir()
+	})
+
+	Describe("library add --batch with multiple files", func() {
+		It("should add multiple files in batch mode", func() {
+			// Create a library
+			libPath := filepath.Join(tmpDir, "test-library")
+			session := cli.Run("library", "init", "--path", libPath)
+			cli.ShouldSucceed(session)
+
+			// Create source files
+			sourceDir := filepath.Join(tmpDir, "source")
+			Expect(os.MkdirAll(sourceDir, 0o755)).To(Succeed())
+
+			srcPath1 := filepath.Join(sourceDir, "skill-batch1.md")
+			content1 := `---
+name: batch-skill1
+description: Batch skill 1
+---
+# Batch Skill 1`
+			Expect(os.WriteFile(srcPath1, []byte(content1), 0o644)).To(Succeed())
+
+			srcPath2 := filepath.Join(sourceDir, "skill-batch2.md")
+			content2 := `---
+name: batch-skill2
+description: Batch skill 2
+---
+# Batch Skill 2`
+			Expect(os.WriteFile(srcPath2, []byte(content2), 0o644)).To(Succeed())
+
+			// Add in batch mode
+			session = cli.Run("library", "add", "--batch", srcPath1, srcPath2, "--library", libPath)
+			cli.ShouldSucceed(session)
+			cli.ShouldOutput(session, "Added 2")
+			cli.ShouldOutput(session, "batch-skill1")
+			cli.ShouldOutput(session, "batch-skill2")
+
+			// Verify files were copied
+			Expect(filepath.Join(libPath, "skills", "batch-skill1.md")).To(BeAnExistingFile())
+			Expect(filepath.Join(libPath, "skills", "batch-skill2.md")).To(BeAnExistingFile())
+		})
+	})
+
+	Describe("library add --batch with directory", func() {
+		It("should recursively find and add .md files from directory", func() {
+			// Create a library
+			libPath := filepath.Join(tmpDir, "test-library")
+			session := cli.Run("library", "init", "--path", libPath)
+			cli.ShouldSucceed(session)
+
+			// Create source directory with nested .md files
+			sourceDir := filepath.Join(tmpDir, "source")
+			subDir := filepath.Join(sourceDir, "subdir")
+			Expect(os.MkdirAll(subDir, 0o755)).To(Succeed())
+
+			srcPath1 := filepath.Join(sourceDir, "skill-dir1.md")
+			content1 := `---
+name: dir-skill1
+description: Directory skill 1
+---
+# Dir Skill 1`
+			Expect(os.WriteFile(srcPath1, []byte(content1), 0o644)).To(Succeed())
+
+			srcPath2 := filepath.Join(subDir, "agent-dir2.md")
+			content2 := `---
+name: dir-agent
+description: Directory agent
+---
+# Dir Agent`
+			Expect(os.WriteFile(srcPath2, []byte(content2), 0o644)).To(Succeed())
+
+			// Add directory in batch mode
+			session = cli.Run("library", "add", "--batch", sourceDir, "--library", libPath)
+			cli.ShouldSucceed(session)
+			cli.ShouldOutput(session, "Added 2")
+
+			// Verify files were copied
+			Expect(filepath.Join(libPath, "skills", "dir-skill1.md")).To(BeAnExistingFile())
+			Expect(filepath.Join(libPath, "agents", "dir-agent.md")).To(BeAnExistingFile())
+		})
+	})
+
+	Describe("library add --batch --dry-run", func() {
+		It("should preview without creating files", func() {
+			// Create a library
+			libPath := filepath.Join(tmpDir, "test-library")
+			session := cli.Run("library", "init", "--path", libPath)
+			cli.ShouldSucceed(session)
+
+			// Create source file
+			sourceDir := filepath.Join(tmpDir, "source")
+			Expect(os.MkdirAll(sourceDir, 0o755)).To(Succeed())
+			srcPath := filepath.Join(sourceDir, "skill-dry.md")
+			content := `---
+name: dry-skill
+description: Dry run skill
+---
+# Dry Skill`
+			Expect(os.WriteFile(srcPath, []byte(content), 0o644)).To(Succeed())
+
+			// Add in batch mode with dry-run
+			session = cli.Run("library", "add", "--batch", "--dry-run", srcPath, "--library", libPath)
+			cli.ShouldSucceed(session)
+			cli.ShouldOutput(session, "Added 1")
+
+			// Verify nothing was created
+			Expect(filepath.Join(libPath, "skills", "dry-skill.md")).NotTo(BeAnExistingFile())
+		})
+	})
+
+	Describe("library add --batch with --force", func() {
+		It("should overwrite existing resources with --force", func() {
+			// Create a library
+			libPath := filepath.Join(tmpDir, "test-library")
+			session := cli.Run("library", "init", "--path", libPath)
+			cli.ShouldSucceed(session)
+
+			// Create source file
+			sourceDir := filepath.Join(tmpDir, "source")
+			Expect(os.MkdirAll(sourceDir, 0o755)).To(Succeed())
+			srcPath := filepath.Join(sourceDir, "skill-force.md")
+			content := `---
+name: force-skill
+description: Original description
+---
+# Force Skill`
+			Expect(os.WriteFile(srcPath, []byte(content), 0o644)).To(Succeed())
+
+			// Add first time
+			session = cli.Run("library", "add", "--batch", srcPath, "--library", libPath)
+			cli.ShouldSucceed(session)
+
+			// Modify source
+			modifiedContent := `---
+name: force-skill
+description: Updated description
+---
+# Updated Force Skill`
+			Expect(os.WriteFile(srcPath, []byte(modifiedContent), 0o644)).To(Succeed())
+
+			// Add again with force
+			session = cli.Run("library", "add", "--batch", "--force", srcPath, "--library", libPath)
+			cli.ShouldSucceed(session)
+			cli.ShouldOutput(session, "Added 1")
+
+			// Verify content was updated
+			fileContent, err := os.ReadFile(filepath.Join(libPath, "skills", "force-skill.md"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(fileContent)).To(ContainSubstring("Updated Force Skill"))
+		})
+	})
+
+	Describe("library add --batch --json", func() {
+		It("should output JSON when --json flag is set", func() {
+			// Create a library
+			libPath := filepath.Join(tmpDir, "test-library")
+			session := cli.Run("library", "init", "--path", libPath)
+			cli.ShouldSucceed(session)
+
+			// Create source file
+			sourceDir := filepath.Join(tmpDir, "source")
+			Expect(os.MkdirAll(sourceDir, 0o755)).To(Succeed())
+			srcPath := filepath.Join(sourceDir, "skill-json.md")
+			content := `---
+name: json-skill
+description: JSON skill
+---
+# JSON Skill`
+			Expect(os.WriteFile(srcPath, []byte(content), 0o644)).To(Succeed())
+
+			// Add in batch mode with JSON output
+			session = cli.Run("library", "add", "--batch", "--json", srcPath, "--library", libPath)
+			cli.ShouldSucceed(session)
+			cli.ShouldOutput(session, `"added"`)
+			cli.ShouldOutput(session, `"skipped"`)
+			cli.ShouldOutput(session, `"failed"`)
+			cli.ShouldOutput(session, `"summary"`)
+		})
+	})
+
+	Describe("library add --batch with already exists", func() {
+		It("should skip already existing resources", func() {
+			// Create a library
+			libPath := filepath.Join(tmpDir, "test-library")
+			session := cli.Run("library", "init", "--path", libPath)
+			cli.ShouldSucceed(session)
+
+			// Create and add first resource
+			sourceDir := filepath.Join(tmpDir, "source")
+			Expect(os.MkdirAll(sourceDir, 0o755)).To(Succeed())
+			srcPath := filepath.Join(sourceDir, "skill-exists.md")
+			content := `---
+name: exists-skill
+description: Exists skill
+---
+# Exists Skill`
+			Expect(os.WriteFile(srcPath, []byte(content), 0o644)).To(Succeed())
+
+			// Add first time
+			session = cli.Run("library", "add", "--batch", srcPath, "--library", libPath)
+			cli.ShouldSucceed(session)
+
+			// Add again (should skip)
+			session = cli.Run("library", "add", "--batch", srcPath, "--library", libPath)
+			cli.ShouldSucceed(session)
+			cli.ShouldOutput(session, "skipped 1")
+			cli.ShouldOutput(session, "already_exists")
+		})
+	})
+})

@@ -69,6 +69,41 @@ type DiscoverSummaryJSON struct {
 	TotalFailed  int `json:"totalFailed"`
 }
 
+// BatchAddJSONOutput represents JSON output for batch add results.
+type BatchAddJSONOutput struct {
+	Added       []BatchAddSuccessJSON  `json:"added,omitempty"`
+	Skipped     []BatchSkipInfoJSON    `json:"skipped,omitempty"`
+	Failed      []BatchFailureInfoJSON `json:"failed,omitempty"`
+	Summary     BatchSummaryJSON       `json:"summary"`
+	LibraryPath string                 `json:"libraryPath"`
+}
+
+// BatchAddSuccessJSON represents a successfully added resource in JSON output.
+type BatchAddSuccessJSON struct {
+	Ref  string `json:"ref"`
+	Path string `json:"path"`
+}
+
+// BatchSkipInfoJSON represents a skipped resource in JSON output.
+type BatchSkipInfoJSON struct {
+	Source string `json:"source"`
+	Issue  string `json:"issue"`
+}
+
+// BatchFailureInfoJSON represents a failed resource in JSON output.
+type BatchFailureInfoJSON struct {
+	Source string `json:"source"`
+	Error  string `json:"error"`
+}
+
+// BatchSummaryJSON represents batch add statistics in JSON output.
+type BatchSummaryJSON struct {
+	Total   int `json:"total"`
+	Added   int `json:"added"`
+	Skipped int `json:"skipped"`
+	Failed  int `json:"failed"`
+}
+
 // NewLibraryAddCommand creates the library add subcommand.
 func NewLibraryAddCommand(cfg *CommandConfig, libraryPath *string) *cobra.Command {
 	var opts struct {
@@ -102,6 +137,10 @@ Examples:
 		Args: func(_ *cobra.Command, args []string) error {
 			// If --discover is set, no source is required
 			if opts.discover {
+				return nil
+			}
+			// If --batch is set, accept 0+ args (directories scanned recursively)
+			if opts.batch {
 				return nil
 			}
 			// Otherwise, exactly one argument required
@@ -150,6 +189,11 @@ func runLibraryAdd(c *cobra.Command, cfg *CommandConfig, libraryPath *string, op
 	// Handle discover mode
 	if opts.discover {
 		return runLibraryDiscover(c, cfg, path, opts)
+	}
+
+	// Handle batch mode
+	if opts.batch {
+		return runBatchAdd(c, cfg, path, opts, args)
 	}
 
 	// Normal add mode - args[0] is the source
@@ -222,8 +266,103 @@ func runLibraryAdd(c *cobra.Command, cfg *CommandConfig, libraryPath *string, op
 	return nil
 }
 
+// runBatchAdd executes the batch add logic.
+func runBatchAdd(c *cobra.Command, cfg *CommandConfig, path string, opts *struct {
+	name        string
+	description string
+	resType     string
+	platform    string
+	force       bool
+	dryRun      bool
+	discover    bool
+	batch       bool
+}, args []string) error {
+	verbosity, _ := c.Flags().GetCount("verbose")
+	cfg.Verbosity = Verbosity(verbosity)
+
+	VerbosePrint(cfg, "Running batch add with %d source(s)", len(args))
+
+	// If no args provided, nothing to do
+	if len(args) == 0 {
+		VerbosePrint(cfg, "No source arguments provided for batch mode")
+		return nil
+	}
+
+	// Call BatchAddResources - errors are already recorded in result
+	result, _ := library.BatchAddResources(library.BatchAddOptions{
+		Sources:     args,
+		LibraryPath: path,
+		DryRun:      opts.dryRun,
+		Force:       opts.force,
+		Name:        opts.name,
+		Description: opts.description,
+		Type:        opts.resType,
+		Platform:    opts.platform,
+	})
+
+	// Check for JSON output
+	jsonFlag, _ := c.Flags().GetBool("json")
+	if jsonFlag {
+		return outputBatchAddJSON(c, result, path)
+	}
+
+	// Output human-readable summary
+	FormatBatchAddSummary(c, result)
+
+	// Batch mode always returns nil error (exit code 0)
+	return nil
+}
+
+// outputBatchAddJSON outputs batch add results as JSON.
+func outputBatchAddJSON(c *cobra.Command, result *library.BatchAddResult, path string) error {
+	if result == nil {
+		result = &library.BatchAddResult{}
+	}
+
+	output := BatchAddJSONOutput{
+		Added:   make([]BatchAddSuccessJSON, 0, len(result.Added)),
+		Skipped: make([]BatchSkipInfoJSON, 0, len(result.Skipped)),
+		Failed:  make([]BatchFailureInfoJSON, 0, len(result.Failed)),
+		Summary: BatchSummaryJSON{
+			Total:   result.Summary.Total,
+			Added:   result.Summary.Added,
+			Skipped: result.Summary.Skipped,
+			Failed:  result.Summary.Failed,
+		},
+		LibraryPath: path,
+	}
+
+	for _, added := range result.Added {
+		output.Added = append(output.Added, BatchAddSuccessJSON{
+			Ref:  added.Ref,
+			Path: added.Path,
+		})
+	}
+
+	for _, skipped := range result.Skipped {
+		output.Skipped = append(output.Skipped, BatchSkipInfoJSON{
+			Source: skipped.Source,
+			Issue:  skipped.Issue,
+		})
+	}
+
+	for _, failed := range result.Failed {
+		output.Failed = append(output.Failed, BatchFailureInfoJSON{
+			Source: failed.Source,
+			Error:  failed.Error,
+		})
+	}
+
+	encoder := json.NewEncoder(c.OutOrStdout())
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(output); err != nil {
+		return fmt.Errorf("encoding JSON output: %w", err)
+	}
+	return nil
+}
+
 // runLibraryDiscover executes the orphan discovery logic.
-func runLibraryDiscover(c *cobra.Command, _ *CommandConfig, path string, opts *struct {
+func runLibraryDiscover(c *cobra.Command, cfg *CommandConfig, path string, opts *struct {
 	name        string
 	description string
 	resType     string
@@ -241,6 +380,12 @@ func runLibraryDiscover(c *cobra.Command, _ *CommandConfig, path string, opts *s
 	})
 	if err != nil {
 		return fmt.Errorf("discovering orphans: %w", err)
+	}
+
+	// If batch mode with force, process orphans through BatchAddResources
+	// (Dry-run is handled inside runBatchAddFromDiscover)
+	if opts.batch && opts.force && len(result.Orphans) > 0 {
+		return runBatchAddFromDiscover(c, cfg, path, result, opts)
 	}
 
 	// Check for JSON output
@@ -280,6 +425,112 @@ func runLibraryDiscover(c *cobra.Command, _ *CommandConfig, path string, opts *s
 		result.Summary.TotalScanned, result.Summary.TotalOrphans,
 		result.Summary.TotalAdded, result.Summary.TotalSkipped, result.Summary.TotalFailed)
 
+	return nil
+}
+
+// runBatchAddFromDiscover processes discovered orphans through BatchAddResources.
+func runBatchAddFromDiscover(c *cobra.Command, cfg *CommandConfig, path string, discoverResult *library.DiscoverResult, opts *struct {
+	name        string
+	description string
+	resType     string
+	platform    string
+	force       bool
+	dryRun      bool
+	discover    bool
+	batch       bool
+}) error {
+	verbosity, _ := c.Flags().GetCount("verbose")
+	cfg.Verbosity = Verbosity(verbosity)
+
+	// Collect orphan paths and info
+	sources := make([]string, 0, len(discoverResult.Orphans))
+	for _, orphan := range discoverResult.Orphans {
+		sources = append(sources, orphan.Path)
+	}
+
+	VerbosePrint(cfg, "Processing %d orphans through batch add", len(sources))
+
+	// Call BatchAddResources with orphan info - errors are already recorded in result
+	batchResult, _ := library.BatchAddResources(library.BatchAddOptions{
+		Sources:     sources,
+		LibraryPath: path,
+		DryRun:      opts.dryRun,
+		Force:       opts.force,
+		Name:        opts.name,
+		Description: opts.description,
+		Type:        opts.resType,
+		Platform:    opts.platform,
+		Orphans:     discoverResult.Orphans,
+	})
+
+	// Check for JSON output
+	jsonFlag, _ := c.Flags().GetBool("json")
+	if jsonFlag {
+		return outputBatchAddFromDiscoverJSON(c, batchResult, discoverResult, path)
+	}
+
+	// Output human-readable summary
+	FormatBatchAddSummary(c, batchResult)
+
+	// Batch mode always returns nil error (exit code 0)
+	return nil
+}
+
+// outputBatchAddFromDiscoverJSON outputs batch add results as JSON, including discover info.
+func outputBatchAddFromDiscoverJSON(c *cobra.Command, batchResult *library.BatchAddResult, discoverResult *library.DiscoverResult, path string) error {
+	if batchResult == nil {
+		batchResult = &library.BatchAddResult{}
+	}
+
+	output := BatchAddJSONOutput{
+		Added:   make([]BatchAddSuccessJSON, 0, len(batchResult.Added)),
+		Skipped: make([]BatchSkipInfoJSON, 0, len(batchResult.Skipped)),
+		Failed:  make([]BatchFailureInfoJSON, 0, len(batchResult.Failed)),
+		Summary: BatchSummaryJSON{
+			Total:   batchResult.Summary.Total,
+			Added:   batchResult.Summary.Added,
+			Skipped: batchResult.Summary.Skipped,
+			Failed:  batchResult.Summary.Failed,
+		},
+		LibraryPath: path,
+	}
+
+	for _, added := range batchResult.Added {
+		output.Added = append(output.Added, BatchAddSuccessJSON{
+			Ref:  added.Ref,
+			Path: added.Path,
+		})
+	}
+	for _, skipped := range batchResult.Skipped {
+		output.Skipped = append(output.Skipped, BatchSkipInfoJSON{
+			Source: skipped.Source,
+			Issue:  skipped.Issue,
+		})
+	}
+	for _, failed := range batchResult.Failed {
+		output.Failed = append(output.Failed, BatchFailureInfoJSON{
+			Source: failed.Source,
+			Error:  failed.Error,
+		})
+	}
+
+	// Include conflicts from discover (if any)
+	if discoverResult != nil && len(discoverResult.Conflicts) > 0 {
+		// Add conflicts as skipped with issue="conflict"
+		for _, conflict := range discoverResult.Conflicts {
+			output.Skipped = append(output.Skipped, BatchSkipInfoJSON{
+				Source: conflict.Orphan.Path,
+				Issue:  conflict.Issue,
+			})
+			output.Summary.Skipped++
+		}
+	}
+
+	encoder := json.NewEncoder(c.OutOrStdout())
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(output); err != nil {
+		return fmt.Errorf("encoding JSON output: %w", err)
+	}
 	return nil
 }
 

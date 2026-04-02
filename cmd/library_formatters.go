@@ -293,3 +293,37 @@ func outputShowPresetJSON(c *cobra.Command, lib *library.Library, name string) e
 	}
 	return nil
 }
+
+// FormatBatchAddSummary formats and outputs the batch add summary.
+func FormatBatchAddSummary(c *cobra.Command, result *library.BatchAddResult) {
+	if result == nil {
+		_, _ = fmt.Fprintln(c.OutOrStdout(), "No resources processed.")
+		return
+	}
+
+	// Output each category if non-empty
+	if len(result.Added) > 0 {
+		_, _ = fmt.Fprintln(c.OutOrStdout(), "\nAdded:")
+		for _, added := range result.Added {
+			_, _ = fmt.Fprintf(c.OutOrStdout(), "  %s\n", added.Ref)
+		}
+	}
+
+	if len(result.Skipped) > 0 {
+		_, _ = fmt.Fprintln(c.OutOrStdout(), "\nSkipped:")
+		for _, skipped := range result.Skipped {
+			_, _ = fmt.Fprintf(c.OutOrStdout(), "  %s (%s)\n", skipped.Source, skipped.Issue)
+		}
+	}
+
+	if len(result.Failed) > 0 {
+		_, _ = fmt.Fprintln(c.OutOrStdout(), "\nFailed:")
+		for _, failed := range result.Failed {
+			_, _ = fmt.Fprintf(c.OutOrStdout(), "  %s: %s\n", failed.Source, failed.Error)
+		}
+	}
+
+	// Output summary
+	_, _ = fmt.Fprintf(c.OutOrStdout(), "\nAdded %d, skipped %d, failed %d\n",
+		result.Summary.Added, result.Summary.Skipped, result.Summary.Failed)
+}

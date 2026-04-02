@@ -519,7 +519,7 @@ func TestDiscoverOrphans_BatchMode(t *testing.T) {
 		wantConflicts int
 	}{
 		{
-			name: "batch mode processes all orphans continuously",
+			name: "batch mode reports orphans without auto-registering",
 			libraryYAML: `version: "1"
 resources: {}
 `,
@@ -530,12 +530,12 @@ resources: {}
 			},
 			opts:          DiscoverOptions{LibraryPath: "", DryRun: false, Force: true, Batch: true},
 			wantOrphans:   3,
-			wantAdded:     3,
+			wantAdded:     0, // Batch mode no longer auto-registers; CLI uses BatchAddResources
 			wantFailed:    0,
 			wantConflicts: 0,
 		},
 		{
-			name: "batch mode with conflicts skips conflicting",
+			name: "batch mode with conflicts reports conflicting",
 			libraryYAML: `version: "1"
 resources:
   skill:
@@ -550,12 +550,12 @@ resources:
 			},
 			opts:          DiscoverOptions{LibraryPath: "", DryRun: false, Force: true, Batch: true},
 			wantOrphans:   2, // skill2 and skill3 (skill1 is registered)
-			wantAdded:     2,
+			wantAdded:     0, // Batch mode no longer auto-registers
 			wantFailed:    0,
-			wantConflicts: 0, // No conflicts since we skip registered
+			wantConflicts: 0,
 		},
 		{
-			name: "batch mode continues on individual registration errors",
+			name: "batch mode reports orphans without registration",
 			libraryYAML: `version: "1"
 resources:
   skill:
@@ -573,7 +573,7 @@ resources:
 			},
 			opts:          DiscoverOptions{LibraryPath: "", DryRun: false, Force: true, Batch: true},
 			wantOrphans:   1, // Only skill3 (skill1 and skill2 are registered)
-			wantAdded:     1,
+			wantAdded:     0, // Batch mode no longer auto-registers
 			wantFailed:    0,
 			wantConflicts: 0,
 		},

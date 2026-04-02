@@ -474,6 +474,252 @@ type DiscoverResult struct {
 	Summary   DiscoverSummary `json:"summary"`
 }
 
+// BatchAddResult contains the result of a batch add operation.
+type BatchAddResult struct {
+	Added   []BatchAddSuccess  `json:"added"`
+	Skipped []BatchSkipInfo    `json:"skipped"`
+	Failed  []BatchFailureInfo `json:"failed"`
+	Summary BatchSummary       `json:"summary"`
+}
+
+// BatchAddSuccess represents a successfully added resource in batch mode.
+type BatchAddSuccess struct {
+	Ref  string `json:"ref"`  // Resource reference (e.g., "skill/commit")
+	Path string `json:"path"` // Path in library
+}
+
+// BatchSkipInfo represents a resource that was skipped in batch mode.
+type BatchSkipInfo struct {
+	Source string `json:"source"` // Original source path
+	Issue  string `json:"issue"`  // "already_exists" or "conflict"
+}
+
+// BatchFailureInfo represents a failed resource add in batch mode.
+type BatchFailureInfo struct {
+	Source string `json:"source"` // Original source path
+	Error  string `json:"error"`  // Error message
+}
+
+// BatchSummary contains statistics from a batch add operation.
+type BatchSummary struct {
+	Total   int `json:"total"`
+	Added   int `json:"added"`
+	Skipped int `json:"skipped"`
+	Failed  int `json:"failed"`
+}
+
+// BatchAddOptions contains options for batch adding resources.
+type BatchAddOptions struct {
+	Sources     []string     // Source files/directories to add
+	LibraryPath string       // Path to the library
+	DryRun      bool         // Preview without modifying
+	Force       bool         // Overwrite existing resources
+	Name        string       // Optional resource name override
+	Description string       // Optional resource description override
+	Type        string       // Optional resource type override
+	Platform    string       // Optional platform override
+	Orphans     []OrphanInfo // Orphan info for discovered resources (provides type/name)
+}
+
+// BatchAddResources adds multiple resources to the library in batch mode.
+// It processes all sources sequentially, collecting results by category (added/skipped/failed).
+func BatchAddResources(opts BatchAddOptions) (*BatchAddResult, error) {
+	result := &BatchAddResult{}
+
+	// Build a map of source path to orphan info for quick lookup
+	orphanMap := make(map[string]OrphanInfo)
+	for _, orphan := range opts.Orphans {
+		orphanMap[orphan.Path] = orphan
+	}
+
+	// Collect all source files (expand directories)
+	files, err := collectSourceFiles(opts.Sources)
+	if err != nil {
+		return nil, fmt.Errorf("collecting source files: %w", err)
+	}
+
+	// Initialize summary total
+	result.Summary.Total = len(files)
+
+	// Process each file
+	for _, source := range files {
+		var orphan OrphanInfo
+		if o, ok := orphanMap[source]; ok {
+			orphan = o
+		}
+		_ = processBatchAddFile(source, opts, result, orphan) // Error is already recorded in result
+	}
+
+	return result, nil
+}
+
+// collectSourceFiles expands directories to .md files recursively.
+func collectSourceFiles(sources []string) ([]string, error) {
+	var files []string
+
+	for _, source := range sources {
+		info, err := os.Stat(source)
+		if err != nil {
+			if os.IsNotExist(err) {
+				// Treat non-existent paths as single files (will fail later with proper error)
+				files = append(files, source)
+				continue
+			}
+			return nil, fmt.Errorf("accessing %s: %w", source, err)
+		}
+
+		if info.IsDir() {
+			// Walk directory tree to find all .md files
+			err := filepath.WalkDir(source, func(path string, d os.DirEntry, walkErr error) error {
+				if walkErr != nil {
+					return nil // Skip entries we can't access
+				}
+				if d.IsDir() {
+					return nil
+				}
+				if strings.HasSuffix(strings.ToLower(path), ".md") {
+					files = append(files, path)
+				}
+				return nil
+			})
+			if err != nil {
+				return nil, fmt.Errorf("walking directory %s: %w", source, err)
+			}
+		} else {
+			files = append(files, source)
+		}
+	}
+
+	return files, nil
+}
+
+// processBatchAddFile processes a single file for batch add.
+func processBatchAddFile(source string, opts BatchAddOptions, result *BatchAddResult, orphan OrphanInfo) error {
+	// Detect resource type - use orphan type if available (from discover), otherwise detect
+	docType := orphan.Type
+	if docType == "" {
+		docType = opts.Type
+	}
+	if docType == "" {
+		var err error
+		docType, err = detectType(source, opts.Type)
+		if err != nil {
+			result.Failed = append(result.Failed, BatchFailureInfo{
+				Source: source,
+				Error:  err.Error(),
+			})
+			result.Summary.Failed++
+			return err
+		}
+	}
+
+	// Detect resource name - use orphan name if available
+	name := orphan.Name
+	if name == "" {
+		name = opts.Name
+	}
+	if name == "" {
+		var err error
+		name, err = detectName(source, opts.Name)
+		if err != nil {
+			result.Failed = append(result.Failed, BatchFailureInfo{
+				Source: source,
+				Error:  err.Error(),
+			})
+			result.Summary.Failed++
+			return err
+		}
+	}
+
+	// Detect resource description (from frontmatter or opts)
+	description := detectDescription(source, opts.Description)
+
+	// Format reference
+	resourceKey := FormatRef(docType, name)
+
+	// Load the library to check for existing resources
+	lib, err := LoadLibrary(opts.LibraryPath)
+	if err != nil {
+		result.Failed = append(result.Failed, BatchFailureInfo{
+			Source: source,
+			Error:  fmt.Sprintf("loading library: %v", err),
+		})
+		result.Summary.Failed++
+		return fmt.Errorf("loading library: %w", err)
+	}
+
+	// Check for existing resource (skip check if Force is set)
+	existingTypeMap, typeExists := lib.Resources[docType]
+	_, nameExists := existingTypeMap[name]
+	if typeExists && nameExists && !opts.Force {
+		result.Skipped = append(result.Skipped, BatchSkipInfo{
+			Source: source,
+			Issue:  "already_exists",
+		})
+		result.Summary.Skipped++
+		return nil
+	}
+
+	// Check for name conflict with other types (skip check if Force is set)
+	hasConflict := false
+	if !opts.Force {
+		for rType, resources := range lib.Resources {
+			if rType == docType {
+				continue
+			}
+			if _, exists := resources[name]; exists {
+				hasConflict = true
+				break
+			}
+		}
+	}
+	if hasConflict {
+		result.Skipped = append(result.Skipped, BatchSkipInfo{
+			Source: source,
+			Issue:  "conflict",
+		})
+		result.Summary.Skipped++
+		return nil
+	}
+
+	// Dry-run mode - record what would be added
+	if opts.DryRun {
+		result.Added = append(result.Added, BatchAddSuccess{
+			Ref:  resourceKey,
+			Path: filepath.Join(opts.LibraryPath, docType+"s", name+".md"),
+		})
+		result.Summary.Added++
+		return nil
+	}
+
+	// Add the resource using existing AddResource function
+	addErr := AddResource(AddOptions{
+		Source:      source,
+		Name:        name,
+		Description: description,
+		Type:        docType,
+		LibraryPath: opts.LibraryPath,
+		Force:       opts.Force,
+		DryRun:      false,
+	})
+
+	if addErr != nil {
+		result.Failed = append(result.Failed, BatchFailureInfo{
+			Source: source,
+			Error:  addErr.Error(),
+		})
+		result.Summary.Failed++
+		return addErr
+	}
+
+	result.Added = append(result.Added, BatchAddSuccess{
+		Ref:  resourceKey,
+		Path: filepath.Join(opts.LibraryPath, docType+"s", name+".md"),
+	})
+	result.Summary.Added++
+	return nil
+}
+
 // DiscoverOrphans scans library directories for orphaned resource files.
 func DiscoverOrphans(opts DiscoverOptions) (*DiscoverResult, error) {
 	// Load the library to get registered resources
@@ -502,22 +748,9 @@ func DiscoverOrphans(opts DiscoverOptions) (*DiscoverResult, error) {
 	// Update summary with totals
 	result.Summary.TotalOrphans = len(result.Orphans)
 
-	// Batch mode: process all orphans continuously, skipping errors
-	if opts.Batch && opts.Force && !opts.DryRun {
-		for _, orphan := range result.Orphans {
-			if err := registerOrphan(opts.LibraryPath, orphan); err != nil {
-				result.Summary.TotalFailed++
-				continue
-			}
-			result.Added = append(result.Added, AddSuccess{
-				Type: orphan.Type,
-				Name: orphan.Name,
-				Path: orphan.Path,
-			})
-			result.Summary.TotalAdded++
-		}
-	} else if opts.Force && len(result.Conflicts) == 0 && !opts.DryRun {
-		// Legacy mode: require no conflicts before registering
+	// Legacy non-batch force mode: require no conflicts before registering
+	// Note: When Batch is true, we defer to BatchAddResources for full processing
+	if !opts.Batch && opts.Force && len(result.Conflicts) == 0 && !opts.DryRun {
 		for _, orphan := range result.Orphans {
 			if err := registerOrphan(opts.LibraryPath, orphan); err != nil {
 				return nil, err
