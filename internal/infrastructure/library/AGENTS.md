@@ -17,7 +17,7 @@ Library management for canonical resources (skills, agents, commands, memory).
 | `discovery.go` | `FindLibrary()`, `DefaultLibraryPath()` |
 | `lister.go` | `ListResources()` - groups resources by type |
 | `resolver.go` | `ResolveResource()` - resolves refs to full paths |
-| `adder.go` | `AddResource()` - imports resources into library; also `DiscoverOrphans()` for orphan discovery |
+| `adder.go` | `AddResource()` - imports resources; `BatchAddResources()` for batch operations; `DiscoverOrphans()` for orphan discovery |
 | `refresher.go` | `RefreshLibrary()` - syncs metadata from resource files into library.yaml |
 | `saver.go` | `SaveLibrary()`, `AddPreset()`, `PresetExists()` |
 | `remover.go` | `RemoveResource()`, `RemovePreset()` - remove resources/presets |
@@ -27,7 +27,7 @@ Library management for canonical resources (skills, agents, commands, memory).
 | `lister_test.go` | Tests for ListResources |
 | `resolver_test.go` | Tests for ResolveResource |
 | `discovery_test.go` | Tests for FindLibrary |
-| `adder_test.go` | Tests for AddResource and DiscoverOrphans |
+| `adder_test.go` | Tests for AddResource, BatchAddResources, and DiscoverOrphans |
 | `refresher_test.go` | Tests for RefreshLibrary |
 | `saver_test.go` | Tests for SaveLibrary and AddPreset |
 | `remover_test.go` | Tests for RemoveResource and RemovePreset |
@@ -140,6 +140,71 @@ Platform detection: `--platform` flag > frontmatter `platform:` > auto-detect fr
 Target path: `{library}/{type}s/{name}.md` (e.g., `library/agents/reviewer.md`)
 
 Validation: Validates canonical document before adding; validates library.yaml after update.
+
+## Batch Adding Resources
+
+```go
+type BatchAddResult struct {
+    Added   []BatchAddSuccess  `json:"added"`
+    Skipped []BatchSkipInfo   `json:"skipped"`
+    Failed  []BatchFailureInfo `json:"failed"`
+    Summary BatchSummary       `json:"summary"`
+}
+
+type BatchAddSuccess struct {
+    Ref  string `json:"ref"`  // Resource reference (e.g., "skill/commit")
+    Path string `json:"path"` // Path in library
+}
+
+type BatchSkipInfo struct {
+    Source string `json:"source"` // Original source path
+    Issue  string `json:"issue"`  // "already_exists" or "conflict"
+}
+
+type BatchFailureInfo struct {
+    Source string `json:"source"` // Original source path
+    Error  string `json:"error"`  // Error message
+}
+
+type BatchSummary struct {
+    Total   int `json:"total"`
+    Added   int `json:"added"`
+    Skipped int `json:"skipped"`
+    Failed  int `json:"failed"`
+}
+
+type BatchAddOptions struct {
+    Sources     []string     // Source files/directories to add
+    LibraryPath string       // Path to the library
+    DryRun      bool         // Preview without modifying
+    Force       bool         // Overwrite existing resources
+    Name        string       // Optional resource name override
+    Description string       // Optional resource description override
+    Type        string       // Optional resource type override
+    Platform    string       // Optional platform override
+    Orphans     []OrphanInfo // Orphan info for discovered resources (provides type/name)
+}
+
+// BatchAddResources adds multiple resources to the library in batch mode.
+BatchAddResources(opts BatchAddOptions) (*BatchAddResult, error)
+```
+
+### Batch Behavior
+
+| Scenario | Behavior |
+|----------|----------|
+| Directory in sources | Recursively scanned for `*.md` files |
+| Already exists (without `--force`) | Skipped with issue "already_exists" |
+| Name conflict with existing resource | Skipped with issue "conflict" |
+| File read/parse error | Failure recorded, continues processing |
+| `--dry-run` | Preview what would be added/skipped/failed |
+
+**Result categories:**
+- **Added**: Successfully imported and registered
+- **Skipped**: File processed but not added (already exists or conflict)
+- **Failed**: Unexpected error during processing
+
+**Exit code**: Batch mode always returns `nil` error (exit 0), even if some failed. Scripts should inspect `BatchAddResult` for details.
 
 ## Preset Management
 
