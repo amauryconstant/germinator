@@ -1,0 +1,166 @@
+[
+  {
+    "phase": "ARTIFACT_REVIEW",
+    "iteration": 1,
+    "summary": "Fixed critical issues: added REMOVED section to delta spec and removed line number references from tasks",
+    "commit_hash": "92ff228f9d93e0964c946731c0ffbfab67408715",
+    "next_steps": "Proceed to PHASE1 implementation",
+    "issues": {
+      "critical": 2,
+      "warning": 0,
+      "suggestion": 0
+    },
+    "artifacts_modified": [
+      "specs/library/resource-installation/spec.md",
+      "tasks.md"
+    ],
+    "issues_fixed": {
+      "critical": 2,
+      "warning": 0,
+      "suggestion": 0
+    },
+    "entry": 1,
+    "timestamp": "2026-04-02T15:02:53Z"
+  },
+  {
+    "phase": "IMPLEMENTATION",
+    "iteration": 1,
+    "summary": "Starting PHASE1 implementation - converting fail-fast to partial processing",
+    "next_steps": "Modify initializer service to remove early returns, update tests, update CLI output",
+    "errors": [],
+    "cli_status": {
+      "change": "partial-processing",
+      "is_complete": true,
+      "artifacts": {
+        "proposal": "done",
+        "design": "done",
+        "specs": "done",
+        "tasks": "done"
+      }
+    },
+    "cli_instructions": {
+      "change": "partial-processing",
+      "state": "ready",
+      "total_tasks": 17,
+      "pending_tasks": 17
+    },
+    "tasks_to_implement": [
+      "1.1-1.9 initializer changes",
+      "2.1-2.4 test updates",
+      "3.1-3.2 CLI output",
+      "4.1-4.2 verification"
+    ],
+    "entry": 2,
+    "timestamp": "2026-04-02T15:03:42Z"
+  },
+  {
+    "phase": "IMPLEMENTATION",
+    "iteration": 1,
+    "summary": "Completed PHASE1 implementation - partial processing for resource initialization",
+    "next_steps": "Transition to PHASE2 (REVIEW) - verify change artifacts, run test compliance check",
+    "errors": [],
+    "assumptions": [
+      "Single resource failure returns error because ALL fail (hasSuccess is false)",
+      "E2E tests updated to reflect new output format",
+      "Error message uses errors.New instead of fmt.Errorf for lint compliance"
+    ],
+    "tasks_completed": [
+      "1.1-1.9",
+      "2.1-2.4",
+      "3.1-3.2",
+      "4.1-4.2"
+    ],
+    "tasks_remaining": 0,
+    "commits_made": 2,
+    "cli_status": {},
+    "cli_instructions": {},
+    "entry": 3,
+    "timestamp": "2026-04-02T15:13:11Z"
+  },
+  {
+    "phase": "REVIEW",
+    "iteration": 1,
+    "summary": "CLI status: all 17 tasks complete, change ready for archive",
+    "next_steps": "Run verification",
+    "cli_status": "all_done",
+    "tasks_complete": 17,
+    "tasks_remaining": 0,
+    "verification_result": "pending",
+    "entry": 4,
+    "timestamp": "2026-04-02T15:13:49Z"
+  },
+  {
+    "phase": "REVIEW",
+    "iteration": 1,
+    "summary": "Verification passed - all 17 tasks complete, 8/8 requirements met, design followed",
+    "next_steps": "Proceed to PHASE3 (maintain docs)",
+    "verification_result": "passed",
+    "issues_found": {
+      "critical": 0,
+      "warning": 0,
+      "suggestion": 0
+    },
+    "verification_report_path": "openspec/changes/partial-processing/verification-report.md",
+    "artifacts_modified": false,
+    "entry": 5,
+    "timestamp": "2026-04-02T15:15:42Z"
+  },
+  {
+    "phase": "MAINTAIN_DOCS",
+    "iteration": 1,
+    "summary": "Documentation updated successfully",
+    "commit_hash": "28f5c00ad7cb438eacb0d34c8d4e2467146b8c12",
+    "next_steps": "Proceeding to PHASE4 (SYNC)",
+    "docs_updated": [
+      "AGENTS.md",
+      "cmd/AGENTS.md",
+      "internal/service/AGENTS.md"
+    ],
+    "changes_made": [
+      "Updated cmd/AGENTS.md Init Command error handling section to reflect partial processing",
+      "Updated internal/service/AGENTS.md Initialization Pipeline error handling from fail-fast to continue-on-error"
+    ],
+    "entry": 6,
+    "timestamp": "2026-04-02T15:17:32Z"
+  },
+  {
+    "phase": "SYNC",
+    "iteration": 1,
+    "summary": "Specs synced successfully",
+    "commit_hash": "d5dc27a52362fbd52f8cc040a466203e46370628",
+    "next_steps": "Proceeding to PHASE5 (ARCHIVE)",
+    "delta_specs_found": [
+      "library/resource-installation/spec.md",
+      "partial-initialization/spec.md"
+    ],
+    "sync_operations": {
+      "added": 1,
+      "modified": 1,
+      "removed": 1,
+      "renamed": 0
+    },
+    "entry": 7,
+    "timestamp": "2026-04-02T15:19:27Z"
+  },
+  {
+    "phase": "SELF_REFLECTION",
+    "iteration": 1,
+    "summary": "Self-reflection completed. Workflow evaluation finished.",
+    "commit_hash": "21eca81b1377aea157a73524e4ac53776bed7e23",
+    "next_steps": "Self-reflection complete. Proceeding to PHASE6 (ARCHIVE).",
+    "reflections_path": "openspec/changes/partial-processing/reflections.md",
+    "total_phases": 7,
+    "total_iterations": 5,
+    "entry": 8,
+    "timestamp": "2026-04-02T15:21:14Z"
+  },
+  {
+    "phase": "ARCHIVE",
+    "iteration": 1,
+    "summary": "Change successfully archived",
+    "next_steps": "Archive complete. Workflow finished.",
+    "archive_path": "openspec/changes/archive/2026-04-02-partial-processing/",
+    "entry": 9,
+    "timestamp": "2026-04-02T15:23:35Z"
+  }
+]
