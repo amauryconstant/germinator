@@ -15,7 +15,7 @@ The current `--discover` functionality in `germinator library add` lacks recursi
 - `discover-orphans-batch`: Batch orphan discovery and registration with proper result aggregation. Creates `specs/discover-orphans-batch/spec.md`.
 
 ### Modified Capabilities
-- `library-orphan-discovery`: Add recursive scanning requirement and enhanced result structure. Creates delta spec `specs/library/library-orphan-discovery/discover-orphans-delta.md`.
+- `library-orphan-discovery`: Add recursive scanning requirement and enhanced result structure. Creates delta spec `specs/library/library-orphan-discovery/spec.md`.
 
 ## Impact
 
