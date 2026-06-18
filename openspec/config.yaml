@@ -2,14 +2,19 @@ schema: spec-driven
 
 context: |
   Domain: Configuration adapter transforming AI coding assistant documents
-  (commands, memory, skills, agents) between platforms using canonical YAML format
+  (commands, memory, skills, agents) between platforms using canonical YAML
   as source, targeting Claude Code or OpenCode.
 
-  Architecture:
-  - Canonical models (internal/models/canonical/) - domain-driven, platform-agnostic
-  - Platform adapters (internal/adapters/) - bidirectional conversion
-  - Two-stage validation - structural + platform-specific
-  - Template-based rendering (config/templates/)
+  Architecture (golang-cli-architecture, Functional Core / Imperative Shell):
+  - Three concerns per command: Parse (Cobra) → Execute (run fn) → Respond (output)
+  - One file per Cobra command containing: Options struct + NewCmdXxx + runXxx
+  - Lazy DI via internal/cmdutil.Factory (function fields, sync.Once caching)
+  - IOStreams abstraction for stdin/stdout/stderr/TTY/verbose
+  - Errors carry semantic meaning only; exit codes (0/1/2) mapped in cmdutil
+  - Interface definitions live where consumed (call-site), not in a dedicated
+    application/ package
+  - Service implementation lives next to its consumer (in cmd/ or in a
+    platform adapter package), not in a dedicated service/ package
 
   Key Concepts:
   - PermissionPolicy enum (restrictive, balanced, permissive, analysis, unrestricted)
@@ -17,27 +22,45 @@ context: |
   - Targets section for platform-specific overrides
   - User-provided model IDs (no normalization)
 
-  Tech stack: Go 1.25.5, Cobra CLI, YAML (gopkg.in/yaml.v3), Templates (github.com/Masterminds/sprig/v3)
-  Tooling: mise, golangci-lint, pre-commit
+  Tech stack: Go 1.25.5, Cobra CLI, YAML (gopkg.in/yaml.v3),
+    Templates (github.com/Masterminds/sprig/v3), koanf for config,
+    samber/lo for collections, lipgloss + huh for terminal output,
+    log/slog for debug logging
+  Tooling: mise, golangci-lint (with depguard), pre-commit
 
   Code conventions:
   - NO comments in code unless explicitly requested
   - Table-driven tests with fixtures
   - Use mise run <task> for all task operations
   - Run mise run check before committing
-  - Platform-specific logic in adapters only
+  - Platform-specific logic in adapter packages only
+  - Per-command Options struct holds IO + lazy fn deps + parsed flags
+  - runF injection in command constructor for testability
+  - Core package: stdlib + samber/lo only (depguard enforced)
 
-  Architecture (4-layer):
-  - cmd/ → CLI entry, Cobra commands (adapt, validate, canonicalize, version)
-  - services/ → Validation, transformation, canonicalization orchestration
-  - core/ → Document loading, parsing, serialization, template functions
-  - models/ → Canonical data structures (Agent, Command, Skill, Memory)
-  - adapters/ → Platform-specific bidirectional conversion (claude-code, opencode)
-  - config/templates/ → Template-based rendering for all platforms and canonical format
+  Package layout (target state):
+  - cmd/                          Cobra commands (one file per cmd,
+                                  grouped as sub-directory when 5+)
+  - internal/core/                Functional Core: types, validation, rules
+                                  (zero I/O, depguard: stdlib + lo only)
+  - internal/iostreams/           IOStreams abstraction: in/out/err,
+                                  TTY detection, Verbosef, Styles
+  - internal/output/              Shared output: FormatError, Exporter +
+                                  AddJSONFlags, TablePrinter, huh prompts
+  - internal/cmdutil/             Factory (lazy fn fields, sync.Once),
+                                  ExitCode mapping, shared cmd helpers
+  - internal/config/              Config loading (koanf, XDG paths)
+  - internal/library/             Library I/O (loader, resolver, saver,
+                                  validator, etc.)
+  - internal/{claude-code,opencode}/  Platform-specific adapters
+                                  (ParsePlatformDocument, RenderDocument)
+  - config/templates/             Template files for rendering
 
-  Transformation Pipelines:
-  Forward: Canonical YAML → LoadDocument → Validate → RenderDocument → Write Platform File
-  Reverse: Platform File → ParsePlatformDocument → Validate → MarshalCanonical → Write Canonical YAML
+  Transformation Pipelines (target):
+  Forward: Canonical YAML → core.LoadDocument → core.Validate →
+           <platform>.RenderDocument → Write Platform File
+  Reverse: Platform File → <platform>.ParsePlatformDocument → core.Validate
+           → core.MarshalCanonical → Write Canonical YAML
 
   Architecture patterns:
   - No predefined directory structure (CLI works with any input/output paths)
@@ -83,10 +106,12 @@ rules:
     - Mark completed items with [x]
     - Tasks are ordered logically with dependencies clear
 
-  testing:
-    - Golden file tests (test/golden/) with UPDATE_GOLDEN flag
-    - Fixtures in test/fixtures/ for both platforms
-    - Table-driven tests with descriptive names and errorCount for validation
-    - Platform testing: both claude-code and opencode REQUIRED for platform-specific tests
-    - Coverage target: 70% or higher for all packages
-    - Prioritize improving coverage in cmd/ and adapters/
+testing:
+  - Testing pyramid: Core (most, no mocks) → Command (runF injection + iostreams.Test) → Integration → E2E
+  - The test/mocks/ package is deprecated; new tests use runF injection with iostreams.Test()
+  - Golden file tests (test/golden/) with UPDATE_GOLDEN flag
+  - Fixtures in test/fixtures/ for both platforms
+  - Table-driven tests with descriptive names and errorCount for validation
+  - Platform testing: both claude-code and opencode REQUIRED for platform-specific tests
+  - Coverage target: 70% or higher for all packages
+  - Prioritize improving coverage in cmd/ and adapters/

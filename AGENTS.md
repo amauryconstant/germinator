@@ -6,98 +6,79 @@ Configuration adapter transforming AI coding assistant documents between platfor
 
 ```mermaid
 graph LR
-    subgraph CLI[CLI Layer]
-        V[validate]
-        A[adapt]
-        C[canonicalize]
+    subgraph CLI[cmd/]
+        direction TB
+        AD[adapt]
+        VA[validate]
+        CA[canonicalize]
+        IN[init]
+        LIB[library/]
+        CFG[config/]
         VER[version]
-        L[library]
-        CNF[config]
-        I[init]
+        COM[completion]
     end
 
-    subgraph APP[Application Layer]
-        IT[Transformer]
-        IV[Validator]
-        IC[Canonicalizer]
-        II[Initializer]
+    subgraph SHELL[Imperative Shell]
+        direction TB
+        IO[iostreams/]
+        OUT[output/]
+        CU[cmdutil/]
+        CONF[config/]
+        LIBL[library/]
+        CC[claude-code/]
+        OC[opencode/]
     end
 
-    subgraph SVC[Services Layer]
-        ST[transformer]
-        SV[validator]
-        SC[canonicalizer]
-        IN[initializer]
+    subgraph CORE[Functional Core]
+        direction TB
+        COR[core/<br/>types, validation,<br/>rules, errors]
     end
 
-    subgraph LIB[Library Layer]
-        LL[LoadLibrary]
-        LR[ResolveResource]
-        LS[ListResources]
-        LD[FindLibrary]
-    end
-
-    subgraph CORE[Core Layer]
-        LDc[LoadDocument]
-        P[ParseDocument]
-        R[RenderDocument]
-        MP[ParsePlatformDocument]
-        MC[MarshalCanonical]
-    end
-
-    subgraph DOMAIN[Domain Layer]
-        DM[Models]
-        DE[Errors]
-        DV[Validation]
-        DR[Results]
-    end
-
-    subgraph CFG[Config Layer]
-        CM[ConfigManager]
-    end
-
-    subgraph ADP[Adapters Layer]
-        ACC[claude-code]
-        AOC[opencode]
-    end
-
-    subgraph TPL[Templates Layer]
-        TC[canonical]
-        TCC[claude-code]
-        TOC[opencode]
-    end
-
-    V --> IV
-    A --> IT
-    C --> IC
-    I --> II
-    L --> LL
-    L --> LS
-    IT --> ST
-    IV --> SV
-    IC --> SC
-    II --> IN
-    ST --> LDc
-    SV --> LDc
-    SV --> DV
-    DV --> DM
-    SC --> MP
-    IN --> LDc
-    IN --> LR
-    LR --> LL
-    LL --> LD
-    LDc --> P
-    R --> TC
-    R --> TCC
-    R --> TOC
-    MC --> TC
-    P --> DM
-    MP --> ACC
-    MP --> AOC
-    ACC --> DM
-    AOC --> DM
-    CM -.->|library path| LDc
+    AD --> CU
+    AD --> CC
+    AD --> OC
+    AD --> COR
+    AD --> IO
+    AD --> OUT
+    VA --> CU
+    VA --> CC
+    VA --> OC
+    VA --> COR
+    CA --> CU
+    CA --> CC
+    CA --> OC
+    CA --> COR
+    IN --> CU
+    IN --> CC
+    IN --> OC
+    IN --> COR
+    LIB --> CU
+    LIB --> LIBL
+    LIBL --> COR
+    CONF --> COR
+    CC --> COR
+    OC --> COR
+    CU --> IO
+    CU --> OUT
+    COR -.->|no I/O| SHELL
 ```
+
+The target architecture is **golang-cli-architecture** (Functional Core / Imperative Shell). All I/O lives in shell packages (`iostreams/`, `output/`, `cmdutil/`, `config/`, `library/`, `claude-code/`, `opencode/`); `core/` is pure logic with stdlib + samber/lo only.
+
+## Reference Skills
+
+This project follows the **golang-cli-architecture** pattern. Load these skills when relevant:
+
+| Skill | When to use |
+|-------|-------------|
+| `golang-cli-architecture` | Any architectural decision; the source of truth for layout, Factory, IOStreams, exit codes |
+| `golang-design-patterns` | Functional options, constructors, resource lifecycle, error flow |
+| `golang-error-handling` | Error wrapping with `%w`, errors.As/Is, custom error types, slog |
+| `golang-testing` | Table-driven tests, testify, parallel tests, fuzzing, coverage |
+| `golang-project-layout` | Package organization, `internal/` conventions, package boundaries |
+| `golang-context` | `ctx` propagation, cancellation, deadlines |
+| `golang-spf13-cobra` | Cobra API depth: command groups, `PersistentPreRunE`, `ValidArgsFunction` |
+| `golang-lint` | golangci-lint config, depguard (core isolation), nolint directives |
 
 ## Essential Commands
 
@@ -389,18 +370,20 @@ graph TB
 
 ## Location-Specific Guides
 
+> Listed paths reflect the target architecture after the golang-cli-architecture rewrite. Per-package docs are created/updated as slices land — see the corresponding change proposal.
+
 | File                                                       | Purpose                                                      |
 | ---------------------------------------------------------- | ------------------------------------------------------------ |
 | [cmd/AGENTS.md](cmd/AGENTS.md)                             | CLI commands, Cobra patterns, command specs                  |
-| [internal/application/AGENTS.md](internal/application/AGENTS.md) | Service interfaces, request types for DI (results moved to domain) |
-| [internal/domain/AGENTS.md](internal/domain/AGENTS.md)     | Domain types, errors, validation, results (consolidated layer) |
-| [internal/service/AGENTS.md](internal/service/AGENTS.md)   | Service implementations (Transformer, Validator, etc.)        |
-| [internal/infrastructure/parsing/AGENTS.md](internal/infrastructure/parsing/AGENTS.md) | Document loading, parsing, platform detection |
-| [internal/infrastructure/serialization/AGENTS.md](internal/infrastructure/serialization/AGENTS.md) | Serialization, template functions |
-| [internal/infrastructure/adapters/AGENTS.md](internal/infrastructure/adapters/AGENTS.md) | Platform adapters (Claude Code, OpenCode) |
-| [internal/infrastructure/config/AGENTS.md](internal/infrastructure/config/AGENTS.md) | Configuration loading, XDG paths, TOML parsing |
-| [internal/infrastructure/library/AGENTS.md](internal/infrastructure/library/AGENTS.md) | Library system, resource management, preset grouping |
-| [internal/AGENTS.md](internal/AGENTS.md)                   | Internal package patterns                                    |
+| [internal/core/AGENTS.md](internal/core/AGENTS.md)         | Functional Core: types, validation, rules, errors (pure)     |
+| [internal/iostreams/AGENTS.md](internal/iostreams/AGENTS.md) | IOStreams abstraction, TTY detection, Styles, Verbosef     |
+| [internal/output/AGENTS.md](internal/output/AGENTS.md)     | Shared output: FormatError, Exporter+AddJSONFlags, prompts   |
+| [internal/cmdutil/AGENTS.md](internal/cmdutil/AGENTS.md)   | Factory (lazy fn fields), ExitCode mapping, cmd helpers     |
+| [internal/config/AGENTS.md](internal/config/AGENTS.md)     | Configuration loading, XDG paths, TOML parsing               |
+| [internal/library/AGENTS.md](internal/library/AGENTS.md)   | Library system, resource management, preset grouping         |
+| [internal/claude-code/AGENTS.md](internal/claude-code/AGENTS.md) | Claude Code platform adapter                              |
+| [internal/opencode/AGENTS.md](internal/opencode/AGENTS.md) | OpenCode platform adapter                                    |
+| [internal/AGENTS.md](internal/AGENTS.md)                   | Internal package patterns (target layout)                    |
 | [config/AGENTS.md](config/AGENTS.md)                       | Template patterns, permission mappings                       |
-| [test/AGENTS.md](test/AGENTS.md)                           | Golden file testing, E2E testing, mock infrastructure, fixture conventions        |
+| [test/AGENTS.md](test/AGENTS.md)                           | Golden file testing, E2E testing, runF injection, fixture conventions |
 | [openspec/research/AGENTS.md](openspec/research/AGENTS.md) | Platform research documentation usage                        |
