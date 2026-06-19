@@ -8,7 +8,7 @@ agent: osx-builder
 | Tool | Type | Usage |
 |------|------|-------|
 | `openspec` | Upstream CLI | `openspec <command> [options]` - npm package |
-| `osx` | Local script | `.opencode/scripts/lib/osx <domain> <action> [args]` - unified OpenSpec tool |
+| `osx` | Local script | `openspec-extended osx <domain> <action> [args]` - unified OpenSpec tool |
 | Domains: `ctx`, `state`, `iterations`, `log`, `complete`, `validate` |
 
 # PHASE1: Implementation
@@ -18,10 +18,10 @@ Change: $1
 ## MANDATORY START
 
 1. Load context:
-  !`.opencode/scripts/lib/osx ctx get "$1"`
+  !`openspec-extended osx ctx get "$1"`
 2. Confirm `phase` is PHASE1
 3. Review `history.iterations_recorded` for previous attempts
-4. Load skill: `.opencode/skills/osx-concepts/SKILL.md` (reference only)
+4. Load skills: `osx-concepts` and `osx-workflow` (both reference only)
 5. Read context files: `openspec/changes/$1/proposal.md`, `openspec/changes/$1/specs/`, `openspec/changes/$1/design.md`, `openspec/changes/$1/tasks.md`
 6. Determine which tasks to implement this iteration
 
@@ -108,7 +108,7 @@ After implementation complete:
 If you encounter an unrecoverable issue that prevents progress:
 
 ```bash
-.opencode/scripts/lib/osx complete set "$1" BLOCKED --blocker-reason "[Describe the specific blocking issue]"
+openspec-extended osx complete set "$1" BLOCKED --blocker-reason "[Describe the specific blocking issue]"
 ```
 
 The orchestrator will detect this and halt the workflow.
@@ -123,14 +123,14 @@ The orchestrator will detect this and halt the workflow.
 
 When all tasks are complete:
 ```bash
-.opencode/scripts/lib/osx state complete "$1"
+openspec-extended osx state complete "$1"
 ```
 
 ## DECISION LOG
 
 Append entry:
 ```bash
-.opencode/scripts/lib/osx log append "$1" \
+openspec-extended osx log append "$1" \
   --phase IMPLEMENTATION \
   --iteration N \
   --summary "What was accomplished this iteration" \
@@ -143,7 +143,7 @@ Append entry:
 
 Append entry:
 ```bash
-.opencode/scripts/lib/osx iterations append "$1" \
+openspec-extended osx iterations append "$1" \
   --phase IMPLEMENTATION \
   --iteration N \
   --notes "Brief summary" \
@@ -159,3 +159,17 @@ When all tasks in `tasks.md` are marked complete `[x]`:
 - Script will advance to PHASE2
 
 Note: AGENTS.md updates will occur in PHASE3 (MAINTAIN DOCS), not here. Even if tasks.md contains AGENTS.md tasks, they should be deferred to PHASE3.
+
+
+## SHELL ARGUMENT SAFETY
+
+When passing free-text to `--summary`, `--next-steps`, or any other shell argument, **DO NOT use backticks** (`` `like this` ``) for inline code references. Backticks are interpreted as command substitution by bash/zsh — the shell will execute whatever is inside the backticks and substitute its output. In zsh, `` `local` `` dumps the entire shell environment (PATH, tokens, internal variables) into your string, which then gets stored verbatim in `decision-log.json`.
+
+**Use instead:**
+
+- Single quotes: `'local'`
+- Double quotes: `"local"`
+- Plain text: `local`
+- Markdown `code` (which uses backticks in raw form, NOT shell backticks) — fine only when the argument is not passed through a shell
+
+If `osx log append` returns `input_too_long` or `input_tainted`, remove the backticks from the offending argument and retry.

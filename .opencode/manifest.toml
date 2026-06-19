@@ -1,0 +1,107 @@
+version = "1.1.0"
+
+[core]
+version = "1.4.1"
+installed = true
+
+[resources.skills.osx-commit]
+version = "0.1.0"
+
+[resources.skills.osx-concepts]
+version = "0.7.0"
+
+[resources.skills.osx-workflow]
+version = "0.2.0"
+
+[resources.skills.osx-generate-changelog]
+version = "0.2.1"
+
+[resources.skills.osx-maintain-ai-docs]
+version = "0.2.0"
+
+[resources.skills.osx-modify-artifacts]
+version = "0.2.3"
+
+[resources.skills.osx-review-artifacts]
+version = "0.2.6"
+
+[resources.skills.osx-review-test-compliance]
+version = "0.2.1"
+
+[resources.skills.osc-explore]
+version = "1.4.1"
+
+[resources.skills.osc-new-change]
+version = "1.4.1"
+
+[resources.skills.osc-continue-change]
+version = "1.4.1"
+
+[resources.skills.osc-apply-change]
+version = "1.4.1"
+
+[resources.skills.osc-ff-change]
+version = "1.4.1"
+
+[resources.skills.osc-sync-specs]
+version = "1.4.1"
+
+[resources.skills.osc-archive-change]
+version = "1.4.1"
+
+[resources.skills.osc-bulk-archive-change]
+version = "1.4.1"
+
+[resources.skills.osc-verify-change]
+version = "1.4.1"
+
+[resources.skills.osc-onboard]
+version = "1.4.1"
+
+[resources.skills.osc-propose]
+version = "1.4.1"
+
+[resources.agents.osx-analyzer]
+version = "0.2.2"
+
+[resources.agents.osx-builder]
+version = "0.2.2"
+
+[resources.agents.osx-maintainer]
+version = "0.2.2"
+
+[resources.commands.osx-changelog]
+version = "0.1.1"
+
+[resources.commands.osx-maintain-docs]
+version = "0.1.1"
+
+[resources.commands.osx-modify]
+version = "0.1.4"
+
+[resources.commands.osx-phase0]
+version = "0.2.11"
+
+[resources.commands.osx-phase1]
+version = "0.3.5"
+
+[resources.commands.osx-phase2]
+version = "0.2.18"
+
+[resources.commands.osx-phase3]
+version = "0.3.5"
+
+[resources.commands.osx-phase4]
+version = "0.2.13"
+
+[resources.commands.osx-phase5]
+version = "0.3.4"
+
+[resources.commands.osx-phase6]
+version = "0.3.6"
+
+[resources.commands.osx-review]
+version = "0.1.3"
+
+[resources.commands.osx-verify-tests]
+version = "0.1.1"

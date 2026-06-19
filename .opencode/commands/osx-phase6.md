@@ -7,7 +7,7 @@ agent: osx-maintainer
 
 | Tool | Usage |
 |------|-------|
-| `osx` | `.opencode/scripts/lib/osx <domain> <action> [args]` - unified OpenSpec tool |
+| `osx` | `openspec-extended osx <domain> <action> [args]` - unified OpenSpec tool |
 | Domains: `ctx`, `state`, `iterations`, `log`, `complete`, `validate` |
 
 # PHASE6: Archive Change
@@ -26,10 +26,10 @@ Change: $1
 ## MANDATORY START
 
 1. Load context:
-   !`.opencode/scripts/lib/osx ctx get "$1"`
+   !`openspec-extended osx ctx get "$1"`
 2. Confirm `phase` is PHASE6
 3. Review `history.iterations_recorded` for previous attempts
-4. Load skill: `.opencode/skills/osx-concepts/SKILL.md` (reference only)
+4. Load skills: `osx-concepts` and `osx-workflow` (both reference only)
 
 ## PURPOSE
 
@@ -47,6 +47,7 @@ Before archiving, remove transient state files that should not be preserved:
 rm -f openspec/changes/$1/state.json
 rm -f openspec/changes/$1/complete.json
 rm -f .openspec-baseline.json
+rm -f .osx-orchestrate-$1.log
 ```
 
 These files are runtime artifacts that should not be archived.
@@ -78,7 +79,7 @@ Note: PHASE6 does NOT call `osx state complete`. The orchestrator detects comple
 Append entry to decision log BEFORE committing:
 
 ```bash
-.opencode/scripts/lib/osx log append "$1" \
+openspec-extended osx log append "$1" \
   --phase ARCHIVE \
   --iteration N \
   --summary "Change successfully archived" \
@@ -93,7 +94,7 @@ Note: Commit hash is captured in git history, not duplicated in logs.
 Append entry to iterations.json BEFORE committing:
 
 ```bash
-.opencode/scripts/lib/osx iterations append "$1" \
+openspec-extended osx iterations append "$1" \
   --phase ARCHIVE \
   --iteration N \
   --notes "Change archived and committed successfully" \
@@ -140,7 +141,7 @@ After PHASE6 archive:
 If you encounter an unrecoverable issue that prevents progress:
 
 ```bash
-.opencode/scripts/lib/osx complete set "$1" BLOCKED --blocker-reason "[Describe the specific blocking issue]"
+openspec-extended osx complete set "$1" BLOCKED --blocker-reason "[Describe the specific blocking issue]"
 ```
 
 The orchestrator will detect this and halt the workflow.
@@ -149,3 +150,17 @@ The orchestrator will detect this and halt the workflow.
 - Archive operation fails and cannot be retried
 - File permissions prevent moving change to archive
 - Critical files missing from change directory
+
+
+## SHELL ARGUMENT SAFETY
+
+When passing free-text to `--summary`, `--next-steps`, or any other shell argument, **DO NOT use backticks** (`` `like this` ``) for inline code references. Backticks are interpreted as command substitution by bash/zsh — the shell will execute whatever is inside the backticks and substitute its output. In zsh, `` `local` `` dumps the entire shell environment (PATH, tokens, internal variables) into your string, which then gets stored verbatim in `decision-log.json`.
+
+**Use instead:**
+
+- Single quotes: `'local'`
+- Double quotes: `"local"`
+- Plain text: `local`
+- Markdown `code` (which uses backticks in raw form, NOT shell backticks) — fine only when the argument is not passed through a shell
+
+If `osx log append` returns `input_too_long` or `input_tainted`, remove the backticks from the offending argument and retry.
