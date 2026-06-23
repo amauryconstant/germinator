@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Define the `--output json|table|plain` flag and the `Exporter` interface shared by all read-only commands. Replace the legacy per-command `--json` flags with a single, discoverable output format flag.
+Define the `--output json|table|plain` flag and the `Exporter` interface shared by all read-only commands. This change establishes the foundation (`cmdutil.AddOutputFlags`, the `Exporter` interface, and `JSONExporter`/`TableExporter`); per-command adoption and replacement of legacy `--json` flags is sequenced across changes 2-9.
 
 ## ADDED Requirements
 
@@ -76,9 +76,13 @@ Read-only commands SHALL dispatch on `opts.Output` and call the appropriate `Exp
 - **WHEN** a read-only command runs
 - **THEN** the command SHALL construct a `TableExporter` and call `Write(opts.IO, data)`
 
-### Requirement: AddOutputFlags is opt-in
+### Requirement: AddOutputFlags is opt-in per command
 
-Only commands that produce structured output (resources, presets, show, add, init, refresh, remove, validate) SHALL call `cmdutil.AddOutputFlags`. Commands that only emit files (adapt, validate, canonicalize, init, version, completion, config init, library create) SHALL NOT call `cmdutil.AddOutputFlags`.
+Each command SHALL call `cmdutil.AddOutputFlags` if and only if it produces structured machine-readable output that benefits from a `--output` flag.
+
+**Commands that SHALL call `cmdutil.AddOutputFlags`**: any read-only command whose primary result is a structured data structure (validation result, list of resources, list of presets, per-resource action result). Examples include commands that emit validation results, per-resource install/add/remove results, resource or preset lists, resource/preset detail views, and per-resource sync results.
+
+**Commands that SHALL NOT call `cmdutil.AddOutputFlags`**: any command whose primary result is a file, script, or short one-line text written to stdout. Examples include commands that write platform files, write canonical files, write one-line version strings, write shell completion scripts, write config files, or write library scaffolding.
 
 #### Scenario: adapt has no --output flag
 
@@ -89,3 +93,5 @@ Only commands that produce structured output (resources, presets, show, add, ini
 
 - **WHEN** `germinator library resources --help` is invoked
 - **THEN** the help output SHALL include an `--output` flag with values `plain|table|json`
+
+> **Status (slice 1 / foundation):** this requirement describes the target state after all commands are migrated (changes 2-9). This change creates `cmdutil.AddOutputFlags` and the `Exporter` interface; adoption is per-command in subsequent changes.

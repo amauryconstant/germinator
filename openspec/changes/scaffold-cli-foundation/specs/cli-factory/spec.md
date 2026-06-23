@@ -10,23 +10,14 @@ Replace the eager `ServiceContainer` and mutable `CommandConfig` with a `cmdutil
 
 The `cmdutil.Factory` struct SHALL hold the always-needed values eagerly.
 
-#### Scenario: IOStreams is eager
+#### Scenario: Eager fields are populated at construction
 
 - **WHEN** the Factory is constructed
-- **THEN** its `IOStreams *iostreams.IOStreams` field SHALL be set to a non-nil value
-- **AND** the field SHALL be the same instance passed to every command
-
-#### Scenario: AppVersion and Executable are eager
-
-- **WHEN** the Factory is constructed
-- **THEN** its `AppVersion string` field SHALL be set to the build-time version
-- **AND** its `Executable string` field SHALL be set to the binary name (`"germinator"`)
-
-#### Scenario: RootContext is signal-aware
-
-- **WHEN** the Factory is constructed in `main.go`
-- **THEN** `Factory.RootContext` SHALL be set via `signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)`
-- **AND** it SHALL be cancelled when SIGINT or SIGTERM is received
+- **THEN** its `IOStreams *iostreams.IOStreams` field SHALL be set to a non-nil value shared across the command tree
+- **AND** its `AppVersion string` field SHALL be set to the build-time version
+- **AND** its `Executable string` field SHALL be set to `"germinator"`
+- **AND** its `RootContext context.Context` field SHALL be set via `signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)`
+- **AND** `RootContext` SHALL be cancelled when SIGINT or SIGTERM is received
 
 ### Requirement: Factory exposes lazy dependency functions
 

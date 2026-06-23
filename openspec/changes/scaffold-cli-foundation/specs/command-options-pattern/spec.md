@@ -71,7 +71,7 @@ Each command file SHALL declare the tiny interface it needs (e.g. `type Transfor
 - **GIVEN** `main.go` populates the Factory's `Transformer` function
 - **WHEN** the function is called
 - **THEN** it SHALL construct the concrete service and return it as the interface type
-- **AND** the concrete type's package SHALL be imported only by `main.go` (and by the per-service test file), NOT by any command file
+- **AND** the concrete type's package SHALL be imported only by `main.go` (for production wiring) and by the corresponding `*_test.go` file of the concrete implementation — never by any command file
 
 ### Requirement: No mutable shared state
 

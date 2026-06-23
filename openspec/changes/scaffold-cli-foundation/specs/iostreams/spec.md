@@ -26,7 +26,7 @@ The `iostreams` package SHALL provide two constructors.
 
 - **WHEN** `iostreams.System()` is called from `main.go`
 - **THEN** it SHALL return an `IOStreams` with `In = os.Stdin`, `Out = os.Stdout`, `ErrOut = os.Stderr`
-- **AND** it SHALL use `golang.org/x/term.IsTerminal(int(os.Stdout.Fd()))` for TTY detection
+- **AND** it SHALL perform TTY detection on `Out` (and `In`) using a terminal-capability library
 - **AND** it SHALL set `Styles` to a TTY-aware or non-TTY-aware `Styles` based on TTY detection and `NO_COLOR`
 
 #### Scenario: Test() for unit tests
@@ -77,13 +77,13 @@ The `IOStreams.Logger` SHALL be a `*slog.Logger` gated on the `GERMINATOR_DEBUG`
 
 - **GIVEN** the `GERMINATOR_DEBUG` env var is unset
 - **WHEN** `iostreams.System()` constructs the IOStreams
-- **THEN** `Logger` SHALL be `slog.New(slog.NewTextHandler(io.Discard, nil))` (no-op)
+- **THEN** `Logger` SHALL be a no-op handler (writes to `io.Discard`)
 
 #### Scenario: Logger enabled in debug mode
 
 - **GIVEN** the `GERMINATOR_DEBUG` env var is set to any non-empty value
 - **WHEN** `iostreams.System()` constructs the IOStreams
-- **THEN** `Logger` SHALL be a debug-level JSON handler writing to `ErrOut`
+- **THEN** `Logger` SHALL be a debug-level structured handler writing to `ErrOut`
 
 ### Requirement: Styles struct
 

@@ -31,7 +31,7 @@ Germinator is a Go CLI that transforms AI coding assistant documents (agent, com
 - Create `internal/iostreams/`, `internal/output/`, `internal/cmdutil/` as the three shell concerns.
 - Rename `internal/domain/` → `internal/core/` and flatten `internal/infrastructure/*` into top-level `internal/<concern>/` packages.
 - Add `core.PartialSuccessError` to the error type set (consumer arrives in change-5).
-- Establish `forbidigo` lint rules blocking `fmt.Fprintf(os.Stdout|Stderr)` and `os.Exit(` in `cmd/`.
+- Establish `forbidigo` lint rules blocking `fmt.Fprintf(os.Stdout|Stderr)`, `os.Exit(`, `var global(Factory|CommandConfig)`, `SetGlobal(Factory|CommandConfig)`, and `context.Background()` in `cmd/`.
 - Land all of the above with `mise run check` green and ≥70% coverage in the new packages.
 - **Preserve all current CLI behavior byte-identically** (no command is migrated in this change).
 
@@ -80,16 +80,18 @@ Germinator is a Go CLI that transforms AI coding assistant documents (agent, com
 - Keep `infrastructure/` umbrella and rename subdirs → larger diff, no benefit.
 - Restructure each package while moving → conflates two changes; deferred per the skill's "extract when painful, not predicted".
 
-### 4. `PartialSuccessError` is added in this change but only used in change-5
+### 4. `PartialSuccessError` and `InitializeError` are added in this change but only used in change-5
 
-**Choice**: `core.PartialSuccessError` is defined in `internal/core/errors.go` with full tests, even though the first consumer (`init`) arrives in change-5.
+**Choice**: `core.PartialSuccessError` and `core.InitializeError` are defined in `internal/core/errors.go` with full tests, even though the first consumer (`init`) arrives in change-5. `InitializeError` carries per-resource failure metadata (`Ref`, `InputPath`, `OutputPath`, `Cause`); `PartialSuccessError` aggregates `Succeeded`/`Failed` counts plus a `[]InitializeError` slice.
 
-**Rationale**: The type is part of the **error vocabulary** of the new architecture. Defining it in the foundation lets `cmdutil.ExitCodeFor` and `output.FormatError` recognize it from day one (their tests in `internal/cmdutil/exit_test.go` and `internal/output/output_test.go` cover the partial-success path). Without the type present, the `errors.As` switch in `FormatError` would be incomplete; with it present but unused, it's a no-op until `init` arrives.
+**Rationale**: Both types are part of the **error vocabulary** of the new architecture. Defining them in the foundation lets `cmdutil.ExitCodeFor` and `output.FormatError` recognize them from day one (their tests in `internal/cmdutil/exit_test.go` and `internal/output/output_test.go` cover the partial-success path). Without the types present, the `errors.As` switch in `FormatError` would be incomplete; with them present but unused, it's a no-op until `init` arrives.
+
+**Pattern alignment**: Both `InitializeError` and `PartialSuccessError` follow the existing builder pattern in `internal/core/errors.go` (lowercase fields, getter methods, `Error()`/`Unwrap()`, constructors `NewInitializeError`/`NewPartialSuccessError`). `InitializeError` adds the `WithSuggestions`/`WithContext` immutable builders for fluent enrichment; `PartialSuccessError` does not need a builder chain since it is constructed once at the end of `init`.
 
 **Alternatives considered**:
 
-- Define `PartialSuccessError` in change-5 → forces a follow-up commit to `output/FormatError` and `cmdutil/ExitCodeFor` to add the `errors.As` branch.
-- Skip the type entirely → partial-success behavior diverges from current (init would lose its "exit 0 if at least one succeeded" guarantee).
+- Define `PartialSuccessError`/`InitializeError` in change-5 → forces a follow-up commit to `output/FormatError` and `cmdutil/ExitCodeFor` to add the `errors.As` branch.
+- Skip the types entirely → partial-success behavior diverges from current (init would lose its "exit 0 if at least one succeeded" guarantee).
 
 ### 5. `forbidigo` patterns are scoped narrowly
 
@@ -98,7 +100,7 @@ Germinator is a Go CLI that transforms AI coding assistant documents (agent, com
 - `fmt\.Fprintf\(os\.(Stdout|Stderr)` in `cmd/*.go` excluding tests
 - `os\.Exit\(` in `cmd/**` excluding `main.go`
 
-Plus four global patterns: `var global(Factory|CommandConfig)`, `SetGlobal(Factory|CommandConfig)`, `context\.Background\(\)` in `cmd/**/*.go` (except `main.go`).
+Plus three more patterns: `var global(Factory|CommandConfig)`, `SetGlobal(Factory|CommandConfig)`, `context\.Background\(\)` in `cmd/**/*.go` (except `main.go`).
 
 **Rationale**: scoped to `cmd/` because that's the only place these anti-patterns matter; excluding `main.go` for `os.Exit` because `main.go` is the only allowed caller of `os.Exit`; excluding tests because tests need `fmt.Fprintf(os.Stdout, ...)` for setup assertions.
 
@@ -117,7 +119,9 @@ Plus four global patterns: `var global(Factory|CommandConfig)`, `SetGlobal(Facto
 
 **Choice**: The existing `core.Result[T]` and `core.ValidationPipeline[T]` types are preserved as-is. No renaming, no migration to `(T, error)`.
 
-**Rationale**: the skill recommends `(T, error)` over a generic `Result[T]`, but the existing codebase uses `Result[T]` extensively. Migrating would require touching every validator and would obscure the composability that `Result.OrElse` / `Result.IsOk` provide. Deferred to a future change.
+**Rationale**: the skill recommends `(T, error)` over a generic `Result[T]`, but the existing codebase uses `Result[T]` extensively. Migrating would require touching every validator and would obscure the composability that `Result.OrElse` / `Result.IsOk` provide. Deferred to a future change. (Typed errors like `InitializeError` and `PartialSuccessError` follow the existing builder pattern and are unaffected by this `Result[T]` decision — typed errors and generic result types are independent concerns.)
+
+- **Future work:** a dedicated change may migrate `Result[T]` → `(T, error)` if the codebase wants full alignment with the `golang-cli-architecture` skill; the migration is mechanical but touches every validator.
 
 ### 8. `addOutputFlags` lives in `internal/output`, re-exported as `cmdutil.AddOutputFlags`
 
@@ -136,6 +140,29 @@ Plus four global patterns: `var global(Factory|CommandConfig)`, `SetGlobal(Facto
 **Choice**: `main.go` is left untouched in this change. The Factory, ExitCodeFor, and FormatError exist as units but `main.go` doesn't construct them yet.
 
 **Rationale**: changes 2-7 each add consumers of these units; `main.go` rewiring happens alongside the first two pilot commands (change-2) with the `legacyBridge` shim pattern that allows non-migrated commands to coexist. Wiring `main.go` in this change without any consumer would be a half-finished integration.
+
+### 11. `core/rules.go` is part of the foundation, not deferred
+
+**Choice**: `internal/core/rules.go` is created in this change with two pure functions:
+
+- `ValidatePlatform(s string) error` — returns `*core.ValidationError` when `s ∉ {"claude-code", "opencode"}`; nil otherwise.
+- `ResolveOutputPath(docType, name, platform string) string` — combines the three into the canonical output filename (e.g., `agents/foo.claude-code.md`).
+
+**Rationale**: Both functions are needed by downstream changes (`init` in change-5, `library add` in change-6), but they are pure business rules with no I/O dependencies — they fit cleanly in the depguard-isolated `core/` package. Centralizing them now avoids duplication when each consumer lands.
+
+**Alternatives considered**:
+- Defer to change-5/6 → forces each consumer to re-implement the path/validation logic; risks drift.
+- Put in `internal/library/` → wrong layer (library depends on core, not the reverse); would create a cycle.
+
+### 12. `PartialSuccessError` with `Succeeded > 0` exits 0
+
+**Choice**: `cmdutil.ExitCodeFor` returns `ExitCodeSuccess` (0) when given a `*core.PartialSuccessError` with `Succeeded > 0`, and `ExitCodeError` (1) when `Succeeded == 0`.
+
+**Rationale**: The current `init` command emits exit 0 when at least one resource installed successfully (CI pipelines rely on this to detect "did anything happen?"). The new typed-error dispatch must preserve this semantic so the slice 1 → slice 5 transition does not change observable behavior.
+
+**Alternatives considered**:
+- Always exit 1 on any failure → changes existing CLI behavior; breaks CI pipelines that depend on partial-success semantics.
+- Add a fourth exit code (3 = partial success) → violates Decision 1 (three exit codes only); adds complexity for no benefit.
 
 ## Risks / Trade-offs
 
