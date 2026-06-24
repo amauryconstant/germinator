@@ -2,122 +2,39 @@
 
 ## Purpose
 
-Define semantic exit codes for germinator CLI to enable programmatic error handling by scripts and tools.
+Define semantic exit codes for germinator CLI to enable programmatic error handling by scripts and tools. The CLI uses a small, fixed set of exit codes; semantic meaning lives in typed errors (`core.ParseError`, `core.ValidationError`, etc.) and is dispatched in `output.FormatError` via `errors.As`.
 
 ## Requirements
 
-### Requirement: Exit Code Constants
+### Requirement: Exit code constants collapsed
 
-The system SHALL define semantic exit code constants.
+The seven exit codes (`0, 1, 2, 3, 4, 5, 6`) SHALL be collapsed to three (`0, 1, 2`):
 
-#### Scenario: Exit code values
+- `0` = `ExitCodeSuccess`
+- `1` = `ExitCodeError` (any operational error)
+- `2` = `ExitCodeUsage` (usage, flag, or argument error)
 
-- **WHEN** exit codes are defined
-- **THEN** ExitCodeSuccess SHALL be 0
-- **AND** ExitCodeError SHALL be 1
-- **AND** ExitCodeUsage SHALL be 2
-- **AND** ExitCodeConfig SHALL be 3
-- **AND** ExitCodeGit SHALL be 4
-- **AND** ExitCodeValidation SHALL be 5
-- **AND** ExitCodeNotFound SHALL be 6
+The four removed codes (`3, 4, 5, 6`) and their semantic meaning SHALL be **removed**; semantic meaning lives in typed errors and is dispatched in `output.FormatError` via `errors.As`.
 
----
+#### Scenario: Only three exit code constants exist
 
-### Requirement: Error Categories
+- **WHEN** the codebase is inspected
+- **THEN** exactly three exit code constants SHALL be defined in `internal/cmdutil/exit.go`
+- **AND** the `ExitCodeConfig`, `ExitCodeGit`, `ExitCodeValidation`, `ExitCodeNotFound` constants SHALL NOT exist
+- **AND** no other exit code constant SHALL be defined anywhere else in the codebase
 
-The system SHALL define error categories for exit code mapping.
+### Requirement: ExitCodeFor function
 
-#### Scenario: Category enumeration
+The `cmdutil.ExitCodeFor(err error) ExitCode` function SHALL map an error to an exit code:
 
-- **WHEN** error categories are defined
-- **THEN** CategoryCobra SHALL exist for Cobra framework errors
-- **AND** CategoryConfig SHALL exist for configuration errors (renamed from CategoryParse)
-- **AND** CategoryValidation SHALL exist for validation errors
-- **AND** CategoryNotFound SHALL exist for not-found errors (NEW)
-- **AND** CategoryGit SHALL exist for git-related errors (NEW)
-- **AND** CategoryGeneric SHALL exist for unclassified errors
+- `nil` → `ExitCodeSuccess` (0)
+- `*pflag.NotExistError`, `*pflag.ValueRequiredError`, `*pflag.InvalidValueError`, `*pflag.InvalidSyntaxError` (typed errors that exist in pflag v1.0.10) → `ExitCodeUsage` (2)
+- Cobra usage errors not wrapped by pflag (detected via `strings.HasPrefix` on the error message against known prefixes such as `"unknown flag"`, `"flag needs an argument"`, `"invalid argument"`, `"bad flag syntax"`) → `ExitCodeUsage` (2)
+- `*core.PartialSuccessError` with `Succeeded > 0` → `ExitCodeSuccess` (0)
+- `*core.PartialSuccessError` with `Succeeded == 0` → `ExitCodeError` (1)
+- All other errors → `ExitCodeError` (1)
 
-#### Scenario: CategoryParse renamed to CategoryConfig
+#### Scenario: ExitCodeFor table-driven
 
-- **GIVEN** current code has `CategoryParse` for parse errors
-- **WHEN** the migration is complete
-- **THEN** `CategoryParse` SHALL be renamed to `CategoryConfig`
-- **AND** parse errors SHALL map to the Config exit code (3)
-
----
-
-### Requirement: Error Categorization Function
-
-The system SHALL provide a function to categorize errors.
-
-#### Scenario: Categorize ParseError
-
-- **WHEN** CategorizeError receives a ParseError
-- **THEN** it SHALL return CategoryConfig (renamed from CategoryParse)
-
-#### Scenario: Categorize ValidationError
-
-- **WHEN** CategorizeError receives a ValidationError
-- **THEN** it SHALL return CategoryValidation
-
-#### Scenario: Categorize ConfigError
-
-- **WHEN** CategorizeError receives a ConfigError
-- **THEN** it SHALL return CategoryConfig
-
-#### Scenario: Categorize GitError
-
-- **WHEN** CategorizeError receives a GitError
-- **THEN** it SHALL return CategoryGit
-
-#### Scenario: Categorize NotFoundError
-
-- **WHEN** CategorizeError receives a NotFoundError
-- **THEN** it SHALL return CategoryNotFound
-
-#### Scenario: Categorize wrapped errors
-
-- **WHEN** CategorizeError receives a wrapped typed error
-- **THEN** it SHALL detect the underlying type using errors.As
-- **AND** it SHALL return the correct category
-
-#### Scenario: Categorize unknown error
-
-- **WHEN** CategorizeError receives an unclassified error
-- **THEN** it SHALL return CategoryGeneric
-
----
-
-### Requirement: Exit Code Mapping
-
-The system SHALL provide a function to map errors to exit codes.
-
-#### Scenario: Config error exit code
-
-- **WHEN** GetExitCodeForError receives CategoryConfig
-- **THEN** it SHALL return ExitCodeConfig (3)
-
-#### Scenario: Validation error exit code
-
-- **WHEN** GetExitCodeForError receives CategoryValidation
-- **THEN** it SHALL return ExitCodeValidation (5)
-
-#### Scenario: NotFound error exit code
-
-- **WHEN** GetExitCodeForError receives CategoryNotFound
-- **THEN** it SHALL return ExitCodeNotFound (6)
-
-#### Scenario: Git error exit code
-
-- **WHEN** GetExitCodeForError receives CategoryGit
-- **THEN** it SHALL return ExitCodeGit (4)
-
-#### Scenario: Cobra error exit code
-
-- **WHEN** GetExitCodeForError receives CategoryCobra
-- **THEN** it SHALL return ExitCodeUsage (2)
-
-#### Scenario: Generic error exit code
-
-- **WHEN** GetExitCodeForError receives CategoryGeneric
-- **THEN** it SHALL return ExitCodeError (1)
+- **WHEN** `cmdutil.ExitCodeFor` is called with each error type from the list above
+- **THEN** it SHALL return the corresponding exit code

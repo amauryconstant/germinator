@@ -2,30 +2,38 @@
 
 ## Purpose
 
-Provide multi-level verbosity control for CLI commands with structured output formatting.
+Provide multi-level verbosity control for CLI commands. Verbose output is emitted through `opts.IO.Verbosef` on the `iostreams.IOStreams` struct (see `cli-iostreams`), with the `-v` / `-vv` flag semantics preserved at the Cobra flag layer.
 
 ## Requirements
 
-### Requirement: Verbosity Type
+### Requirement: Verbose output via IOStreams.Verbosef
 
-The CLI SHALL provide a Verbosity type for type-safe verbosity level handling.
+Verbose output SHALL be emitted via `opts.IO.Verbosef(format, args...)` on `iostreams.IOStreams` (introduced in `cli-iostreams`). The legacy `Verbosity` type and `cmd.VerbosePrint` / `cmd.VeryVerbosePrint` helpers SHALL be removed (see `cli-iostreams` for the new mechanism).
 
-#### Scenario: Verbosity type exists
+#### Scenario: Verbosef writes to ErrOut when verbose
 
-- **GIVEN** the cmd/verbose.go file is inspected
-- **WHEN** the Verbosity type is defined
-- **THEN** it SHALL be based on int type
-- **AND** it SHALL have methods IsVerbose() and IsVeryVerbose()
+- **WHEN** `opts.IO.Verbose == true`
+- **AND** a command calls `opts.IO.Verbosef("loading %d files", 5)`
+- **THEN** the formatted string SHALL be written to `opts.IO.ErrOut`
+- **AND** a trailing newline SHALL be appended
 
-#### Scenario: Verbosity level detection
+### Requirement: Verbosity flag semantics preserved
 
-- **GIVEN** a Verbosity value
-- **WHEN** IsVerbose() is called with level >= 1
-- **THEN** it SHALL return true
-- **WHEN** IsVeryVerbose() is called with level >= 2
-- **THEN** it SHALL return true
+The `-v` (verbose level 1) and `-vv` (verbose level 2) flag semantics SHALL be preserved at the Cobra flag level. The new mechanism (`opts.IO.Verbosef`) SHALL only fire when `opts.IO.Verbose == true`.
 
----
+#### Scenario: -v sets Verbose=true
+
+- **GIVEN** a command that defines a `-v` flag
+- **WHEN** the user invokes the command with `-v`
+- **THEN** `opts.IO.Verbose` SHALL be `true`
+- **AND** calls to `opts.IO.Verbosef(...)` SHALL write to `opts.IO.ErrOut`
+
+#### Scenario: -vv sets Verbose=true (level 2)
+
+- **GIVEN** a command that defines a `-v` count flag
+- **WHEN** the user invokes the command with `-vv`
+- **THEN** `opts.IO.Verbose` SHALL be `true`
+- **AND** a future `Verbosef2` mechanism MAY distinguish level 1 from level 2 (NOT required by this capability)
 
 ### Requirement: Persistent Verbose Flag
 
@@ -42,9 +50,9 @@ The root command SHALL have a persistent verbose flag available to all subcomman
 
 - **GIVEN** the verbose flag is defined with CountP
 - **WHEN** user passes `-v`
-- **THEN** verbosity level SHALL be 1
+- **THEN** the flag count SHALL be 1
 - **WHEN** user passes `-vv`
-- **THEN** verbosity level SHALL be 2
+- **THEN** the flag count SHALL be 2
 
 #### Scenario: Verbose flag is persistent
 
@@ -54,7 +62,11 @@ The root command SHALL have a persistent verbose flag available to all subcomman
 - **AND** `germinator validate file.yaml -v` SHALL work
 - **AND** `germinator adapt in.yaml out.md -vv` SHALL work
 
----
+#### Scenario: Flag value propagates to opts.IO.Verbose
+
+- **GIVEN** the root command's `-v` count flag was parsed
+- **WHEN** a subcommand's `RunE` populates `opts`
+- **THEN** `opts.IO.Verbose` SHALL be `true` if the count >= 1, `false` otherwise
 
 ### Requirement: Verbose Output Destination
 
@@ -63,125 +75,99 @@ Verbose output SHALL go to stderr, keeping stdout clean.
 #### Scenario: Verbose output to stderr
 
 - **GIVEN** a command is run with `-v` or `-vv`
-- **WHEN** verbose messages are printed
-- **THEN** they SHALL be written to stderr
-- **AND** stdout SHALL contain only normal command output
-
----
+- **WHEN** `opts.IO.Verbosef(...)` is called
+- **THEN** the formatted message SHALL be written to `opts.IO.ErrOut`
+- **AND** `opts.IO.Out` SHALL contain only normal command output
 
 ### Requirement: Validate Command Verbose Output
 
-The validate command SHALL support verbose output at two levels.
+The validate command SHALL support verbose output via `opts.IO.Verbosef`.
 
-#### Scenario: Validate with level 1 (-v)
+#### Scenario: Validate with -v
 
 - **GIVEN** a valid document file
 - **WHEN** `germinator validate <file> --platform <platform> -v` is run
-- **THEN** stderr SHALL include the file path being validated
-- **AND** stderr SHALL include the platform name
-- **AND** stdout SHALL include "Document is valid"
+- **THEN** `opts.IO.ErrOut` SHALL include the file path being validated
+- **AND** `opts.IO.ErrOut` SHALL include the platform name
+- **AND** `opts.IO.Out` SHALL include "Document is valid"
 
-#### Scenario: Validate with level 2 (-vv)
+#### Scenario: Validate with -vv
 
 - **GIVEN** a valid document file
 - **WHEN** `germinator validate <file> --platform <platform> -vv` is run
-- **THEN** stderr SHALL include loading details with indented format
-- **AND** stderr SHALL include parsing details
-- **AND** stderr SHALL include validation steps
+- **THEN** `opts.IO.ErrOut` SHALL include loading details with indented format
+- **AND** `opts.IO.ErrOut` SHALL include parsing details
+- **AND** `opts.IO.ErrOut` SHALL include validation steps
 
 #### Scenario: Validate with no verbose flag
 
 - **GIVEN** a valid document file
 - **WHEN** `germinator validate <file> --platform <platform>` is run
-- **THEN** stdout SHALL include "Document is valid"
-- **AND** stderr SHALL NOT include verbose messages
-
----
+- **THEN** `opts.IO.Out` SHALL include "Document is valid"
+- **AND** `opts.IO.Verbosef` calls SHALL be no-ops
+- **AND** `opts.IO.ErrOut` SHALL NOT include verbose messages
 
 ### Requirement: Adapt Command Verbose Output
 
-The adapt command SHALL support verbose output at two levels.
+The adapt command SHALL support verbose output via `opts.IO.Verbosef`.
 
-#### Scenario: Adapt with level 1 (-v)
+#### Scenario: Adapt with -v
 
 - **GIVEN** valid input and output paths
 - **WHEN** `germinator adapt <input> <output> --platform <platform> -v` is run
-- **THEN** stderr SHALL include transformation description
-- **AND** stderr SHALL include output path
-- **AND** stdout SHALL include success message
+- **THEN** `opts.IO.ErrOut` SHALL include transformation description
+- **AND** `opts.IO.ErrOut` SHALL include output path
+- **AND** `opts.IO.Out` SHALL include success message
 
-#### Scenario: Adapt with level 2 (-vv)
+#### Scenario: Adapt with -vv
 
 - **GIVEN** valid input and output paths
 - **WHEN** `germinator adapt <input> <output> --platform <platform> -vv` is run
-- **THEN** stderr SHALL include loading details with indented format
-- **AND** stderr SHALL include rendering details
-- **AND** stderr SHALL include template path
+- **THEN** `opts.IO.ErrOut` SHALL include loading details with indented format
+- **AND** `opts.IO.ErrOut` SHALL include rendering details
+- **AND** `opts.IO.ErrOut` SHALL include template path
 
 #### Scenario: Adapt with no verbose flag
 
 - **GIVEN** valid input and output paths
 - **WHEN** `germinator adapt <input> <output> --platform <platform>` is run
-- **THEN** stdout SHALL include success message
-- **AND** stderr SHALL NOT include verbose messages
-
----
+- **THEN** `opts.IO.Out` SHALL include success message
+- **AND** `opts.IO.Verbosef` calls SHALL be no-ops
+- **AND** `opts.IO.ErrOut` SHALL NOT include verbose messages
 
 ### Requirement: Canonicalize Command Verbose Output
 
-The canonicalize command SHALL support verbose output at two levels.
+The canonicalize command SHALL support verbose output via `opts.IO.Verbosef`.
 
-#### Scenario: Canonicalize with level 1 (-v)
+#### Scenario: Canonicalize with -v
 
 - **GIVEN** valid input and output paths
 - **WHEN** `germinator canonicalize <input> <output> -v` is run
-- **THEN** stderr SHALL include canonicalization description
-- **AND** stderr SHALL include output path
-- **AND** stdout SHALL include success message
+- **THEN** `opts.IO.ErrOut` SHALL include canonicalization description
+- **AND** `opts.IO.ErrOut` SHALL include output path
+- **AND** `opts.IO.Out` SHALL include success message
 
-#### Scenario: Canonicalize with level 2 (-vv)
+#### Scenario: Canonicalize with -vv
 
 - **GIVEN** valid input and output paths
 - **WHEN** `germinator canonicalize <input> <output> -vv` is run
-- **THEN** stderr SHALL include parsing details with indented format
-- **AND** stderr SHALL include validation details
-
----
+- **THEN** `opts.IO.ErrOut` SHALL include parsing details with indented format
+- **AND** `opts.IO.ErrOut` SHALL include validation details
 
 ### Requirement: Verbose Output Format
 
 Verbose output SHALL follow consistent formatting patterns.
 
-#### Scenario: Level 1 format
+#### Scenario: Single-line format
 
-- **GIVEN** verbosity level 1
-- **WHEN** verbose output is printed
-- **THEN** messages SHALL be single-line descriptions
-- **AND** messages SHALL NOT be indented
+- **GIVEN** `opts.IO.Verbose == true`
+- **WHEN** `opts.IO.Verbosef(...)` is called
+- **THEN** the formatted string SHALL be a single line
+- **AND** a trailing newline SHALL be appended
 
-#### Scenario: Level 2 format
+#### Scenario: Level 2 details are indented
 
-- **GIVEN** verbosity level 2
-- **WHEN** detailed output is printed
-- **THEN** detail lines SHALL be indented with 2 spaces
-- **AND** detail lines SHALL describe specific operations
-
----
-
-### Requirement: Verbose Output Helper Functions
-
-The system SHALL provide helper functions for verbose output.
-
-#### Scenario: VerbosePrint function
-
-- **WHEN** VerbosePrint(cfg, format, args) is called with verbosity >= 1
-- **THEN** it SHALL write formatted output to stderr
-- **WHEN** verbosity is 0
-- **THEN** it SHALL NOT write any output
-
-#### Scenario: VeryVerbosePrint function
-
-- **WHEN** VeryVerbosePrint(cfg, format, args) is called with verbosity >= 2
-- **THEN** it SHALL write formatted output to stderr with 2-space indentation
-- **WHEN** verbosity is < 2
-- **THEN** it SHALL NOT write any output
+- **GIVEN** `opts.IO.Verbose == true`
+- **WHEN** a command emits a level-2 detail line
+- **THEN** the line SHALL be prefixed with 2 spaces
+- **AND** the line SHALL describe a specific operation

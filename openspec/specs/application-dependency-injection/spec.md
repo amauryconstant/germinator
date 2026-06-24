@@ -2,174 +2,43 @@
 
 ## Purpose
 
-This capability defines the dependency injection pattern for wiring services and commands in the CLI application. It establishes a clean architecture where commands receive their dependencies through constructors rather than global variables, enabling testability and maintainability.
+This capability defines the dependency injection pattern for wiring services and commands in the CLI application. It establishes a clean architecture where commands receive their dependencies through a `cmdutil.Factory` (see `cli-factory`), enabling testability, lazy initialization, and maintainability.
 
 ## Requirements
 
-### Requirement: ServiceContainer holds service instances
+### Requirement: ServiceContainer replaced by Factory
 
-The system SHALL provide a `ServiceContainer` struct that groups service instances for command use.
+The `cmd.ServiceContainer` struct and `cmd.NewServiceContainer()` constructor SHALL NOT be used for new code; commands SHALL obtain dependencies through the `cmdutil.Factory` introduced in `cli-factory`. The `ServiceContainer` type and `cmd/container.go` SHALL be removed (see `cli-factory` for the replacement contract).
 
-#### Scenario: ServiceContainer is embeddable in CommandConfig
-- **WHEN** CommandConfig is created
-- **THEN** ServiceContainer is available as a field for commands to access services
+#### Scenario: No command imports ServiceContainer
 
-#### Scenario: ServiceContainer is initially sparse
-- **WHEN** ServiceContainer is created
-- **THEN** it MAY have zero or more service fields
-- **AND** the pattern supports future service additions without breaking changes
+- **WHEN** a command file under `cmd/` is inspected
+- **THEN** it SHALL NOT import the `ServiceContainer` type or call `NewServiceContainer`
+- **AND** it SHALL obtain its dependencies from a `*cmdutil.Factory`
 
-#### Scenario: ServiceContainer holds populated interface implementations
-- **WHEN** ServiceContainer is created in main.go
-- **THEN** it SHALL have `Transformer application.Transformer` field
-- **AND** it SHALL have `Validator application.Validator` field
-- **AND** it SHALL have `Canonicalizer application.Canonicalizer` field
-- **AND** it SHALL have `Initializer application.Initializer` field
-- **AND** each field SHALL be populated with concrete implementation
+### Requirement: Dependency injection via Factory
 
-### Requirement: Commands receive configuration via constructor
+The system SHALL provide dependency injection exclusively through the `cmdutil.Factory` struct (see `cli-factory`). No other DI mechanism SHALL be used.
 
-Each command SHALL have a constructor function `NewXCommand(config *CommandConfig)` that returns a configured `*cobra.Command`.
+#### Scenario: Single DI mechanism
 
-#### Scenario: Validate command constructor
-- **WHEN** `NewValidateCommand(config)` is called
-- **THEN** it returns a `*cobra.Command` configured for validation
-- **AND** the command uses services from `config.Services`
-
-#### Scenario: Adapt command constructor
-- **WHEN** `NewAdaptCommand(config)` is called
-- **THEN** it returns a `*cobra.Command` configured for transformation
-- **AND** the command uses services from `config.Services`
-
-#### Scenario: Canonicalize command constructor
-- **WHEN** `NewCanonicalizeCommand(config)` is called
-- **THEN** it returns a `*cobra.Command` configured for canonicalization
-- **AND** the command uses services from `config.Services`
-
-#### Scenario: Version command constructor
-- **WHEN** `NewVersionCommand(config)` is called
-- **THEN** it returns a `*cobra.Command` configured for version display
-
-#### Scenario: Init command constructor
-- **WHEN** `NewInitCommand(config)` is called
-- **THEN** it returns a `*cobra.Command` configured for resource installation
-- **AND** the command uses services from `config.Services`
-
-### Requirement: Root command aggregates subcommands
-
-The system SHALL provide `NewRootCommand(config *CommandConfig)` that creates the root command with all subcommands attached.
-
-#### Scenario: Root command includes all subcommands
-- **WHEN** `NewRootCommand(config)` is called
-- **THEN** the returned command has validate, adapt, canonicalize, init, and version subcommands
-
-#### Scenario: Configuration flows to all commands
-- **WHEN** `NewRootCommand(config)` creates subcommands
-- **THEN** each subcommand receives the same `config` instance
-
-### Requirement: main.go is composition root
-
-The `main.go` file SHALL be the composition root where all services are wired and the command tree is constructed.
-
-#### Scenario: ServiceContainer creation in main
-- **WHEN** main() executes
-- **THEN** a ServiceContainer is instantiated
-- **AND** the container is embedded in CommandConfig
-
-#### Scenario: Command tree construction in main
-- **WHEN** main() executes
-- **THEN** `NewRootCommand(config)` is called
-- **AND** the returned command is executed via `cmd.Execute()`
-
-#### Scenario: Services are wired in main
-- **WHEN** main() executes
-- **THEN** `services.NewTransformer()` is called
-- **AND** `services.NewValidator()` is called
-- **AND** `services.NewCanonicalizer()` is called
-- **AND** `services.NewInitializer()` is called
-- **AND** each is assigned to ServiceContainer field
+- **WHEN** the codebase is inspected
+- **THEN** there SHALL be exactly one DI mechanism: the `cmdutil.Factory` struct
+- **AND** no DI container (e.g. `samber/do`) SHALL be added
+- **AND** no service locator pattern SHALL be used
 
 ### Requirement: No global command variables
 
 Commands SHALL NOT use global variables for command definitions or flags.
 
 #### Scenario: Flags bound to local variables
+
 - **WHEN** a command constructor defines flags
 - **THEN** flag values are bound to local variables within the constructor closure
 - **AND** no package-level variables store flag state
 
 #### Scenario: No init() functions for command registration
+
 - **WHEN** the cmd package is imported
 - **THEN** no commands are automatically registered via init()
 - **AND** commands are only registered through NewRootCommand
-
-### Requirement: Commands access services through interfaces
-
-Commands SHALL call service methods through the ServiceContainer interfaces, not package-level functions.
-
-#### Scenario: Adapt command uses Transformer interface
-- **WHEN** adapt command executes
-- **THEN** it SHALL call `cfg.Services.Transformer.Transform(ctx, req)`
-- **AND** it SHALL NOT call `services.TransformDocument()` directly
-
-#### Scenario: Validate command uses Validator interface
-- **WHEN** validate command executes
-- **THEN** it SHALL call `cfg.Services.Validator.Validate(ctx, req)`
-- **AND** it SHALL NOT call `services.ValidateDocument()` directly
-
-#### Scenario: Canonicalize command uses Canonicalizer interface
-- **WHEN** canonicalize command executes
-- **THEN** it SHALL call `cfg.Services.Canonicalizer.Canonicalize(ctx, req)`
-- **AND** it SHALL NOT call `services.CanonicalizeDocument()` directly
-
-#### Scenario: Init command uses Initializer interface
-- **WHEN** init command executes
-- **THEN** it SHALL call `cfg.Services.Initializer.Initialize(ctx, req)`
-- **AND** it SHALL NOT call `services.InitializeResources()` directly
-
-### Requirement: ServiceContainer constructor populates all services
-
-The system SHALL provide `NewServiceContainer()` that returns a fully populated ServiceContainer.
-
-#### Scenario: NewServiceContainer creates all services
-- **WHEN** `NewServiceContainer()` is called
-- **THEN** it SHALL return a ServiceContainer with all interface fields populated
-- **AND** `Transformer` field SHALL not be nil
-- **AND** `Validator` field SHALL not be nil
-- **AND** `Canonicalizer` field SHALL not be nil
-- **AND** `Initializer` field SHALL not be nil
-
----
-
-## Migration Notes
-
-### Change: Services are wired in main
-
-**Original behavior:** Services were created with no infrastructure dependencies:
-```
-services.NewTransformer()
-services.NewCanonicalizer()
-services.NewInitializer()
-```
-
-**New behavior:** Transformer and Initializer receive infrastructure interfaces via constructor injection; Canonicalizer and Validator remain unchanged:
-```
-parser := &parsingParser{}
-serializer := &serializationSerializer{}
-services.NewTransformer(parser, serializer)
-services.NewCanonicalizer()  // Unchanged - uses ParsePlatformDocument/MarshalCanonical
-services.NewInitializer(parser, serializer)
-```
-
-### Change: ServiceContainer constructor populates all services
-
-**Added behavior:** ServiceContainer now creates infrastructure implementations and passes them to Transformer and Initializer:
-
-#### Scenario: NewServiceContainer creates infrastructure implementations
-- **WHEN** `NewServiceContainer()` is called
-- **THEN** it SHALL create a Parser implementation (e.g., `parsingParser`)
-- **AND** it SHALL create a Serializer implementation (e.g., `serializationSerializer`)
-- **AND** it SHALL pass Parser and Serializer to `NewTransformer(parser, serializer)`
-- **AND** it SHALL pass Parser and Serializer to `NewInitializer(parser, serializer)`
-- **AND** Canonicalizer SHALL be created with `NewCanonicalizer()` (uses different infrastructure)
-- **AND** Validator SHALL be created with `NewValidator()` (no infrastructure dependencies)
