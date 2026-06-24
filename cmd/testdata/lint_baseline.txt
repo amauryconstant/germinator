@@ -1,23 +1,2 @@
-# Auto-generated lint baseline. Run `mise run lint > cmd/testdata/lint_baseline.txt 2>&1` to regenerate.
-# This file captures the union of lint issues observed across multiple
-# non-deterministic runs. Tests compare current output (unioned) to this baseline.
-cmd/library_add.go:263:3: use of `fmt.Printf` forbidden by pattern `^(fmt\.Print(|f|ln)|print|println)$` (forbidigo)
-cmd/library_remove.go:141:5: use of `fmt.Printf` forbidden by pattern `^(fmt\.Print(|f|ln)|print|println)$` (forbidigo)
-cmd/library_remove.go:83:5: use of `fmt.Printf` forbidden by pattern `^(fmt\.Print(|f|ln)|print|println)$` (forbidigo)
-cmd/lint_helpers.go:6:9: G304: Potential file inclusion via variable (gosec)
-internal/claude-code/claude_code_adapter.go:358:1: directive `//nolint:gocognit,gocyclo,unparam // parseSkill has high complexity due to nested map structure` is unused for linter "gocyclo" (nolintlint)
-internal/config/config.go:1:1: package-comments: should have a package comment (revive)
-internal/library/adder.go:73:3: use of `fmt.Printf` forbidden by pattern `^(fmt\.Print(|f|ln)|print|println)$` (forbidigo)
-internal/library/adder.go:74:3: use of `fmt.Printf` forbidden by pattern `^(fmt\.Print(|f|ln)|print|println)$` (forbidigo)
-internal/library/adder.go:75:3: use of `fmt.Printf` forbidden by pattern `^(fmt\.Print(|f|ln)|print|println)$` (forbidigo)
-internal/library/adder.go:775:15: directive `//nolint:wrapcheck // Intentional: continue walking on access errors` is unused for linter "wrapcheck" (nolintlint)
-internal/library/adder.go:91:43: directive `//nolint:gosec // G304: User provides source path, must read user documents` is unused for linter "gosec" (nolintlint)
-internal/opencode/opencode_adapter.go:308:1: directive `//nolint:gocognit,gocyclo,unparam // parseSkill has high complexity due to nested map structure` is unused for linter "gocyclo" (nolintlint)
-internal/opencode/opencode_adapter.go:94:1: directive `//nolint:gocognit,gocyclo,unparam // parseAgent has high complexity due to nested map structure` is unused for linter "gocyclo" (nolintlint)
-internal/parser/doc.go:1:1: package-comments: package comment should be of the form "Package parser ..." (revive)
-internal/parser/loader.go:1:1: package-comments: package comment should be of the form "Package parser ..." (revive)
-internal/permission/adapter.go:1:1: package-comments: should have a package comment (revive)
-internal/permission/permissions.go:38:6: exported: type name will be used as permission.PermissionAction by other packages, and that stutters; consider calling this Action (revive)
-internal/permission/permissions.go:50:6: exported: type name will be used as permission.PermissionMap by other packages, and that stutters; consider calling this Map (revive)
-internal/permission/permissions.go:62:6: exported: type name will be used as permission.PermissionMapping by other packages, and that stutters; consider calling this Mapping (revive)
-internal/renderer/serializer.go:1:1: package-comments: package comment should be of the form "Package renderer ..." (revive)
+[lint] $ golangci-lint run
+0 issues.

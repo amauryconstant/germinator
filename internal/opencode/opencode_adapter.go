@@ -76,7 +76,7 @@ func (a *Adapter) FromCanonical(docType string, doc interface{}) (map[string]int
 }
 
 // PermissionPolicyToPlatform converts a canonical PermissionPolicy to OpenCode permission object format.
-// It maps the policy to a PermissionMap with Allow/Ask/Deny actions for each tool.
+// It maps the policy to a permission.Map with Allow/Ask/Deny actions for each tool.
 func (a *Adapter) PermissionPolicyToPlatform(policy core.PermissionPolicy) (interface{}, error) {
 	mapping, ok := permission.PermissionPolicyMappings[string(policy)]
 	if !ok {
@@ -91,7 +91,7 @@ func (a *Adapter) ConvertToolNameCase(name string) string {
 	return permission.ToLowerCase(name)
 }
 
-//nolint:gocognit,gocyclo,unparam // parseAgent has high complexity due to nested map structure
+//nolint:gocognit,unparam // parseAgent has high cognitive complexity due to nested map structure
 func (a *Adapter) parseAgent(input map[string]interface{}) (*core.Agent, error) {
 	agent := &core.Agent{}
 
@@ -305,7 +305,7 @@ func (a *Adapter) renderCommand(cmd *core.Command) (map[string]interface{}, erro
 	return output, nil
 }
 
-//nolint:gocognit,gocyclo,unparam // parseSkill has high complexity due to nested map structure
+//nolint:gocognit,unparam // parseSkill has high cognitive complexity due to nested map structure
 func (a *Adapter) parseSkill(input map[string]interface{}) (*core.Skill, error) {
 	skill := &core.Skill{}
 

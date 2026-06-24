@@ -69,7 +69,7 @@ func (e *TableExporter) Write(io *iostreams.IOStreams, data any) error {
 
 func buildRows(data any) ([]string, error) {
 	v := reflect.ValueOf(data)
-	for v.Kind() == reflect.Ptr {
+	for v.Kind() == reflect.Pointer {
 		v = v.Elem()
 	}
 	if v.Kind() != reflect.Slice {
@@ -95,7 +95,7 @@ func buildRows(data any) ([]string, error) {
 }
 
 func indirectValue(v reflect.Value) reflect.Value {
-	for v.Kind() == reflect.Ptr {
+	for v.Kind() == reflect.Pointer {
 		v = v.Elem()
 	}
 	return v
@@ -138,7 +138,7 @@ func formatCell(v reflect.Value) string {
 	if !v.IsValid() {
 		return ""
 	}
-	if v.Kind() == reflect.Ptr {
+	if v.Kind() == reflect.Pointer {
 		if v.IsNil() {
 			return ""
 		}

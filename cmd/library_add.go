@@ -260,7 +260,7 @@ func runLibraryAdd(c *cobra.Command, cfg *CommandConfig, libraryPath *string, op
 		jsonOutput, _ := json.Marshal(output)
 		_, _ = fmt.Fprintln(c.OutOrStdout(), string(jsonOutput))
 	} else {
-		fmt.Printf("Added resource: %s/%s\n", resType, name)
+		_, _ = fmt.Fprintf(c.OutOrStdout(), "Added resource: %s/%s\n", resType, name)
 	}
 
 	return nil

@@ -1,4 +1,4 @@
-// Package parsing provides document parsing and loading functionality.
+// Package parser provides document parsing and loading functionality.
 package parser
 
 import (

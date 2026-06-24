@@ -34,102 +34,102 @@ func ToLowerCase(s string) string {
 	return strings.ToLower(s)
 }
 
-// PermissionAction represents the action to take for a tool permission.
-type PermissionAction string
+// Action represents the action to take for a tool permission.
+type Action string
 
 const (
-	// PermissionActionAllow allows the tool to be used without confirmation.
-	PermissionActionAllow PermissionAction = "allow"
-	// PermissionActionAsk requires user confirmation before using the tool.
-	PermissionActionAsk PermissionAction = "ask"
-	// PermissionActionDeny prevents the tool from being used.
-	PermissionActionDeny PermissionAction = "deny"
+	// Allow allows the tool to be used without confirmation.
+	Allow Action = "allow"
+	// Ask requires user confirmation before using the tool.
+	Ask Action = "ask"
+	// Deny prevents the tool from being used.
+	Deny Action = "deny"
 )
 
-// PermissionMap maps tool names to their permission actions.
-type PermissionMap struct {
-	Edit      PermissionAction `json:"edit,omitempty"`
-	Bash      PermissionAction `json:"bash,omitempty"`
-	Read      PermissionAction `json:"read,omitempty"`
-	Grep      PermissionAction `json:"grep,omitempty"`
-	Glob      PermissionAction `json:"glob,omitempty"`
-	List      PermissionAction `json:"list,omitempty"`
-	WebFetch  PermissionAction `json:"webfetch,omitempty"`
-	WebSearch PermissionAction `json:"websearch,omitempty"`
+// Map maps tool names to their permission actions.
+type Map struct {
+	Edit      Action `json:"edit,omitempty"`
+	Bash      Action `json:"bash,omitempty"`
+	Read      Action `json:"read,omitempty"`
+	Grep      Action `json:"grep,omitempty"`
+	Glob      Action `json:"glob,omitempty"`
+	List      Action `json:"list,omitempty"`
+	WebFetch  Action `json:"webfetch,omitempty"`
+	WebSearch Action `json:"websearch,omitempty"`
 }
 
-// PermissionMapping maps a Claude Code permission policy to OpenCode permissions.
-type PermissionMapping struct {
-	ClaudeCode string        `json:"claudeCode"`
-	OpenCode   PermissionMap `json:"openCode"`
+// Mapping maps a Claude Code permission policy to OpenCode permissions.
+type Mapping struct {
+	ClaudeCode string `json:"claudeCode"`
+	OpenCode   Map    `json:"openCode"`
 }
 
 // PermissionPolicyMappings maps canonical permission policy names to their platform-specific permission mappings.
 // The keys match the canonical PermissionPolicy enum values (restrictive, balanced, permissive, analysis, unrestricted).
-var PermissionPolicyMappings = map[string]PermissionMapping{
+var PermissionPolicyMappings = map[string]Mapping{
 	"restrictive": {
 		ClaudeCode: "default",
-		OpenCode: PermissionMap{
-			Edit:      PermissionActionAsk,
-			Bash:      PermissionActionAsk,
-			Read:      PermissionActionAsk,
-			Grep:      PermissionActionAsk,
-			Glob:      PermissionActionAsk,
-			List:      PermissionActionAsk,
-			WebFetch:  PermissionActionAsk,
-			WebSearch: PermissionActionAsk,
+		OpenCode: Map{
+			Edit:      Ask,
+			Bash:      Ask,
+			Read:      Ask,
+			Grep:      Ask,
+			Glob:      Ask,
+			List:      Ask,
+			WebFetch:  Ask,
+			WebSearch: Ask,
 		},
 	},
 	"balanced": {
 		ClaudeCode: "acceptEdits",
-		OpenCode: PermissionMap{
-			Edit:      PermissionActionAllow,
-			Bash:      PermissionActionAsk,
-			Read:      PermissionActionAllow,
-			Grep:      PermissionActionAllow,
-			Glob:      PermissionActionAllow,
-			List:      PermissionActionAllow,
-			WebFetch:  PermissionActionAllow,
-			WebSearch: PermissionActionAllow,
+		OpenCode: Map{
+			Edit:      Allow,
+			Bash:      Ask,
+			Read:      Allow,
+			Grep:      Allow,
+			Glob:      Allow,
+			List:      Allow,
+			WebFetch:  Allow,
+			WebSearch: Allow,
 		},
 	},
 	"permissive": {
 		ClaudeCode: "dontAsk",
-		OpenCode: PermissionMap{
-			Edit:      PermissionActionAllow,
-			Bash:      PermissionActionAllow,
-			Read:      PermissionActionAllow,
-			Grep:      PermissionActionAllow,
-			Glob:      PermissionActionAllow,
-			List:      PermissionActionAllow,
-			WebFetch:  PermissionActionAllow,
-			WebSearch: PermissionActionAllow,
+		OpenCode: Map{
+			Edit:      Allow,
+			Bash:      Allow,
+			Read:      Allow,
+			Grep:      Allow,
+			Glob:      Allow,
+			List:      Allow,
+			WebFetch:  Allow,
+			WebSearch: Allow,
 		},
 	},
 	"analysis": {
 		ClaudeCode: "plan",
-		OpenCode: PermissionMap{
-			Edit:      PermissionActionDeny,
-			Bash:      PermissionActionDeny,
-			Read:      PermissionActionAllow,
-			Grep:      PermissionActionAllow,
-			Glob:      PermissionActionAllow,
-			List:      PermissionActionAllow,
-			WebFetch:  PermissionActionAllow,
-			WebSearch: PermissionActionAllow,
+		OpenCode: Map{
+			Edit:      Deny,
+			Bash:      Deny,
+			Read:      Allow,
+			Grep:      Allow,
+			Glob:      Allow,
+			List:      Allow,
+			WebFetch:  Allow,
+			WebSearch: Allow,
 		},
 	},
 	"unrestricted": {
 		ClaudeCode: "bypassPermissions",
-		OpenCode: PermissionMap{
-			Edit:      PermissionActionAllow,
-			Bash:      PermissionActionAllow,
-			Read:      PermissionActionAllow,
-			Grep:      PermissionActionAllow,
-			Glob:      PermissionActionAllow,
-			List:      PermissionActionAllow,
-			WebFetch:  PermissionActionAllow,
-			WebSearch: PermissionActionAllow,
+		OpenCode: Map{
+			Edit:      Allow,
+			Bash:      Allow,
+			Read:      Allow,
+			Grep:      Allow,
+			Glob:      Allow,
+			List:      Allow,
+			WebFetch:  Allow,
+			WebSearch: Allow,
 		},
 	},
 }

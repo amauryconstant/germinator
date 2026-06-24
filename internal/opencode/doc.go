@@ -20,7 +20,7 @@ package opencode
 //   analysis       → {Edit: Deny, Bash: Deny, Read: Allow, ...}
 //   unrestricted   → {Edit: Allow, Bash: Allow, Read: Allow, ...}
 //
-// The permission object uses the PermissionAction enum (Allow, Ask, Deny) for type safety.
+// The permission object uses the permission.Action enum (Allow, Ask, Deny) for type safety.
 //
 // Tool List Splitting
 //
@@ -73,4 +73,4 @@ package opencode
 //
 //   // Map permission policy
 //   permissionMap := adapter.PermissionPolicyToPlatform(canonical.PermissionPolicyBalanced)
-//   // permissionMap == PermissionMap{Edit: Allow, Bash: Ask, Read: Allow, ...}
+//   // permissionMap == Map{Edit: Allow, Bash: Ask, Read: Allow, ...}

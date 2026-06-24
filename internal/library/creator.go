@@ -33,12 +33,12 @@ func CreateLibrary(opts CreateOptions) error {
 
 	// Dry run mode - print what would be created
 	if opts.DryRun {
-		fmt.Printf("Would create library at: %s\n", opts.Path)
-		fmt.Printf("  - %s/library.yaml\n", opts.Path)
-		fmt.Printf("  - %s/skills/\n", opts.Path)
-		fmt.Printf("  - %s/agents/\n", opts.Path)
-		fmt.Printf("  - %s/commands/\n", opts.Path)
-		fmt.Printf("  - %s/memory/\n", opts.Path)
+		_, _ = fmt.Fprintln(os.Stdout, "Would create library at:", opts.Path)
+		_, _ = fmt.Fprintln(os.Stdout, "  -", filepath.Join(opts.Path, "library.yaml"))
+		_, _ = fmt.Fprintln(os.Stdout, "  -", filepath.Join(opts.Path, "skills")+"/")
+		_, _ = fmt.Fprintln(os.Stdout, "  -", filepath.Join(opts.Path, "agents")+"/")
+		_, _ = fmt.Fprintln(os.Stdout, "  -", filepath.Join(opts.Path, "commands")+"/")
+		_, _ = fmt.Fprintln(os.Stdout, "  -", filepath.Join(opts.Path, "memory")+"/")
 		return nil
 	}
 

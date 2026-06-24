@@ -1,3 +1,4 @@
+// Package permission provides permission mapping between canonical policies and platform-specific formats.
 package permission
 
 import "gitlab.com/amoconst/germinator/internal/core"

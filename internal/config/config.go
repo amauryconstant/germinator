@@ -1,6 +1,5 @@
-package config
-
 // Package config provides configuration loading and management for germinator.
+package config
 
 import (
 	"os"

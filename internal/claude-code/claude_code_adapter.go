@@ -355,7 +355,7 @@ func (a *Adapter) renderCommand(cmd *core.Command) (map[string]interface{}, erro
 	return output, nil
 }
 
-//nolint:gocognit,gocyclo,unparam // parseSkill has high complexity due to nested map structure
+//nolint:gocognit,unparam // parseSkill has high cognitive complexity due to nested map structure
 func (a *Adapter) parseSkill(input map[string]interface{}) (*core.Skill, error) {
 	skill := &core.Skill{}
 

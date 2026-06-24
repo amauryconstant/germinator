@@ -1,4 +1,4 @@
-// Package serialization provides document serialization and rendering functionality.
+// Package renderer provides document serialization and rendering functionality.
 package renderer
 
 import (
@@ -107,7 +107,7 @@ func createTemplateFuncMap() map[string]interface{} {
 		if err != nil {
 			return ""
 		}
-		if permMap, ok := result.(permission.PermissionMap); ok {
+		if permMap, ok := result.(permission.Map); ok {
 			var sb strings.Builder
 			sb.WriteString("  edit:\n")
 			sb.WriteString("    \"*\": ")

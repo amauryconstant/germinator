@@ -80,7 +80,7 @@ Examples:
 				jsonOutput, _ := json.Marshal(result)
 				_, _ = fmt.Fprintln(c.OutOrStdout(), string(jsonOutput))
 			} else {
-				fmt.Printf("Removed resource: %s\n", ref)
+				_, _ = fmt.Fprintf(c.OutOrStdout(), "Removed resource: %s\n", ref)
 			}
 
 			return nil
@@ -138,7 +138,7 @@ Examples:
 				jsonOutput, _ := json.Marshal(result)
 				_, _ = fmt.Fprintln(c.OutOrStdout(), string(jsonOutput))
 			} else {
-				fmt.Printf("Removed preset: %s\n", name)
+				_, _ = fmt.Fprintf(c.OutOrStdout(), "Removed preset: %s\n", name)
 			}
 
 			return nil

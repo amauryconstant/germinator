@@ -70,11 +70,11 @@ func AddResource(opts AddOptions) error {
 
 	// Dry-run mode - report what would happen
 	if opts.DryRun {
-		fmt.Printf("Would add resource: %s\n", resourceKey)
-		fmt.Printf("  Type: %s\n", docType)
-		fmt.Printf("  Name: %s\n", name)
-		fmt.Printf("  Description: %s\n", description)
-		fmt.Printf("  Source: %s\n", opts.Source)
+		_, _ = fmt.Fprintln(os.Stdout, "Would add resource:", resourceKey)
+		_, _ = fmt.Fprintln(os.Stdout, "  Type:", docType)
+		_, _ = fmt.Fprintln(os.Stdout, "  Name:", name)
+		_, _ = fmt.Fprintln(os.Stdout, "  Description:", description)
+		_, _ = fmt.Fprintln(os.Stdout, "  Source:", opts.Source)
 		return nil
 	}
 
@@ -88,7 +88,7 @@ func AddResource(opts AddOptions) error {
 	}
 
 	// Read source content
-	content, err := os.ReadFile(opts.Source) //nolint:gosec // G304: User provides source path, must read user documents
+	content, err := os.ReadFile(opts.Source) //nolint:gosec,nolintlint // G304: User provides source path, must read user documents
 	if err != nil {
 		return core.NewFileError(opts.Source, "read", "failed to read source file", err)
 	}
@@ -772,7 +772,7 @@ func scanDirectory(dirPath, resType string, lib *Library, _ DiscoverOptions, res
 	err := filepath.WalkDir(dirPath, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			// Skip entries we can't access - continue walking
-			return nil //nolint:wrapcheck // Intentional: continue walking on access errors
+			return nil
 		}
 
 		// Skip directories - we only process files
