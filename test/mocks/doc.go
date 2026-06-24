@@ -12,7 +12,7 @@
 // 2. Set up expected method calls:
 //
 //	mockValidator.On("Validate", ctx, mock.AnythingOfType("*application.ValidateRequest")).
-//	    Return(&domain.ValidateResult{}, nil)
+//	    Return(&core.ValidateResult{}, nil)
 //
 // 3. Call the method in your test code
 //

@@ -8,10 +8,10 @@ import (
 	"testing"
 
 	"gitlab.com/amoconst/germinator/internal/application"
-	"gitlab.com/amoconst/germinator/internal/domain"
-	"gitlab.com/amoconst/germinator/internal/infrastructure/library"
-	"gitlab.com/amoconst/germinator/internal/infrastructure/parsing"
-	"gitlab.com/amoconst/germinator/internal/infrastructure/serialization"
+	"gitlab.com/amoconst/germinator/internal/core"
+	"gitlab.com/amoconst/germinator/internal/library"
+	"gitlab.com/amoconst/germinator/internal/parser"
+	"gitlab.com/amoconst/germinator/internal/renderer"
 )
 
 func TestInitializeResources_DryRun(t *testing.T) {
@@ -30,7 +30,7 @@ func TestInitializeResources_DryRun(t *testing.T) {
 	// Create temp output directory
 	outputDir := t.TempDir()
 
-	init := NewInitializer(parsing.NewParser(), serialization.NewSerializer())
+	init := NewInitializer(parser.NewParser(), renderer.NewSerializer())
 	results, err := init.Initialize(context.Background(), &application.InitializeRequest{
 		Library:   lib,
 		Platform:  "opencode",
@@ -78,7 +78,7 @@ func TestInitializeResources_FileExists(t *testing.T) {
 		t.Fatalf("Failed to write existing file: %v", err)
 	}
 
-	init := NewInitializer(parsing.NewParser(), serialization.NewSerializer())
+	init := NewInitializer(parser.NewParser(), renderer.NewSerializer())
 	_, err = init.Initialize(context.Background(), &application.InitializeRequest{
 		Library:   lib,
 		Platform:  "opencode",
@@ -116,7 +116,7 @@ func TestInitializeResources_ForceOverwrite(t *testing.T) {
 		t.Fatalf("Failed to write existing file: %v", err)
 	}
 
-	init := NewInitializer(parsing.NewParser(), serialization.NewSerializer())
+	init := NewInitializer(parser.NewParser(), renderer.NewSerializer())
 	results, err := init.Initialize(context.Background(), &application.InitializeRequest{
 		Library:   lib,
 		Platform:  "opencode",
@@ -149,7 +149,7 @@ func TestInitializeResources_ResourceNotFound(t *testing.T) {
 		Resources: map[string]map[string]library.Resource{},
 	}
 
-	init := NewInitializer(parsing.NewParser(), serialization.NewSerializer())
+	init := NewInitializer(parser.NewParser(), renderer.NewSerializer())
 	_, err := init.Initialize(context.Background(), &application.InitializeRequest{
 		Library:   lib,
 		Platform:  "opencode",
@@ -184,7 +184,7 @@ func TestInitialize_WithPresetRefs(t *testing.T) {
 		t.Fatalf("ResolvePreset() error = %v", err)
 	}
 
-	init := NewInitializer(parsing.NewParser(), serialization.NewSerializer())
+	init := NewInitializer(parser.NewParser(), renderer.NewSerializer())
 	results, err := init.Initialize(context.Background(), &application.InitializeRequest{
 		Library:   lib,
 		Platform:  "opencode",
@@ -216,7 +216,7 @@ func TestInitialize_PresetNotFound(t *testing.T) {
 }
 
 func TestFormatDryRunOutput(t *testing.T) {
-	results := []domain.InitializeResult{
+	results := []core.InitializeResult{
 		{
 			Ref:        "skill/commit",
 			InputPath:  "/lib/skills/commit.yaml",
@@ -232,7 +232,7 @@ func TestFormatDryRunOutput(t *testing.T) {
 }
 
 func TestFormatSuccessOutput(t *testing.T) {
-	results := []domain.InitializeResult{
+	results := []core.InitializeResult{
 		{
 			Ref:        "skill/commit",
 			OutputPath: ".opencode/skills/commit/SKILL.md",
@@ -248,7 +248,7 @@ func TestFormatSuccessOutput(t *testing.T) {
 
 // formatDryRunOutput and formatSuccessOutput are local copies for testing
 // since the actual formatters are in cmd/formatters.go
-func formatDryRunOutput(results []domain.InitializeResult) string {
+func formatDryRunOutput(results []core.InitializeResult) string {
 	var output strings.Builder
 	for _, result := range results {
 		output.WriteString("Would write: ")
@@ -260,7 +260,7 @@ func formatDryRunOutput(results []domain.InitializeResult) string {
 	return output.String()
 }
 
-func formatSuccessOutput(results []domain.InitializeResult) string {
+func formatSuccessOutput(results []core.InitializeResult) string {
 	var output strings.Builder
 	for _, result := range results {
 		output.WriteString("Installed: ")
@@ -295,7 +295,7 @@ func TestInitialize_PartialSuccess(t *testing.T) {
 		t.Fatalf("Failed to create output directory: %v", err)
 	}
 
-	init := NewInitializer(parsing.NewParser(), serialization.NewSerializer())
+	init := NewInitializer(parser.NewParser(), renderer.NewSerializer())
 	// First ref exists, second ref doesn't - partial success
 	results, err := init.Initialize(context.Background(), &application.InitializeRequest{
 		Library:   lib,
@@ -333,7 +333,7 @@ func TestInitialize_AllResourcesFail(t *testing.T) {
 		Resources: map[string]map[string]library.Resource{},
 	}
 
-	init := NewInitializer(parsing.NewParser(), serialization.NewSerializer())
+	init := NewInitializer(parser.NewParser(), renderer.NewSerializer())
 	results, err := init.Initialize(context.Background(), &application.InitializeRequest{
 		Library:   lib,
 		Platform:  "opencode",
@@ -385,7 +385,7 @@ func TestInitialize_AllResultsReturnedRegardlessOfErrors(t *testing.T) {
 		t.Fatalf("Failed to write existing file: %v", err)
 	}
 
-	init := NewInitializer(parsing.NewParser(), serialization.NewSerializer())
+	init := NewInitializer(parser.NewParser(), renderer.NewSerializer())
 	results, err := init.Initialize(context.Background(), &application.InitializeRequest{
 		Library:   lib,
 		Platform:  "opencode",
@@ -439,7 +439,7 @@ func TestInitialize_ContinuesAfterFileExistsError(t *testing.T) {
 		t.Fatalf("Failed to write existing file: %v", err)
 	}
 
-	init := NewInitializer(parsing.NewParser(), serialization.NewSerializer())
+	init := NewInitializer(parser.NewParser(), renderer.NewSerializer())
 	results, err := init.Initialize(context.Background(), &application.InitializeRequest{
 		Library:   lib,
 		Platform:  "opencode",

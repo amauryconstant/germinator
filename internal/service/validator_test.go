@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"gitlab.com/amoconst/germinator/internal/application"
-	gerrors "gitlab.com/amoconst/germinator/internal/domain"
+	gerrors "gitlab.com/amoconst/germinator/internal/core"
 )
 
 func TestValidator_Validate(t *testing.T) {

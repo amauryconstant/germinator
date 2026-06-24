@@ -46,8 +46,8 @@ repos:
         types: [go]
 
       - id: golangci-lint
-        name: Run golangci-lint
-        entry: golangci-lint run
+        name: Run golangci-lint baseline test
+        entry: go test ./cmd/... -run TestLintBaseline
         language: system
         pass_filenames: false
         types: [go]

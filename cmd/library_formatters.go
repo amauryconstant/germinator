@@ -9,7 +9,7 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
-	"gitlab.com/amoconst/germinator/internal/infrastructure/library"
+	"gitlab.com/amoconst/germinator/internal/library"
 )
 
 func formatResourcesList(lib *library.Library) string {

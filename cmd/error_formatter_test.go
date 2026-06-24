@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	gerrors "gitlab.com/amoconst/germinator/internal/domain"
+	gerrors "gitlab.com/amoconst/germinator/internal/core"
 )
 
 func TestErrorFormatter_Format(t *testing.T) {

@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"gitlab.com/amoconst/germinator/internal/infrastructure/library"
+	"gitlab.com/amoconst/germinator/internal/library"
 )
 
 // NewLibraryValidateCommand creates the library validate subcommand.

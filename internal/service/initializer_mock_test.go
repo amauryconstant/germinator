@@ -10,9 +10,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"gitlab.com/amoconst/germinator/internal/application"
-	"gitlab.com/amoconst/germinator/internal/domain"
-	"gitlab.com/amoconst/germinator/internal/infrastructure/library"
-	"gitlab.com/amoconst/germinator/internal/infrastructure/parsing"
+	"gitlab.com/amoconst/germinator/internal/core"
+	"gitlab.com/amoconst/germinator/internal/library"
+	"gitlab.com/amoconst/germinator/internal/parser"
 	"gitlab.com/amoconst/germinator/test/mocks"
 )
 
@@ -50,7 +50,7 @@ Commit content`
 		outputDir := t.TempDir()
 
 		mockParser.On("LoadDocument", mock.AnythingOfType("string"), "opencode").
-			Return(&parsing.CanonicalSkill{Skill: domain.Skill{Name: "commit"}}, nil)
+			Return(&parser.CanonicalSkill{Skill: core.Skill{Name: "commit"}}, nil)
 		mockSerializer.On("RenderDocument", mock.Anything, "opencode").
 			Return("--- skill content ---\n", nil)
 
@@ -161,7 +161,7 @@ Commit content`
 		outputDir := t.TempDir()
 
 		mockParser.On("LoadDocument", mock.AnythingOfType("string"), "opencode").
-			Return(&parsing.CanonicalSkill{Skill: domain.Skill{Name: "commit"}}, nil)
+			Return(&parser.CanonicalSkill{Skill: core.Skill{Name: "commit"}}, nil)
 		mockSerializer.On("RenderDocument", mock.Anything, "opencode").
 			Return("", errors.New("render error"))
 

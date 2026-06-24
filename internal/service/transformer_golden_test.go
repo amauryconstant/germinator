@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	"gitlab.com/amoconst/germinator/internal/application"
-	"gitlab.com/amoconst/germinator/internal/infrastructure/parsing"
-	"gitlab.com/amoconst/germinator/internal/infrastructure/serialization"
+	"gitlab.com/amoconst/germinator/internal/parser"
+	"gitlab.com/amoconst/germinator/internal/renderer"
 )
 
 // To update golden files: go test ./internal/services -update-golden
@@ -222,7 +222,7 @@ func TestGoldenFiles(t *testing.T) {
 		},
 	}
 
-	tr := NewTransformer(parsing.NewParser(), serialization.NewSerializer())
+	tr := NewTransformer(parser.NewParser(), renderer.NewSerializer())
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create temporary output file
@@ -309,7 +309,7 @@ func TestGoldenFileUpdate(t *testing.T) {
 		},
 	}
 
-	tr := NewTransformer(parsing.NewParser(), serialization.NewSerializer())
+	tr := NewTransformer(parser.NewParser(), renderer.NewSerializer())
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tmpDir := t.TempDir()

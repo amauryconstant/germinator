@@ -8,7 +8,7 @@ import (
 
 	"github.com/carapace-sh/carapace"
 	"github.com/spf13/cobra"
-	"gitlab.com/amoconst/germinator/internal/infrastructure/library"
+	"gitlab.com/amoconst/germinator/internal/library"
 )
 
 // NewLibraryCreateCommand creates the library create subcommand group.

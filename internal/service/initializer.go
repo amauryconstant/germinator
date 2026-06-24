@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 
 	"gitlab.com/amoconst/germinator/internal/application"
-	"gitlab.com/amoconst/germinator/internal/domain"
-	"gitlab.com/amoconst/germinator/internal/infrastructure/library"
+	"gitlab.com/amoconst/germinator/internal/core"
+	"gitlab.com/amoconst/germinator/internal/library"
 )
 
 // initializer implements the application.Initializer interface.
@@ -29,11 +29,11 @@ func NewInitializer(parser application.Parser, serializer application.Serializer
 // Initialize installs resources from the library to the target directory.
 // It uses partial processing - continues on individual errors, collecting all results.
 // Returns error only if ALL resources fail; returns nil if at least one succeeds.
-func (i *initializer) Initialize(_ context.Context, req *application.InitializeRequest) ([]domain.InitializeResult, error) {
-	results := make([]domain.InitializeResult, 0, len(req.Refs))
+func (i *initializer) Initialize(_ context.Context, req *application.InitializeRequest) ([]core.InitializeResult, error) {
+	results := make([]core.InitializeResult, 0, len(req.Refs))
 
 	for _, ref := range req.Refs {
-		result := domain.InitializeResult{Ref: ref}
+		result := core.InitializeResult{Ref: ref}
 
 		// Resolve resource to file path
 		inputPath, err := library.ResolveResource(req.Library, ref)
@@ -63,7 +63,7 @@ func (i *initializer) Initialize(_ context.Context, req *application.InitializeR
 		// Check if file exists (unless force or dry-run)
 		if !req.DryRun && !req.Force {
 			if _, err := os.Stat(outputPath); err == nil {
-				result.Error = domain.NewFileError(outputPath, "write", "file exists (use --force to overwrite)", nil)
+				result.Error = core.NewFileError(outputPath, "write", "file exists (use --force to overwrite)", nil)
 				results = append(results, result)
 				continue
 			}
@@ -94,14 +94,14 @@ func (i *initializer) Initialize(_ context.Context, req *application.InitializeR
 		// Create output directory
 		outputDir := filepath.Dir(outputPath)
 		if err := os.MkdirAll(outputDir, 0755); err != nil { //nolint:gosec // G301: User owns output directory, 0755 is standard permission
-			result.Error = domain.NewFileError(outputPath, "mkdir", "failed to create output directory", err)
+			result.Error = core.NewFileError(outputPath, "mkdir", "failed to create output directory", err)
 			results = append(results, result)
 			continue
 		}
 
 		// Write the file
 		if err := os.WriteFile(outputPath, []byte(rendered), 0644); err != nil { //nolint:gosec // G306: User owns output file, 0644 is standard readable permission
-			result.Error = domain.NewFileError(outputPath, "write", "failed to write output file", err)
+			result.Error = core.NewFileError(outputPath, "write", "failed to write output file", err)
 			results = append(results, result)
 			continue
 		}

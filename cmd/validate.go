@@ -7,7 +7,7 @@ import (
 	"github.com/carapace-sh/carapace"
 	"github.com/spf13/cobra"
 	"gitlab.com/amoconst/germinator/internal/application"
-	gerrors "gitlab.com/amoconst/germinator/internal/domain"
+	gerrors "gitlab.com/amoconst/germinator/internal/core"
 	"gitlab.com/amoconst/germinator/internal/models"
 )
 

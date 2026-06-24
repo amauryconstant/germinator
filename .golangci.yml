@@ -50,6 +50,10 @@ linters:
     # Domain Purity
     - depguard
 
+    # Anti-pattern enforcement
+    - forbidigo
+    - nolintlint
+
   settings:
     gocyclo:
       min-complexity: 25
@@ -60,16 +64,32 @@ linters:
       statements: 100
     depguard:
       rules:
-        domain:
+        core-isolation:
           files:
-            - internal/domain/**
+            - "**/core/**"
+            - "!**/*_test.go"
           allow:
             - $gostd
-            - internal/domain
+            - github.com/samber/lo
+            - gitlab.com/amoconst/germinator/internal/core
+          deny:
+            - pkg: "github.com/*"
+              desc: "core allows only stdlib and lo"
     gosec:
       excludes:
         - G104 # unchecked errors (defer/test)
         - G204 # subprocess input
+    forbidigo:
+      patterns:
+        - pattern: 'fmt\.Fprintf\(os\.(Stdout|Stderr)'
+          exclude-godoc: false
+        - pattern: 'os\.Exit\('
+        - pattern: 'var global(Factory|CommandConfig)'
+        - pattern: 'SetGlobal(Factory|CommandConfig)'
+        - pattern: 'context\.Background\(\)'
+    nolintlint:
+      require-explanation: true
+      require-specific: true
     wrapcheck:
       ignoreSigs:
         - .Error(
@@ -79,7 +99,7 @@ linters:
         - errors.Is(
         - fmt.Errorf(
       ignorePackageSig:
-        - internal/domain
+        - internal/core
 
   exclusions:
     rules:

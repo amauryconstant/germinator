@@ -9,8 +9,8 @@ import (
 	"github.com/carapace-sh/carapace"
 	"github.com/spf13/cobra"
 	"gitlab.com/amoconst/germinator/internal/application"
-	gerrors "gitlab.com/amoconst/germinator/internal/domain"
-	"gitlab.com/amoconst/germinator/internal/infrastructure/library"
+	gerrors "gitlab.com/amoconst/germinator/internal/core"
+	"gitlab.com/amoconst/germinator/internal/library"
 )
 
 // NewInitCommand creates the init command for installing resources from the library.

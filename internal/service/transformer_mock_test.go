@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"gitlab.com/amoconst/germinator/internal/application"
-	"gitlab.com/amoconst/germinator/internal/domain"
-	"gitlab.com/amoconst/germinator/internal/infrastructure/parsing"
+	"gitlab.com/amoconst/germinator/internal/core"
+	"gitlab.com/amoconst/germinator/internal/parser"
 	"gitlab.com/amoconst/germinator/test/mocks"
 )
 
@@ -26,7 +26,7 @@ func TestTransformerWithMocks(t *testing.T) {
 
 		// Set up mock expectations
 		mockParser.On("LoadDocument", inputFile, "opencode").
-			Return(&parsing.CanonicalAgent{Agent: domain.Agent{Name: "test-agent"}}, nil)
+			Return(&parser.CanonicalAgent{Agent: core.Agent{Name: "test-agent"}}, nil)
 		mockSerializer.On("RenderDocument", mock.Anything, "opencode").
 			Return("---\nname: test-agent\n---\nTransformed content", nil)
 
@@ -93,7 +93,7 @@ func TestTransformerWithMocks(t *testing.T) {
 		outputFile := filepath.Join(tmpDir, "output.md")
 
 		mockParser.On("LoadDocument", inputFile, "claude-code").
-			Return(&parsing.CanonicalAgent{Agent: domain.Agent{Name: "test-agent"}}, nil)
+			Return(&parser.CanonicalAgent{Agent: core.Agent{Name: "test-agent"}}, nil)
 		mockSerializer.On("RenderDocument", mock.Anything, "claude-code").
 			Return("", errors.New("render error"))
 
@@ -125,7 +125,7 @@ func TestTransformerWithMocks(t *testing.T) {
 		}
 
 		mockParser.On("LoadDocument", inputFile, "opencode").
-			Return(&parsing.CanonicalAgent{Agent: domain.Agent{Name: "test"}}, nil)
+			Return(&parser.CanonicalAgent{Agent: core.Agent{Name: "test"}}, nil)
 		mockSerializer.On("RenderDocument", mock.Anything, "opencode").
 			Return("rendered content", nil)
 
@@ -140,7 +140,7 @@ func TestTransformerWithMocks(t *testing.T) {
 		assert.Error(t, err)
 		assert.Nil(t, result)
 
-		var fileErr *domain.FileError
+		var fileErr *core.FileError
 		assert.True(t, errors.As(err, &fileErr))
 		assert.Equal(t, "write", fileErr.Operation())
 	})

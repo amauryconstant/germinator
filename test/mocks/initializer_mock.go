@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/mock"
 	"gitlab.com/amoconst/germinator/internal/application"
-	"gitlab.com/amoconst/germinator/internal/domain"
+	"gitlab.com/amoconst/germinator/internal/core"
 )
 
 // MockInitializer is a mock implementation of application.Initializer.
@@ -14,15 +14,15 @@ type MockInitializer struct {
 }
 
 // Initialize provides a mock function with given fields: ctx, req.
-func (_m *MockInitializer) Initialize(ctx context.Context, req *application.InitializeRequest) ([]domain.InitializeResult, error) {
+func (_m *MockInitializer) Initialize(ctx context.Context, req *application.InitializeRequest) ([]core.InitializeResult, error) {
 	ret := _m.Called(ctx, req)
 
-	var r0 []domain.InitializeResult
-	if rf, ok := ret.Get(0).(func(context.Context, *application.InitializeRequest) []domain.InitializeResult); ok {
+	var r0 []core.InitializeResult
+	if rf, ok := ret.Get(0).(func(context.Context, *application.InitializeRequest) []core.InitializeResult); ok {
 		r0 = rf(ctx, req)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]domain.InitializeResult)
+			r0 = ret.Get(0).([]core.InitializeResult)
 		}
 	}
 

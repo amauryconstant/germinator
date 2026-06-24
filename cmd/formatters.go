@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"strings"
 
-	"gitlab.com/amoconst/germinator/internal/domain"
+	"gitlab.com/amoconst/germinator/internal/core"
 )
 
-func formatDryRunOutput(results []domain.InitializeResult) string {
+func formatDryRunOutput(results []core.InitializeResult) string {
 	var output strings.Builder
 	for _, result := range results {
 		if result.Error == nil {
@@ -19,7 +19,7 @@ func formatDryRunOutput(results []domain.InitializeResult) string {
 	return output.String()
 }
 
-func formatSuccessOutput(results []domain.InitializeResult) string {
+func formatSuccessOutput(results []core.InitializeResult) string {
 	var output strings.Builder
 	successCount := 0
 	failCount := 0

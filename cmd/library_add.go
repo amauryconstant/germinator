@@ -11,7 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"gitlab.com/amoconst/germinator/internal/application"
-	"gitlab.com/amoconst/germinator/internal/infrastructure/library"
+	"gitlab.com/amoconst/germinator/internal/library"
 )
 
 // AddResourceJSONOutput represents JSON output for successful resource add.

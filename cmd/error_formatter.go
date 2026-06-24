@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	gerrors "gitlab.com/amoconst/germinator/internal/domain"
+	gerrors "gitlab.com/amoconst/germinator/internal/core"
 )
 
 type formatterFunc func(error) string

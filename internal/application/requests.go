@@ -2,7 +2,7 @@
 // for the Germinator application layer.
 package application
 
-import "gitlab.com/amoconst/germinator/internal/infrastructure/library"
+import "gitlab.com/amoconst/germinator/internal/library"
 
 // TransformRequest contains the input parameters for document transformation.
 type TransformRequest struct {

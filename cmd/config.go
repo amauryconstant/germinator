@@ -10,8 +10,8 @@ import (
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
 	"github.com/spf13/cobra"
-	gerrors "gitlab.com/amoconst/germinator/internal/domain"
-	"gitlab.com/amoconst/germinator/internal/infrastructure/config"
+	"gitlab.com/amoconst/germinator/internal/config"
+	gerrors "gitlab.com/amoconst/germinator/internal/core"
 )
 
 // scaffoldedConfig is the default config file content with explanatory comments.
