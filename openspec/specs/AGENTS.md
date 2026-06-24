@@ -1,33 +1,39 @@
 # OpenSpec Specs Organization
 
+> **Source of truth** — This file is the authoritative layout for `openspec/specs/` in this repository. It is **compatible** with the generic layout described in the `osx-concepts` skill and `osx-concepts/references/artifact-formats.md`.
+
 This guide explains how specs are organized and how to decide where new specs belong.
 
 ## Structure Overview
 
 ```
 openspec/specs/
-├── application/    # Architecture and wiring
-├── cli/            # User interface
-├── core/           # Document I/O
-├── errors/         # Error types
-├── infrastructure/ # DevOps tooling
-├── library/        # Resource management
-├── models/         # Data structures
-├── testing/        # E2E tests
-├── transformation/ # Format conversion
-└── validation/     # Validation rules
+├── AGENTS.md           # This file (the layout rulebook)
+├── <spec-name>/
+│   └── spec.md         # One spec per folder
+└── ...
 ```
+
+Specs live one folder deep: `openspec/specs/<spec-name>/spec.md`. The spec name is prefixed with a **category** (e.g., `cli-`, `library-`, `transformation-`) to group related specs and keep the namespace organised. There are currently 55 specs across 10 categories.
 
 ## Naming Conventions
 
-- **Category folders:** lowercase, hyphen-separated (e.g., `validation/`)
-- **Spec folders:** lowercase, hyphen-separated (e.g., `composable-validators/`)
-- **Spec file:** always `spec.md`
-- **Full path:** `openspec/specs/<category>/<spec-name>/spec.md`
+- **Spec folders:** lowercase, hyphen-separated, **always prefixed with a category** (e.g., `cli-shell-completion`, `library-library-batch-add`).
+- **Spec file:** always `spec.md`.
+- **Full path:** `openspec/specs/<category>-<spec-name>/spec.md`.
+- **All specs MUST live one folder deep.** Files directly under `openspec/specs/` (e.g., `openspec/specs/foo.md`) are **not permitted**. Each spec has its own folder.
+- **No category subdirectories.** Specs are not grouped into `openspec/specs/<category>/` folders — categories are encoded as a name prefix only. This matches the layout the OpenSpec CLI reads natively.
+
+### Naming caveats
+
+- A few specs end up with a doubled prefix where the spec name already starts with the category word, e.g., `library-library-batch-add` (category `library-`, name `library-batch-add`) or `validation-validation-pipeline`. This is intentional — keeping a uniform `<category>-<spec-name>` rule is simpler than special-casing names.
+- Pick the **shortest unambiguous prefix** when adding a new spec. Prefer existing category names listed below; only invent a new prefix if none of the existing categories fit.
 
 ## Category Reference
 
-### `application/`
+These are the active categories, with the criteria for what belongs in each. Use these criteria to pick a prefix when adding a new spec.
+
+### `application-`
 
 **Purpose:** Application architecture, wiring, and configuration.
 
@@ -38,17 +44,9 @@ openspec/specs/
 - Application-wide configuration loading and management
 - How components are composed and wired together
 
-**Questions to ask:**
-
-- Does this spec describe how parts of the application connect?
-- Is this about the "glue" between layers?
-- Does it define interfaces that services implement?
-
 **Code alignment:** `internal/application/`, `internal/config/`
 
----
-
-### `cli/`
+### `cli-`
 
 **Purpose:** Command-line interface layer.
 
@@ -60,17 +58,9 @@ openspec/specs/
 - Exit codes and error display
 - User-facing messages and help text
 
-**Questions to ask:**
-
-- Does this spec describe what users type and see?
-- Is this about command parsing or flag handling?
-- Does it affect how errors are shown to users?
-
 **Code alignment:** `cmd/`
 
----
-
-### `core/`
+### `core-`
 
 **Purpose:** Document I/O primitives.
 
@@ -81,17 +71,9 @@ openspec/specs/
 - Serializing documents back to files
 - Low-level document operations
 
-**Questions to ask:**
-
-- Does this spec describe reading or writing files?
-- Is this about parsing syntax or format?
-- Does it operate at the document level, not the model level?
-
 **Code alignment:** `internal/core/`
 
----
-
-### `errors/`
+### `errors-`
 
 **Purpose:** Error types and handling patterns (internal concern).
 
@@ -102,17 +84,9 @@ openspec/specs/
 - Error formatting for internal use
 - Error chaining and wrapping
 
-**Questions to ask:**
-
-- Is this spec defining a new error type?
-- Does it describe how errors are constructed or enriched?
-- Is this about error structure, not error display?
-
 **Code alignment:** `internal/errors/`
 
----
-
-### `infrastructure/`
+### `infrastructure-`
 
 **Purpose:** DevOps, CI/CD, and project-level tooling.
 
@@ -124,17 +98,9 @@ openspec/specs/
 - Build scripts and task runners
 - Project structure conventions
 
-**Questions to ask:**
-
-- Does this spec affect how the project is built or released?
-- Is this about developer tooling, not runtime behavior?
-- Would a DevOps engineer care about this?
-
 **Code alignment:** Project-level (`.github/`, `mise.toml`, etc.)
 
----
-
-### `library/`
+### `library-`
 
 **Purpose:** Resource management and installation.
 
@@ -145,17 +111,9 @@ openspec/specs/
 - Preset expansion
 - Installation of resources to target projects
 
-**Questions to ask:**
-
-- Does this spec describe finding or loading resources?
-- Is this about the library of templates/skills/agents?
-- Does it involve installing something into a user's project?
-
 **Code alignment:** `internal/library/`
 
----
-
-### `models/`
+### `models-`
 
 **Purpose:** Domain models and source file formats.
 
@@ -166,17 +124,9 @@ openspec/specs/
 - Model fields and their semantics
 - Serialization tags and format mappings
 
-**Questions to ask:**
-
-- Does this spec define what a document type looks like?
-- Is this about the structure of data, not how it's processed?
-- Does it describe fields, types, and their meanings?
-
 **Code alignment:** `internal/models/`
 
----
-
-### `testing/`
+### `testing-`
 
 **Purpose:** End-to-end test infrastructure.
 
@@ -187,17 +137,9 @@ openspec/specs/
 - CLI testing helpers
 - Integration test scenarios
 
-**Questions to ask:**
-
-- Does this spec describe how to test the CLI?
-- Is this about test infrastructure, not unit tests?
-- Does it involve running the actual binary?
-
 **Code alignment:** `test/`
 
----
-
-### `transformation/`
+### `transformation-`
 
 **Purpose:** Document transformation pipeline.
 
@@ -209,17 +151,9 @@ openspec/specs/
 - Permission and field transformations
 - Field mapping rules between platforms
 
-**Questions to ask:**
-
-- Does this spec describe converting one format to another?
-- Is this about the transformation logic, not validation?
-- Does it involve templates or adapters?
-
 **Code alignment:** `internal/services/`
 
----
-
-### `validation/`
+### `validation-`
 
 **Purpose:** Document validation system.
 
@@ -230,12 +164,93 @@ openspec/specs/
 - Platform-specific validation rules
 - Validation result types
 
-**Questions to ask:**
-
-- Does this spec describe checking if something is valid?
-- Is this about validation rules or error collection?
-- Does it involve the Result[T] type or validators?
-
 **Code alignment:** `internal/validation/`
 
----
+## Spec Catalog
+
+The 55 current specs, grouped by category.
+
+### `application-` (5)
+
+- `application-configuration` — Application configuration loading
+- `application-dependency-injection` — Dependency injection wiring
+- `application-discover-orphans-batch` — Orphan discovery batch mode
+- `application-infrastructure-structure` — Infrastructure package organization
+- `application-service-contracts` — Service interface contracts
+
+### `cli-` (7)
+
+- `cli-config-commands` — `germinator config init` / `config validate`
+- `cli-error-formatting` — Typed error formatting with hints
+- `cli-exit-codes` — Semantic exit code conventions
+- `cli-framework` — Cobra-based CLI framework setup
+- `cli-init-command` — `germinator init` resource installation
+- `cli-shell-completion` — Carapace shell completion
+- `cli-verbose-output` — Verbosity levels and output helpers
+
+### `core-` (2)
+
+- `core-document-loading` — Document loading from files
+- `core-yaml-parsing` — YAML parsing primitives
+
+### `errors-` (3)
+
+- `errors-enhanced-errors` — Enhanced error types
+- `errors-enhanced-validation-errors` — Enhanced validation errors
+- `errors-typed-errors` — Typed error definitions
+
+### `infrastructure-` (8)
+
+- `infrastructure-ci-image` — CI image build
+- `infrastructure-ci-workflow` — CI workflow definitions
+- `infrastructure-code-quality` — Linters and formatters
+- `infrastructure-interfaces` — Infrastructure interfaces
+- `infrastructure-mise-task-runner` — mise task definitions
+- `infrastructure-project-layout` — Project layout conventions
+- `infrastructure-release-management` — Release process
+- `infrastructure-validation-scripts` — Validation scripts
+
+### `library-` (13)
+
+- `library-library-batch-add` — Batch resource import
+- `library-library-json-output` — JSON output for library commands
+- `library-library-orphan-discovery` — Orphan file discovery
+- `library-library-preset-creation` — Preset creation
+- `library-library-refresh` — Library refresh (metadata sync)
+- `library-library-remove-preset` — Preset removal
+- `library-library-remove-resource` — Resource removal
+- `library-library-resource-import` — Single-resource import
+- `library-library-scaffolding` — Library init scaffolding
+- `library-library-system` — Library data model
+- `library-library-validation` — Library integrity validation
+- `library-partial-initialization` — Partial initialization behavior
+- `library-resource-installation` — Resource installation behavior
+
+### `models-` (3)
+
+- `models-canonical-source-format` — Canonical source format definition
+- `models-domain-models` — Domain model types
+- `models-domain-structure` — Domain package structure
+
+### `testing-` (3)
+
+- `testing-e2e-canonicalize-tests` — E2E canonicalization tests
+- `testing-e2e-testing` — E2E testing setup
+- `testing-mock-infrastructure` — Mock infrastructure for tests
+
+### `transformation-` (6)
+
+- `transformation-document-transformation` — Document transformation pipeline
+- `transformation-permission-transformation` — Permission policy mapping
+- `transformation-platform-adapters` — Platform adapter implementation
+- `transformation-platform-field-mappings` — Platform field mappings
+- `transformation-platform-to-canonical` — Reverse transformation to canonical
+- `transformation-template-rendering` — Template rendering
+
+### `validation-` (5)
+
+- `validation-composable-validators` — Composable validator pipeline
+- `validation-opencode-platform-validation` — OpenCode-specific validation
+- `validation-platform-agnostic-validation` — Cross-platform validation
+- `validation-result-type` — Result type for composable errors
+- `validation-validation-pipeline` — Validation pipeline orchestration

@@ -6,7 +6,7 @@ OpenCode-specific validation rules for Agents, Commands, Skills, and Memory.
 ## Requirements
 
 ### Requirement: validateOpenCodeAgent validates OpenCode-specific constraints
-Validates Agent mode values, temperature range, and steps constraint.
+The validator SHALL check Agent mode values, temperature range, and steps constraint.
 
 #### Scenario: Agent mode validation
 - **GIVEN** An Agent with mode set
@@ -40,7 +40,7 @@ Validates Agent mode values, temperature range, and steps constraint.
 - **AND** Each error SHALL be descriptive
 
 ### Requirement: validateOpenCodeCommand validates template field
-Validates that Command template content is present.
+The validator SHALL require Command template content to be present.
 
 #### Scenario: Command template validation
 - **GIVEN** A Command model
@@ -49,7 +49,7 @@ Validates that Command template content is present.
 - **AND** content="" (empty string) SHALL return error "template is required"
 
 ### Requirement: validateOpenCodeSkill validates OpenCode-specific constraints
-Validates Skill name format (kebab-case) and requires content.
+The validator SHALL check Skill name format (kebab-case) and require content.
 
 #### Scenario: Skill name validation
 - **GIVEN** A Skill with Name field
@@ -71,7 +71,7 @@ Validates Skill name format (kebab-case) and requires content.
 - **AND** content="" SHALL return error "content is required"
 
 ### Requirement: validateOpenCodeMemory validates paths or content presence
-Validates that Memory has at least one of paths or content populated.
+The validator SHALL require Memory to have at least one of paths or content populated.
 
 #### Scenario: Memory validation
 - **GIVEN** A Memory model

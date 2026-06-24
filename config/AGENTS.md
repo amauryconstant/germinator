@@ -24,7 +24,7 @@ Resolution: CWD → `../../config/templates/`
 - `Doc`: Canonical document struct
 - `Adapter`: Platform-specific methods via template functions
 
-See `openspec/specs/transformation/template-rendering/spec.md` for detailed requirements.
+See `openspec/specs/transformation-template-rendering/spec.md` for detailed requirements.
 
 ---
 

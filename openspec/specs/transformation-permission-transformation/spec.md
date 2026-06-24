@@ -1,6 +1,6 @@
 # permission-transformation Specification
 
-> **UPDATED**: This spec was updated as part of the canonical format redesign. It now describes the permission policy mapping tables used in the platform-adapters capability. See `openspec/specs/transformation/platform-adapters/spec.md` for the full adapter implementation.
+> **UPDATED**: This spec was updated as part of the canonical format redesign. It now describes the permission policy mapping tables used in the platform-adapters capability. See `openspec/specs/transformation-platform-adapters/spec.md` for the full adapter implementation.
 
 ## Purpose
 Simple permission policy mapping tables converting canonical PermissionPolicy enum to platform-specific values, NOT complex transformation functions.

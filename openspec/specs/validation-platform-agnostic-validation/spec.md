@@ -6,7 +6,7 @@ Common validation rules for all models that apply regardless of platform.
 ## Requirements
 
 ### Requirement: All models must implement Validate(platform string) method
-All model validation methods require a platform parameter to apply platform-specific rules.
+All model validation methods SHALL require a platform parameter to apply platform-specific rules.
 
 #### Scenario: Validate requires platform parameter
 - **GIVEN** Any model (Agent, Command, Skill, Memory)
@@ -15,7 +15,7 @@ All model validation methods require a platform parameter to apply platform-spec
 - **AND** No other validation SHALL occur
 
 ### Requirement: Platform parameter is always required
-Validation functions must reject empty or missing platform values.
+Validation functions MUST reject empty or missing platform values.
 
 #### Scenario: Unknown platform returns error
 - **GIVEN** Any model
@@ -24,7 +24,7 @@ Validation functions must reject empty or missing platform values.
 - **AND** Error message SHALL list available platforms (claude-code, opencode)
 
 ### Requirement: Validation returns []error (all errors, not just first)
-Validation functions collect all validation errors rather than failing on the first error.
+Validation functions SHALL collect all validation errors rather than failing on the first error.
 
 #### Scenario: Validate returns multiple errors
 - **GIVEN** An Agent model with missing name and description
@@ -32,7 +32,7 @@ Validation functions collect all validation errors rather than failing on the fi
 - **THEN** Validation SHALL return []error containing both "name is required" and "description is required"
 
 ### Requirement: Common validation applies to all platforms
-Required fields, data types, and format constraints are validated regardless of platform.
+Required fields, data types, and format constraints SHALL be validated regardless of platform.
 
 #### Scenario: Agent common validation
 - **GIVEN** An Agent model
@@ -52,7 +52,7 @@ Required fields, data types, and format constraints are validated regardless of 
 - **THEN** Validation SHALL return error "paths or content is required"
 
 ### Requirement: Platform-specific validation applied by platform
-Each platform has unique validation rules applied when that platform is specified.
+Each platform SHALL have unique validation rules applied when that platform is specified.
 
 #### Scenario: Agent OpenCode platform validation
 - **GIVEN** An Agent with mode="invalid", temperature=2.0, steps=0

@@ -141,9 +141,9 @@ The system SHALL provide `NewServiceContainer()` that returns a fully populated 
 
 ---
 
-## MODIFIED Requirements
+## Migration Notes
 
-### Requirement: Services are wired in main
+### Change: Services are wired in main
 
 **Original behavior:** Services were created with no infrastructure dependencies:
 ```
@@ -161,7 +161,7 @@ services.NewCanonicalizer()  // Unchanged - uses ParsePlatformDocument/MarshalCa
 services.NewInitializer(parser, serializer)
 ```
 
-### Requirement: ServiceContainer constructor populates all services
+### Change: ServiceContainer constructor populates all services
 
 **Added behavior:** ServiceContainer now creates infrastructure implementations and passes them to Transformer and Initializer:
 

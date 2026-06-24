@@ -291,6 +291,8 @@ Hooks: gofmt, govet, golangci-lint, YAML/TOML/JSON validation, file hygiene.
 
 **Config**: `openspec/config.yaml` (spec-driven schema)
 
+> **Spec organization** — Specs follow the flat layout described in [`openspec/specs/AGENTS.md`](openspec/specs/AGENTS.md): `openspec/specs/<category>-<spec-name>/spec.md`. Always consult the local AGENTS.md before creating, syncing, or moving a spec to pick the right category prefix.
+
 ### When to Use
 
 | Situation                       | Action                 |
@@ -385,5 +387,6 @@ graph TB
 | [internal/opencode/AGENTS.md](internal/opencode/AGENTS.md) | OpenCode platform adapter                                    |
 | [internal/AGENTS.md](internal/AGENTS.md)                   | Internal package patterns (target layout)                    |
 | [config/AGENTS.md](config/AGENTS.md)                       | Template patterns, permission mappings                       |
+| [openspec/specs/AGENTS.md](openspec/specs/AGENTS.md)       | Spec layout (`<category>-<spec-name>/spec.md`)                |
 | [test/AGENTS.md](test/AGENTS.md)                           | Golden file testing, E2E testing, runF injection, fixture conventions |
 | [openspec/research/AGENTS.md](openspec/research/AGENTS.md) | Platform research documentation usage                        |

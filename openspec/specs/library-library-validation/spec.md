@@ -4,7 +4,7 @@
 
 The Library Validation capability provides integrity checking for library metadata in `library.yaml` against the actual filesystem state. It detects inconsistencies and optionally auto-repairs them.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Detect missing resource files
 

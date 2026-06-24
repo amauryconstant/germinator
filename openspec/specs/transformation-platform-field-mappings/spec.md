@@ -5,10 +5,8 @@ Documentation of field mappings between Germinator source format and target plat
 
 ## Requirements
 
-### Requirement: Document all Agent, Command, Skill, Memory fields
-### Requirement: Indicate field type: common, Claude Code-specific, OpenCode-specific
-### Requirement: Document transformation logic for non-trivial mappings
-### Requirement: Document skipped fields (Claude Code → OpenCode)
+### Requirement: Platform field mappings SHALL be documented and applied
+The platform-specific field mapping rules between Germinator's source format and the Claude Code / OpenCode target formats SHALL be documented as scenarios. Each scenario covers one field or field group and indicates whether it is common (maps directly), Claude Code-specific, OpenCode-specific, transformed, or skipped.
 
 #### Scenario: Agent common fields map directly
 - **GIVEN** Agent model
