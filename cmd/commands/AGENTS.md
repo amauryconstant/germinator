@@ -1,0 +1,340 @@
+**Location**: `cmd/commands/`
+**Parent**: See `/cmd/AGENTS.md` for CLI architecture (DI, errors, exit codes, verbosity, lint enforcement)
+
+---
+
+# Per-Command Reference
+
+User-facing flag tables, output formats, and behavior for each command group. This is reference material; the architectural patterns (DI, error handling, exit codes) live in `cmd/AGENTS.md`.
+
+---
+
+# Library Command
+
+Manage the canonical resource library containing skills, agents, commands, and memory.
+
+## Subcommands
+
+| Command | Description |
+|---------|-------------|
+| `library init` | Scaffold a new library directory structure |
+| `library add` | Import a resource to the library |
+| `library refresh` | Sync metadata from resource files into library.yaml |
+| `library resources` | List all resources in library (grouped by type) |
+| `library presets` | List all presets in library |
+| `library create preset` | Create a new preset |
+| `library show <ref>` | Display resource or preset details |
+
+### Library Init
+
+Scaffolds a new library directory with `library.yaml` and empty resource directories.
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--path` | `$XDG_DATA_HOME/germinator/library/` or `~/.local/share/germinator/library/` | Path to create library |
+| `--dry-run` | false | Preview changes without creating files |
+| `--force` | false | Overwrite existing library |
+
+```bash
+# Create at default path
+germinator library init
+
+# Custom location
+germinator library init --path /tmp/my-library
+
+# Preview
+germinator library init --dry-run
+
+# Overwrite existing
+germinator library init --force
+```
+
+## Library Refresh
+
+Syncs metadata from registered resource files into `library.yaml`. Updates description from frontmatter when stale, discovers renamed files by searching directories.
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--library` | XDG default | Path to library directory |
+| `--dry-run` | false | Preview changes without modifying |
+| `--force` | false | Skip resources with conflicts |
+| `--json` | false | Output as JSON |
+
+```bash
+# Sync metadata from files
+germinator library refresh
+
+# Preview what would change
+germinator library refresh --dry-run
+
+# Skip conflicts
+germinator library refresh --force
+
+# JSON output for scripting
+germinator library refresh --json
+```
+
+**What it does:**
+- Updates `description` from frontmatter when stale
+- Updates `path` when file renamed (only if frontmatter name matches entry key)
+- Skips missing files silently
+- Collects all errors and reports at end (exit code 1 if any errors)
+
+## Library Path Discovery
+
+Priority: `--library` flag > `GERMINATOR_LIBRARY` env > `$XDG_DATA_HOME/germinator/library/` or `~/.local/share/germinator/library/`
+
+```bash
+# Use default path
+germinator library resources
+
+# Use custom path via flag
+germinator library resources --library /path/to/library
+
+# Use custom path via environment
+GERMINATOR_LIBRARY=/path/to/library germinator library resources
+```
+
+## Resource References
+
+Format: `type/name` (e.g., `skill/commit`, `agent/reviewer`)
+
+Valid types: `skill`, `agent`, `command`, `memory`
+
+## Output Format
+
+`library resources` outputs grouped sections:
+```
+Skills:
+  skill/commit - Git commit best practices
+  skill/merge-request - Generate merge request descriptions
+
+Agents:
+  agent/reviewer - Code review agent
+```
+
+`library presets` outputs preset details with resources:
+```
+git-workflow - Git workflow tools
+  - skill/commit
+  - skill/merge-request
+```
+
+## Library Create Preset
+
+Create a new preset that references existing resources in the library.
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--resources` | (required) | Comma-separated resource references (e.g., `skill/commit,agent/reviewer`) |
+| `--description` | empty | Preset description |
+| `--force` | false | Overwrite existing preset |
+| `--library` | XDG default | Path to library directory |
+
+Validation: Fails if referenced resources don't exist; fails if preset exists without `--force`.
+
+```bash
+# Create preset with single resource
+germinator library create preset commit-tools --resources skill/commit
+
+# Create preset with multiple resources
+germinator library create preset git-workflow --resources skill/commit,skill/pr
+
+# Create with description
+germinator library create preset dev-setup --resources skill/build,agent/reviewer --description "Development setup"
+
+# Overwrite existing preset
+germinator library create preset git-workflow --resources skill/commit --force
+```
+
+**Output:** Displays preset name, description, and resources on success.
+
+---
+
+# Init Command
+
+Install resources from the library to a target project directory.
+
+## Required Flags
+
+- `--platform` (required): Target platform (`opencode` or `claude-code`)
+- `--resources` OR `--preset` (one required): Resources to install
+
+## Optional Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--library` | XDG default | Path to library directory |
+| `--output` | `.` | Output directory |
+| `--dry-run` | false | Preview changes without writing |
+| `--force` | false | Overwrite existing files |
+
+## Mutually Exclusive
+
+`--resources` and `--preset` are mutually exclusive.
+
+## Output Path Derivation
+
+| Type | OpenCode | Claude Code |
+|------|----------|-------------|
+| skill | `.opencode/skills/<name>/SKILL.md` | `.claude/skills/<name>/SKILL.md` |
+| agent | `.opencode/agents/<name>.md` | `.claude/agents/<name>.md` |
+| command | `.opencode/commands/<name>.md` | `.claude/commands/<name>.md` |
+| memory | `.opencode/memory/<name>.md` | `.claude/memory/<name>.md` |
+
+## Examples
+
+```bash
+# Install specific resources
+germinator init --platform opencode --resources skill/commit,skill/merge-request
+
+# Install from preset
+germinator init --platform opencode --preset git-workflow
+
+# Preview changes
+germinator init --platform opencode --preset git-workflow --dry-run
+
+# Overwrite existing files
+germinator init --platform opencode --resources skill/commit --force
+
+# Install to custom directory
+germinator init --platform opencode --preset git-workflow --output /project
+```
+
+## Error Handling
+
+**Partial Processing**: The init command processes all resources regardless of individual failures, collecting per-resource results.
+
+| Scenario | Behavior |
+|----------|----------|
+| At least one resource succeeds | Returns success (exit 0), displays per-resource status and summary |
+| All resources fail | Returns error (exit 1), individual errors visible in results |
+| File exists without `--force` | Returns error for that resource, continues with others |
+| Resource not found | Returns error for that resource, continues with others |
+
+**Result reporting**: Each resource gets its own `InitializeResult` with individual error status. Use `--json` for structured output.
+
+**Examples**:
+```bash
+# See all successes and failures in one run
+germinator init --platform opencode --resources skill/commit,skill/invalid,skill/pr
+
+# JSON output for scripting
+germinator init --platform opencode --resources skill/commit,skill/invalid --json
+```
+
+---
+
+# Config Command
+
+Scaffold and validate germinator configuration files.
+
+## Subcommands
+
+| Command | Description |
+|---------|-------------|
+| `config init` | Scaffold a config file with documented fields |
+| `config validate` | Validate an existing config file |
+
+## Config Init
+
+Scaffolds `~/.config/germinator/config.toml` (or custom path) with **all settings commented out** by default.
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--output` | XDG config path | Output file path |
+| `--force` | false | Overwrite existing file |
+
+Settings are commented to allow selective override; users uncomment only what they need.
+
+```bash
+# Scaffold default config
+germinator config init
+
+# Custom output path
+germinator config init --output /path/to/config.toml
+
+# Overwrite existing
+germinator config init --force
+```
+
+## Config Validate
+
+Validates a config file is parseable and conformant.
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--output` | XDG config path | Config file to validate |
+
+```bash
+# Validate default config
+germinator config validate
+
+# Validate custom path
+germinator config validate --output /path/to/config.toml
+```
+
+**Returns:** Success (0), NotFound (6), Config error (3), Parse error (1)
+
+---
+
+# Completion Command
+
+Generate shell completion scripts for 10+ shells via carapace.
+
+## Supported Shells
+
+| Shell | Subcommand |
+|-------|------------|
+| Bash | `completion bash` |
+| Zsh | `completion zsh` |
+| Fish | `completion fish` |
+| PowerShell | `completion powershell` |
+| Elvish | `completion elvish` |
+| Nushell | `completion nushell` |
+| Oil | `completion oil` |
+| Tcsh | `completion tcsh` |
+| Xonsh | `completion xonsh` |
+| Clink (Windows) | `completion cmd-clink` |
+
+## Installation Examples
+
+```bash
+# Bash
+echo 'source <(germinator completion bash)' >> ~/.bashrc
+
+# Zsh
+germinator completion zsh > ~/.zfunc/_germinator
+
+# Fish
+germinator completion fish > ~/.config/fish/completions/germinator.fish
+```
+
+## Dynamic Completions
+
+| Flag/Argument | Source |
+|---------------|--------|
+| `--resources` | Library resources (e.g., `skill/commit`) |
+| `--preset` | Library presets |
+| `library show <ref>` | Resources + presets |
+| `--platform` | Static: `claude-code`, `opencode` |
+
+## Completion Actions (completions.go)
+
+| Function | Purpose |
+|----------|---------|
+| `actionPlatforms()` | Static platform values |
+| `actionResources(cmd)` | Dynamic from library with caching |
+| `actionPresets(cmd)` | Dynamic from library with caching |
+| `actionLibraryRefs(cmd)` | Combined resources + presets |
+
+## Caching
+
+- Package-level cache with mutex for thread safety
+- 5-second TTL (configurable via `completion.cache_ttl`)
+- 500ms timeout for library loading (configurable via `completion.timeout`)
+- Silent fallback to empty completions on error/timeout
+
+## Library Path Resolution
+
+Priority: `--library` flag > `GERMINATOR_LIBRARY` env > config > default

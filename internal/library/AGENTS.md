@@ -1,9 +1,9 @@
-**Location**: `internal/infrastructure/library/`
-**Parent**: See `/internal/AGENTS.md` for infrastructure layer overview
+**Location**: `internal/library/`
+**Parent**: See `/internal/AGENTS.md` for package overview
 
 ---
 
-# Library Infrastructure
+# Library Package
 
 Library management for canonical resources (skills, agents, commands, memory).
 

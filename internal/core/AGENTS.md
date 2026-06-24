@@ -1,29 +1,32 @@
-**Location**: `internal/domain/`
+**Location**: `internal/core/`
 **Parent**: See `/internal/AGENTS.md` for core patterns
 
 ---
 
-# Domain Package
+# Core Package
 
-**Consolidated domain layer** containing all business types with no external dependencies.
+**Consolidated core layer** containing all business types with no external dependencies.
 
-## Domain Purity
+## Core Purity
 
-This package has **zero external dependencies** (only stdlib and internal/domain).
+This package has **zero external dependencies** (only stdlib and `samber/lo`).
 
 Enforced via depguard in `.golangci.yml`:
 ```yaml
 depguard:
   rules:
-    domain:
+    core-isolation:
       files:
-        - internal/domain/**
+        - "**/core/**"
       allow:
         - $gostd
-        - internal/domain
+        - github.com/samber/lo
+      deny:
+        - pkg: "github.com/*"
+          desc: "core allows only stdlib and lo"
 ```
 
-**Purpose**: Prevents architectural drift - domain types remain pure and independent.
+**Purpose**: Prevents architectural drift - core types remain pure and independent.
 
 ---
 
@@ -37,7 +40,7 @@ depguard:
 | Memory | `memory.go` | Paths (→ @ refs), Content (narrative) |
 | Platform | `platform.go` | Platform, PermissionPolicy |
 
-**Platform-specific behavior**: See `internal/infrastructure/adapters/{platform}/` for transformation logic.
+**Platform-specific behavior**: See `internal/{claude-code,opencode}/` for transformation logic.
 
 ---
 
@@ -52,6 +55,8 @@ depguard:
 | TransformError | Transformation failures |
 | FileError | File I/O failures |
 | ConfigError | Configuration failures |
+| InitializeError | Per-resource install failure (carries `Ref`, `InputPath`, `OutputPath`, `Cause`); builder `WithSuggestions`/`WithContext` |
+| PartialSuccessError | Aggregated install outcome (`Succeeded`, `Failed`, `[]InitializeError`); `cmdutil.ExitCodeFor` returns 0 when `Succeeded > 0` |
 
 ## Builder Pattern
 
@@ -137,7 +142,7 @@ if !result.IsOk() {
 | CanonicalizeResult | Canonicalization output |
 | InitializeResult | Per-resource installation result |
 
-**Used by**: Service interfaces in `internal/application/`.
+**Used by**: Service interfaces in `internal/application/` (legacy; removed in slice-7).
 
 ---
 
@@ -145,17 +150,18 @@ if !result.IsOk() {
 
 | File | Purpose |
 |------|---------|
-| `doc.go` | Package documentation |
+| `doc.go` | Package documentation (`type Domain = core` alias retained for external consumers) |
 | `agent.go` | Agent type |
 | `command.go` | Command type |
 | `skill.go` | Skill type |
 | `memory.go` | Memory type |
 | `platform.go` | Platform/PermissionPolicy types |
-| `errors.go` | Typed errors with builder |
+| `errors.go` | Typed errors with builder (incl. `InitializeError`, `PartialSuccessError`) |
 | `validation.go` | Generic validators |
 | `result.go` | Result[T] type |
 | `results.go` | Service result types |
 | `pipeline.go` | ValidationPipeline[T] |
+| `rules.go` | Pure business rules: `ValidatePlatform(s)`, `ResolveOutputPath(docType, name, platform)` |
 | `opencode/` | OpenCode validators (subdirectory) |
 
 ---
@@ -166,9 +172,10 @@ This package consolidates types from previous packages:
 
 | Previous | Current |
 |----------|---------|
-| `internal/models/canonical/` | Split into `domain/*.go` |
-| `internal/errors/` | `domain/errors.go` |
-| `internal/validation/` | `domain/validation.go`, `result.go`, `opencode/` |
-| `internal/application/results.go` | `domain/results.go` |
+| `internal/models/canonical/` | Split into `core/*.go` |
+| `internal/errors/` | `core/errors.go` |
+| `internal/validation/` | `core/validation.go`, `result.go`, `opencode/` |
+| `internal/application/results.go` | `core/results.go` |
+| `internal/domain/` | `internal/core/` (slice 1) |
 
 **Exception**: `internal/application/requests.go` remains in application layer (depends on `library.Library`).

@@ -5,7 +5,7 @@
 
 ---
 
-> Describes the target architecture post-rewrite. Current code is being migrated slice-by-slice from the legacy 4-layer structure (application/domain/service/infrastructure) to the **golang-cli-architecture** Functional Core / Imperative Shell split.
+> Describes the target architecture post-rewrite. Slice 1 (scaffold-cli-foundation) landed: `internal/domain/` → `internal/core/` rename, `internal/infrastructure/` flattened, and the three new shell packages (`iostreams/`, `output/`, `cmdutil/`) introduced as units. Remaining work: wire `main.go` to `Factory`, migrate the eight command groups, and delete the legacy `application/`/`service/`/legacyBridge files (slices 2–7).
 
 ## Structure
 
@@ -169,12 +169,16 @@ The `test/mocks/` package is **deprecated**. New tests use `runF` injection with
 
 | Old package | New package | Status |
 |---|---|---|
-| `internal/domain/` | `internal/core/` | Pending rename (slice 1) |
-| `internal/infrastructure/config/` | `internal/config/` | Pending move (slice 1) |
-| `internal/infrastructure/library/` | `internal/library/` | Pending move (slice 1) |
-| `internal/infrastructure/parsing/` | (merged into platform adapters) | Pending merge (slice 2) |
-| `internal/infrastructure/serialization/` | (merged into platform adapters) | Pending merge (slice 2) |
-| `internal/infrastructure/adapters/claude-code/` | `internal/claude-code/` | Pending rename + move (slice 2) |
-| `internal/infrastructure/adapters/opencode/` | `internal/opencode/` | Pending rename + move (slice 2) |
-| `internal/application/` | (removed) | Pending deletion (slice 1) |
-| `internal/service/` | (removed) | Pending deletion (slice 2) |
+| `internal/domain/` | `internal/core/` | **Done** (slice 1; `type Domain = core` alias retained) |
+| `internal/infrastructure/parsing/` | `internal/parser/` | **Done** (slice 1; not yet merged into adapters — kept separate) |
+| `internal/infrastructure/serialization/` | `internal/renderer/` | **Done** (slice 1; not yet merged into adapters — kept separate) |
+| `internal/infrastructure/config/` | `internal/config/` | **Done** (slice 1) |
+| `internal/infrastructure/library/` | `internal/library/` | **Done** (slice 1) |
+| `internal/infrastructure/adapters/claude-code/` | `internal/claude-code/` | **Done** (slice 1) |
+| `internal/infrastructure/adapters/opencode/` | `internal/opencode/` | **Done** (slice 1) |
+| `internal/infrastructure/` umbrella | (removed) | **Done** (slice 1) |
+| New: `internal/iostreams/`, `internal/output/`, `internal/cmdutil/` | (shell) | **Done as units** (slice 1); consumed in slice 2+ |
+| `internal/application/` | (removed) | **Pending** (slice 1 → slice 7) |
+| `internal/service/` | (removed) | **Pending** (slice 7) |
+| `cmd/{container,command_config,error_handler}.go` + `legacyBridge` | (removed) | **Pending** (slice 7) |
+| 7 → 3 exit codes | `cmdutil.ExitCodeFor` | **In progress** (slice 1 unit + tests; wiring in slice 2) |
