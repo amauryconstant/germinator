@@ -15,7 +15,7 @@ After the foundation packages land (change-1), the next risk is the integration 
   - Populate every lazy function field (`Config`, `Library`, `Transformer`, `Validator`, `Canonicalizer`, `Initializer`)
   - Set `rootCmd.SetContext(ctx)` so `c.Context()` returns the signal-aware context
 - **REPLACE** post-`Execute` error handling with `output.FormatError(f.IOStreams, err)` followed by `os.Exit(int(cmdutil.ExitCodeFor(err)))`
-- **ADD** `cmd.LegacyBridge` shim: a temporary struct (declared in `cmd/legacy_bridge.go`, exported so it can cross the package boundary from `main.go` to `cmd/`). Holds `Services *LegacyServices`, `ErrorFormatter *ErrorFormatter`, `Verbosity Verbosity`. The struct is declared in task 2.1.3a (before `cmd/container.go` is deleted); `Services` is populated in task 2.1.3b (after task 2.5.1 deletes `cmd/container.go`) by calling `application.New*` constructors directly in `main.go`. Used by non-migrated commands until slice 7 deletes it.
+- **ADD** `cmd.LegacyBridge` shim: a temporary struct (declared in `cmd/legacy_bridge.go`, exported so it can cross the package boundary from `main.go` to `cmd/`). Holds `Services *LegacyServices`, `ErrorFormatter *ErrorFormatter`, `Verbosity Verbosity`. The struct is declared in task 2.1.3a (before `cmd/container.go` is deleted); `Services` is populated in task 2.1.3b (after task 2.5.1 deletes `cmd/container.go`) by calling `service.New*` constructors directly in `main.go`. Used by non-migrated commands until slice 7 deletes it.
 
 ### Pilot: `cmd/adapt.go`
 
@@ -26,9 +26,9 @@ After the foundation packages land (change-1), the next risk is the integration 
   - Implement `runAdapt(opts *adaptOptions) error`: validate platform via `core.ValidatePlatform`, call `transformer.Transform`, write success to `opts.IO.Out`, verbose progress to `opts.IO.Verbosef`
 - **CONVERT** `cmd/cmd_test.go` adapt test to use `iostreams.Test()` + `runF` injection + direct `runAdapt(opts)` invocation
 
-### Pilot: `cmd/library/resources.go`
+### Pilot: `library resources` (lives at `cmd/resources.go`)
 
-- **MIGRATE** `cmd/library/resources.go` (split from `cmd/library.go` if needed):
+- **MIGRATE** the `library resources` subcommand (originally proposed at `cmd/library/resources.go`, but Go package semantics require it to live in the same directory as the rest of the `cmd` package; the actual file is `cmd/resources.go`):
   - Declare `resourcesOptions`: `IO`, `Library func() (*library.Library, error)`, `Output string`
   - Call `cmdutil.AddOutputFlags(cmd, &opts.Output)`
   - Implement `NewCmdResources(f, runF)` and `runResources(opts)`: dispatch on `opts.Output` (plain / table / JSON via `output.Exporter`)
@@ -40,7 +40,7 @@ After the foundation packages land (change-1), the next risk is the integration 
 - **DELETE** `cmd/command_config.go`
 - **DELETE** `cmd/error_handler.go`
 - **DELETE** legacy body of `cmd/adapt.go` (replaced by migrated version)
-- **DELETE** legacy body of `cmd/library/resources.go`
+- **DELETE** legacy body of the `library resources` subcommand (now at `cmd/resources.go`)
 
 ### Behavior changes
 
@@ -74,7 +74,7 @@ After the foundation packages land (change-1), the next risk is the integration 
 
 - **Rewritten (1 file):** `main.go`
 - **Rewritten (1 file):** `cmd/adapt.go`
-- **Rewritten (1 file):** `cmd/library/resources.go` (split from `cmd/library.go`; parent stays in `cmd/library.go`, resources sub-command moves to `cmd/library/resources.go`)
+- **Rewritten (1 file):** `cmd/resources.go` (originally proposed as `cmd/library/resources.go`; relocated to `cmd/resources.go` because Go requires same-directory files to share a `package` declaration). The parent `library` command stays in `cmd/library.go`.
 - **Deleted (3 files):** `cmd/container.go`, `cmd/command_config.go`, `cmd/error_handler.go`
 - **Modified (1 file):** `cmd/library.go` (parent command only — also remove the `--json` persistent flag per task 2.3.1; sub-commands migrated)
 - **Modified (1 file):** `cmd/cmd_test.go` (adapt test converted)

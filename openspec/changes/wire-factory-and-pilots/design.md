@@ -13,7 +13,7 @@ This change (change-2 of 9) wires the new architecture into `main.go` and migrat
 - `main.go` constructs `IOStreams` + `Factory` and populates all lazy function fields.
 - The post-`Execute` error path uses `output.FormatError` + `cmdutil.ExitCodeFor`.
 - Exit codes collapse from 0–6 to 0/1/2.
-- `cmd/adapt.go` and `cmd/library/resources.go` are migrated to `NewCmdXxx(f, runF)` + `runXxx(opts)` per the `application/command-options-pattern` capability.
+- `cmd/adapt.go` and `cmd/resources.go` are migrated to `NewCmdXxx(f, runF)` + `runXxx(opts)` per the `application/command-options-pattern` capability.
 - All non-migrated commands continue to work via the `LegacyBridge` shim.
 - `cmd/container.go`, `cmd/command_config.go`, `cmd/error_handler.go` are deleted.
 - Every command's `--help` produces byte-identical output to the pre-change build.
@@ -33,7 +33,7 @@ This change (change-2 of 9) wires the new architecture into `main.go` and migrat
 ### 1. `LegacyBridge` is the only caller of legacy types during the migration window
 
 **Choice**: A single `cmd.LegacyBridge` struct (exported, declared in `cmd/legacy_bridge.go`) is constructed in `main.go` and passed to all non-migrated commands via the `cmd.NewRootCommand(f, bridge)` signature. The struct holds:
-- `Services *LegacyServices` (populated by calling `application.New*` constructors directly in `main.go` after task 2.5.1 deletes `cmd/container.go` — see Decision 7)
+- `Services *LegacyServices` (populated by calling `service.New*` constructors directly in `main.go` after task 2.5.1 deletes `cmd/container.go` — see Decision 7)
 - `ErrorFormatter *ErrorFormatter` (from `cmd/error_formatter.go` — still alive, deleted in slice 7)
 - `Verbosity Verbosity` (from `cmd/verbose.go` — still alive, deleted in slice 7)
 
@@ -96,9 +96,9 @@ The warning SHALL be emitted at most once per process via `sync.Once`; a `ResetC
 - `ErrorFormatter *ErrorFormatter` (from `cmd/error_formatter.go`, deleted in slice 7)
 - `Verbosity Verbosity` (from `cmd/verbose.go`, deleted in slice 7)
 
-Task 2.1.3a (BEFORE task 2.5.1) declares the type and the `cmd.NewRootCommand(f, bridge)` signature; `bridge` may have a nil `Services` field for now. Task 2.1.3b (AFTER task 2.5.1) populates `bridge.Services` in `main.go` by calling each underlying service constructor directly (`application.NewTransformer`, `application.NewValidator`, `application.NewCanonicalizer`, `application.NewInitializer`). The `main.go` import of `internal/application` is temporary and removed in slice 7.
+Task 2.1.3a (BEFORE task 2.5.1) declares the type and the `cmd.NewRootCommand(f, bridge)` signature; `bridge` may have a nil `Services` field for now. Task 2.1.3b (AFTER task 2.5.1) populates `bridge.Services` in `main.go` by calling each underlying service constructor directly (`service.NewTransformer`, `service.NewValidator`, `service.NewCanonicalizer`, `service.NewInitializer` — these are the constructors that implement the `application.Transformer` / `application.Validator` / `application.Canonicalizer` / `application.Initializer` interfaces per `internal/application/AGENTS.md`). The `main.go` import of `internal/service` is temporary and removed in slice 7.
 
-**Rationale**: Without this split, the temporal ordering is muddled — task 2.1.3 (early) cannot reference `application.NewTransformer` while `cmd/container.go` still exists. Splitting "declare" from "populate" makes the dependency on `cmd/container.go`'s deletion explicit.
+**Rationale**: Without this split, the temporal ordering is muddled — task 2.1.3 (early) cannot reference `service.NewTransformer` while `cmd/container.go` still exists. Splitting "declare" from "populate" makes the dependency on `cmd/container.go`'s deletion explicit.
 
 **Alternatives considered**:
 
@@ -121,7 +121,7 @@ Task 2.1.3a (BEFORE task 2.5.1) declares the type and the `cmd.NewRootCommand(f,
 
 ## Risks / Trade-offs
 
-- **`LegacyBridge` couples this change to `cmd/container.go`** — if `cmd/container.go` is deleted before all commands migrate, the bridge breaks. **Mitigation:** per Decision 7, the task is split into 2.1.3a (declare `cmd.LegacyBridge` type, nil `Services`) and 2.1.3b (populate `Services` from `application.New*` constructors, runs after task 2.5.1 deletes `cmd/container.go`). The bridge lives as long as `cmd/verbose.go` and `cmd/error_formatter.go` live (until change-7).
+- **`LegacyBridge` couples this change to `cmd/container.go`** — if `cmd/container.go` is deleted before all commands migrate, the bridge breaks. **Mitigation:** per Decision 7, the task is split into 2.1.3a (declare `cmd.LegacyBridge` type, nil `Services`) and 2.1.3b (populate `Services` from `service.New*` constructors, runs after task 2.5.1 deletes `cmd/container.go`). The bridge lives as long as `cmd/verbose.go` and `cmd/error_formatter.go` live (until change-7).
 - **First real test of the Factory pattern** — bugs in the pattern would surface here. **Mitigation:** the foundation already includes full Factory tests; the pilot commands are small and easy to verify; smoke tests in task 2.7.6 cover every command.
 - **Exit codes `3, 4, 5, 6 → 1` collapse loses semantic info** — scripts that distinguished `ExitCodeConfig` (3), `ExitCodeGit` (4), `ExitCodeValidation` (5), or `ExitCodeNotFound` (6) from `ExitCodeError` (1) can no longer do so via exit code alone. **Mitigation:** semantic info is preserved in the error message (formatted via `output.FormatError`); consumers should parse stderr, not exit codes, for semantic dispatch. The canary warning (Decision 8) gives consumers a one-time heads-up that the codes changed.
 - **`LegacyBridge` keeps `cmd/verbose.go` and `cmd/error_formatter.go` alive** — these files are not deleted in this change. **Mitigation:** they are deleted in change-7 along with `internal/service/` and `internal/application/`.

@@ -16,7 +16,7 @@ Each task ends with `mise run check` passing.
 
   ```go
   f.Transformer = cmdutil.OnceValuesFunc(func() (application.Transformer, error) {
-      return application.NewTransformer(...)
+      return service.NewTransformer(p, s), nil
   })
   // ... repeat for Config, Library, Validator, Canonicalizer, Initializer
   ```
@@ -48,17 +48,17 @@ Each task ends with `mise run check` passing.
   ```go
   bridge := &cmd.LegacyBridge{
       Services: &cmd.LegacyServices{
-          Transformer:   application.NewTransformer(parser, renderer),
-          Validator:     application.NewValidator(),
-          Canonicalizer: application.NewCanonicalizer(),
-          Initializer:   application.NewInitializer(parser, renderer),
+          Transformer:   service.NewTransformer(parser, renderer),
+          Validator:     service.NewValidator(),
+          Canonicalizer: service.NewCanonicalizer(),
+          Initializer:   service.NewInitializer(parser, renderer),
       },
       ErrorFormatter: cmd.NewErrorFormatter(),
       Verbosity:      0,
   }
   ```
 
-  The `main.go` import of `internal/application` is temporary and removed in slice 7.
+  `service.New*` constructors (not `application.New*`) are the live path: they are the constructors that implement the `application.Transformer` / `application.Validator` / `application.Canonicalizer` / `application.Initializer` interfaces per `internal/application/AGENTS.md`. The `main.go` import of `internal/service` is temporary and removed in slice 7.
 - [x] 2.1.4 In the post-`Execute` block, replace the existing error handling with:
   - `output.FormatError(f.IOStreams, err)` → writes to stderr
   - `warning.MaybeWarnLegacyExitCode(f.IOStreams)` → emits deprecation warning once per process if gate conditions are met (per design Decisions 6 and 8)
@@ -130,12 +130,12 @@ Each task ends with `mise run check` passing.
   - Call `runAdapt(opts)` directly with a fake `Transformer`; assert stdout contains the expected message and stderr is empty (verifies stream discipline)
 - [x] 2.2.6 Run `mise run check`; confirm `germinator adapt` produces byte-identical output to the pre-change build
 
-## 2.3 Migrate `cmd/library/resources.go`
+## 2.3 Migrate `library resources`
 
 - [x] 2.3.1 Split `cmd/library.go`:
-  - Move the `resources` sub-command definition into `cmd/library/resources.go`; keep only the parent command in `cmd/library.go`. The parent stays as `NewCmdLibrary(f, bridge, runF)` (note the new `bridge` parameter for the transitional `LegacyBridge`) with the sub-commands attached.
+  - Move the `resources` sub-command definition into `cmd/resources.go` (alongside `cmd/library.go`; Go package semantics prevent files in `cmd/library/` from declaring `package cmd`, so the proposal's `cmd/library/resources.go` path was impossible for a non-main package; `cmd/resources.go` is functionally equivalent and matches the existing `cmd/library_formatters.go` precedent). Keep only the parent command in `cmd/library.go`. The parent stays as `NewCmdLibrary(f, bridge, runF)` (note the new `bridge` parameter for the transitional `LegacyBridge`) with the sub-commands attached.
   - **Remove** `cmd.PersistentFlags().Bool("json", false, "Output as JSON")` from the parent command (currently `cmd/library.go:39`). The persistent `--json` flag is REMOVED per the delta spec `library-library-json-output` REMOVED requirement "Library parent command accepts --json flag". After this removal, `germinator library resources --json` (and any other library sub-command's `--json`) will fail with `unknown flag --json` and exit code 2.
-- [x] 2.3.2 In `cmd/library/resources.go`, define `resourcesOptions` struct with fields: `IO *iostreams.IOStreams`, `Library func() (*library.Library, error)`, `Ctx context.Context`, `Output string`
+- [x] 2.3.2 In `cmd/resources.go`, define `resourcesOptions` struct with fields: `IO *iostreams.IOStreams`, `Library func() (*library.Library, error)`, `Ctx context.Context`, `Output string`
 - [x] 2.3.3 Note: `library.ListResources` is a **package function** in `internal/library/lister.go:17`, not a method on a `Library` interface. **Do not declare a `Library` interface** in this file; use the concrete `*library.Library` returned from `opts.Library()` and call `library.ListResources(lib)` directly. The returned `map[string][]ResourceInfo` is then flattened into a slice of structs (with `tab:"HEADER"` struct tags for the table exporter) before being passed to the exporters.
 - [x] 2.3.4 Implement `NewCmdResources(f *cmdutil.Factory, runF func(*resourcesOptions) error) *cobra.Command`:
   - Call `cmdutil.AddOutputFlags(cmd, &opts.Output)` (per `internal/output/AGENTS.md`, valid values are `["json", "table", "plain"]` with `DefaultOutputFormat = "plain"`)
@@ -152,6 +152,8 @@ Each task ends with `mise run check` passing.
 - [x] 2.3.6 Convert the resources test in `cmd/cmd_test.go` to use `iostreams.Test()` + `runF` injection; assert plain/JSON/table output for each format. Also assert stream discipline: stdout contains the data, stderr is empty (no verbose leakage into stdout).
 - [x] 2.3.7 Run `mise run check`; confirm `germinator library resources`, `germinator library resources --output json`, `germinator library resources --output table` produce expected output. Also confirm `germinator library resources --json` returns exit code 2 (old `--json` flag rejected per spec scenario).
 
+> **Implementation note (not in original proposal):** The resources subcommand lives at `cmd/resources.go` (not `cmd/library/resources.go` as the proposal suggested). Go requires all files in a directory to share the same `package` declaration; files in `cmd/library/` declaring `package cmd` would create a *separate* package `gitlab.com/amoconst/germinator/cmd/library`, which is not what we want. The `cmd/resources.go` placement is functionally equivalent and is documented in task 2.3.1.
+
 ## 2.4 Update tests for new patterns
 
 - [x] 2.4.1 The adapt test rewrite is owned by task 2.2.5; the resources test rewrite is owned by task 2.3.6. After both run, audit `cmd/cmd_test.go` for any remaining references to deleted legacy types (`ServiceContainer`, `CommandConfig`, `CategorizeError`); remove them as part of the section's rewrite.
@@ -159,7 +161,7 @@ Each task ends with `mise run check` passing.
 - [x] 2.4.2a Add a minimal legacy test-only adapter in `cmd/legacy_test_helpers_test.go` (file suffix `_test.go` limits it to test builds). The adapter re-exports `newTestConfig() *cmdutil.Factory` for non-pilot tests that still need a Factory instance, plus shim helpers (`NewServiceContainer()`, `*CommandConfig`, `cmd.HandleCLIError`) that satisfy non-pilot test sections until slices 3-7 convert them. Tag the file with `//nolint:paralleltest` and a TODO pointing to slice 7 for removal.
 
 - [x] 2.4.2b Leave non-pilot sub-sections untouched (they still use `NewServiceContainer` and the legacy `CommandConfig` via the test-only adapter from 2.4.2a); they will be converted in changes 3-7. The adapter is deleted in change-7.
-- [x] 2.4.3 Verify `cmd/lint_test.go` exists. If it does NOT exist, create it with a smoke test that asserts no NEW `fmt.Fprintf(os.Stdout|Stderr)` or `os.Exit(` patterns in `cmd/adapt.go` or `cmd/library/resources.go`. If it already exists, add the smoke test to it directly.
+- [x] 2.4.3 Verify `cmd/lint_test.go` exists. If it does NOT exist, create it with a smoke test that asserts no NEW `fmt.Fprintf(os.Stdout|Stderr)` or `os.Exit(` patterns in `cmd/adapt.go` or `cmd/resources.go` (per the path correction in task 2.3.1). If it already exists, add the smoke test to it directly.
 - [x] 2.4.4 Add unit tests in `internal/warning/canary_test.go` (paired with the canary helper from task 2.1.6). Cover: (a) single emission per process (call `MaybeWarnLegacyExitCode` twice; assert the second call is a no-op); (b) `EXIT_CODE_LEGACY=1` env var triggers emission; (c) `io.IsStderrTTY()==true` triggers emission; (d) both gates false suppresses emission; (e) warning is emitted to `io.ErrOut` even when `io.Logger` is nil (the canary does not depend on the Logger); (f) `ResetCanaryForTest()` resets state between sub-tests.
 - [x] 2.4.5 Add golden file tests in `test/e2e/library_resources_test.go` (build tag `e2e`) for each output format. Use byte-level comparison against fixtures in `test/e2e/fixtures/library-resources/{plain,json,table}/`. The fixtures are generated by capturing pre-change `germinator library resources --output X` output and committed alongside the test.
 
@@ -169,7 +171,7 @@ Each task ends with `mise run check` passing.
 - [x] 2.5.2 Delete `cmd/command_config.go` (`CommandConfig` no longer exists)
 - [x] 2.5.3 Delete `cmd/error_handler.go` (exit codes now mapped via `cmdutil.ExitCodeFor`)
 - [x] 2.5.4 Delete the legacy body of `cmd/adapt.go` (already replaced by the migrated version)
-- [x] 2.5.5 Delete the legacy body of `cmd/library/resources.go` (already replaced by the migrated version)
+- [x] 2.5.5 Delete the legacy body of `cmd/resources.go` (the migrated version replaced it; the path was corrected from `cmd/library/resources.go` per the note in task 2.3.1)
 
 ## 2.6 Update delta spec
 

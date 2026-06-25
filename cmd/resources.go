@@ -25,11 +25,14 @@ type libraryResourcesOptions struct {
 // resourcesRow is the table-exporter representation of a single
 // resource. The tab struct tags drive the TableExporter column
 // header order; the JSONExporter uses the `json` tags for marshaling.
+// `Description` is NOT `omitempty` because the library-library-json-output
+// delta spec requires a stable JSON shape of
+// {"type":"...","name":"...","description":"...","path":"..."}.
 type resourcesRow struct {
 	Type        string `tab:"TYPE"        json:"type"`
 	Name        string `tab:"NAME"        json:"name"`
 	Path        string `tab:"-"           json:"path"`
-	Description string `tab:"DESCRIPTION" json:"description,omitempty"`
+	Description string `tab:"DESCRIPTION" json:"description"`
 }
 
 // NewCmdResources creates the `library resources` subcommand via the
