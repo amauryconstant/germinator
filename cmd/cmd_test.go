@@ -10,7 +10,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"gitlab.com/amoconst/germinator/internal/application"
+	"gitlab.com/amoconst/germinator/internal/cmdutil"
 	gerrors "gitlab.com/amoconst/germinator/internal/core"
 )
 
@@ -33,14 +36,6 @@ func getProjectRoot() (string, error) {
 	return "", os.ErrNotExist
 }
 
-func newTestConfig() *CommandConfig {
-	return &CommandConfig{
-		Services:       NewServiceContainer(),
-		ErrorFormatter: NewErrorFormatter(),
-		Verbosity:      0,
-	}
-}
-
 func TestValidateCommandWithActualServices(t *testing.T) {
 	tmpDir := t.TempDir()
 	validFile := tmpDir + "/test-agent.md"
@@ -55,8 +50,8 @@ This is valid content`
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	cfg := newTestConfig()
-	result, err := cfg.Services.Validator.Validate(context.Background(), &application.ValidateRequest{
+	bridge := newTestBridge()
+	result, err := bridge.Services.Validator.Validate(context.Background(), &application.ValidateRequest{
 		InputPath: validFile,
 		Platform:  "claude-code",
 	})
@@ -119,9 +114,9 @@ This is test content`
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg := newTestConfig()
+			bridge := newTestBridge()
 			if tt.expectError {
-				_, err := cfg.Services.Transformer.Transform(context.Background(), &application.TransformRequest{
+				_, err := bridge.Services.Transformer.Transform(context.Background(), &application.TransformRequest{
 					InputPath:  inputFile,
 					OutputPath: outputFile,
 					Platform:   tt.platform,
@@ -135,7 +130,7 @@ This is test content`
 					}
 				}
 			} else {
-				_, err := cfg.Services.Transformer.Transform(context.Background(), &application.TransformRequest{
+				_, err := bridge.Services.Transformer.Transform(context.Background(), &application.TransformRequest{
 					InputPath:  inputFile,
 					OutputPath: outputFile,
 					Platform:   tt.platform,
@@ -173,8 +168,8 @@ Command content`
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg := newTestConfig()
-			result, err := cfg.Services.Validator.Validate(context.Background(), &application.ValidateRequest{
+			bridge := newTestBridge()
+			result, err := bridge.Services.Validator.Validate(context.Background(), &application.ValidateRequest{
 				InputPath: validFile,
 				Platform:  tt.platform,
 			})
@@ -194,8 +189,8 @@ func TestVersionCommand(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	cfg := newTestConfig()
-	versionCmd := NewVersionCommand(cfg)
+	f := newTestFactory()
+	versionCmd := NewVersionCommand(f, newTestBridge())
 	versionCmd.Run(versionCmd, []string{})
 
 	_ = w.Close()
@@ -215,8 +210,8 @@ func TestRootCommand(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	cfg := newTestConfig()
-	rootCmd := NewRootCommand(cfg)
+	f := newTestFactory()
+	rootCmd := NewRootCommand(f, newTestBridge())
 	rootCmd.Run(rootCmd, []string{})
 
 	_ = w.Close()
@@ -245,8 +240,8 @@ This is valid content`
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	cfg := newTestConfig()
-	result, err := cfg.Services.Validator.Validate(context.Background(), &application.ValidateRequest{
+	bridge := newTestBridge()
+	result, err := bridge.Services.Validator.Validate(context.Background(), &application.ValidateRequest{
 		InputPath: validFile,
 		Platform:  "claude-code",
 	})
@@ -322,8 +317,8 @@ This is valid content`
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg := newTestConfig()
-			result, err := cfg.Services.Validator.Validate(context.Background(), &application.ValidateRequest{
+			bridge := newTestBridge()
+			result, err := bridge.Services.Validator.Validate(context.Background(), &application.ValidateRequest{
 				InputPath: validFile,
 				Platform:  tt.platform,
 			})
@@ -439,8 +434,8 @@ Test content`,
 				t.Fatalf("Failed to create test file: %v", err)
 			}
 
-			cfg := newTestConfig()
-			result, err := cfg.Services.Validator.Validate(context.Background(), &application.ValidateRequest{
+			bridge := newTestBridge()
+			result, err := bridge.Services.Validator.Validate(context.Background(), &application.ValidateRequest{
 				InputPath: testFile,
 				Platform:  tt.platform,
 			})
@@ -630,8 +625,8 @@ content: |
 				t.Fatalf("Failed to create input file: %v", err)
 			}
 
-			cfg := newTestConfig()
-			_, err := cfg.Services.Transformer.Transform(context.Background(), &application.TransformRequest{
+			bridge := newTestBridge()
+			_, err := bridge.Services.Transformer.Transform(context.Background(), &application.TransformRequest{
 				InputPath:  inputFile,
 				OutputPath: outputFile,
 				Platform:   tt.platform,
@@ -744,8 +739,8 @@ Command content`,
 				t.Fatalf("Failed to create test file: %v", err)
 			}
 
-			cfg := newTestConfig()
-			result, err := cfg.Services.Validator.Validate(context.Background(), &application.ValidateRequest{
+			bridge := newTestBridge()
+			result, err := bridge.Services.Validator.Validate(context.Background(), &application.ValidateRequest{
 				InputPath: testFile,
 				Platform:  tt.platform,
 			})
@@ -802,8 +797,8 @@ Agent content`
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	cfg := newTestConfig()
-	_, err = cfg.Services.Canonicalizer.Canonicalize(context.Background(), &application.CanonicalizeRequest{
+	bridge := newTestBridge()
+	_, err = bridge.Services.Canonicalizer.Canonicalize(context.Background(), &application.CanonicalizeRequest{
 		InputPath:  inputFile,
 		OutputPath: outputFile,
 		Platform:   "claude-code",
@@ -855,8 +850,8 @@ Agent content`
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	cfg := newTestConfig()
-	_, err := cfg.Services.Canonicalizer.Canonicalize(context.Background(), &application.CanonicalizeRequest{
+	bridge := newTestBridge()
+	_, err := bridge.Services.Canonicalizer.Canonicalize(context.Background(), &application.CanonicalizeRequest{
 		InputPath:  inputFile,
 		OutputPath: tmpDir + "/output.yaml",
 		Platform:   "",
@@ -885,8 +880,8 @@ Agent content`
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	cfg := newTestConfig()
-	_, err := cfg.Services.Canonicalizer.Canonicalize(context.Background(), &application.CanonicalizeRequest{
+	bridge := newTestBridge()
+	_, err := bridge.Services.Canonicalizer.Canonicalize(context.Background(), &application.CanonicalizeRequest{
 		InputPath:  inputFile,
 		OutputPath: tmpDir + "/output.yaml",
 		Platform:   "claude-code",
@@ -915,8 +910,8 @@ Agent content`
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	cfg := newTestConfig()
-	_, err := cfg.Services.Canonicalizer.Canonicalize(context.Background(), &application.CanonicalizeRequest{
+	bridge := newTestBridge()
+	_, err := bridge.Services.Canonicalizer.Canonicalize(context.Background(), &application.CanonicalizeRequest{
 		InputPath:  inputFile,
 		OutputPath: tmpDir + "/output.yaml",
 		Platform:   "invalid-platform",
@@ -945,8 +940,8 @@ Agent content`
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	cfg := newTestConfig()
-	_, err := cfg.Services.Canonicalizer.Canonicalize(context.Background(), &application.CanonicalizeRequest{
+	bridge := newTestBridge()
+	_, err := bridge.Services.Canonicalizer.Canonicalize(context.Background(), &application.CanonicalizeRequest{
 		InputPath:  inputFile,
 		OutputPath: tmpDir + "/output.yaml",
 		Platform:   "claude-code",
@@ -965,8 +960,8 @@ func TestCanonicalizeCommandFileNotFound(t *testing.T) {
 	tmpDir := t.TempDir()
 	inputFile := tmpDir + "/non-existent-file.md"
 
-	cfg := newTestConfig()
-	_, err := cfg.Services.Canonicalizer.Canonicalize(context.Background(), &application.CanonicalizeRequest{
+	bridge := newTestBridge()
+	_, err := bridge.Services.Canonicalizer.Canonicalize(context.Background(), &application.CanonicalizeRequest{
 		InputPath:  inputFile,
 		OutputPath: tmpDir + "/output.yaml",
 		Platform:   "claude-code",
@@ -1017,8 +1012,8 @@ Agent content`
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	cfg := newTestConfig()
-	_, err = cfg.Services.Canonicalizer.Canonicalize(context.Background(), &application.CanonicalizeRequest{
+	bridge := newTestBridge()
+	_, err = bridge.Services.Canonicalizer.Canonicalize(context.Background(), &application.CanonicalizeRequest{
 		InputPath:  inputFile,
 		OutputPath: outputFile,
 		Platform:   "claude-code",
@@ -1119,8 +1114,8 @@ Test content`
 				args = append([]string{tt.verboseFlag}, args...)
 			}
 
-			cfg := newTestConfig()
-			rootCmd := NewRootCommand(cfg)
+			f := newTestFactory()
+			rootCmd := NewRootCommand(f, newTestBridge())
 			rootCmd.SetArgs(args)
 			_ = rootCmd.Execute()
 
@@ -1196,12 +1191,12 @@ Test content`
 		{
 			name:           "level 1 verbose (-v)",
 			verboseFlag:    "-v",
-			expectContains: []string{"Transforming document...", "Output path:"},
+			expectContains: []string{"transforming", "→"},
 		},
 		{
 			name:           "level 2 verbose (-vv)",
 			verboseFlag:    "-vv",
-			expectContains: []string{"Transforming document...", "Loading source document...", "Rendering template", "Writing output file..."},
+			expectContains: []string{"transforming", "→"},
 		},
 	}
 
@@ -1209,33 +1204,24 @@ Test content`
 		t.Run(tt.name, func(t *testing.T) {
 			_ = os.Remove(outputFile)
 
-			oldStdout := os.Stdout
-			oldStderr := os.Stderr
-			stdoutR, stdoutW, _ := os.Pipe()
-			stderrR, stderrW, _ := os.Pipe()
-			os.Stdout = stdoutW
-			os.Stderr = stderrW
-
 			args := []string{"adapt", inputFile, outputFile, "--platform", "opencode"}
 			if tt.verboseFlag != "" {
 				args = append([]string{tt.verboseFlag}, args...)
 			}
 
-			cfg := newTestConfig()
-			rootCmd := NewRootCommand(cfg)
+			f := newTestFactory()
+			if tt.verboseFlag != "" {
+				f.IOStreams.Verbose = true
+			}
+			rootCmd := NewRootCommand(f, newTestBridge())
 			rootCmd.SetArgs(args)
 			_ = rootCmd.Execute()
 
-			_ = stdoutW.Close()
-			_ = stderrW.Close()
-			os.Stdout = oldStdout
-			os.Stderr = oldStderr
-
-			var stdoutBuf, stderrBuf bytes.Buffer
-			_, _ = io.Copy(&stdoutBuf, stdoutR)
-			_, _ = io.Copy(&stderrBuf, stderrR)
-
-			stderr := stderrBuf.String()
+			errBuf, ok := f.IOStreams.ErrOut.(*bytes.Buffer)
+			if !ok {
+				t.Fatal("f.IOStreams.ErrOut is not a *bytes.Buffer")
+			}
+			stderr := errBuf.String()
 
 			if tt.expectStderrEmpty && stderr != "" {
 				t.Errorf("Expected empty stderr, got: %q", stderr)
@@ -1323,8 +1309,8 @@ Test content`
 				args = append([]string{tt.verboseFlag}, args...)
 			}
 
-			cfg := newTestConfig()
-			rootCmd := NewRootCommand(cfg)
+			f := newTestFactory()
+			rootCmd := NewRootCommand(f, newTestBridge())
 			rootCmd.SetArgs(args)
 			_ = rootCmd.Execute()
 
@@ -1385,7 +1371,7 @@ func TestValidateCommandExitCodes(t *testing.T) {
 			filename:     "invalid-name.md",
 			content:      "",
 			platform:     "claude-code",
-			expectedCode: 3,
+			expectedCode: 1,
 		},
 		{
 			name:     "missing description - exit code 5",
@@ -1395,7 +1381,7 @@ name: test-agent
 ---
 content`,
 			platform:     "opencode",
-			expectedCode: 5,
+			expectedCode: 1,
 		},
 		{
 			name:     "invalid platform - exit code 3",
@@ -1406,7 +1392,7 @@ description: test
 ---
 content`,
 			platform:     "invalid-platform",
-			expectedCode: 3,
+			expectedCode: 1,
 		},
 	}
 
@@ -1419,19 +1405,19 @@ content`,
 				}
 			}
 
-			cfg := newTestConfig()
-			result, err := cfg.Services.Validator.Validate(context.Background(), &application.ValidateRequest{
+			bridge := newTestBridge()
+			result, err := bridge.Services.Validator.Validate(context.Background(), &application.ValidateRequest{
 				InputPath: testFile,
 				Platform:  tt.platform,
 			})
 			if err != nil {
-				code := GetExitCodeForError(err)
+				code := cmdutil.ExitCodeFor(err)
 				if int(code) != tt.expectedCode {
 					t.Errorf("Expected exit code %d for error, got %d (error: %v)", tt.expectedCode, code, err)
 				}
 			} else if !result.Valid() {
 				// Use the actual error type from result, not create a new ValidationError
-				code := GetExitCodeForError(result.Errors[0])
+				code := cmdutil.ExitCodeFor(result.Errors[0])
 				if int(code) != tt.expectedCode {
 					t.Errorf("Expected exit code %d for validation errors, got %d", tt.expectedCode, code)
 				}
@@ -1476,7 +1462,7 @@ func TestAdaptCommandExitCodes(t *testing.T) {
 			outputFile:   tmpDir + "/output.md",
 			content:      "",
 			platform:     "claude-code",
-			expectedCode: 3,
+			expectedCode: 1,
 		},
 		{
 			name:       "invalid platform - exit code 3",
@@ -1488,7 +1474,7 @@ description: test
 ---
 content`,
 			platform:     "invalid-platform",
-			expectedCode: 3,
+			expectedCode: 1,
 		},
 	}
 
@@ -1501,14 +1487,14 @@ content`,
 				}
 			}
 
-			cfg := newTestConfig()
-			_, err := cfg.Services.Transformer.Transform(context.Background(), &application.TransformRequest{
+			bridge := newTestBridge()
+			_, err := bridge.Services.Transformer.Transform(context.Background(), &application.TransformRequest{
 				InputPath:  testFile,
 				OutputPath: tt.outputFile,
 				Platform:   tt.platform,
 			})
 			if err != nil {
-				code := GetExitCodeForError(err)
+				code := cmdutil.ExitCodeFor(err)
 				if int(code) != tt.expectedCode {
 					t.Errorf("Expected exit code %d, got %d (error: %v)", tt.expectedCode, code, err)
 				}
@@ -1523,94 +1509,72 @@ func TestExitCodeForErrorTypes(t *testing.T) {
 	tests := []struct {
 		name         string
 		err          error
-		expectedCode ExitCode
+		expectedCode int
 	}{
 		{
 			name:         "ParseError returns exit code 3",
 			err:          gerrors.NewParseError("test.yaml", "parse failed", nil),
-			expectedCode: ExitCodeConfig,
+			expectedCode: 1,
 		},
 		{
 			name:         "ValidationError returns exit code 5",
 			err:          gerrors.NewValidationError("", "name", "", "invalid field"),
-			expectedCode: ExitCodeValidation,
+			expectedCode: 1,
 		},
 		{
 			name:         "ConfigError returns exit code 3",
 			err:          gerrors.NewConfigError("platform", "invalid", "unknown platform").WithSuggestions([]string{"claude-code"}),
-			expectedCode: ExitCodeConfig,
+			expectedCode: 1,
 		},
 		{
 			name:         "TransformError returns exit code 1",
 			err:          gerrors.NewTransformError("render", "opencode", "failed", nil),
-			expectedCode: ExitCodeError,
+			expectedCode: 1,
 		},
 		{
 			name:         "FileError with not found returns exit code 6",
 			err:          gerrors.NewFileError("test.yaml", "read", "not found", nil),
-			expectedCode: ExitCodeNotFound,
+			expectedCode: 1,
 		},
 		{
 			name:         "generic error returns exit code 1",
 			err:          fmt.Errorf("something went wrong"),
-			expectedCode: ExitCodeError,
+			expectedCode: 1,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			code := GetExitCodeForError(tt.err)
-			if code != tt.expectedCode {
-				t.Errorf("GetExitCodeForError() = %d, want %d", code, tt.expectedCode)
+			code := cmdutil.ExitCodeFor(tt.err)
+			if int(code) != tt.expectedCode {
+				t.Errorf("cmdutil.ExitCodeFor() = %d, want %d", code, tt.expectedCode)
 			}
 		})
 	}
 }
 
-func TestErrorCategorization(t *testing.T) {
+// TestExitCodeForTypedErrors (slice-2) verifies the new 0/1/2 exit
+// code mapping for typed core errors. The legacy CategorizeError and
+// the 7-code exit-code enum are deleted; cmdutil.ExitCodeFor
+// collapses typed errors to ExitCodeError (1) except PartialSuccess.
+func TestExitCodeForTypedErrors(t *testing.T) {
 	tests := []struct {
-		name             string
-		err              error
-		expectedCategory ErrorCategory
+		name string
+		err  error
+		want cmdutil.ExitCode
 	}{
-		{
-			name:             "ParseError categorizes as CategoryConfig",
-			err:              gerrors.NewParseError("test.yaml", "failed", nil),
-			expectedCategory: CategoryConfig,
-		},
-		{
-			name:             "ValidationError categorizes as CategoryValidation",
-			err:              gerrors.NewValidationError("", "field", "", "invalid"),
-			expectedCategory: CategoryValidation,
-		},
-		{
-			name:             "TransformError categorizes as CategoryTransform",
-			err:              gerrors.NewTransformError("op", "platform", "failed", nil),
-			expectedCategory: CategoryTransform,
-		},
-		{
-			name:             "FileError categorizes as CategoryFile",
-			err:              gerrors.NewFileError("path", "read", "failed", nil),
-			expectedCategory: CategoryFile,
-		},
-		{
-			name:             "ConfigError categorizes as CategoryConfig",
-			err:              gerrors.NewConfigError("field", "value", "invalid"),
-			expectedCategory: CategoryConfig,
-		},
-		{
-			name:             "generic error categorizes as CategoryGeneric",
-			err:              fmt.Errorf("generic error"),
-			expectedCategory: CategoryGeneric,
-		},
+		{name: "ParseError returns ExitCodeError", err: gerrors.NewParseError("test.yaml", "bad", nil), want: 1},
+		{name: "ValidationError returns ExitCodeError", err: gerrors.NewValidationError("", "field", "", "invalid"), want: 1},
+		{name: "TransformError returns ExitCodeError", err: gerrors.NewTransformError("render", "opencode", "failed", nil), want: 1},
+		{name: "FileError returns ExitCodeError", err: gerrors.NewFileError("test.yaml", "read", "failed", nil), want: 1},
+		{name: "ConfigError returns ExitCodeError", err: gerrors.NewConfigError("f", "v", "msg"), want: 1},
+		{name: "PartialSuccess S>0 returns ExitCodeSuccess", err: gerrors.NewPartialSuccessError(3, 1, nil), want: 0},
+		{name: "PartialSuccess S==0 returns ExitCodeError", err: gerrors.NewPartialSuccessError(0, 1, nil), want: 1},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			category := CategorizeError(tt.err)
-			if category != tt.expectedCategory {
-				t.Errorf("CategorizeError() = %v, want %v", category, tt.expectedCategory)
-			}
+			assert.Equal(t, tt.want, cmdutil.ExitCodeFor(tt.err))
 		})
 	}
 }
@@ -1647,7 +1611,6 @@ func TestCommandConfigInitialization(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := &CommandConfig{
-				Services:       NewServiceContainer(),
 				ErrorFormatter: formatter,
 				Verbosity:      tt.verbosity,
 			}
@@ -1692,7 +1655,7 @@ func TestHandleErrorWritesToStderr(t *testing.T) {
 	testErr := gerrors.NewConfigError("platform", "invalid", "unknown platform").WithSuggestions([]string{"claude-code", "opencode"})
 
 	formatted := cfg.ErrorFormatter.Format(testErr)
-	exitCode := GetExitCodeForError(testErr)
+	exitCode := cmdutil.ExitCodeFor(testErr)
 
 	_, _ = fmt.Fprintln(os.Stderr, formatted)
 	_ = w.Close()
@@ -1710,15 +1673,18 @@ func TestHandleErrorWritesToStderr(t *testing.T) {
 		t.Errorf("Expected stderr to contain 'Hint:', got: %q", output)
 	}
 
-	if exitCode != ExitCodeConfig {
-		t.Errorf("GetExitCodeForError(ConfigError) = %d, want %d", exitCode, ExitCodeConfig)
+	if exitCode != 1 {
+		t.Errorf("cmdutil.ExitCodeFor(ConfigError) = %d, want %d", exitCode, 1)
 	}
 }
 
 func TestHandleErrorWithNilError(t *testing.T) {
-	exitCode := GetExitCodeForError(nil)
-	if exitCode != ExitCodeError {
-		t.Errorf("GetExitCodeForError(nil) = %d, want %d", exitCode, ExitCodeError)
+	// Per cmdutil.ExitCodeFor semantics: nil error → ExitCodeSuccess (0).
+	// (The legacy GetExitCodeForError(nil) returned 1, which was a bug —
+	// a nil error means "nothing went wrong".)
+	exitCode := cmdutil.ExitCodeFor(nil)
+	if int(exitCode) != 0 {
+		t.Errorf("cmdutil.ExitCodeFor(nil) = %d, want 0 (Success)", exitCode)
 	}
 }
 
@@ -1726,37 +1692,37 @@ func TestHandleErrorExitCodes(t *testing.T) {
 	tests := []struct {
 		name       string
 		err        error
-		expectCode ExitCode
+		expectCode int
 	}{
 		{
 			name:       "ParseError exits with code 3",
 			err:        gerrors.NewParseError("file.yaml", "parse failed", nil),
-			expectCode: ExitCodeConfig,
+			expectCode: 1,
 		},
 		{
 			name:       "ValidationError exits with code 5",
 			err:        gerrors.NewValidationError("", "name", "", "invalid field"),
-			expectCode: ExitCodeValidation,
+			expectCode: 1,
 		},
 		{
 			name:       "ConfigError exits with code 3",
 			err:        gerrors.NewConfigError("platform", "bad", "invalid").WithSuggestions([]string{"claude-code"}),
-			expectCode: ExitCodeConfig,
+			expectCode: 1,
 		},
 		{
 			name:       "TransformError exits with code 1",
 			err:        gerrors.NewTransformError("render", "opencode", "failed", nil),
-			expectCode: ExitCodeError,
+			expectCode: 1,
 		},
 		{
 			name:       "FileError with not found exits with code 6",
 			err:        gerrors.NewFileError("file.yaml", "read", "not found", nil),
-			expectCode: ExitCodeNotFound,
+			expectCode: 1,
 		},
 		{
 			name:       "FileError exits with code 1",
 			err:        gerrors.NewFileError("file.yaml", "read", "permission denied", nil),
-			expectCode: ExitCodeError,
+			expectCode: 1,
 		},
 	}
 
@@ -1769,9 +1735,9 @@ func TestHandleErrorExitCodes(t *testing.T) {
 				t.Error("ErrorFormatter.Format() should return non-empty string")
 			}
 
-			code := GetExitCodeForError(tt.err)
-			if code != tt.expectCode {
-				t.Errorf("GetExitCodeForError() = %d, want %d", code, tt.expectCode)
+			code := cmdutil.ExitCodeFor(tt.err)
+			if int(code) != tt.expectCode {
+				t.Errorf("cmdutil.ExitCodeFor() = %d, want %d", code, tt.expectCode)
 			}
 		})
 	}

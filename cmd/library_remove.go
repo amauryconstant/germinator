@@ -10,7 +10,7 @@ import (
 )
 
 // NewLibraryRemoveCommand creates the library remove subcommand.
-func NewLibraryRemoveCommand(cfg *CommandConfig, libraryPath *string) *cobra.Command {
+func NewLibraryRemoveCommand(bridge *LegacyBridge, libraryPath *string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "remove",
 		Short: "Remove a resource or preset from the library",
@@ -24,14 +24,15 @@ Subcommands:
 		},
 	}
 
-	cmd.AddCommand(NewLibraryRemoveResourceCommand(cfg, libraryPath))
-	cmd.AddCommand(NewLibraryRemovePresetCommand(cfg, libraryPath))
+	cmd.AddCommand(NewLibraryRemoveResourceCommand(bridge, libraryPath))
+	cmd.AddCommand(NewLibraryRemovePresetCommand(bridge, libraryPath))
 
 	return cmd
 }
 
 // NewLibraryRemoveResourceCommand creates the library remove resource subcommand.
-func NewLibraryRemoveResourceCommand(cfg *CommandConfig, libraryPath *string) *cobra.Command {
+func NewLibraryRemoveResourceCommand(bridge *LegacyBridge, libraryPath *string) *cobra.Command {
+	cfg := legacyCfgFrom(bridge)
 	cmd := &cobra.Command{
 		Use:   "resource <ref>",
 		Short: "Remove a resource from the library",
@@ -91,7 +92,8 @@ Examples:
 }
 
 // NewLibraryRemovePresetCommand creates the library remove preset subcommand.
-func NewLibraryRemovePresetCommand(cfg *CommandConfig, libraryPath *string) *cobra.Command {
+func NewLibraryRemovePresetCommand(bridge *LegacyBridge, libraryPath *string) *cobra.Command {
+	cfg := legacyCfgFrom(bridge)
 	cmd := &cobra.Command{
 		Use:   "preset <name>",
 		Short: "Remove a preset from the library",

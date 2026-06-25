@@ -10,6 +10,7 @@ import (
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
 	"github.com/spf13/cobra"
+	"gitlab.com/amoconst/germinator/internal/cmdutil"
 	"gitlab.com/amoconst/germinator/internal/config"
 	gerrors "gitlab.com/amoconst/germinator/internal/core"
 )
@@ -51,7 +52,7 @@ const scaffoldedConfig = `# Germinator configuration
 `
 
 // NewConfigCommand creates the config command group with init and validate subcommands.
-func NewConfigCommand(cfg *CommandConfig) *cobra.Command {
+func NewConfigCommand(_ *cmdutil.Factory, bridge *LegacyBridge) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config",
 		Short: "Scaffold and validate germinator configuration files",
@@ -61,14 +62,15 @@ func NewConfigCommand(cfg *CommandConfig) *cobra.Command {
   germinator config validate   Validate an existing config file`,
 	}
 
-	cmd.AddCommand(NewConfigInitCommand(cfg))
-	cmd.AddCommand(NewConfigValidateCommand(cfg))
+	cmd.AddCommand(NewConfigInitCommand(bridge))
+	cmd.AddCommand(NewConfigValidateCommand(bridge))
 
 	return cmd
 }
 
 // NewConfigInitCommand creates the config init command for scaffolding a new config file.
-func NewConfigInitCommand(cfg *CommandConfig) *cobra.Command {
+func NewConfigInitCommand(bridge *LegacyBridge) *cobra.Command {
+	cfg := legacyCfgFrom(bridge)
 	var (
 		outputPath string
 		force      bool
@@ -141,7 +143,8 @@ Use --force to overwrite an existing config file.`,
 }
 
 // NewConfigValidateCommand creates the config validate command for validating an existing config file.
-func NewConfigValidateCommand(cfg *CommandConfig) *cobra.Command {
+func NewConfigValidateCommand(bridge *LegacyBridge) *cobra.Command {
+	cfg := legacyCfgFrom(bridge)
 	var outputPath string
 
 	cmd := &cobra.Command{

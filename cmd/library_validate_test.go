@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"bytes"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,10 +9,7 @@ import (
 )
 
 func TestLibraryValidateCommand_ValidLibrary(t *testing.T) {
-	cfg := &CommandConfig{
-		Services:       NewServiceContainer(),
-		ErrorFormatter: NewErrorFormatter(),
-	}
+	_ = newTestConfig()
 
 	// Use test fixtures
 	fixturePath := filepath.Join("..", "test", "fixtures", "library")
@@ -22,7 +18,7 @@ func TestLibraryValidateCommand_ValidLibrary(t *testing.T) {
 		t.Fatalf("Failed to get absolute path: %v", err)
 	}
 
-	cmd := NewLibraryCommand(cfg)
+	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
 	cmd.SetArgs([]string{"validate", "--library", absPath})
 
 	var buf bytes.Buffer
@@ -40,10 +36,7 @@ func TestLibraryValidateCommand_ValidLibrary(t *testing.T) {
 }
 
 func TestLibraryValidateCommand_JSON(t *testing.T) {
-	cfg := &CommandConfig{
-		Services:       NewServiceContainer(),
-		ErrorFormatter: NewErrorFormatter(),
-	}
+	_ = newTestConfig()
 
 	// Use test fixtures
 	fixturePath := filepath.Join("..", "test", "fixtures", "library")
@@ -52,32 +45,20 @@ func TestLibraryValidateCommand_JSON(t *testing.T) {
 		t.Fatalf("Failed to get absolute path: %v", err)
 	}
 
-	cmd := NewLibraryCommand(cfg)
+	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
 	cmd.SetArgs([]string{"validate", "--library", absPath, "--json"})
 
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
 
 	err = cmd.Execute()
-	if err != nil {
-		t.Fatalf("Command failed: %v", err)
+	if err == nil {
+		t.Fatalf("Expected error: --json flag should be rejected (slice 2 removes it)")
 	}
-
-	// Verify it's valid JSON
-	var output ValidationOutput
-	if err := json.Unmarshal(buf.Bytes(), &output); err != nil {
-		t.Fatalf("Output is not valid JSON: %v", err)
+	if !strings.Contains(err.Error(), "unknown flag") {
+		t.Fatalf("Expected 'unknown flag' error, got: %v", err)
 	}
-
-	if !output.Valid {
-		t.Errorf("Expected Valid=true, got Valid=false")
-	}
-	if output.ErrorCount != 0 {
-		t.Errorf("Expected ErrorCount=0, got %d", output.ErrorCount)
-	}
-	if output.WarningCount != 0 {
-		t.Errorf("Expected WarningCount=0, got %d", output.WarningCount)
-	}
+	_ = buf
 }
 
 func TestLibraryValidateCommand_WithIssues(t *testing.T) {
@@ -110,12 +91,9 @@ presets: {}
 		t.Fatalf("Failed to write commit.md: %v", err)
 	}
 
-	cfg := &CommandConfig{
-		Services:       NewServiceContainer(),
-		ErrorFormatter: NewErrorFormatter(),
-	}
+	_ = newTestConfig()
 
-	cmd := NewLibraryCommand(cfg)
+	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
 	cmd.SetArgs([]string{"validate", "--library", tmpDir})
 
 	var buf bytes.Buffer
@@ -170,12 +148,9 @@ presets:
 		t.Fatalf("Failed to write commit.md: %v", err)
 	}
 
-	cfg := &CommandConfig{
-		Services:       NewServiceContainer(),
-		ErrorFormatter: NewErrorFormatter(),
-	}
+	_ = newTestConfig()
 
-	cmd := NewLibraryCommand(cfg)
+	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
 	cmd.SetArgs([]string{"validate", "--library", tmpDir, "--fix"})
 
 	var buf bytes.Buffer
@@ -235,12 +210,9 @@ presets: {}
 		t.Fatalf("Failed to write orphan.md: %v", err)
 	}
 
-	cfg := &CommandConfig{
-		Services:       NewServiceContainer(),
-		ErrorFormatter: NewErrorFormatter(),
-	}
+	_ = newTestConfig()
 
-	cmd := NewLibraryCommand(cfg)
+	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
 	cmd.SetArgs([]string{"validate", "--library", tmpDir})
 
 	var buf bytes.Buffer
@@ -281,12 +253,9 @@ presets: {}
 		t.Fatalf("Failed to write library.yaml: %v", err)
 	}
 
-	cfg := &CommandConfig{
-		Services:       NewServiceContainer(),
-		ErrorFormatter: NewErrorFormatter(),
-	}
+	_ = newTestConfig()
 
-	cmd := NewLibraryCommand(cfg)
+	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
 	cmd.SetArgs([]string{"validate", "--library", tmpDir})
 
 	// The validate command returns nil on success even with validation issues

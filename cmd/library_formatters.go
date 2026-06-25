@@ -145,55 +145,6 @@ func formatPresetOutput(lib *library.Library, name string) string {
 	return sb.String()
 }
 
-// ResourcesJSONOutput represents the JSON output for library resources.
-type ResourcesJSONOutput struct {
-	Resources []ResourceInfoJSON `json:"resources"`
-}
-
-// ResourceInfoJSON represents a resource in JSON output.
-type ResourceInfoJSON struct {
-	Type        string `json:"type"`
-	Name        string `json:"name"`
-	Path        string `json:"path"`
-	Description string `json:"description,omitempty"`
-}
-
-// outputResourcesJSON outputs resources in JSON format.
-func outputResourcesJSON(c *cobra.Command, lib *library.Library) error {
-	resources := library.ListResources(lib)
-
-	typeOrder := []string{
-		string(library.ResourceTypeSkill),
-		string(library.ResourceTypeAgent),
-		string(library.ResourceTypeCommand),
-		string(library.ResourceTypeMemory),
-	}
-
-	var allResources []ResourceInfoJSON
-	for _, typ := range typeOrder {
-		infos, ok := resources[typ]
-		if !ok || len(infos) == 0 {
-			continue
-		}
-		for _, info := range infos {
-			allResources = append(allResources, ResourceInfoJSON{
-				Type:        info.Type,
-				Name:        info.Name,
-				Path:        info.Path,
-				Description: info.Description,
-			})
-		}
-	}
-
-	output := ResourcesJSONOutput{Resources: allResources}
-	encoder := json.NewEncoder(c.OutOrStdout())
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(output); err != nil {
-		return fmt.Errorf("encoding JSON output: %w", err)
-	}
-	return nil
-}
-
 // PresetsJSONOutput represents the JSON output for library presets.
 type PresetsJSONOutput struct {
 	Presets []PresetInfoJSON `json:"presets"`

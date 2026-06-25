@@ -4,11 +4,12 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"gitlab.com/amoconst/germinator/internal/cmdutil"
 	"gitlab.com/amoconst/germinator/internal/version"
 )
 
 // NewVersionCommand creates a new version command.
-func NewVersionCommand(_ *CommandConfig) *cobra.Command {
+func NewVersionCommand(_ *cmdutil.Factory, _ *LegacyBridge) *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",
 		Short: "Show version of germinator",

@@ -1,0 +1,12 @@
+Skills:
+  skill/commit - Git commit best practices
+  skill/merge-request - Generate merge request descriptions
+
+Agents:
+  agent/reviewer - Code review agent
+
+Commands:
+  command/test - Run tests command
+
+Memorys:
+  memory/context - Project context memory

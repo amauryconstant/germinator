@@ -22,7 +22,8 @@ type InitErrorJSON struct {
 }
 
 // NewLibraryInitCommand creates the library init subcommand.
-func NewLibraryInitCommand(cfg *CommandConfig) *cobra.Command {
+func NewLibraryInitCommand(bridge *LegacyBridge) *cobra.Command {
+	cfg := legacyCfgFrom(bridge)
 	var opts struct {
 		path   string
 		dryRun bool

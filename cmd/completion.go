@@ -5,6 +5,8 @@ import (
 
 	"github.com/carapace-sh/carapace"
 	"github.com/spf13/cobra"
+
+	"gitlab.com/amoconst/germinator/internal/cmdutil"
 )
 
 // completionShells contains all supported shell names.
@@ -79,7 +81,7 @@ Also enable menu completion:
 
 // NewCompletionCommand creates the completion command with shell subcommands.
 // This replaces Cobra's default completion with Carapace's enhanced completion system.
-func NewCompletionCommand(_ *CommandConfig) *cobra.Command {
+func NewCompletionCommand(_ *cmdutil.Factory, _ *LegacyBridge) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "completion",
 		Short: "Generate shell completion scripts",

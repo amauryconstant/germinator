@@ -38,10 +38,13 @@ type Factory struct {
 }
 
 // NewFactory constructs a Factory with eager values populated. The
-// lazy function fields are left nil and must be assigned by main.go
-// (the only composition root) using sync.OnceValues wrappers.
-func NewFactory(io *iostreams.IOStreams, appVersion, executable string) *Factory {
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+// signal-aware context is supplied by the caller (typically
+// signal.NotifyContext in main.go) so the composition root owns the
+// context lifecycle; Factory.Close cancels the same context. Lazy
+// function fields are left nil and must be assigned by main.go (the
+// only composition root) using OnceValuesFunc wrappers.
+func NewFactory(ctx context.Context, io *iostreams.IOStreams, appVersion, executable string) *Factory {
+	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	return &Factory{
 		IOStreams:   io,
 		AppVersion:  appVersion,

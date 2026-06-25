@@ -12,7 +12,7 @@ import (
 )
 
 // NewLibraryCreateCommand creates the library create subcommand group.
-func NewLibraryCreateCommand(cfg *CommandConfig, libraryPath *string) *cobra.Command {
+func NewLibraryCreateCommand(bridge *LegacyBridge, libraryPath *string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create resources in the library",
@@ -25,13 +25,14 @@ Subcommands:
 		},
 	}
 
-	cmd.AddCommand(NewCreatePresetCommand(cfg, libraryPath))
+	cmd.AddCommand(NewCreatePresetCommand(bridge, libraryPath))
 
 	return cmd
 }
 
 // NewCreatePresetCommand creates the preset subcommand.
-func NewCreatePresetCommand(cfg *CommandConfig, libraryPath *string) *cobra.Command {
+func NewCreatePresetCommand(bridge *LegacyBridge, libraryPath *string) *cobra.Command {
+	cfg := legacyCfgFrom(bridge)
 	var opts struct {
 		resources   string
 		description string

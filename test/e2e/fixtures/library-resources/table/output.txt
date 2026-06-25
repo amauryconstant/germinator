@@ -1,0 +1,6 @@
+TYPE     NAME           DESCRIPTION
+skill    commit         Git commit best practices
+skill    merge-request  Generate merge request descriptions
+agent    reviewer       Code review agent
+command  test           Run tests command
+memory   context        Project context memory

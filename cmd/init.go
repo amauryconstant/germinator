@@ -9,14 +9,17 @@ import (
 	"github.com/carapace-sh/carapace"
 	"github.com/spf13/cobra"
 	"gitlab.com/amoconst/germinator/internal/application"
+	"gitlab.com/amoconst/germinator/internal/cmdutil"
 	gerrors "gitlab.com/amoconst/germinator/internal/core"
 	"gitlab.com/amoconst/germinator/internal/library"
 )
 
 // NewInitCommand creates the init command for installing resources from the library.
+// Non-migrated command (slice 5 converts it to the NewCmdInit(f, runF) pattern).
 //
 //nolint:gocognit // has high cognitive complexity due to many flag validation branches
-func NewInitCommand(cfg *CommandConfig) *cobra.Command {
+func NewInitCommand(_ *cmdutil.Factory, bridge *LegacyBridge) *cobra.Command {
+	cfg := legacyCfgFrom(bridge)
 	var (
 		platform    string
 		resources   string
@@ -109,7 +112,7 @@ Examples:
 			VeryVerbosePrint(cfg, "Installing resources: %s", strings.Join(refs, ", "))
 
 			// Initialize resources using service interface
-			results, err := cfg.Services.Initializer.Initialize(context.Background(), &application.InitializeRequest{
+			results, err := bridge.Services.Initializer.Initialize(context.Background(), &application.InitializeRequest{
 				Library:   lib,
 				Platform:  platform,
 				OutputDir: outputDir,

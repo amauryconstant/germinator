@@ -10,7 +10,8 @@ import (
 )
 
 // NewLibraryRefreshCommand creates the library refresh subcommand.
-func NewLibraryRefreshCommand(cfg *CommandConfig, libraryPath *string) *cobra.Command {
+func NewLibraryRefreshCommand(bridge *LegacyBridge, libraryPath *string) *cobra.Command {
+	cfg := legacyCfgFrom(bridge)
 	var opts struct {
 		dryRun bool
 		force  bool

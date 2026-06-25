@@ -36,6 +36,12 @@ func TestSystem(t *testing.T) {
 	})
 }
 
+func TestSystemStderrTTY(t *testing.T) {
+	io2 := System()
+	require.NotNil(t, io2)
+	_ = io2.IsStderrTTY()
+}
+
 func TestTest(t *testing.T) {
 	t.Parallel()
 
@@ -167,4 +173,81 @@ func TestVerbosefNoopWriter(t *testing.T) {
 		stdoutTTY: false,
 	}
 	io2.Verbosef("should not panic")
+}
+
+func TestIsStderrTTY(t *testing.T) {
+	t.Parallel()
+
+	t.Run("default false", func(t *testing.T) {
+		t.Parallel()
+		io2 := Test()
+		assert.False(t, io2.IsStderrTTY())
+	})
+
+	t.Run("override true", func(t *testing.T) {
+		t.Parallel()
+		io2 := Test()
+		io2.SetStderrTTY(true)
+		assert.True(t, io2.IsStderrTTY())
+	})
+
+	t.Run("override false after true", func(t *testing.T) {
+		t.Parallel()
+		io2 := Test()
+		io2.SetStderrTTY(true)
+		io2.SetStderrTTY(false)
+		assert.False(t, io2.IsStderrTTY())
+	})
+}
+
+func TestWarnf(t *testing.T) {
+	t.Parallel()
+
+	t.Run("writes to ErrOut", func(t *testing.T) {
+		t.Parallel()
+		io2 := Test()
+		io2.Warnf("legacy exit code %d will be removed", 5)
+
+		out, ok := io2.ErrOut.(*bytes.Buffer)
+		require.True(t, ok)
+		assert.Equal(t, "Warning: legacy exit code 5 will be removed\n", out.String())
+	})
+
+	t.Run("does not depend on Verbose", func(t *testing.T) {
+		t.Parallel()
+		io2 := Test()
+		io2.Verbose = false
+		io2.Warnf("always visible")
+
+		out, ok := io2.ErrOut.(*bytes.Buffer)
+		require.True(t, ok)
+		assert.Equal(t, "Warning: always visible\n", out.String())
+	})
+
+	t.Run("does not depend on Logger", func(t *testing.T) {
+		t.Parallel()
+		io2 := Test()
+		io2.Logger = nil
+		io2.Warnf("no logger needed")
+
+		out, ok := io2.ErrOut.(*bytes.Buffer)
+		require.True(t, ok)
+		assert.Equal(t, "Warning: no logger needed\n", out.String())
+	})
+
+	t.Run("nil IOStreams is a no-op", func(t *testing.T) {
+		t.Parallel()
+		var io2 *IOStreams
+		assert.NotPanics(t, func() { io2.Warnf("nil receiver") })
+	})
+
+	t.Run("respects format args", func(t *testing.T) {
+		t.Parallel()
+		io2 := Test()
+		io2.Warnf("values: %s = %d", "x", 42)
+
+		out, ok := io2.ErrOut.(*bytes.Buffer)
+		require.True(t, ok)
+		assert.Equal(t, "Warning: values: x = 42\n", out.String())
+	})
 }

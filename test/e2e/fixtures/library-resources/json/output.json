@@ -1,0 +1,34 @@
+{
+  "resources": [
+    {
+      "type": "skill",
+      "name": "commit",
+      "path": "skills/skill-commit.md",
+      "description": "Git commit best practices"
+    },
+    {
+      "type": "skill",
+      "name": "merge-request",
+      "path": "skills/skill-merge-request.md",
+      "description": "Generate merge request descriptions"
+    },
+    {
+      "type": "agent",
+      "name": "reviewer",
+      "path": "agents/agent-reviewer.md",
+      "description": "Code review agent"
+    },
+    {
+      "type": "command",
+      "name": "test",
+      "path": "commands/command-test.md",
+      "description": "Run tests command"
+    },
+    {
+      "type": "memory",
+      "name": "context",
+      "path": "memory/memory-context.md",
+      "description": "Project context memory"
+    }
+  ]
+}

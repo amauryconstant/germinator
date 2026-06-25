@@ -18,14 +18,14 @@ import (
 )
 
 func newFactory() *Factory {
-	return NewFactory(iostreams.Test(), "test", "germinator")
+	return NewFactory(context.Background(), iostreams.Test(), "test", "germinator")
 }
 
 func TestFactoryEagerFields(t *testing.T) {
 	t.Parallel()
 
 	io := iostreams.Test()
-	f := NewFactory(io, "1.2.3", "germinator")
+	f := NewFactory(context.Background(), io, "1.2.3", "germinator")
 	assert.Equal(t, io, f.IOStreams)
 	assert.Equal(t, "1.2.3", f.AppVersion)
 	assert.Equal(t, "germinator", f.Executable)

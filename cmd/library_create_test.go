@@ -8,10 +8,7 @@ import (
 )
 
 func TestCreatePresetCommand_Success(t *testing.T) {
-	cfg := &CommandConfig{
-		Services:       NewServiceContainer(),
-		ErrorFormatter: NewErrorFormatter(),
-	}
+	_ = newTestConfig()
 
 	// Create a temporary library
 	tmpDir := t.TempDir()
@@ -38,7 +35,7 @@ func TestCreatePresetCommand_Success(t *testing.T) {
 		t.Fatalf("Failed to save library: %v", err)
 	}
 
-	cmd := NewLibraryCommand(cfg)
+	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
 	cmd.SetArgs([]string{"create", "preset", "test-preset", "--resources", "skill/commit", "--library", tmpDir})
 
 	var buf bytes.Buffer
@@ -72,10 +69,7 @@ func TestCreatePresetCommand_Success(t *testing.T) {
 }
 
 func TestCreatePresetCommand_WithDescription(t *testing.T) {
-	cfg := &CommandConfig{
-		Services:       NewServiceContainer(),
-		ErrorFormatter: NewErrorFormatter(),
-	}
+	_ = newTestConfig()
 
 	tmpDir := t.TempDir()
 	if err := library.CreateLibrary(library.CreateOptions{Path: tmpDir, Force: true}); err != nil {
@@ -95,7 +89,7 @@ func TestCreatePresetCommand_WithDescription(t *testing.T) {
 		t.Fatalf("Failed to save library: %v", err)
 	}
 
-	cmd := NewLibraryCommand(cfg)
+	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
 	cmd.SetArgs([]string{"create", "preset", "my-preset", "--resources", "skill/test", "--description", "My test preset", "--library", tmpDir})
 
 	var buf bytes.Buffer
@@ -119,10 +113,7 @@ func TestCreatePresetCommand_WithDescription(t *testing.T) {
 }
 
 func TestCreatePresetCommand_AlreadyExistsError(t *testing.T) {
-	cfg := &CommandConfig{
-		Services:       NewServiceContainer(),
-		ErrorFormatter: NewErrorFormatter(),
-	}
+	_ = newTestConfig()
 
 	tmpDir := t.TempDir()
 	if err := library.CreateLibrary(library.CreateOptions{Path: tmpDir, Force: true}); err != nil {
@@ -143,7 +134,7 @@ func TestCreatePresetCommand_AlreadyExistsError(t *testing.T) {
 		t.Fatalf("Failed to save library: %v", err)
 	}
 
-	cmd := NewLibraryCommand(cfg)
+	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
 	cmd.SetArgs([]string{"create", "preset", "existing", "--resources", "skill/test", "--library", tmpDir})
 
 	err = cmd.Execute()
@@ -153,10 +144,7 @@ func TestCreatePresetCommand_AlreadyExistsError(t *testing.T) {
 }
 
 func TestCreatePresetCommand_ForceOverwrite(t *testing.T) {
-	cfg := &CommandConfig{
-		Services:       NewServiceContainer(),
-		ErrorFormatter: NewErrorFormatter(),
-	}
+	_ = newTestConfig()
 
 	tmpDir := t.TempDir()
 	if err := library.CreateLibrary(library.CreateOptions{Path: tmpDir, Force: true}); err != nil {
@@ -181,7 +169,7 @@ func TestCreatePresetCommand_ForceOverwrite(t *testing.T) {
 		t.Fatalf("Failed to save library: %v", err)
 	}
 
-	cmd := NewLibraryCommand(cfg)
+	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
 	cmd.SetArgs([]string{"create", "preset", "existing", "--resources", "agent/new", "--description", "New description", "--force", "--library", tmpDir})
 
 	var buf bytes.Buffer
@@ -208,17 +196,14 @@ func TestCreatePresetCommand_ForceOverwrite(t *testing.T) {
 }
 
 func TestCreatePresetCommand_ResourceNotFound(t *testing.T) {
-	cfg := &CommandConfig{
-		Services:       NewServiceContainer(),
-		ErrorFormatter: NewErrorFormatter(),
-	}
+	_ = newTestConfig()
 
 	tmpDir := t.TempDir()
 	if err := library.CreateLibrary(library.CreateOptions{Path: tmpDir, Force: true}); err != nil {
 		t.Fatalf("Failed to create test library: %v", err)
 	}
 
-	cmd := NewLibraryCommand(cfg)
+	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
 	cmd.SetArgs([]string{"create", "preset", "test", "--resources", "skill/nonexistent", "--library", tmpDir})
 
 	err := cmd.Execute()
@@ -228,17 +213,14 @@ func TestCreatePresetCommand_ResourceNotFound(t *testing.T) {
 }
 
 func TestCreatePresetCommand_InvalidResourceFormat(t *testing.T) {
-	cfg := &CommandConfig{
-		Services:       NewServiceContainer(),
-		ErrorFormatter: NewErrorFormatter(),
-	}
+	_ = newTestConfig()
 
 	tmpDir := t.TempDir()
 	if err := library.CreateLibrary(library.CreateOptions{Path: tmpDir, Force: true}); err != nil {
 		t.Fatalf("Failed to create test library: %v", err)
 	}
 
-	cmd := NewLibraryCommand(cfg)
+	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
 	cmd.SetArgs([]string{"create", "preset", "test", "--resources", "invalid-format", "--library", tmpDir})
 
 	err := cmd.Execute()
@@ -248,10 +230,7 @@ func TestCreatePresetCommand_InvalidResourceFormat(t *testing.T) {
 }
 
 func TestCreatePresetCommand_MultipleResources(t *testing.T) {
-	cfg := &CommandConfig{
-		Services:       NewServiceContainer(),
-		ErrorFormatter: NewErrorFormatter(),
-	}
+	_ = newTestConfig()
 
 	tmpDir := t.TempDir()
 	if err := library.CreateLibrary(library.CreateOptions{Path: tmpDir, Force: true}); err != nil {
@@ -275,7 +254,7 @@ func TestCreatePresetCommand_MultipleResources(t *testing.T) {
 		t.Fatalf("Failed to save library: %v", err)
 	}
 
-	cmd := NewLibraryCommand(cfg)
+	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
 	cmd.SetArgs([]string{"create", "preset", "multi", "--resources", "skill/commit,agent/reviewer", "--library", tmpDir})
 
 	var buf bytes.Buffer
@@ -299,17 +278,14 @@ func TestCreatePresetCommand_MultipleResources(t *testing.T) {
 }
 
 func TestCreatePresetCommand_MissingResourcesFlag(t *testing.T) {
-	cfg := &CommandConfig{
-		Services:       NewServiceContainer(),
-		ErrorFormatter: NewErrorFormatter(),
-	}
+	_ = newTestConfig()
 
 	tmpDir := t.TempDir()
 	if err := library.CreateLibrary(library.CreateOptions{Path: tmpDir, Force: true}); err != nil {
 		t.Fatalf("Failed to create test library: %v", err)
 	}
 
-	cmd := NewLibraryCommand(cfg)
+	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
 	cmd.SetArgs([]string{"create", "preset", "test", "--library", tmpDir})
 
 	err := cmd.Execute()
@@ -319,17 +295,14 @@ func TestCreatePresetCommand_MissingResourcesFlag(t *testing.T) {
 }
 
 func TestCreatePresetCommand_WhitespaceName(t *testing.T) {
-	cfg := &CommandConfig{
-		Services:       NewServiceContainer(),
-		ErrorFormatter: NewErrorFormatter(),
-	}
+	_ = newTestConfig()
 
 	tmpDir := t.TempDir()
 	if err := library.CreateLibrary(library.CreateOptions{Path: tmpDir, Force: true}); err != nil {
 		t.Fatalf("Failed to create test library: %v", err)
 	}
 
-	cmd := NewLibraryCommand(cfg)
+	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
 	cmd.SetArgs([]string{"create", "preset", "   ", "--resources", "skill/test", "--library", tmpDir})
 
 	err := cmd.Execute()
@@ -339,10 +312,7 @@ func TestCreatePresetCommand_WhitespaceName(t *testing.T) {
 }
 
 func TestCreatePresetCommand_ResourceTypeNotFound(t *testing.T) {
-	cfg := &CommandConfig{
-		Services:       NewServiceContainer(),
-		ErrorFormatter: NewErrorFormatter(),
-	}
+	_ = newTestConfig()
 
 	tmpDir := t.TempDir()
 	if err := library.CreateLibrary(library.CreateOptions{Path: tmpDir, Force: true}); err != nil {
@@ -362,7 +332,7 @@ func TestCreatePresetCommand_ResourceTypeNotFound(t *testing.T) {
 		t.Fatalf("Failed to save library: %v", err)
 	}
 
-	cmd := NewLibraryCommand(cfg)
+	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
 	cmd.SetArgs([]string{"create", "preset", "test", "--resources", "agent/nonexistent", "--library", tmpDir})
 
 	err = cmd.Execute()
@@ -372,12 +342,9 @@ func TestCreatePresetCommand_ResourceTypeNotFound(t *testing.T) {
 }
 
 func TestCreatePresetCommand_LibraryNotFound(t *testing.T) {
-	cfg := &CommandConfig{
-		Services:       NewServiceContainer(),
-		ErrorFormatter: NewErrorFormatter(),
-	}
+	_ = newTestConfig()
 
-	cmd := NewLibraryCommand(cfg)
+	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
 	cmd.SetArgs([]string{"create", "preset", "test", "--resources", "skill/test", "--library", "/nonexistent/path"})
 
 	err := cmd.Execute()

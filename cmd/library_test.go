@@ -8,11 +8,6 @@ import (
 )
 
 func TestLibraryCommand_Resources(t *testing.T) {
-	cfg := &CommandConfig{
-		Services:       NewServiceContainer(),
-		ErrorFormatter: NewErrorFormatter(),
-	}
-
 	// Set environment variable to test fixtures
 	fixturePath := filepath.Join("..", "test", "fixtures", "library")
 	absPath, err := filepath.Abs(fixturePath)
@@ -21,28 +16,29 @@ func TestLibraryCommand_Resources(t *testing.T) {
 	}
 	t.Setenv("GERMINATOR_LIBRARY", absPath)
 
-	cmd := NewLibraryCommand(cfg)
+	f := newTestFactory()
+	cmd := NewLibraryCommand(f, newTestBridge(), nil)
 	cmd.SetArgs([]string{"resources"})
-
-	var buf bytes.Buffer
-	cmd.SetOut(&buf)
 
 	err = cmd.Execute()
 	if err != nil {
 		t.Fatalf("Command failed: %v", err)
 	}
 
-	output := buf.String()
+	// runResources writes to f.IOStreams.Out (iostreams.Test buffer),
+	// not to the cobra command's stdout buffer.
+	outBuf, ok := f.IOStreams.Out.(*bytes.Buffer)
+	if !ok {
+		t.Fatal("f.IOStreams.Out is not a *bytes.Buffer")
+	}
+	output := outBuf.String()
 	if output == "" {
 		t.Error("Expected output from library resources command")
 	}
 }
 
 func TestLibraryCommand_Presets(t *testing.T) {
-	cfg := &CommandConfig{
-		Services:       NewServiceContainer(),
-		ErrorFormatter: NewErrorFormatter(),
-	}
+	_ = newTestConfig()
 
 	fixturePath := filepath.Join("..", "test", "fixtures", "library")
 	absPath, err := filepath.Abs(fixturePath)
@@ -51,7 +47,7 @@ func TestLibraryCommand_Presets(t *testing.T) {
 	}
 	t.Setenv("GERMINATOR_LIBRARY", absPath)
 
-	cmd := NewLibraryCommand(cfg)
+	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
 	cmd.SetArgs([]string{"presets"})
 
 	var buf bytes.Buffer
@@ -69,10 +65,7 @@ func TestLibraryCommand_Presets(t *testing.T) {
 }
 
 func TestLibraryCommand_Show(t *testing.T) {
-	cfg := &CommandConfig{
-		Services:       NewServiceContainer(),
-		ErrorFormatter: NewErrorFormatter(),
-	}
+	_ = newTestConfig()
 
 	fixturePath := filepath.Join("..", "test", "fixtures", "library")
 	absPath, err := filepath.Abs(fixturePath)
@@ -81,7 +74,7 @@ func TestLibraryCommand_Show(t *testing.T) {
 	}
 	t.Setenv("GERMINATOR_LIBRARY", absPath)
 
-	cmd := NewLibraryCommand(cfg)
+	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
 	cmd.SetArgs([]string{"show", "skill/commit"})
 
 	var buf bytes.Buffer
@@ -99,10 +92,7 @@ func TestLibraryCommand_Show(t *testing.T) {
 }
 
 func TestLibraryCommand_InvalidRef(t *testing.T) {
-	cfg := &CommandConfig{
-		Services:       NewServiceContainer(),
-		ErrorFormatter: NewErrorFormatter(),
-	}
+	_ = newTestConfig()
 
 	fixturePath := filepath.Join("..", "test", "fixtures", "library")
 	absPath, err := filepath.Abs(fixturePath)
@@ -111,7 +101,7 @@ func TestLibraryCommand_InvalidRef(t *testing.T) {
 	}
 	t.Setenv("GERMINATOR_LIBRARY", absPath)
 
-	cmd := NewLibraryCommand(cfg)
+	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
 	cmd.SetArgs([]string{"show", "invalidformat"})
 
 	// Execute and expect error (will call os.Exit, but we can check the command setup)
@@ -120,12 +110,9 @@ func TestLibraryCommand_InvalidRef(t *testing.T) {
 }
 
 func TestInitCommand_RequiresPlatform(_ *testing.T) {
-	cfg := &CommandConfig{
-		Services:       NewServiceContainer(),
-		ErrorFormatter: NewErrorFormatter(),
-	}
+	_ = newTestConfig()
 
-	cmd := NewInitCommand(cfg)
+	cmd := NewInitCommand(newTestFactory(), newTestBridge())
 	cmd.SetArgs([]string{"--resources", "skill/commit"})
 
 	// This should fail due to missing platform
@@ -134,12 +121,9 @@ func TestInitCommand_RequiresPlatform(_ *testing.T) {
 }
 
 func TestInitCommand_RequiresResourcesOrPreset(_ *testing.T) {
-	cfg := &CommandConfig{
-		Services:       NewServiceContainer(),
-		ErrorFormatter: NewErrorFormatter(),
-	}
+	_ = newTestConfig()
 
-	cmd := NewInitCommand(cfg)
+	cmd := NewInitCommand(newTestFactory(), newTestBridge())
 	cmd.SetArgs([]string{"--platform", "opencode"})
 
 	// This should fail due to missing resources/preset
@@ -148,12 +132,9 @@ func TestInitCommand_RequiresResourcesOrPreset(_ *testing.T) {
 }
 
 func TestInitCommand_MutuallyExclusive(_ *testing.T) {
-	cfg := &CommandConfig{
-		Services:       NewServiceContainer(),
-		ErrorFormatter: NewErrorFormatter(),
-	}
+	_ = newTestConfig()
 
-	cmd := NewInitCommand(cfg)
+	cmd := NewInitCommand(newTestFactory(), newTestBridge())
 	cmd.SetArgs([]string{"--platform", "opencode", "--resources", "skill/commit", "--preset", "git-workflow"})
 
 	// This should fail due to mutually exclusive flags
@@ -162,10 +143,7 @@ func TestInitCommand_MutuallyExclusive(_ *testing.T) {
 }
 
 func TestInitCommand_DryRun(t *testing.T) {
-	cfg := &CommandConfig{
-		Services:       NewServiceContainer(),
-		ErrorFormatter: NewErrorFormatter(),
-	}
+	_ = newTestConfig()
 
 	fixturePath := filepath.Join("..", "test", "fixtures", "library")
 	absPath, err := filepath.Abs(fixturePath)
@@ -175,7 +153,7 @@ func TestInitCommand_DryRun(t *testing.T) {
 
 	outputDir := t.TempDir()
 
-	cmd := NewInitCommand(cfg)
+	cmd := NewInitCommand(newTestFactory(), newTestBridge())
 	cmd.SetArgs([]string{
 		"--platform", "opencode",
 		"--resources", "skill/commit",

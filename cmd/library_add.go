@@ -105,7 +105,8 @@ type BatchSummaryJSON struct {
 }
 
 // NewLibraryAddCommand creates the library add subcommand.
-func NewLibraryAddCommand(cfg *CommandConfig, libraryPath *string) *cobra.Command {
+func NewLibraryAddCommand(bridge *LegacyBridge, libraryPath *string) *cobra.Command {
+	cfg := legacyCfgFrom(bridge)
 	var opts struct {
 		name        string
 		description string
@@ -150,7 +151,7 @@ Examples:
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			return runLibraryAdd(c, cfg, libraryPath, &opts, args)
+			return runLibraryAdd(c, cfg, bridge, libraryPath, &opts, args)
 		},
 	}
 
@@ -167,7 +168,7 @@ Examples:
 }
 
 // runLibraryAdd executes the library add logic.
-func runLibraryAdd(c *cobra.Command, cfg *CommandConfig, libraryPath *string, opts *struct {
+func runLibraryAdd(c *cobra.Command, cfg *CommandConfig, bridge *LegacyBridge, libraryPath *string, opts *struct {
 	name        string
 	description string
 	resType     string
@@ -188,12 +189,12 @@ func runLibraryAdd(c *cobra.Command, cfg *CommandConfig, libraryPath *string, op
 
 	// Handle discover mode
 	if opts.discover {
-		return runLibraryDiscover(c, cfg, path, opts)
+		return runLibraryDiscover(c, cfg, bridge, path, opts)
 	}
 
 	// Handle batch mode
 	if opts.batch {
-		return runBatchAdd(c, cfg, path, opts, args)
+		return runBatchAdd(c, cfg, bridge, path, opts, args)
 	}
 
 	// Normal add mode - args[0] is the source
@@ -215,7 +216,7 @@ func runLibraryAdd(c *cobra.Command, cfg *CommandConfig, libraryPath *string, op
 	canonicalSource := source
 	if platform != "" && !library.IsCanonicalFormat(source, resType) {
 		VerbosePrint(cfg, "Canonicalizing %s document from %s platform", resType, platform)
-		canonicalPath, err := canonicalizeToTemp(cfg, source, platform, resType)
+		canonicalPath, err := canonicalizeToTemp(cfg, bridge, source, platform, resType)
 		if err != nil {
 			return err
 		}
@@ -267,7 +268,7 @@ func runLibraryAdd(c *cobra.Command, cfg *CommandConfig, libraryPath *string, op
 }
 
 // runBatchAdd executes the batch add logic.
-func runBatchAdd(c *cobra.Command, cfg *CommandConfig, path string, opts *struct {
+func runBatchAdd(c *cobra.Command, cfg *CommandConfig, _ *LegacyBridge, path string, opts *struct {
 	name        string
 	description string
 	resType     string
@@ -362,7 +363,7 @@ func outputBatchAddJSON(c *cobra.Command, result *library.BatchAddResult, path s
 }
 
 // runLibraryDiscover executes the orphan discovery logic.
-func runLibraryDiscover(c *cobra.Command, cfg *CommandConfig, path string, opts *struct {
+func runLibraryDiscover(c *cobra.Command, cfg *CommandConfig, bridge *LegacyBridge, path string, opts *struct {
 	name        string
 	description string
 	resType     string
@@ -385,7 +386,7 @@ func runLibraryDiscover(c *cobra.Command, cfg *CommandConfig, path string, opts 
 	// If batch mode with force, process orphans through BatchAddResources
 	// (Dry-run is handled inside runBatchAddFromDiscover)
 	if opts.batch && opts.force && len(result.Orphans) > 0 {
-		return runBatchAddFromDiscover(c, cfg, path, result, opts)
+		return runBatchAddFromDiscover(c, cfg, bridge, path, result, opts)
 	}
 
 	// Check for JSON output
@@ -429,7 +430,7 @@ func runLibraryDiscover(c *cobra.Command, cfg *CommandConfig, path string, opts 
 }
 
 // runBatchAddFromDiscover processes discovered orphans through BatchAddResources.
-func runBatchAddFromDiscover(c *cobra.Command, cfg *CommandConfig, path string, discoverResult *library.DiscoverResult, opts *struct {
+func runBatchAddFromDiscover(c *cobra.Command, cfg *CommandConfig, _ *LegacyBridge, path string, discoverResult *library.DiscoverResult, opts *struct {
 	name        string
 	description string
 	resType     string
@@ -677,7 +678,7 @@ func detectFrontmatterField(source, field string) (string, error) {
 }
 
 // canonicalizeToTemp converts a platform document to canonical format in a temp file.
-func canonicalizeToTemp(cfg *CommandConfig, source, platform, docType string) (string, error) {
+func canonicalizeToTemp(_ *CommandConfig, bridge *LegacyBridge, source, platform, docType string) (string, error) {
 	// Create temp file
 	tmpFile, err := os.CreateTemp("", "germinator-canonical-*."+filepath.Ext(source))
 	if err != nil {
@@ -695,7 +696,13 @@ func canonicalizeToTemp(cfg *CommandConfig, source, platform, docType string) (s
 		DocType:    docType,
 	}
 
-	canonicalizer := cfg.Services.Canonicalizer
+	if bridge == nil || bridge.Services == nil {
+		return "", errors.New("canonicalizer not available: bridge.Services is nil")
+	}
+	canonicalizer := bridge.Services.Canonicalizer
+	if canonicalizer == nil {
+		return "", errors.New("canonicalizer not available: bridge.Services.Canonicalizer is nil")
+	}
 	result, err := canonicalizer.Canonicalize(ctx, req)
 	if err != nil {
 		_ = os.Remove(tmpPath)

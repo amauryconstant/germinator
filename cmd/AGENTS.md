@@ -100,6 +100,24 @@ No `init()` functions or global command variables.
 
 > **Slice 2 transition:** constructor signature changes to `NewCmdXxx(f *Factory, runF func(*XxxOptions) error)`. `runF` is the test-injection seam; production wires it to `runXxx`, tests substitute a stub.
 
+## Canonical examples (slice 2)
+
+The two pilot migrations in slice 2 (`adapt` and `library resources`)
+are the canonical references for the new pattern. See:
+
+- `cmd/adapt.go` — `NewCmdAdapt(f, runF)` + `runAdapt(opts)`; uses
+  `core.ValidatePlatform`, `opts.IO.Out`, `opts.IO.Verbosef`. Defines
+  the `Transformer` interface inline (interfaces where consumed).
+- `cmd/resources.go` — `NewCmdResources(f, libraryPath, runF)` +
+  `runResources(opts)`; dispatches on `opts.Output` to the JSON or
+  table exporter, or plain output via the shared `formatResourcesList`
+  helper. The `libraryPath *string` parameter is the parent's
+  shared `--library` pointer so the parent's flag value is honored.
+- `cmd/legacy_bridge.go` — `LegacyBridge` shim (transitional; slice 7
+  deletes it). `legacyCfgFrom(bridge)` builds the per-command
+  `CommandConfig` consumed by non-migrated commands during the
+  migration window.
+
 ---
 
 # CommandConfig (legacy; slice 7)

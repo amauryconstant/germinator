@@ -6,11 +6,12 @@ import (
 
 	"github.com/carapace-sh/carapace"
 	"github.com/spf13/cobra"
+	"gitlab.com/amoconst/germinator/internal/cmdutil"
 	"gitlab.com/amoconst/germinator/internal/library"
 )
 
 // NewLibraryCommand creates the library command with subcommands.
-func NewLibraryCommand(cfg *CommandConfig) *cobra.Command {
+func NewLibraryCommand(f *cmdutil.Factory, bridge *LegacyBridge, runF func(*libraryResourcesOptions) error) *cobra.Command {
 	var libraryPath string
 
 	cmd := &cobra.Command{
@@ -36,67 +37,23 @@ Subcommands:
 	}
 
 	cmd.PersistentFlags().StringVar(&libraryPath, "library", "", "Path to library directory (default: ~/.config/germinator/library/)")
-	cmd.PersistentFlags().Bool("json", false, "Output as JSON")
 
-	cmd.AddCommand(NewLibraryResourcesCommand(cfg, &libraryPath))
-	cmd.AddCommand(NewLibraryPresetsCommand(cfg, &libraryPath))
-	cmd.AddCommand(NewLibraryShowCommand(cfg, &libraryPath))
-	cmd.AddCommand(NewLibraryInitCommand(cfg))
-	cmd.AddCommand(NewLibraryAddCommand(cfg, &libraryPath))
-	cmd.AddCommand(NewLibraryCreateCommand(cfg, &libraryPath))
-	cmd.AddCommand(NewLibraryRemoveCommand(cfg, &libraryPath))
-	cmd.AddCommand(NewLibraryValidateCommand(cfg, &libraryPath))
-	cmd.AddCommand(NewLibraryRefreshCommand(cfg, &libraryPath))
+	cmd.AddCommand(NewCmdResources(f, &libraryPath, runF))
+	cmd.AddCommand(NewLibraryPresetsCommand(bridge, &libraryPath))
+	cmd.AddCommand(NewLibraryShowCommand(bridge, &libraryPath))
+	cmd.AddCommand(NewLibraryInitCommand(bridge))
+	cmd.AddCommand(NewLibraryAddCommand(bridge, &libraryPath))
+	cmd.AddCommand(NewLibraryCreateCommand(bridge, &libraryPath))
+	cmd.AddCommand(NewLibraryRemoveCommand(bridge, &libraryPath))
+	cmd.AddCommand(NewLibraryValidateCommand(bridge, &libraryPath))
+	cmd.AddCommand(NewLibraryRefreshCommand(bridge, &libraryPath))
 
 	return cmd
 }
 
-// NewLibraryResourcesCommand creates the library resources subcommand.
-func NewLibraryResourcesCommand(cfg *CommandConfig, libraryPath *string) *cobra.Command {
-	return &cobra.Command{
-		Use:   "resources",
-		Short: "List all resources in the library",
-		Long: `List all resources in the library, grouped by type.
-
-Resources are displayed in sections: Skills, Agents, Commands, Memory.
-
-Example:
-  germinator library resources
-  germinator library resources --library /path/to/library
-  germinator library resources --json`,
-		Args: cobra.NoArgs,
-		RunE: func(c *cobra.Command, _ []string) error {
-			verbosity, _ := c.Flags().GetCount("verbose")
-			cfg.Verbosity = Verbosity(verbosity)
-
-			// Find library
-			envPath := os.Getenv("GERMINATOR_LIBRARY")
-			path := library.FindLibrary(*libraryPath, envPath)
-
-			VerbosePrint(cfg, "Loading library from: %s", path)
-
-			// Load library
-			lib, err := library.LoadLibrary(path)
-			if err != nil {
-				return fmt.Errorf("loading library: %w", err)
-			}
-
-			// Check for JSON output
-			jsonFlag, _ := c.Flags().GetBool("json")
-			if jsonFlag {
-				return outputResourcesJSON(c, lib)
-			}
-
-			// List resources
-			output := formatResourcesList(lib)
-			_, _ = fmt.Fprint(c.OutOrStdout(), output)
-			return nil
-		},
-	}
-}
-
 // NewLibraryPresetsCommand creates the library presets subcommand.
-func NewLibraryPresetsCommand(cfg *CommandConfig, libraryPath *string) *cobra.Command {
+func NewLibraryPresetsCommand(bridge *LegacyBridge, libraryPath *string) *cobra.Command {
+	cfg := legacyCfgFrom(bridge)
 	return &cobra.Command{
 		Use:   "presets",
 		Short: "List all presets in the library",
@@ -111,25 +68,21 @@ Example:
 			verbosity, _ := c.Flags().GetCount("verbose")
 			cfg.Verbosity = Verbosity(verbosity)
 
-			// Find library
 			envPath := os.Getenv("GERMINATOR_LIBRARY")
 			path := library.FindLibrary(*libraryPath, envPath)
 
 			VerbosePrint(cfg, "Loading library from: %s", path)
 
-			// Load library
 			lib, err := library.LoadLibrary(path)
 			if err != nil {
 				return fmt.Errorf("loading library: %w", err)
 			}
 
-			// Check for JSON output
 			jsonFlag, _ := c.Flags().GetBool("json")
 			if jsonFlag {
 				return outputPresetsJSON(c, lib)
 			}
 
-			// List presets
 			output := formatPresetsList(lib)
 			_, _ = fmt.Fprint(c.OutOrStdout(), output)
 			return nil
@@ -138,7 +91,8 @@ Example:
 }
 
 // NewLibraryShowCommand creates the library show subcommand.
-func NewLibraryShowCommand(cfg *CommandConfig, libraryPath *string) *cobra.Command {
+func NewLibraryShowCommand(bridge *LegacyBridge, libraryPath *string) *cobra.Command {
+	cfg := legacyCfgFrom(bridge)
 	cmd := &cobra.Command{
 		Use:   "show <ref>",
 		Short: "Display details of a resource or preset",
@@ -160,22 +114,18 @@ Examples:
 
 			ref := args[0]
 
-			// Find library
 			envPath := os.Getenv("GERMINATOR_LIBRARY")
 			path := library.FindLibrary(*libraryPath, envPath)
 
 			VerbosePrint(cfg, "Loading library from: %s", path)
 
-			// Load library
 			lib, err := library.LoadLibrary(path)
 			if err != nil {
 				return fmt.Errorf("loading library: %w", err)
 			}
 
-			// Check for JSON output
 			jsonFlag, _ := c.Flags().GetBool("json")
 
-			// Check if it's a preset reference
 			if len(ref) > 7 && ref[:7] == "preset/" {
 				presetName := ref[7:]
 				if jsonFlag {
@@ -189,12 +139,10 @@ Examples:
 				return nil
 			}
 
-			// Validate resource reference format
 			if _, _, err := library.ParseRef(ref); err != nil {
 				return fmt.Errorf("invalid reference format: %s (expected type/name or preset/name)", ref)
 			}
 
-			// Show resource details
 			if jsonFlag {
 				return outputShowResourceJSON(c, lib, ref)
 			}
@@ -207,7 +155,6 @@ Examples:
 		},
 	}
 
-	// Add positional completion for 'library show <ref>'
 	carapace.Gen(cmd).PositionalCompletion(
 		actionLibraryRefs(cmd),
 	)

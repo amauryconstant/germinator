@@ -69,12 +69,7 @@ func TestConfigInitCommand(t *testing.T) {
 				tt.setup(t, tt.outputPath)
 			}
 
-			cfg := &CommandConfig{
-				Services:       NewServiceContainer(),
-				ErrorFormatter: NewErrorFormatter(),
-			}
-
-			cmd := NewConfigInitCommand(cfg)
+			cmd := NewConfigInitCommand(newTestBridge())
 			var args []string
 			args = append(args, "--output", tt.outputPath)
 			if tt.force {
@@ -115,12 +110,7 @@ func TestConfigInitCommand_ScaffoldedContent(t *testing.T) {
 	tmpDir := t.TempDir()
 	outputPath := filepath.Join(tmpDir, "config.toml")
 
-	cfg := &CommandConfig{
-		Services:       NewServiceContainer(),
-		ErrorFormatter: NewErrorFormatter(),
-	}
-
-	cmd := NewConfigInitCommand(cfg)
+	cmd := NewConfigInitCommand(newTestBridge())
 	cmd.SetArgs([]string{"--output", outputPath})
 
 	var buf bytes.Buffer
@@ -135,7 +125,6 @@ func TestConfigInitCommand_ScaffoldedContent(t *testing.T) {
 		t.Fatalf("Failed to read config file: %v", err)
 	}
 
-	// Check all expected fields are present (commented)
 	expectedContent := []string{
 		"# Germinator configuration",
 		"# library = \"~/.local/share/germinator/library\"",
@@ -157,7 +146,7 @@ func TestConfigValidateCommand(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		setup       func(t *testing.T) string // returns outputPath
+		setup       func(t *testing.T) string
 		expectError bool
 		errorMsg    string
 	}{
@@ -218,12 +207,7 @@ cache_ttl = "5s"
 		t.Run(tt.name, func(t *testing.T) {
 			outputPath := tt.setup(t)
 
-			cfg := &CommandConfig{
-				Services:       NewServiceContainer(),
-				ErrorFormatter: NewErrorFormatter(),
-			}
-
-			cmd := NewConfigValidateCommand(cfg)
+			cmd := NewConfigValidateCommand(newTestBridge())
 			cmd.SetArgs([]string{"--output", outputPath})
 
 			var buf bytes.Buffer
@@ -250,12 +234,7 @@ cache_ttl = "5s"
 }
 
 func TestConfigCommand_Help(t *testing.T) {
-	cfg := &CommandConfig{
-		Services:       NewServiceContainer(),
-		ErrorFormatter: NewErrorFormatter(),
-	}
-
-	cmd := NewConfigCommand(cfg)
+	cmd := NewConfigCommand(newTestFactory(), newTestBridge())
 
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)

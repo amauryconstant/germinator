@@ -7,12 +7,16 @@ import (
 	"github.com/carapace-sh/carapace"
 	"github.com/spf13/cobra"
 	"gitlab.com/amoconst/germinator/internal/application"
+	"gitlab.com/amoconst/germinator/internal/cmdutil"
 	gerrors "gitlab.com/amoconst/germinator/internal/core"
 	"gitlab.com/amoconst/germinator/internal/models"
 )
 
 // NewCanonicalizeCommand creates the canonicalize command with dependency injection.
-func NewCanonicalizeCommand(cfg *CommandConfig) *cobra.Command {
+// Non-migrated command: reads services from bridge (transitional; converted
+// to the NewCmdCanonicalize(f, runF) pattern in slice 3).
+func NewCanonicalizeCommand(_ *cmdutil.Factory, bridge *LegacyBridge) *cobra.Command {
+	cfg := legacyCfgFrom(bridge)
 	var platform string
 	var docType string
 
@@ -57,7 +61,7 @@ Example:
 			VeryVerbosePrint(cfg, "Validating document...")
 			VeryVerbosePrint(cfg, "Marshalling to canonical YAML...")
 
-			_, err := cfg.Services.Canonicalizer.Canonicalize(context.Background(), &application.CanonicalizeRequest{
+			_, err := bridge.Services.Canonicalizer.Canonicalize(context.Background(), &application.CanonicalizeRequest{
 				InputPath:  inputPath,
 				OutputPath: outputPath,
 				Platform:   platform,

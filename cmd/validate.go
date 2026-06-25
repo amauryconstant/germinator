@@ -2,17 +2,22 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/carapace-sh/carapace"
 	"github.com/spf13/cobra"
 	"gitlab.com/amoconst/germinator/internal/application"
+	"gitlab.com/amoconst/germinator/internal/cmdutil"
 	gerrors "gitlab.com/amoconst/germinator/internal/core"
 	"gitlab.com/amoconst/germinator/internal/models"
 )
 
 // NewValidateCommand creates the validate command with dependency injection.
-func NewValidateCommand(cfg *CommandConfig) *cobra.Command {
+// Non-migrated command: reads services from bridge (transitional; converted
+// to the NewCmdValidate(f, runF) pattern in slice 3).
+func NewValidateCommand(_ *cmdutil.Factory, bridge *LegacyBridge) *cobra.Command {
+	cfg := legacyCfgFrom(bridge)
 	var platform string
 
 	cmd := &cobra.Command{
@@ -45,7 +50,7 @@ Example:
 			VeryVerbosePrint(cfg, "Parsing document structure...")
 			VeryVerbosePrint(cfg, "Running validation...")
 
-			result, err := cfg.Services.Validator.Validate(context.Background(), &application.ValidateRequest{
+			result, err := bridge.Services.Validator.Validate(context.Background(), &application.ValidateRequest{
 				InputPath: filePath,
 				Platform:  platform,
 			})
@@ -54,9 +59,14 @@ Example:
 			}
 
 			if !result.Valid() {
-				// Wrap all validation errors in a single error for centralized handling
-				// The error formatter will handle displaying multiple errors
-				return &ValidationResultError{Errors: result.Errors}
+				// Slice-2: the legacy error_handler.go (and its
+				// ValidationResultError type) is deleted. Surface the
+				// first validation issue directly so output.FormatError
+				// can dispatch on its concrete type via errors.As.
+				if len(result.Errors) > 0 {
+					return result.Errors[0]
+				}
+				return errors.New("validation failed")
 			}
 
 			_, _ = fmt.Fprintln(c.OutOrStdout(), "Document is valid")

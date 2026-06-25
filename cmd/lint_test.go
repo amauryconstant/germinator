@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
@@ -79,4 +80,39 @@ func extractIssueLines(in []byte) []string {
 
 func readFile(p string) ([]byte, error) {
 	return readFileImpl(p)
+}
+
+// TestNoNewForbidigoPatterns is a regression smoke test for the slice-2
+// migration: ensure the migrated pilot commands (cmd/adapt.go and
+// cmd/resources.go) do not re-introduce forbidden patterns like
+// `fmt.Fprintf(os.Stdout|Stderr)` or `os.Exit(`. The check is
+// grep-based so it does not require a full golangci-lint run.
+//
+// If a new intentional pattern is added (e.g., a debug print during
+// refactoring), update this test alongside the change. It is NOT a
+// replacement for the lint baseline test above; it complements it by
+// catching the specific patterns that the forbidigo linter enforces
+// for the pilot commands without depending on golangci-lint's binary.
+func TestNoNewForbidigoPatterns(t *testing.T) {
+	t.Parallel()
+
+	patterns := []struct {
+		path    string
+		pattern string
+	}{
+		{path: "adapt.go", pattern: `fmt\.Fprintf\(os\.`},
+		{path: "adapt.go", pattern: `os\.Exit\(`},
+		{path: "resources.go", pattern: `fmt\.Fprintf\(os\.`},
+		{path: "resources.go", pattern: `os\.Exit\(`},
+	}
+
+	for _, p := range patterns {
+		data, err := os.ReadFile(p.path)
+		if err != nil {
+			t.Fatalf("read %s: %v", p.path, err)
+		}
+		if regexp.MustCompile(p.pattern).Match(data) {
+			t.Errorf("%s contains forbidden pattern %q; use opts.IO.Out/ErrOut instead of os.Stdout/Stderr, and use cmdutil.ExitCodeFor instead of os.Exit", p.path, p.pattern)
+		}
+	}
 }

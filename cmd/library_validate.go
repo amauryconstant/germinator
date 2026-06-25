@@ -12,7 +12,8 @@ import (
 )
 
 // NewLibraryValidateCommand creates the library validate subcommand.
-func NewLibraryValidateCommand(cfg *CommandConfig, libraryPath *string) *cobra.Command {
+func NewLibraryValidateCommand(bridge *LegacyBridge, libraryPath *string) *cobra.Command {
+	cfg := legacyCfgFrom(bridge)
 	var opts struct {
 		fix bool
 	}

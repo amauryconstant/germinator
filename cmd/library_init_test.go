@@ -10,15 +10,12 @@ import (
 )
 
 func TestLibraryInitCommand_CustomPath(t *testing.T) {
-	cfg := &CommandConfig{
-		Services:       NewServiceContainer(),
-		ErrorFormatter: NewErrorFormatter(),
-	}
+	_ = newTestConfig()
 
 	tmpDir := t.TempDir()
 	libPath := filepath.Join(tmpDir, "test-library")
 
-	cmd := NewLibraryCommand(cfg)
+	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
 	cmd.SetArgs([]string{"init", "--path", libPath})
 
 	var buf bytes.Buffer
@@ -61,10 +58,7 @@ func TestLibraryInitCommand_CustomPath(t *testing.T) {
 }
 
 func TestLibraryInitCommand_ErrorExistsWithoutForce(t *testing.T) {
-	cfg := &CommandConfig{
-		Services:       NewServiceContainer(),
-		ErrorFormatter: NewErrorFormatter(),
-	}
+	_ = newTestConfig()
 
 	tmpDir := t.TempDir()
 	libPath := filepath.Join(tmpDir, "test-library")
@@ -74,7 +68,7 @@ func TestLibraryInitCommand_ErrorExistsWithoutForce(t *testing.T) {
 		t.Fatalf("Failed to create test library: %v", err)
 	}
 
-	cmd := NewLibraryCommand(cfg)
+	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
 	cmd.SetArgs([]string{"init", "--path", libPath})
 
 	err := cmd.Execute()
@@ -84,10 +78,7 @@ func TestLibraryInitCommand_ErrorExistsWithoutForce(t *testing.T) {
 }
 
 func TestLibraryInitCommand_ForceOverwrite(t *testing.T) {
-	cfg := &CommandConfig{
-		Services:       NewServiceContainer(),
-		ErrorFormatter: NewErrorFormatter(),
-	}
+	_ = newTestConfig()
 
 	tmpDir := t.TempDir()
 	libPath := filepath.Join(tmpDir, "test-library")
@@ -106,7 +97,7 @@ resources:
 		t.Fatalf("Failed to create old library.yaml: %v", err)
 	}
 
-	cmd := NewLibraryCommand(cfg)
+	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
 	cmd.SetArgs([]string{"init", "--path", libPath, "--force"})
 
 	var buf bytes.Buffer
@@ -128,15 +119,12 @@ resources:
 }
 
 func TestLibraryInitCommand_DryRun(t *testing.T) {
-	cfg := &CommandConfig{
-		Services:       NewServiceContainer(),
-		ErrorFormatter: NewErrorFormatter(),
-	}
+	_ = newTestConfig()
 
 	tmpDir := t.TempDir()
 	libPath := filepath.Join(tmpDir, "test-library")
 
-	cmd := NewLibraryCommand(cfg)
+	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
 	cmd.SetArgs([]string{"init", "--path", libPath, "--dry-run"})
 
 	var buf bytes.Buffer
@@ -154,15 +142,12 @@ func TestLibraryInitCommand_DryRun(t *testing.T) {
 }
 
 func TestLibraryInitCommand_ValidAndLoadable(t *testing.T) {
-	cfg := &CommandConfig{
-		Services:       NewServiceContainer(),
-		ErrorFormatter: NewErrorFormatter(),
-	}
+	_ = newTestConfig()
 
 	tmpDir := t.TempDir()
 	libPath := filepath.Join(tmpDir, "test-library")
 
-	cmd := NewLibraryCommand(cfg)
+	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
 	cmd.SetArgs([]string{"init", "--path", libPath})
 
 	err := cmd.Execute()
@@ -201,10 +186,7 @@ func TestLibraryInitCommand_ValidAndLoadable(t *testing.T) {
 }
 
 func TestLibraryInitCommand_DefaultPath(t *testing.T) {
-	cfg := &CommandConfig{
-		Services:       NewServiceContainer(),
-		ErrorFormatter: NewErrorFormatter(),
-	}
+	_ = newTestConfig()
 
 	tmpDir := t.TempDir()
 
@@ -212,7 +194,7 @@ func TestLibraryInitCommand_DefaultPath(t *testing.T) {
 	// Default path behavior is tested implicitly since we use --path
 	libPath := filepath.Join(tmpDir, "test-library")
 
-	cmd := NewLibraryCommand(cfg)
+	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
 	cmd.SetArgs([]string{"init", "--path", libPath})
 
 	err := cmd.Execute()
