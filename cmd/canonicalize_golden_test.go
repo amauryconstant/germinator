@@ -1,6 +1,6 @@
 //go:build golden
 
-package service
+package cmd
 
 import (
 	"bytes"
@@ -9,17 +9,26 @@ import (
 	"path/filepath"
 	"testing"
 
-	"gitlab.com/amoconst/germinator/internal/application"
-	"gitlab.com/amoconst/germinator/internal/models"
+	"gitlab.com/amoconst/germinator/internal/core"
 )
 
+// TestCanonicalizeGoldenFiles runs the canonicalize command against
+// every fixture in test/fixtures/{claude-code,opencode}/ and the
+// generic fixtures, comparing the output byte-for-byte against
+// test/golden/canonical/*.yaml.golden.
+//
+// Moved from internal/service/canonicalizer_golden_test.go to
+// cmd/canonicalize_golden_test.go in slice 3 so the golden file
+// tests live alongside the implementation (cmd/canonicalize.go).
+// package cmd (white-box) so the test can call the unexported
+// canonicalizeDocument helper directly.
 func TestCanonicalizeGoldenFiles(t *testing.T) {
-	if _, err := os.Stat("../../test/fixtures/canonical"); os.IsNotExist(err) {
+	if _, err := os.Stat("../test/fixtures/canonical"); os.IsNotExist(err) {
 		t.Skip("Golden file tests require running from project root")
 	}
 
-	fixturesDir := filepath.Join("..", "..", "test", "fixtures")
-	goldenDir := filepath.Join("..", "..", "test", "golden", "canonical")
+	fixturesDir := filepath.Join("..", "test", "fixtures")
+	goldenDir := filepath.Join("..", "test", "golden", "canonical")
 
 	tests := []struct {
 		name     string
@@ -32,95 +41,94 @@ func TestCanonicalizeGoldenFiles(t *testing.T) {
 			name:     "agent-claude-code",
 			fixture:  filepath.Join(fixturesDir, "claude-code", "agent.md"),
 			golden:   filepath.Join(goldenDir, "agent-claude-code.yaml.golden"),
-			platform: models.PlatformClaudeCode,
+			platform: core.PlatformClaudeCode,
 			docType:  "agent",
 		},
 		{
 			name:     "command-claude-code",
 			fixture:  filepath.Join(fixturesDir, "claude-code", "command.md"),
 			golden:   filepath.Join(goldenDir, "command-claude-code.yaml.golden"),
-			platform: models.PlatformClaudeCode,
+			platform: core.PlatformClaudeCode,
 			docType:  "command",
 		},
 		{
 			name:     "skill-claude-code",
 			fixture:  filepath.Join(fixturesDir, "claude-code", "skill.md"),
 			golden:   filepath.Join(goldenDir, "skill-claude-code.yaml.golden"),
-			platform: models.PlatformClaudeCode,
+			platform: core.PlatformClaudeCode,
 			docType:  "skill",
 		},
 		{
 			name:     "memory-claude-code",
 			fixture:  filepath.Join(fixturesDir, "claude-code", "memory.md"),
 			golden:   filepath.Join(goldenDir, "memory-claude-code.yaml.golden"),
-			platform: models.PlatformClaudeCode,
+			platform: core.PlatformClaudeCode,
 			docType:  "memory",
 		},
 		{
 			name:     "agent-opencode",
 			fixture:  filepath.Join(fixturesDir, "opencode", "agent.md"),
 			golden:   filepath.Join(goldenDir, "agent-opencode.yaml.golden"),
-			platform: models.PlatformOpenCode,
+			platform: core.PlatformOpenCode,
 			docType:  "agent",
 		},
 		{
 			name:     "command-opencode",
 			fixture:  filepath.Join(fixturesDir, "opencode", "command.md"),
 			golden:   filepath.Join(goldenDir, "command-opencode.yaml.golden"),
-			platform: models.PlatformOpenCode,
+			platform: core.PlatformOpenCode,
 			docType:  "command",
 		},
 		{
 			name:     "skill-opencode",
 			fixture:  filepath.Join(fixturesDir, "opencode", "skill.md"),
 			golden:   filepath.Join(goldenDir, "skill-opencode.yaml.golden"),
-			platform: models.PlatformOpenCode,
+			platform: core.PlatformOpenCode,
 			docType:  "skill",
 		},
 		{
 			name:     "memory-opencode",
 			fixture:  filepath.Join(fixturesDir, "opencode", "memory.md"),
 			golden:   filepath.Join(goldenDir, "memory-opencode.yaml.golden"),
-			platform: models.PlatformOpenCode,
+			platform: core.PlatformOpenCode,
 			docType:  "memory",
 		},
 		{
 			name:     "agent-generic",
 			fixture:  filepath.Join(fixturesDir, "agent-valid.md"),
 			golden:   filepath.Join(goldenDir, "agent.yaml.golden"),
-			platform: models.PlatformClaudeCode,
+			platform: core.PlatformClaudeCode,
 			docType:  "agent",
 		},
 		{
 			name:     "command-generic",
 			fixture:  filepath.Join(fixturesDir, "command-valid.md"),
 			golden:   filepath.Join(goldenDir, "command.yaml.golden"),
-			platform: models.PlatformClaudeCode,
+			platform: core.PlatformClaudeCode,
 			docType:  "command",
 		},
 		{
 			name:     "skill-generic",
 			fixture:  filepath.Join(fixturesDir, "skill-valid.md"),
 			golden:   filepath.Join(goldenDir, "skill.yaml.golden"),
-			platform: models.PlatformClaudeCode,
+			platform: core.PlatformClaudeCode,
 			docType:  "skill",
 		},
 		{
 			name:     "memory-generic",
 			fixture:  filepath.Join(fixturesDir, "memory-valid.md"),
 			golden:   filepath.Join(goldenDir, "memory.yaml.golden"),
-			platform: models.PlatformClaudeCode,
+			platform: core.PlatformClaudeCode,
 			docType:  "memory",
 		},
 	}
 
-	c := NewCanonicalizer()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
 			outputPath := filepath.Join(tmpDir, "output.yaml")
 
-			_, err := c.Canonicalize(context.Background(), &application.CanonicalizeRequest{
+			_, err := canonicalizeDocument(context.Background(), &CanonicalizeRequest{
 				InputPath:  tt.fixture,
 				OutputPath: outputPath,
 				Platform:   tt.platform,

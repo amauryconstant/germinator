@@ -17,23 +17,6 @@ const (
 	PlatformOpenCode = "opencode"
 )
 
-// validatePlatform checks if platform parameter is valid.
-func validatePlatform(platform string) []error {
-	var errs []error
-
-	if platform == "" {
-		errs = append(errs, core.NewConfigError("platform", "", "platform is required").WithSuggestions([]string{PlatformClaudeCode, PlatformOpenCode}))
-		return errs
-	}
-
-	if platform != PlatformClaudeCode && platform != PlatformOpenCode {
-		errs = append(errs, core.NewConfigError("platform", platform, "unknown platform").WithSuggestions([]string{PlatformClaudeCode, PlatformOpenCode}))
-		return errs
-	}
-
-	return nil
-}
-
 // transformer implements the application.Transformer interface.
 type transformer struct {
 	parser     application.Parser

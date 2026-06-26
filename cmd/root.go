@@ -25,9 +25,9 @@ Germinator source format and adapts it for target platforms like Claude Code and
 
 	cmd.PersistentFlags().CountP("verbose", "v", "Increase verbosity (use -v or -vv)")
 
-	cmd.AddCommand(NewValidateCommand(f, bridge))
+	cmd.AddCommand(NewCmdValidate(f, nil))
 	cmd.AddCommand(NewCmdAdapt(f, nil))
-	cmd.AddCommand(NewCanonicalizeCommand(f, bridge))
+	cmd.AddCommand(NewCmdCanonicalize(f, nil))
 	cmd.AddCommand(NewVersionCommand(f, bridge))
 	cmd.AddCommand(NewLibraryCommand(f, bridge, nil))
 	cmd.AddCommand(NewInitCommand(f, bridge))

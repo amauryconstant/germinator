@@ -318,6 +318,16 @@ This is valid content`
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// slice-3: platform validation moved from the validator
+			// implementation to runValidate via core.ValidatePlatform.
+			// The validator itself no longer rejects unknown platforms;
+			// that gate is now at the run-function boundary. The valid
+			// platform cases still work (validator parses and validates
+			// the document); the missing/invalid platform cases are
+			// covered by cmd/validate_test.go's TestRunValidate_InvalidPlatform_ReturnsValidationError.
+			if tt.expectError && tt.platform != "claude-code" && tt.platform != "opencode" {
+				t.Skipf("slice-3: platform validation moved to runValidate; covered by cmd/validate_test.go")
+			}
 			bridge := newTestBridge()
 			result, err := bridge.Services.Validator.Validate(context.Background(), &application.ValidateRequest{
 				InputPath: validFile,
@@ -430,6 +440,14 @@ Test content`,
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// slice-3: "unknown platform" subtest relied on the old
+			// validator's internal platform check. Platform validation
+			// moved to runValidate via core.ValidatePlatform; the
+			// validator itself only validates the document content.
+			if tt.platform == "unknown-platform" {
+				t.Skip("slice-3: platform validation moved to runValidate; " +
+					"the validator no longer rejects unknown platforms")
+			}
 			testFile := tmpDir + "/" + tt.filename
 			if err := os.WriteFile(testFile, []byte(tt.content), 0644); err != nil {
 				t.Fatalf("Failed to create test file: %v", err)
@@ -1090,14 +1108,21 @@ Test content`
 			expectStderrEmpty: true,
 		},
 		{
-			name:           "level 1 verbose (-v)",
-			verboseFlag:    "-v",
-			expectContains: []string{"Validating file:", "Platform:"},
+			name:        "level 1 verbose (-v)",
+			verboseFlag: "-v",
+			// slice-3: verbose output format changed from "Validating file: X" /
+			// "Platform: Y" to opts.IO.Verbosef "validating X (platform: Y)".
+			// Test also captures os.Stderr but new code writes to opts.IO.ErrOut.
+			// Verbose behavior is covered by cmd/validate_test.go's
+			// TestRunValidate_VerboseProgressToStderr.
+			expectStderrEmpty: true,
 		},
 		{
-			name:           "level 2 verbose (-vv)",
-			verboseFlag:    "-vv",
-			expectContains: []string{"Validating file:", "Loading document...", "Parsing document structure...", "Running validation..."},
+			name:        "level 2 verbose (-vv)",
+			verboseFlag: "-vv",
+			// slice-3: same as level-1 (verbose string format changed;
+			// test still asserts no stderr leakage to os.Stderr).
+			expectStderrEmpty: true,
 		},
 	}
 
@@ -1283,14 +1308,19 @@ Test content`
 			expectStderrEmpty: true,
 		},
 		{
-			name:           "level 1 verbose (-v)",
-			verboseFlag:    "-v",
-			expectContains: []string{"Canonicalizing document...", "Output path:"},
+			name:        "level 1 verbose (-v)",
+			verboseFlag: "-v",
+			// slice-3: verbose output format changed from "Canonicalizing
+			// document..." / "Output path: ..." to opts.IO.Verbosef
+			// "canonicalizing X → Y (platform: ..., type: ...)".
+			// Verbose behavior is covered by cmd/canonicalize_test.go's
+			// TestRunCanonicalize_VerboseProgressToStderr.
+			expectStderrEmpty: true,
 		},
 		{
-			name:           "level 2 verbose (-vv)",
-			verboseFlag:    "-vv",
-			expectContains: []string{"Canonicalizing document...", "Parsing platform document...", "Validating document...", "Marshalling to canonical YAML..."},
+			name:              "level 2 verbose (-vv)",
+			verboseFlag:       "-vv",
+			expectStderrEmpty: true,
 		},
 	}
 
@@ -1384,17 +1414,6 @@ content`,
 			platform:     "opencode",
 			expectedCode: 1,
 		},
-		{
-			name:     "invalid platform - exit code 3",
-			filename: "agent-test.md",
-			content: `---
-name: test-agent
-description: test
----
-content`,
-			platform:     "invalid-platform",
-			expectedCode: 1,
-		},
 	}
 
 	for _, tt := range tests {
@@ -1428,6 +1447,14 @@ content`,
 		})
 	}
 }
+
+// slice-3: TestValidateCommandExitCodes' "invalid platform" subtest
+// was removed because platform validation moved from the validator
+// to runValidate (via core.ValidatePlatform). The validator no longer
+// rejects unknown platforms itself; the runValidate layer catches them
+// first. Equivalent coverage is in cmd/validate_test.go's
+// TestRunValidate_InvalidPlatform_ReturnsValidationError and
+// TestExitCodeForTypedErrors.
 
 func TestAdaptCommandExitCodes(t *testing.T) {
 	root, err := getProjectRoot()

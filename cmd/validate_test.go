@@ -1,139 +1,373 @@
-package cmd_test
+package cmd
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+
 	"gitlab.com/amoconst/germinator/internal/application"
+	"gitlab.com/amoconst/germinator/internal/cmdutil"
 	"gitlab.com/amoconst/germinator/internal/core"
-	"gitlab.com/amoconst/germinator/test/mocks"
+	"gitlab.com/amoconst/germinator/internal/iostreams"
 )
 
-// TestMockValidatorUsage demonstrates how to use MockValidator for isolated unit testing.
-//
-// This example shows the complete mock lifecycle:
-// 1. Create a mock instance
-// 2. Set up expected method calls with On()
-// 3. Call the method under test
-// 4. Verify behavior with AssertCalled() and AssertExpectations()
-func TestMockValidatorUsage(t *testing.T) {
-	// Setup: Create a mock validator
-	mockValidator := new(mocks.MockValidator)
-	ctx := context.Background()
+// fakeValidator is a hand-rolled fake satisfying the local cmd.Validator
+// interface (defined in cmd/validate.go). It records the last request
+// it received and returns the configured result or error.
+type fakeValidator struct {
+	calls   int
+	lastReq *ValidateRequest
+	result  *core.ValidateResult
+	err     error
+}
 
-	// Test case: Successful validation with no errors
-	t.Run("successful validation", func(t *testing.T) {
-		// Arrange: Set up expected method call
-		expectedReq := &application.ValidateRequest{
-			InputPath: "/path/to/document.md",
-			Platform:  "opencode",
-		}
-		expectedResult := &core.ValidateResult{
-			Errors: []error{},
-		}
+// Compile-time interface satisfaction check.
+var _ Validator = (*fakeValidator)(nil)
 
-		mockValidator.On("Validate", ctx, expectedReq).
-			Return(expectedResult, nil)
+func (f *fakeValidator) Validate(_ context.Context, req *ValidateRequest) (*core.ValidateResult, error) {
+	f.calls++
+	f.lastReq = req
+	if f.err != nil {
+		return nil, f.err
+	}
+	if f.result != nil {
+		return f.result, nil
+	}
+	return &core.ValidateResult{Errors: nil}, nil
+}
 
-		// Act: Call the method being tested
-		result, err := mockValidator.Validate(ctx, expectedReq)
+func newValidateTestIO() (*iostreams.IOStreams, *bytes.Buffer, *bytes.Buffer) {
+	io := iostreams.Test()
+	out, okOut := io.Out.(*bytes.Buffer)
+	errOut, okErr := io.ErrOut.(*bytes.Buffer)
+	if !okOut || !okErr {
+		panic("iostreams.Test did not return *bytes.Buffer-backed streams")
+	}
+	return io, out, errOut
+}
 
-		// Assert: Verify results
-		assert.NoError(t, err)
-		assert.NotNil(t, result)
-		assert.True(t, result.Valid(), "expected valid result")
-		assert.Empty(t, result.Errors, "expected no validation errors")
+func TestRunValidate_HappyPath(t *testing.T) {
+	t.Parallel()
 
-		// Verify: Ensure the method was called as expected
-		mockValidator.AssertCalled(t, "Validate", ctx, expectedReq)
-		mockValidator.AssertNumberOfCalls(t, "Validate", 1)
-		mockValidator.AssertExpectations(t)
+	io, out, errOut := newValidateTestIO()
+	fake := &fakeValidator{
+		result: &core.ValidateResult{Errors: nil},
+	}
+	opts := &validateOptions{
+		IO:        io,
+		Validator: func() (Validator, error) { return fake, nil },
+		Ctx:       context.Background(),
+		InputPath: "/tmp/agent.md",
+		Platform:  core.PlatformClaudeCode,
+	}
+
+	require.NoError(t, runValidate(opts))
+
+	assert.Equal(t, 1, fake.calls, "validator must be called exactly once")
+	require.NotNil(t, fake.lastReq)
+	assert.Equal(t, "/tmp/agent.md", fake.lastReq.InputPath)
+	assert.Equal(t, core.PlatformClaudeCode, fake.lastReq.Platform)
+
+	assert.Equal(t, "Document is valid\n", out.String(),
+		"stdout must contain the success line")
+	assert.Empty(t, errOut.String(),
+		"stderr must be empty when not verbose")
+}
+
+func TestRunValidate_SingleError_RendersViaFormatError(t *testing.T) {
+	t.Parallel()
+
+	io, out, errOut := newValidateTestIO()
+	parseErr := core.NewParseError("/tmp/agent.md", "unrecognizable filename", nil)
+	fake := &fakeValidator{
+		result: &core.ValidateResult{Errors: []error{parseErr}},
+	}
+	opts := &validateOptions{
+		IO:        io,
+		Validator: func() (Validator, error) { return fake, nil },
+		Ctx:       context.Background(),
+		InputPath: "/tmp/agent.md",
+		Platform:  core.PlatformClaudeCode,
+	}
+
+	err := runValidate(opts)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, parseErr,
+		"first error must propagate through the chain")
+	assert.Empty(t, out.String(), "stdout must be empty on validation failure")
+	assert.Contains(t, errOut.String(), "Error:",
+		"FormatError must render the error to stderr")
+	assert.Contains(t, errOut.String(), "unrecognizable filename",
+		"FormatError must render the parse error message")
+}
+
+func TestRunValidate_MultiErrors_RendersAll(t *testing.T) {
+	t.Parallel()
+
+	io, out, errOut := newValidateTestIO()
+	err1 := core.NewValidationError("Agent", "name", "", "name is required")
+	err2 := core.NewValidationError("Agent", "description", "", "description is required")
+	fake := &fakeValidator{
+		result: &core.ValidateResult{Errors: []error{err1, err2}},
+	}
+	opts := &validateOptions{
+		IO:        io,
+		Validator: func() (Validator, error) { return fake, nil },
+		Ctx:       context.Background(),
+		InputPath: "/tmp/agent.md",
+		Platform:  core.PlatformClaudeCode,
+	}
+
+	err := runValidate(opts)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, err1, "first error must propagate")
+	assert.Empty(t, out.String(), "stdout must be empty on validation failure")
+
+	stderr := errOut.String()
+	assert.Contains(t, stderr, "name is required",
+		"first error must be rendered to stderr")
+	assert.Contains(t, stderr, "description is required",
+		"second error must be rendered to stderr")
+
+	count := strings.Count(stderr, "Error:")
+	assert.Equal(t, 2, count, "each error must be rendered once via FormatError")
+}
+
+func TestRunValidate_InvalidPlatform_ReturnsValidationError(t *testing.T) {
+	t.Parallel()
+
+	io, _, _ := newValidateTestIO()
+	fake := &fakeValidator{}
+	opts := &validateOptions{
+		IO:        io,
+		Validator: func() (Validator, error) { return fake, nil },
+		Ctx:       context.Background(),
+		InputPath: "/tmp/agent.md",
+		Platform:  "",
+	}
+
+	err := runValidate(opts)
+	require.Error(t, err)
+
+	var verr *core.ValidationError
+	require.True(t, errors.As(err, &verr),
+		"error must wrap *core.ValidationError")
+	assert.Equal(t, 0, fake.calls,
+		"validator must NOT be called when platform is invalid")
+}
+
+func TestRunValidate_UnknownDocType_ReturnsParseError(t *testing.T) {
+	t.Parallel()
+
+	io, _, _ := newValidateTestIO()
+	parseErr := core.NewParseError("/tmp/foo.txt", "unrecognizable filename", nil)
+	fake := &fakeValidator{err: parseErr}
+	opts := &validateOptions{
+		IO:        io,
+		Validator: func() (Validator, error) { return fake, nil },
+		Ctx:       context.Background(),
+		InputPath: "/tmp/foo.txt",
+		Platform:  core.PlatformClaudeCode,
+	}
+
+	err := runValidate(opts)
+	require.Error(t, err)
+
+	var perr *core.ParseError
+	require.True(t, errors.As(err, &perr),
+		"error must wrap *core.ParseError")
+	assert.Contains(t, err.Error(), "validating document",
+		"error must be wrapped with 'validating document' context")
+}
+
+func TestRunValidate_ValidatorError_Propagates(t *testing.T) {
+	t.Parallel()
+
+	io, out, _ := newValidateTestIO()
+	cause := errors.New("disk full")
+	fake := &fakeValidator{err: cause}
+	opts := &validateOptions{
+		IO:        io,
+		Validator: func() (Validator, error) { return fake, nil },
+		Ctx:       context.Background(),
+		InputPath: "/tmp/agent.md",
+		Platform:  core.PlatformClaudeCode,
+	}
+
+	err := runValidate(opts)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, cause,
+		"original error must be preserved in the chain")
+	assert.Contains(t, err.Error(), "validating document",
+		"error must be wrapped with 'validating document' context")
+	assert.Empty(t, out.String(),
+		"stdout must be empty on error")
+}
+
+func TestRunValidate_VerboseProgressToStderr(t *testing.T) {
+	t.Parallel()
+
+	io, out, errOut := newValidateTestIO()
+	io.Verbose = true
+	fake := &fakeValidator{}
+	opts := &validateOptions{
+		IO:        io,
+		Validator: func() (Validator, error) { return fake, nil },
+		Ctx:       context.Background(),
+		InputPath: "/tmp/agent.md",
+		Platform:  core.PlatformClaudeCode,
+	}
+
+	require.NoError(t, runValidate(opts))
+
+	assert.Contains(t, errOut.String(), "validating /tmp/agent.md",
+		"verbose progress must go to stderr")
+	assert.Contains(t, errOut.String(), core.PlatformClaudeCode,
+		"verbose progress must mention the platform")
+	assert.Equal(t, "Document is valid\n", out.String(),
+		"stdout must remain the success line only (no verbose leakage)")
+}
+
+func TestNewCmdValidate_RunFCapturesOpts(t *testing.T) {
+	t.Parallel()
+
+	var captured *validateOptions
+	runF := func(opts *validateOptions) error {
+		captured = opts
+		return nil
+	}
+
+	io := iostreams.Test()
+	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
+	cmd := NewCmdValidate(f, runF)
+	cmd.SetArgs([]string{"/tmp/agent.md", "--platform", "opencode"})
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
+
+	require.NoError(t, cmd.Execute())
+	require.NotNil(t, captured, "runF must be invoked")
+	assert.Equal(t, "/tmp/agent.md", captured.InputPath)
+	assert.Equal(t, "opencode", captured.Platform)
+	require.NotNil(t, captured.IO)
+	assert.Equal(t, io, captured.IO, "opts.IO must be the Factory's IOStreams")
+	require.NotNil(t, captured.Ctx, "opts.Ctx must be set from c.Context()")
+}
+
+func TestNewCmdValidate_RequiresPlatformFlag(t *testing.T) {
+	t.Parallel()
+
+	io := iostreams.Test()
+	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
+	cmd := NewCmdValidate(f, func(*validateOptions) error { return nil })
+	cmd.SetArgs([]string{"/tmp/agent.md"})
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
+
+	err := cmd.Execute()
+	require.Error(t, err, "missing required --platform flag must fail")
+}
+
+func TestNewCmdValidate_NilRunFFallsBackToProduction(t *testing.T) {
+	t.Parallel()
+
+	io, out, errOut := newValidateTestIO()
+	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
+	f.Validator = cmdutil.OnceValuesFunc(func() (application.Validator, error) {
+		return nil, errors.New("no validator wired in this unit test")
 	})
 
-	// Test case: Validation with errors
-	t.Run("validation with errors", func(t *testing.T) {
-		// Arrange: Set up expected method call with validation errors
-		mockValidator = new(mocks.MockValidator) // Reset mock for this test case
-		req := &application.ValidateRequest{
-			InputPath: "/path/to/invalid.md",
-			Platform:  "claude-code",
-		}
-		expectedErrors := []error{
-			errors.New("missing required field: name"),
-			errors.New("invalid permission mode"),
-		}
-		expectedResult := &core.ValidateResult{
-			Errors: expectedErrors,
-		}
+	cmd := NewCmdValidate(f, nil)
+	cmd.SetArgs([]string{"/tmp/agent.md", "--platform", "opencode"})
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
 
-		mockValidator.On("Validate", ctx, req).
-			Return(expectedResult, nil)
+	err := cmd.Execute()
+	require.Error(t, err, "missing validator must surface as an error")
+	assert.Contains(t, err.Error(), "resolving validator")
+	assert.Empty(t, out.String())
+	assert.Empty(t, errOut.String())
+}
 
-		// Act: Call the method being tested
-		result, err := mockValidator.Validate(ctx, req)
+func TestValidateValidator_NilFactoryReturnsNil(t *testing.T) {
+	t.Parallel()
 
-		// Assert: Verify results
-		assert.NoError(t, err, "method call should succeed even with validation errors")
-		assert.NotNil(t, result)
-		assert.False(t, result.Valid(), "expected invalid result")
-		assert.Len(t, result.Errors, 2, "expected 2 validation errors")
-		assert.Contains(t, result.Errors[0].Error(), "missing required field")
-		assert.Contains(t, result.Errors[1].Error(), "invalid permission mode")
+	assert.Nil(t, validateValidator(nil),
+		"validateValidator(nil) must return nil so opts.Validator is nil")
 
-		// Verify: Ensure the method was called as expected
-		mockValidator.AssertCalled(t, "Validate", ctx, req)
-		mockValidator.AssertExpectations(t)
+	io := iostreams.Test()
+	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
+	f.Validator = nil
+	assert.Nil(t, validateValidator(f),
+		"validateValidator with nil f.Validator must return nil")
+}
+
+func TestNewValidator_AdapterSatisfiesInterface(t *testing.T) {
+	t.Parallel()
+
+	// Compile-time interface check is already in validate.go
+	// (var _ application.Validator = (*validatorAdapter)(nil)).
+	// This test verifies the runtime contract: a value returned by
+	// NewValidator() must accept the Validate call shape that the
+	// local Validator interface defines.
+	result, err := NewValidator().Validate(context.Background(), &application.ValidateRequest{
+		InputPath: "/nonexistent.md",
+		Platform:  core.PlatformClaudeCode,
 	})
+	require.Error(t, err,
+		"validateDocument must return a fatal error for unrecognizable file")
+	assert.Nil(t, result)
+	var perr *core.ParseError
+	require.True(t, errors.As(err, &perr),
+		"fatal error must wrap *core.ParseError")
+}
 
-	// Test case: Fatal error during validation
-	t.Run("fatal error during validation", func(t *testing.T) {
-		// Arrange: Set up expected method call with fatal error
-		mockValidator = new(mocks.MockValidator) // Reset mock for this test case
-		req := &application.ValidateRequest{
-			InputPath: "/path/to/missing.md",
-			Platform:  "opencode",
-		}
-		fatalErr := errors.New("file not found")
+func TestValidateDocument_HappyPath(t *testing.T) {
+	t.Parallel()
 
-		mockValidator.On("Validate", ctx, req).
-			Return(nil, fatalErr)
+	dir := t.TempDir()
+	inputPath := dir + "/agent-valid.md"
+	content := `---
+name: tester
+description: A test agent
+---
+Body`
+	require.NoError(t, os.WriteFile(inputPath, []byte(content), 0o600))
 
-		// Act: Call the method being tested
-		result, err := mockValidator.Validate(ctx, req)
-
-		// Assert: Verify results
-		assert.Error(t, err, "expected fatal error")
-		assert.Nil(t, result)
-		assert.Contains(t, err.Error(), "file not found")
-
-		// Verify: Ensure the method was called as expected
-		mockValidator.AssertCalled(t, "Validate", ctx, req)
-		mockValidator.AssertExpectations(t)
+	result, err := validateDocument(context.Background(), &ValidateRequest{
+		InputPath: inputPath,
+		Platform:  core.PlatformClaudeCode,
 	})
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.True(t, result.Valid(), "expected valid result")
+	assert.Empty(t, result.Errors)
+}
 
-	// Test case: Using mock.Anything for flexible matching
-	t.Run("mock with argument matching", func(t *testing.T) {
-		// Arrange: Set up expected call with flexible argument matching
-		mockValidator = new(mocks.MockValidator) // Reset mock for this test case
+func TestUnwrapErrors(t *testing.T) {
+	t.Parallel()
 
-		mockValidator.On("Validate", ctx, mock.AnythingOfType("*application.ValidateRequest")).
-			Return(&core.ValidateResult{Errors: []error{}}, nil)
+	tests := []struct {
+		name    string
+		err     error
+		wantLen int
+	}{
+		{name: "nil error returns nil", err: nil, wantLen: 0},
+		{name: "single error", err: errors.New("boom"), wantLen: 1},
+		{name: "two joined errors", err: errors.Join(errors.New("a"), errors.New("b")), wantLen: 2},
+		{name: "three joined errors", err: errors.Join(errors.New("x"), errors.New("y"), errors.New("z")), wantLen: 3},
+	}
 
-		// Act: Call with any request
-		result, err := mockValidator.Validate(ctx, &application.ValidateRequest{
-			InputPath: "/any/path.md",
-			Platform:  "opencode",
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			errs := unwrapErrors(tt.err)
+			assert.Len(t, errs, tt.wantLen)
 		})
-
-		// Assert: Verify results
-		assert.NoError(t, err)
-		assert.True(t, result.Valid())
-
-		// Verify: Ensure the method was called
-		mockValidator.AssertCalled(t, "Validate", ctx, mock.AnythingOfType("*application.ValidateRequest"))
-		mockValidator.AssertExpectations(t)
-	})
+	}
 }

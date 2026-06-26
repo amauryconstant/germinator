@@ -40,10 +40,10 @@ func main() {
 		return service.NewTransformer(p, s), nil
 	})
 	f.Validator = cmdutil.OnceValuesFunc(func() (application.Validator, error) {
-		return service.NewValidator(), nil
+		return cmd.NewValidator(), nil
 	})
 	f.Canonicalizer = cmdutil.OnceValuesFunc(func() (application.Canonicalizer, error) {
-		return service.NewCanonicalizer(), nil
+		return cmd.NewCanonicalizer(), nil
 	})
 	f.Initializer = cmdutil.OnceValuesFunc(func() (application.Initializer, error) {
 		return service.NewInitializer(p, s), nil
@@ -53,16 +53,19 @@ func main() {
 		return library.LoadLibrary(path)
 	})
 
-	// LegacyBridge keeps non-migrated commands (validate, canonicalize,
-	// init, library sub-commands other than resources, config, etc.)
-	// wired until slice 7 deletes them. Service implementations are
-	// constructed directly via application.New* / service.New*; no
-	// indirection through the deleted cmd/container.go.
+	// LegacyBridge keeps non-migrated commands (init, library
+	// sub-commands other than resources, config, completion, version)
+	// wired until slice 7 deletes them. Validator/Canonicalizer now
+	// come from the cmd-side adapters (slice-3); the service
+	// implementations in internal/service/{validator,canonicalizer}.go
+	// were deleted. Service implementations are constructed directly
+	// via cmd.New* / service.New*; no indirection through the deleted
+	// cmd/container.go.
 	bridge := &cmd.LegacyBridge{
 		Services: &cmd.LegacyServices{
 			Transformer:   service.NewTransformer(p, s),
-			Validator:     service.NewValidator(),
-			Canonicalizer: service.NewCanonicalizer(),
+			Validator:     cmd.NewValidator(),
+			Canonicalizer: cmd.NewCanonicalizer(),
 			Initializer:   service.NewInitializer(p, s),
 		},
 		ErrorFormatter: cmd.NewErrorFormatter(),
