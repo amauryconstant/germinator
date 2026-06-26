@@ -1,10 +1,12 @@
 # framework Specification (delta)
 
-## MODIFIED Requirements
+## ADDED Requirements
 
-### Requirement: validate and canonicalize take Factory
+### Requirement: validate and canonicalize command signatures
 
-The `validate` and `canonicalize` commands SHALL take `*cmdutil.Factory` (per the `cli-factory` capability) instead of `*CommandConfig`. They SHALL adopt the `command-options-pattern` shape (`NewCmdValidate(f, runF)` + `validateOptions` + `runValidate`; `NewCmdCanonicalize(f, runF)` + `canonicalizeOptions` + `runCanonicalize`).
+The `validate` and `canonicalize` commands SHALL take `*cmdutil.Factory` (per the `cli-cli-factory` capability) and follow the `cli-command-options-pattern` shape: `NewCmdValidate(f, runF)` + `validateOptions` + `runValidate`; `NewCmdCanonicalize(f, runF)` + `canonicalizeOptions` + `runCanonicalize`.
+
+> **Note:** this requirement defines the command **signature shape**; behavioral requirements remain in the existing "Validate Command" / "Canonicalize Command" requirements in `openspec/specs/cli-framework/spec.md` lines 153-204 and 288-306.
 
 #### Scenario: validate command signature
 

@@ -41,6 +41,8 @@ After change-2 (`wire-factory-and-pilots`) establishes the new pattern with `ada
 
 **Rationale**: the validator is a small, parameterless function; encapsulating it in a separate package adds ceremony without proportional benefit. The command file is the natural home per the foundation's "implementations live next to the caller" principle.
 
+**Resulting file size**: `cmd/validate.go` grows from 86 to ~170 lines (86 current + ~99 migrated). Stays under the 200-line soft cap per `cmd/AGENTS.md` conventions.
+
 **Alternatives considered**:
 
 - Create `internal/validator/` package → rejected; not needed until the validator gains significant logic that doesn't fit in the command file.
@@ -51,14 +53,14 @@ After change-2 (`wire-factory-and-pilots`) establishes the new pattern with `ada
 
 **Rationale**: the canonicalizer is the simplest of the four core services (no external dependencies); keeping the logic in the command file is the cleanest expression.
 
-### 4. Golden file tests move to `internal/service/` survivors or new locations
+### 4. Golden file tests move to `cmd/` alongside the implementation
 
-**Choice**: The existing `internal/service/canonicalizer_golden_test.go` (172 lines) is moved to `cmd/canonicalize_golden_test.go` (or kept in `internal/service/` with updated imports). Golden file tests for `validator` (none exist; validator uses unit tests, not golden files) move to `cmd/validate_test.go`.
+**Choice**: `internal/service/canonicalizer_golden_test.go` (172 lines) is moved to `cmd/canonicalize_golden_test.go`. Keeping it in `internal/service/` is rejected because `internal/service/canonicalizer.go` is deleted in this change (task 3.3.2), removing the package the test depends on. The validator has no golden file tests today; its tests move with the implementation per the unit-test conversion in task 3.1.5.
 
 **Rationale**: golden file tests assert byte-identical output for known inputs; moving them with the implementation keeps the regression check close to the code under test.
 
 ## Risks / Trade-offs
 
 - **Test conversion may lose coverage** — converting ~555 + 241 = ~800 lines of tests risks dropping edge cases. **Mitigation:** tasks 3.1.5 and 3.2.4 explicitly call out coverage preservation; `mise run test:coverage` is the gate.
-- **Golden file tests may need updates if the implementation changes** — moving tests without moving logic could expose unintended behavior changes. **Mitigation:** the implementation moves with the tests; byte-identical output is asserted explicitly in task 3.1.6 and 3.2.5.
+- **Golden file tests may need updates if the implementation changes** — moving tests without moving logic could expose unintended behavior changes. **Mitigation:** byte-identical output is verified by golden file tests (`cmd/canonicalize_golden_test.go` after the move in task 3.2.5) for canonicalize, and by the migrated validator unit tests (task 3.1.5) which preserve the assertion surface from `internal/service/validator_test.go`.
 - **`internal/service/` is partially emptied** — the directory now has only `transformer.go` and `initializer.go`. **Mitigation:** `cmd/adapt.go` (already migrated) and `init` (change-5) / `library add` (change-6) still depend on these; deletion happens in change-7.
