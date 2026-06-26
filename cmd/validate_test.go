@@ -245,6 +245,9 @@ func TestNewCmdValidate_RunFCapturesOpts(t *testing.T) {
 
 	io := iostreams.Test()
 	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
+	f.Validator = cmdutil.OnceValuesFunc(func() (application.Validator, error) {
+		return &fakeValidator{}, nil
+	})
 	cmd := NewCmdValidate(f, runF)
 	cmd.SetArgs([]string{"/tmp/agent.md", "--platform", "opencode"})
 	cmd.SetOut(&bytes.Buffer{})
@@ -257,6 +260,8 @@ func TestNewCmdValidate_RunFCapturesOpts(t *testing.T) {
 	require.NotNil(t, captured.IO)
 	assert.Equal(t, io, captured.IO, "opts.IO must be the Factory's IOStreams")
 	require.NotNil(t, captured.Ctx, "opts.Ctx must be set from c.Context()")
+	require.NotNil(t, captured.Validator,
+		"opts.Validator must be populated by NewCmdValidate (via validateValidator)")
 }
 
 func TestNewCmdValidate_RequiresPlatformFlag(t *testing.T) {
