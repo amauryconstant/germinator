@@ -2,166 +2,50 @@
 
 ## Purpose
 
-Add a `--json` flag to the parent `germinator library` command for consistent JSON output across all library subcommands. The flag inherits to all subcommands via Cobra's persistent flag mechanism.
+Define per-command structured output for `germinator library` subcommands via a string `--output` flag accepting `plain`, `json`, or `table`. Each library sub-command opts in independently via `cmdutil.AddOutputFlags`. The parent-inherited `--json` flag mechanism is removed; consumers should use the per-command flag (e.g., `germinator library resources --output json`).
+
+> **Stream contract:** All `--output` formats (plain, json, table) write primary data to **stdout** (`opts.IO.Out`). Verbose progress writes to **stderr** (`opts.IO.ErrOut` via `opts.IO.Verbosef`). Errors write to **stderr** via `output.FormatError`. Never mix diagnostic output into stdout — this preserves `germinator library resources --output json | jq '.'`.
 
 ## Requirements
 
-### Requirement: Library parent command accepts --json flag
+### Requirement: library resources supports --output flag
 
-The `germinator library` parent command SHALL accept a `--json` flag that is inherited by all subcommands.
+The `library resources` command SHALL expose a per-command string flag accepting the values `json`, `table`, or `plain` (default `plain`).
 
-#### Scenario: JSON flag available on library command
-- **GIVEN** the `germinator library` command help output
-- **WHEN** user runs `germinator library --help`
-- **THEN** the `--json` flag is listed in the flags section
+#### Scenario: Plain is the default
 
-#### Scenario: JSON flag inherited by resources subcommand
-- **GIVEN** the `germinator library resources` command
-- **WHEN** user runs `germinator library resources --help`
-- **THEN** the `--json` flag is available
+- **WHEN** `germinator library resources` is invoked without `--output`
+- **THEN** the output SHALL be plain text (byte-identical to the pre-change `library resources` output)
+- **AND** the output SHALL be written to **stdout** (`opts.IO.Out`)
 
-#### Scenario: JSON flag inherited by presets subcommand
-- **GIVEN** the `germinator library presets` command
-- **WHEN** user runs `germinator library presets --help`
-- **THEN** the `--json` flag is available
+#### Scenario: JSON output via --output json
 
-#### Scenario: JSON flag inherited by add subcommand
-- **GIVEN** the `germinator library add` command
-- **WHEN** user runs `germinator library add --help`
-- **THEN** the `--json` flag is available
+- **WHEN** `germinator library resources --output json` is invoked
+- **THEN** the output SHALL be JSON-formatted (2-space indent, trailing newline) via `output.NewJSONExporter().Write(opts.IO, data)`
+- **AND** the JSON output SHALL be written to **stdout**
+- **AND** the JSON structure SHALL match the previous `--json` flag output: `{"resources": [{"type": "...", "name": "...", "description": "...", "path": "..."}, ...]}`
 
-#### Scenario: JSON flag inherited by remove subcommand
-- **GIVEN** the `germinator library remove` command
-- **WHEN** user runs `germinator library remove --help`
-- **THEN** the `--json` flag is available
+#### Scenario: Table output via --output table
 
-#### Scenario: JSON flag inherited by validate subcommand
-- **GIVEN** the `germinator library validate` command
-- **WHEN** user runs `germinator library validate --help`
-- **THEN** the `--json` flag is available
+- **WHEN** `germinator library resources --output table` is invoked
+- **THEN** the output SHALL be a tab-aligned table via `output.NewTableExporter().Write(opts.IO, data)`
+- **AND** the table SHALL be written to **stdout**
+- **AND** the column order SHALL be derived from `tab:"HEADER"` struct tags on the resource type, falling back to field names when no tag is present (per `internal/output/exporter.go`)
 
-#### Scenario: JSON flag inherited by refresh subcommand
-- **GIVEN** the `germinator library refresh` command
-- **WHEN** user runs `germinator library refresh --help`
-- **THEN** the `--json` flag is available
+#### Scenario: Old --json flag is rejected
 
-#### Scenario: JSON flag inherited by show subcommand
-- **GIVEN** the `germinator library show` command
-- **WHEN** user runs `germinator library show --help`
-- **THEN** the `--json` flag is available
-
-#### Scenario: JSON flag inherited by init subcommand
-- **GIVEN** the `germinator library init` command
-- **WHEN** user runs `germinator library init --help`
-- **THEN** the `--json` flag is available
-
-### Requirement: Library resources outputs JSON when --json is set
-
-The `germinator library resources --json` command SHALL output JSON format when the `--json` flag is set.
-
-#### Scenario: Resources JSON output structure
-- **GIVEN** a library with resources
-- **WHEN** user runs `germinator library resources --json`
-- **THEN** output is valid JSON with structure: `{"resources": [{"type": "...", "name": "...", "description": "...", "platform": "..."}, ...]}`
-
-#### Scenario: Resources JSON output with empty library
-- **GIVEN** a library with no resources
-- **WHEN** user runs `germinator library resources --json`
-- **THEN** output is valid JSON: `{"resources": []}`
-
-### Requirement: Library presets outputs JSON when --json is set
-
-The `germinator library presets --json` command SHALL output JSON format when the `--json` flag is set.
-
-#### Scenario: Presets JSON output structure
-- **GIVEN** a library with presets
-- **WHEN** user runs `germinator library presets --json`
-- **THEN** output is valid JSON with structure: `{"presets": [{"name": "...", "description": "...", "resources": ["...", "..."]}, ...]}`
-
-#### Scenario: Presets JSON output with empty library
-- **GIVEN** a library with no presets
-- **WHEN** user runs `germinator library presets --json`
-- **THEN** output is valid JSON: `{"presets": []}`
-
-### Requirement: Library remove outputs JSON when --json is set
-
-The `germinator library remove` subcommands SHALL output JSON format when the `--json` flag is set.
-
-#### Scenario: Remove resource JSON output structure
-- **GIVEN** a library with resource `skill/commit`
-- **WHEN** user runs `germinator library remove resource skill/commit --json`
-- **THEN** output is valid JSON with structure: `{"removed": {"type": "skill", "name": "commit", "path": "..."}}`
-
-#### Scenario: Remove resource error JSON output
-- **GIVEN** a library without resource `skill/nonexistent`
-- **WHEN** user runs `germinator library remove resource skill/nonexistent --json`
-- **THEN** output is valid JSON error with structure: `{"error": "...", "type": "resource", "name": "skill/nonexistent"}`
-
-#### Scenario: Remove preset JSON output structure
-- **GIVEN** a library with preset `git-workflow`
-- **WHEN** user runs `germinator library remove preset git-workflow --json`
-- **THEN** output is valid JSON with structure: `{"removed": {"name": "git-workflow"}}`
-
-#### Scenario: Remove preset error JSON output
-- **GIVEN** a library without preset `nonexistent-preset`
-- **WHEN** user runs `germinator library remove preset nonexistent-preset --json`
-- **THEN** output is valid JSON error with structure: `{"error": "...", "type": "preset", "name": "nonexistent-preset"}`
-
-### Requirement: Library add outputs JSON when --json is set
-
-The `germinator library add --json` command SHALL output JSON format when the `--json` flag is set.
-
-#### Scenario: Add success JSON output structure
-- **GIVEN** valid resource files to add
-- **WHEN** user runs `germinator library add <files> --json`
-- **THEN** output is valid JSON with structure: `{"added": [{"type": "...", "name": "...", "path": "..."}, ...], "count": N}`
-
-#### Scenario: Add with no resources to add
-- **GIVEN** no resource files to add
-- **WHEN** user runs `germinator library add --json`
-- **THEN** output is valid JSON with structure: `{"added": [], "count": 0}`
-
-#### Scenario: Add with partial failures JSON output
-- **GIVEN** some resource files fail to add
-- **WHEN** user runs `germinator library add <files> --json`
-- **THEN** output is valid JSON with structure: `{"added": [...], "failed": [{"path": "...", "error": "..."}], "count": N}`
-
-### Requirement: Library show outputs JSON when --json is set
-
-The `germinator library show <ref> --json` command SHALL output JSON format when the `--json` flag is set.
-
-#### Scenario: Show resource JSON output structure
-- **GIVEN** a library with resource `skill/commit`
-- **WHEN** user runs `germinator library show skill/commit --json`
-- **THEN** output is valid JSON with structure: `{"resource": {"type": "...", "name": "...", "description": "...", "path": "..."}}`
-
-#### Scenario: Show preset JSON output structure
-- **GIVEN** a library with preset `git-workflow`
-- **WHEN** user runs `germinator library show preset/git-workflow --json`
-- **THEN** output is valid JSON with structure: `{"preset": {"name": "...", "description": "...", "resources": ["...", "..."]}}`
-
-#### Scenario: Show nonexistent resource returns error in JSON format
-- **GIVEN** a library without resource `skill/nonexistent`
-- **WHEN** user runs `germinator library show skill/nonexistent --json`
-- **THEN** command returns error with exit code 6 and JSON error body
-
-### Requirement: Library init outputs JSON when --json is set
-
-The `germinator library init --json` command SHALL output JSON format when the `--json` flag is set.
-
-#### Scenario: Init success JSON output
-- **WHEN** user runs `germinator library init --path /tmp/test-lib --json`
-- **THEN** output is valid JSON with structure: `{"success": true, "path": "...", "message": "..."}`
-
-#### Scenario: Init failure JSON output
-- **WHEN** user runs `germinator library init --path /existing/library --force --json`
-- **THEN** if initialization fails, output is valid JSON with structure: `{"success": false, "error": "...", "path": "..."}`
+- **WHEN** `germinator library resources --json` is invoked
+- **THEN** the command SHALL return a usage error
+- **AND** the process SHALL exit with code 2 (`ExitCodeUsage`)
 
 ### Requirement: JSON encoding uses proper formatting
 
-All JSON output SHALL use `json.NewEncoder(c.OutOrStdout()).SetIndent("", "  ")` for formatted output with 2-space indentation.
+All JSON output SHALL use `output.NewJSONExporter().Write(opts.IO, data)` for formatted output with 2-space indentation and a trailing newline.
 
 #### Scenario: JSON output is pretty-printed
+
 - **GIVEN** a library with resources
-- **WHEN** user runs `germinator library resources --json`
+- **WHEN** user runs `germinator library resources --output json`
 - **THEN** the JSON output has 2-space indentation and is human-readable
+
+> **Status:** Other library commands (`presets`, `show`, `add`, `create`, `init`, `refresh`, `remove`, `validate`) get `--output` in their respective migration changes.
