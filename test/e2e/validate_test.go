@@ -63,9 +63,12 @@ var _ = Describe("Validate Command", func() {
 	Describe("validating an invalid document", func() {
 		It("should fail with exit code > 0 and show validation errors", func() {
 			session := cli.Run("validate", fixtures.InvalidDocument(), "--platform", "opencode")
-			// CLI returns exit code 2 for validation errors
+			// CLI returns non-zero exit for validation errors.
+			// Slice-2 changed the error prefix to capital "Error:" via
+			// output.FormatError; previously the message used lowercase
+			// "validation error" which the test no longer matches.
 			Expect(session.ExitCode()).To(BeNumerically(">", 0))
-			cli.ShouldErrorOutput(session, "error")
+			cli.ShouldErrorOutput(session, "Error")
 		})
 	})
 
@@ -89,7 +92,7 @@ var _ = Describe("Validate Command", func() {
 		It("should fail with exit code > 0 and show validation errors", func() {
 			session := cli.Run("validate", fixtures.InvalidDocument(), "--platform", "claude-code")
 			Expect(session.ExitCode()).To(BeNumerically(">", 0))
-			cli.ShouldErrorOutput(session, "error")
+			cli.ShouldErrorOutput(session, "Error")
 		})
 	})
 })

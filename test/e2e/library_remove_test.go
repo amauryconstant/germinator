@@ -53,31 +53,10 @@ var _ = Describe("Library Remove Resource Command", func() {
 		})
 	})
 
-	Describe("library remove resource with --json flag", func() {
-		It("should output JSON on success", func() {
-			// Create a library
-			libPath := filepath.Join(tmpDir, "test-library")
-			session := cli.Run("library", "init", "--path", libPath)
-			cli.ShouldSucceed(session)
-
-			// Add a resource first
-			sourcePath := filepath.Join(fixtures.LibraryDir(), "skills", "skill-commit.md")
-			session = cli.Run("library", "add", sourcePath, "--library", libPath)
-			cli.ShouldSucceed(session)
-
-			// Remove with JSON flag
-			session = cli.Run("library", "remove", "resource", "skill/commit", "--library", libPath, "--json")
-			cli.ShouldSucceed(session)
-
-			// Verify JSON output contains expected fields
-			output := cli.GetOutput(session)
-			Expect(output).To(ContainSubstring(`"type":"resource"`))
-			Expect(output).To(ContainSubstring(`"resourceType":"skill"`))
-			Expect(output).To(ContainSubstring(`"name":"commit"`))
-			Expect(output).To(ContainSubstring(`"fileDeleted"`))
-			Expect(output).To(ContainSubstring(`"libraryPath"`))
-		})
-	})
+	// The library remove resource --json test was removed in wire-factory-and-pilots:
+	// the parent --json flag is REMOVED per the library-library-json-output delta
+	// spec; --output json lands for library remove in change-6. See task 2.3.1
+	// (removal of the parent --json persistent flag in cmd/library.go:39).
 
 	Describe("library remove resource error on nonexistent resource", func() {
 		It("should error with helpful message", func() {
@@ -86,9 +65,10 @@ var _ = Describe("Library Remove Resource Command", func() {
 			session := cli.Run("library", "init", "--path", libPath)
 			cli.ShouldSucceed(session)
 
-			// Try to remove nonexistent resource - exit code 6 is NotFound
+			// Try to remove nonexistent resource. Slice-2 collapse: NotFound
+			// now maps to ExitCodeError (1) instead of ExitCodeNotFound (6).
 			session = cli.Run("library", "remove", "resource", "skill/nonexistent", "--library", libPath)
-			cli.ShouldFailWithExit(session, 6)
+			cli.ShouldFailWithExit(session, 1)
 			cli.ShouldErrorOutput(session, "not found")
 		})
 	})
@@ -188,35 +168,10 @@ var _ = Describe("Library Remove Preset Command", func() {
 		})
 	})
 
-	Describe("library remove preset with --json flag", func() {
-		It("should output JSON on success", func() {
-			// Create a library
-			libPath := filepath.Join(tmpDir, "test-library")
-			session := cli.Run("library", "init", "--path", libPath)
-			cli.ShouldSucceed(session)
-
-			// Add a resource first
-			sourcePath := filepath.Join(fixtures.LibraryDir(), "skills", "skill-commit.md")
-			session = cli.Run("library", "add", sourcePath, "--library", libPath)
-			cli.ShouldSucceed(session)
-
-			// Create a preset
-			session = cli.Run("library", "create", "preset", "workflow",
-				"--resources", "skill/commit", "--library", libPath)
-			cli.ShouldSucceed(session)
-
-			// Remove with JSON flag
-			session = cli.Run("library", "remove", "preset", "workflow", "--library", libPath, "--json")
-			cli.ShouldSucceed(session)
-
-			// Verify JSON output contains expected fields
-			output := cli.GetOutput(session)
-			Expect(output).To(ContainSubstring(`"type":"preset"`))
-			Expect(output).To(ContainSubstring(`"name":"workflow"`))
-			Expect(output).To(ContainSubstring(`"resourcesRemoved"`))
-			Expect(output).To(ContainSubstring(`"skill/commit"`))
-		})
-	})
+	// The library remove preset --json test was removed in wire-factory-and-pilots:
+	// the parent --json flag is REMOVED per the library-library-json-output delta
+	// spec; --output json lands for library remove in change-6. See task 2.3.1
+	// (removal of the parent --json persistent flag in cmd/library.go:39).
 
 	Describe("library remove preset error on nonexistent preset", func() {
 		It("should error with helpful message", func() {
@@ -225,9 +180,10 @@ var _ = Describe("Library Remove Preset Command", func() {
 			session := cli.Run("library", "init", "--path", libPath)
 			cli.ShouldSucceed(session)
 
-			// Try to remove nonexistent preset - exit code 6 is NotFound
+			// Try to remove nonexistent preset. Slice-2 collapse: NotFound
+			// now maps to ExitCodeError (1) instead of ExitCodeNotFound (6).
 			session = cli.Run("library", "remove", "preset", "nonexistent", "--library", libPath)
-			cli.ShouldFailWithExit(session, 6)
+			cli.ShouldFailWithExit(session, 1)
 			cli.ShouldErrorOutput(session, "not found")
 		})
 	})

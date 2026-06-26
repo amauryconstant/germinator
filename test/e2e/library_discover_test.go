@@ -354,28 +354,9 @@ description: Dry run orphan
 		})
 	})
 
-	Describe("library add --discover --batch --force --json", func() {
-		It("should output JSON format with batch processing results", func() {
-			// Create a library
-			libPath := filepath.Join(tmpDir, "test-library")
-			session := cli.Run("library", "init", "--path", libPath)
-			cli.ShouldSucceed(session)
-
-			// Create orphaned file
-			Expect(os.WriteFile(filepath.Join(libPath, "skills", "json-orphan.md"), []byte(`---
-name: json-orphan
-description: JSON orphan
----
-# JSON Orphan
-`), 0644)).To(Succeed())
-
-			// Run discover with batch, force, and JSON
-			session = cli.Run("library", "add", "--discover", "--batch", "--force", "--json", "--library", libPath)
-			cli.ShouldSucceed(session)
-			cli.ShouldOutput(session, `"added"`)
-			cli.ShouldOutput(session, `"skipped"`)
-			cli.ShouldOutput(session, `"failed"`)
-			cli.ShouldOutput(session, `"summary"`)
-		})
-	})
+	// The library add --discover --batch --force --json test was removed in
+	// wire-factory-and-pilots: the parent --json flag is REMOVED per the
+	// library-library-json-output delta spec; --output json lands for library
+	// add in change-6. See task 2.3.1 (removal of the parent --json
+	// persistent flag in cmd/library.go:39).
 })

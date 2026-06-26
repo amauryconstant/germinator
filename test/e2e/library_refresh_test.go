@@ -97,34 +97,10 @@ description: Dry-run description
 		})
 	})
 
-	Describe("library refresh --json", func() {
-		It("should output JSON format", func() {
-			// Create a library
-			libPath := filepath.Join(tmpDir, "test-library")
-			session := cli.Run("library", "init", "--path", libPath)
-			cli.ShouldSucceed(session)
-
-			// Add a resource
-			sourcePath := filepath.Join(fixtures.LibraryDir(), "skills", "skill-commit.md")
-			session = cli.Run("library", "add", sourcePath, "--library", libPath)
-			cli.ShouldSucceed(session)
-
-			// Modify the frontmatter
-			skillPath := filepath.Join(libPath, "skills", "commit.md")
-			modifiedContent := `---
-name: commit
-description: JSON description
----
-# Commit
-`
-			Expect(os.WriteFile(skillPath, []byte(modifiedContent), 0644)).To(Succeed())
-
-			// Run refresh with JSON output
-			session = cli.Run("library", "refresh", "--json", "--library", libPath)
-			cli.ShouldSucceed(session)
-			cli.ShouldOutputMatch(session, `"refreshed": 1`)
-		})
-	})
+	// The library refresh --json test was removed in wire-factory-and-pilots:
+	// the parent --json flag is REMOVED per the library-library-json-output delta
+	// spec; --output json lands for library refresh in change-7. See task 2.3.1
+	// (removal of the parent --json persistent flag in cmd/library.go:39).
 
 	Describe("library refresh with missing file", func() {
 		It("should skip resources with missing files", func() {

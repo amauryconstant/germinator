@@ -249,9 +249,10 @@ Modified content`
 			session := cli.Run("library", "init", "--path", libPath)
 			cli.ShouldSucceed(session)
 
-			// Try to add nonexistent file - exit code 6 is NotFound
+			// Try to add nonexistent file. Slice-2 collapse: all typed
+			// errors (including NotFound) map to ExitCodeError (1).
 			session = cli.Run("library", "add", "/nonexistent/file.md", "--library", libPath)
-			cli.ShouldFailWithExit(session, 6)
+			cli.ShouldFailWithExit(session, 1)
 			cli.ShouldErrorOutput(session, "source file not found")
 		})
 	})
@@ -274,9 +275,10 @@ description: Test
 # Test`
 			Expect(os.WriteFile(sourcePath, []byte(content), 0o644)).To(Succeed())
 
-			// Try to add with invalid type - exit code 3 is Config error
+			// Try to add with invalid type. Slice-2 collapse: ConfigError
+			// now maps to ExitCodeError (1) instead of ExitCodeConfig (3).
 			session = cli.Run("library", "add", sourcePath, "--type", "invalid", "--library", libPath)
-			cli.ShouldFailWithExit(session, 3)
+			cli.ShouldFailWithExit(session, 1)
 			cli.ShouldErrorOutput(session, "invalid resource type")
 		})
 	})
@@ -446,33 +448,10 @@ description: Updated description
 		})
 	})
 
-	Describe("library add --batch --json", func() {
-		It("should output JSON when --json flag is set", func() {
-			// Create a library
-			libPath := filepath.Join(tmpDir, "test-library")
-			session := cli.Run("library", "init", "--path", libPath)
-			cli.ShouldSucceed(session)
-
-			// Create source file
-			sourceDir := filepath.Join(tmpDir, "source")
-			Expect(os.MkdirAll(sourceDir, 0o755)).To(Succeed())
-			srcPath := filepath.Join(sourceDir, "skill-json.md")
-			content := `---
-name: json-skill
-description: JSON skill
----
-# JSON Skill`
-			Expect(os.WriteFile(srcPath, []byte(content), 0o644)).To(Succeed())
-
-			// Add in batch mode with JSON output
-			session = cli.Run("library", "add", "--batch", "--json", srcPath, "--library", libPath)
-			cli.ShouldSucceed(session)
-			cli.ShouldOutput(session, `"added"`)
-			cli.ShouldOutput(session, `"skipped"`)
-			cli.ShouldOutput(session, `"failed"`)
-			cli.ShouldOutput(session, `"summary"`)
-		})
-	})
+	// The library add --batch --json test was removed in wire-factory-and-pilots:
+	// the parent --json flag is REMOVED per the library-library-json-output delta
+	// spec; --output json lands for library add in change-6. See task 2.3.1
+	// (removal of the parent --json persistent flag in cmd/library.go:39).
 
 	Describe("library add --batch with already exists", func() {
 		It("should skip already existing resources", func() {

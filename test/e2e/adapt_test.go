@@ -36,7 +36,10 @@ var _ = Describe("Adapt Command", func() {
 		It("should succeed with exit code 0, create output file, and display success message", func() {
 			session := cli.Run("adapt", fixtures.ValidDocument(), outputPath, "--platform", "opencode")
 			cli.ShouldSucceed(session)
-			cli.ShouldOutput(session, "transformed successfully")
+			// Slice-2 changed runAdapt's success message from
+			// "transformed successfully" to "wrote <output path>"
+			// (see tasks.md task 2.2.4).
+			cli.ShouldOutput(session, "wrote ")
 			Expect(fixtures.FileExists(outputPath)).To(BeTrue(), "Output file should be created")
 		})
 	})
@@ -64,9 +67,10 @@ var _ = Describe("Adapt Command", func() {
 			defer os.Remove(outputPath)
 
 			session := cli.Run("adapt", fixtures.NonexistentFile(), outputPath, "--platform", "opencode")
-			// CLI returns exit code 3 for file/parse errors
+			// CLI returns non-zero for file errors. Slice-2 changed the
+			// error prefix to capital "Error:" via output.FormatError.
 			Expect(session.ExitCode()).To(BeNumerically(">", 0))
-			cli.ShouldErrorOutput(session, "error")
+			cli.ShouldErrorOutput(session, "Error")
 		})
 	})
 
@@ -86,7 +90,7 @@ var _ = Describe("Adapt Command", func() {
 		It("should succeed with exit code 0, create output file, and display success message", func() {
 			session := cli.Run("adapt", fixtures.ValidDocument(), outputPath, "--platform", "claude-code")
 			cli.ShouldSucceed(session)
-			cli.ShouldOutput(session, "transformed successfully")
+			cli.ShouldOutput(session, "wrote ")
 			Expect(fixtures.FileExists(outputPath)).To(BeTrue(), "Output file should be created")
 		})
 	})
@@ -99,7 +103,7 @@ var _ = Describe("Adapt Command", func() {
 
 			session := cli.Run("adapt", fixtures.NonexistentFile(), outputPath, "--platform", "claude-code")
 			Expect(session.ExitCode()).To(BeNumerically(">", 0))
-			cli.ShouldErrorOutput(session, "error")
+			cli.ShouldErrorOutput(session, "Error")
 		})
 	})
 })
