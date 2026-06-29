@@ -147,8 +147,8 @@ func TestRunShow(t *testing.T) {
 		require.ErrorAs(t, err, &notFound,
 			"error must be a *core.NotFoundError")
 		assert.Equal(t, "skill/missing", notFound.Key)
-		assert.Equal(t, cmdutil.ExitCodeError, cmdutil.ExitCodeFor(err),
-			"NotFoundError must map to ExitCodeError (1)")
+		assert.Equal(t, cmdutil.ExitCodeUsage, cmdutil.ExitCodeFor(err),
+			"NotFoundError must map to ExitCodeUsage (2)")
 	})
 
 	t.Run("not-found preset ref", func(t *testing.T) {
@@ -175,8 +175,8 @@ func TestRunShow(t *testing.T) {
 		require.ErrorAs(t, err, &notFound,
 			"empty ref must produce NotFoundError")
 		assert.Equal(t, "", notFound.Key)
-		assert.Equal(t, cmdutil.ExitCodeError, cmdutil.ExitCodeFor(err),
-			"empty-ref NotFoundError must map to ExitCodeError (1)")
+		assert.Equal(t, cmdutil.ExitCodeUsage, cmdutil.ExitCodeFor(err),
+			"empty-ref NotFoundError must map to ExitCodeUsage (2)")
 	})
 
 	t.Run("no-slash ref", func(t *testing.T) {

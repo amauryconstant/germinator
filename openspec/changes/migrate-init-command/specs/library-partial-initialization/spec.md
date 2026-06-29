@@ -37,14 +37,14 @@ The `Initializer.Initialize(ctx, req) ([]core.InitializeResult, error)` method S
 
 ### Requirement: core.InitializeResult
 
-Each `core.InitializeResult` SHALL carry: `Ref string`, `InputPath string`, `OutputPath string`, `Succeeded bool`, `Error error`.
+Each `core.InitializeResult` SHALL carry: `Ref string`, `InputPath string`, `OutputPath string`, `Error error`. Success is implied by `Error == nil`; there is no separate `Succeeded` field.
 
 #### Scenario: InitializeResult fields
 
 - **WHEN** an `InitializeResult` is inspected
-- **THEN** it SHALL have the five fields above
-- **AND** `Succeeded == true` ⇒ `Error == nil`
-- **AND** `Succeeded == false` ⇒ `Error != nil`
+- **THEN** it SHALL have the four fields above
+- **AND** `Error == nil` SHALL indicate a successful initialization
+- **AND** `Error != nil` SHALL indicate a failed initialization
 
 ### Requirement: core.InitializeError wraps the cause
 
@@ -74,13 +74,13 @@ The caller (`runInit`) SHALL distinguish partial success from full failure by in
 
 ### Requirement: Preset-not-found reported as usage error
 
-When `--preset <name>` references a non-existent preset, `runInit` SHALL return `*core.NotFoundError{Entity: "preset", Name: <name>}`. The `cmdutil.ExitCodeFor` mapping (added as preliminary task 5.0.1 in this change) returns `ExitCodeUsage` (2) for `*core.NotFoundError`.
+When `--preset <name>` references a non-existent preset, `runInit` SHALL return `*core.NotFoundError{Entity: "preset", Key: <name>}`. The `cmdutil.ExitCodeFor` mapping (added as preliminary task 5.0.1 in this change) returns `ExitCodeUsage` (2) for `*core.NotFoundError`.
 
 #### Scenario: Preset not found → exit 2
 
 - **GIVEN** no preset named `ghost` in the library
 - **WHEN** `germinator init --platform opencode --preset ghost` is run
-- **THEN** `runInit` SHALL return `*core.NotFoundError{Entity: "preset", Name: "ghost"}`
+- **THEN** `runInit` SHALL return `*core.NotFoundError{Entity: "preset", Key: "ghost"}`
 - **AND** `cmdutil.ExitCodeFor(err)` SHALL return `ExitCodeUsage` (2)
 
 > **Status:** the new `Initialize` contract is implemented in this change (`migrate-init-command`). `core.InitializeResult`, `core.InitializeError`, and `core.PartialSuccessError` are defined in the `scaffold-cli-foundation` change. The `(*library.Library).ResolvePreset` method, the `cmdutil.Factory.Initializer` field, and the `cmdutil.ExitCodeFor` mapping for `*core.NotFoundError` → exit 2 are added as preliminary code-change tasks in `tasks.md` §5.0.

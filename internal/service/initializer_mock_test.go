@@ -119,9 +119,9 @@ Commit content`
 			Force:     true,
 		})
 
-		// With partial processing, error is returned when ALL resources fail
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "all resources failed to initialize")
+		// Per the slice-5 contract: error is nil even on per-resource
+		// failure; per-resource outcomes live in result.Error.
+		assert.NoError(t, err)
 		assert.Len(t, results, 1)
 		assert.Error(t, results[0].Error)
 		assert.Contains(t, results[0].Error.Error(), "parse error")
@@ -176,9 +176,9 @@ Commit content`
 			Force:     true,
 		})
 
-		// With partial processing, error is returned when ALL resources fail
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "all resources failed to initialize")
+		// Per the slice-5 contract: error is nil even on per-resource
+		// failure; per-resource outcomes live in result.Error.
+		assert.NoError(t, err)
 		assert.Len(t, results, 1)
 		assert.Error(t, results[0].Error)
 		assert.Contains(t, results[0].Error.Error(), "render error")

@@ -30,7 +30,7 @@ var _ = Describe("Init Command", func() {
 		It("should preview changes without writing files", func() {
 			session := cli.RunWithEnv(libraryEnv(),
 				"init", "--platform", "opencode", "--resources", "skill/commit",
-				"--output", tmpDir, "--dry-run",
+				"--output-dir", tmpDir, "--dry-run",
 			)
 			cli.ShouldSucceed(session)
 			cli.ShouldOutput(session, "Dry run complete")
@@ -47,7 +47,7 @@ var _ = Describe("Init Command", func() {
 
 			session := cli.RunWithEnv(libraryEnv(),
 				"init", "--platform", "opencode", "--resources", "skill/commit",
-				"--output", tmpDir, "--force",
+				"--output-dir", tmpDir, "--force",
 			)
 			cli.ShouldSucceed(session)
 			cli.ShouldOutput(session, "Initialized 1 resource(s)")
@@ -66,11 +66,13 @@ var _ = Describe("Init Command", func() {
 
 			session := cli.RunWithEnv(libraryEnv(),
 				"init", "--platform", "opencode", "--resources", "skill/commit",
-				"--output", tmpDir,
+				"--output-dir", tmpDir,
 			)
 			Expect(session.ExitCode()).To(BeNumerically(">", 0))
-			// Error details are now in stdout as "Failed: skill/commit (file exists ...)"
-			cli.ShouldOutput(session, "exists")
+			// Per the slice-5 contract, per-resource errors render via
+			// output.FormatError to stderr; the partial-success summary
+			// goes to stdout.
+			cli.ShouldErrorOutput(session, "exists")
 		})
 	})
 
@@ -78,7 +80,7 @@ var _ = Describe("Init Command", func() {
 		It("should expand preset and install all resources", func() {
 			session := cli.RunWithEnv(libraryEnv(),
 				"init", "--platform", "opencode", "--preset", "git-workflow",
-				"--output", tmpDir,
+				"--output-dir", tmpDir,
 			)
 			cli.ShouldSucceed(session)
 			cli.ShouldOutput(session, "Initialized 2 resource(s)")
@@ -92,19 +94,21 @@ var _ = Describe("Init Command", func() {
 		It("should return error for invalid resource reference", func() {
 			session := cli.RunWithEnv(libraryEnv(),
 				"init", "--platform", "opencode", "--resources", "skill/nonexistent",
-				"--output", tmpDir,
+				"--output-dir", tmpDir,
 			)
 			Expect(session.ExitCode()).To(BeNumerically(">", 0))
-			// Error details are now in stdout as "Failed: skill/nonexistent (resource not found)"
-			cli.ShouldOutput(session, "nonexistent")
+			// Per the slice-5 contract, per-resource errors render via
+			// output.FormatError to stderr. The new pattern writes a
+			// partial-success summary like "0 succeeded, 1 failed".
+			Expect(cli.GetErrorOutput(session)).To(ContainSubstring("nonexistent"))
 		})
 	})
 
 	Describe("init fails for nonexistent preset", func() {
-		It("should return error for invalid preset name", func() {
+		It("should return exit code 2 for invalid preset name (NotFoundError → ExitCodeUsage)", func() {
 			session := cli.RunWithEnv(libraryEnv(),
 				"init", "--platform", "opencode", "--preset", "nonexistent-preset",
-				"--output", tmpDir,
+				"--output-dir", tmpDir,
 			)
 			Expect(session.ExitCode()).To(BeNumerically(">", 0))
 			cli.ShouldErrorOutput(session, "nonexistent-preset")
@@ -115,7 +119,7 @@ var _ = Describe("Init Command", func() {
 		It("should fail with exit code 1 when platform not specified", func() {
 			session := cli.RunWithEnv(libraryEnv(),
 				"init", "--resources", "skill/commit",
-				"--output", tmpDir,
+				"--output-dir", tmpDir,
 			)
 			cli.ShouldFailWithExit(session, 1)
 			output := cli.GetErrorOutput(session)
@@ -130,7 +134,7 @@ var _ = Describe("Init Command", func() {
 		It("should fail with exit code 1 when neither specified", func() {
 			session := cli.RunWithEnv(libraryEnv(),
 				"init", "--platform", "opencode",
-				"--output", tmpDir,
+				"--output-dir", tmpDir,
 			)
 			cli.ShouldFailWithExit(session, 1)
 			output := cli.GetErrorOutput(session)
@@ -148,7 +152,7 @@ var _ = Describe("Init Command", func() {
 				"init", "--platform", "opencode",
 				"--resources", "skill/commit",
 				"--preset", "git-workflow",
-				"--output", tmpDir,
+				"--output-dir", tmpDir,
 			)
 			cli.ShouldFailWithExit(session, 1)
 			cli.ShouldErrorOutput(session, "mutually exclusive")
@@ -160,7 +164,7 @@ var _ = Describe("Init Command", func() {
 			session := cli.RunWithEnv(libraryEnv(),
 				"init", "--platform", "invalid-platform",
 				"--resources", "skill/commit",
-				"--output", tmpDir,
+				"--output-dir", tmpDir,
 			)
 			cli.ShouldFailWithExit(session, 1)
 			output := cli.GetErrorOutput(session)
@@ -177,7 +181,7 @@ var _ = Describe("Init Command", func() {
 			session := cli.RunWithEnv(libraryEnv(),
 				"init", "--platform", "claude-code",
 				"--resources", "skill/commit",
-				"--output", tmpDir,
+				"--output-dir", tmpDir,
 			)
 			cli.ShouldSucceed(session)
 			cli.ShouldOutput(session, "Initialized 1 resource(s)")

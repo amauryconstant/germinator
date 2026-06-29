@@ -1,6 +1,7 @@
 package library
 
 import (
+	"context"
 	"path/filepath"
 	"strings"
 
@@ -44,7 +45,26 @@ func ResolveResources(lib *Library, refs []string) ([]string, error) {
 
 // ResolvePreset resolves a preset name to a list of resource references.
 // Returns references in "type/name" format.
+//
+// Deprecated: prefer the (*Library).ResolvePreset method, which is the
+// context-aware form introduced in slice 5. This package function is
+// retained as a thin shim so non-migrated callers keep working during
+// the migration window; it will be removed once all callers migrate to
+// the method form.
 func ResolvePreset(lib *Library, name string) ([]string, error) {
+	return lib.ResolvePreset(context.TODO(), name)
+}
+
+// ResolvePreset resolves a preset name to a list of resource
+// references using the receiver library. Returns references in
+// "type/name" format. The ctx parameter is accepted for parity with
+// future context-aware preset loading (e.g., for cancellation) but is
+// unused in the current implementation.
+//
+// On miss, returns *core.ConfigError("preset", name, "preset not
+// found"); the cmd/init runInit wrapper translates this into the
+// *core.NotFoundError expected by ExitCodeFor.
+func (lib *Library) ResolvePreset(_ context.Context, name string) ([]string, error) {
 	preset, ok := lib.Presets[name]
 	if !ok {
 		return nil, gerrors.NewConfigError("preset", name, "preset not found")

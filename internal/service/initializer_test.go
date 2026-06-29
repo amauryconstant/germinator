@@ -79,7 +79,7 @@ func TestInitializeResources_FileExists(t *testing.T) {
 	}
 
 	init := NewInitializer(parser.NewParser(), renderer.NewSerializer())
-	_, err = init.Initialize(context.Background(), &application.InitializeRequest{
+	results, err := init.Initialize(context.Background(), &application.InitializeRequest{
 		Library:   lib,
 		Platform:  "opencode",
 		OutputDir: outputDir,
@@ -87,8 +87,16 @@ func TestInitializeResources_FileExists(t *testing.T) {
 		DryRun:    false,
 		Force:     false,
 	})
-	if err == nil {
-		t.Error("Initialize() should return error when file exists without force")
+	// Per the slice-5 contract: error is nil even on per-resource
+	// failure; per-resource outcomes live in result.Error.
+	if err != nil {
+		t.Fatalf("Initialize() should not return error on per-resource failure (it lives in result.Error): %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	if results[0].Error == nil {
+		t.Fatal("expected result[0].Error to be non-nil when file exists without --force")
 	}
 }
 
@@ -150,7 +158,7 @@ func TestInitializeResources_ResourceNotFound(t *testing.T) {
 	}
 
 	init := NewInitializer(parser.NewParser(), renderer.NewSerializer())
-	_, err := init.Initialize(context.Background(), &application.InitializeRequest{
+	results, err := init.Initialize(context.Background(), &application.InitializeRequest{
 		Library:   lib,
 		Platform:  "opencode",
 		OutputDir: t.TempDir(),
@@ -158,8 +166,16 @@ func TestInitializeResources_ResourceNotFound(t *testing.T) {
 		DryRun:    false,
 		Force:     false,
 	})
-	if err == nil {
-		t.Error("Initialize() should return error for missing resource")
+	// Per the slice-5 contract: error is nil even on per-resource
+	// failure; per-resource outcomes live in result.Error.
+	if err != nil {
+		t.Fatalf("Initialize() should not return error on missing resource: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	if results[0].Error == nil {
+		t.Fatal("expected result[0].Error to be non-nil for missing resource")
 	}
 }
 
@@ -179,7 +195,7 @@ func TestInitialize_WithPresetRefs(t *testing.T) {
 	outputDir := t.TempDir()
 
 	// Resolve preset refs (this would happen in command layer)
-	refs, err := library.ResolvePreset(lib, "git-workflow")
+	refs, err := lib.ResolvePreset(context.Background(), "git-workflow")
 	if err != nil {
 		t.Fatalf("ResolvePreset() error = %v", err)
 	}
@@ -209,7 +225,7 @@ func TestInitialize_PresetNotFound(t *testing.T) {
 	}
 
 	// Resolve preset refs (this would happen in command layer)
-	_, err := library.ResolvePreset(lib, "nonexistent")
+	_, err := lib.ResolvePreset(context.Background(), "nonexistent")
 	if err == nil {
 		t.Error("ResolvePreset() should return error for missing preset")
 	}
@@ -343,9 +359,11 @@ func TestInitialize_AllResourcesFail(t *testing.T) {
 		Force:     false,
 	})
 
-	// Should return error when ALL resources fail
-	if err == nil {
-		t.Error("Initialize() expected error when all resources fail")
+	// Per the slice-5 contract: error is nil even when ALL resources
+	// fail; the caller (runInit) inspects the slice and synthesizes
+	// *core.PartialSuccessError{Succeeded: 0, Failed: N}.
+	if err != nil {
+		t.Errorf("Initialize() should not return error on per-resource failure: %v", err)
 	}
 
 	// Should still return 2 results

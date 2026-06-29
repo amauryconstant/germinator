@@ -39,6 +39,7 @@ var cobraUsagePrefixes = []string{
 //	*pflag.InvalidValueError              -> 2
 //	*pflag.InvalidSyntaxError             -> 2
 //	Cobra string-prefix match             -> 2
+//	*core.NotFoundError                   -> 2
 //	*core.PartialSuccessError (S>0)       -> 0
 //	*core.PartialSuccessError (S==0)      -> 1
 //	all other errors                      -> 1
@@ -51,6 +52,7 @@ func ExitCodeFor(err error) ExitCode {
 		valueReq   *pflag.ValueRequiredError
 		invalidVal *pflag.InvalidValueError
 		invalidSyn *pflag.InvalidSyntaxError
+		notFound   *core.NotFoundError
 		partial    *core.PartialSuccessError
 	)
 	if errors.As(err, &notExist) ||
@@ -60,6 +62,9 @@ func ExitCodeFor(err error) ExitCode {
 		return ExitCodeUsage
 	}
 	if hasCobraUsagePrefix(err) {
+		return ExitCodeUsage
+	}
+	if errors.As(err, &notFound) {
 		return ExitCodeUsage
 	}
 	if errors.As(err, &partial) {

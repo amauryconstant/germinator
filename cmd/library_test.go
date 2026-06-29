@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -113,75 +112,8 @@ func TestLibraryCommand_InvalidRef(t *testing.T) {
 	assert.Equal(t, "invalidformat", notFound.Key)
 }
 
-func TestInitCommand_RequiresPlatform(_ *testing.T) {
-	_ = newTestConfig()
-
-	cmd := NewInitCommand(newTestFactory(), newTestBridge())
-	cmd.SetArgs([]string{"--resources", "skill/commit"})
-
-	// This should fail due to missing platform
-	// The actual test would need to handle os.Exit
-	_ = cmd
-}
-
-func TestInitCommand_RequiresResourcesOrPreset(_ *testing.T) {
-	_ = newTestConfig()
-
-	cmd := NewInitCommand(newTestFactory(), newTestBridge())
-	cmd.SetArgs([]string{"--platform", "opencode"})
-
-	// This should fail due to missing resources/preset
-	// The actual test would need to handle os.Exit
-	_ = cmd
-}
-
-func TestInitCommand_MutuallyExclusive(_ *testing.T) {
-	_ = newTestConfig()
-
-	cmd := NewInitCommand(newTestFactory(), newTestBridge())
-	cmd.SetArgs([]string{"--platform", "opencode", "--resources", "skill/commit", "--preset", "git-workflow"})
-
-	// This should fail due to mutually exclusive flags
-	// The actual test would need to handle os.Exit
-	_ = cmd
-}
-
-func TestInitCommand_DryRun(t *testing.T) {
-	_ = newTestConfig()
-
-	fixturePath := filepath.Join("..", "test", "fixtures", "library")
-	absPath, err := filepath.Abs(fixturePath)
-	if err != nil {
-		t.Fatalf("Failed to get absolute path: %v", err)
-	}
-
-	outputDir := t.TempDir()
-
-	cmd := NewInitCommand(newTestFactory(), newTestBridge())
-	cmd.SetArgs([]string{
-		"--platform", "opencode",
-		"--resources", "skill/commit",
-		"--library", absPath,
-		"--output", outputDir,
-		"--dry-run",
-	})
-
-	var buf bytes.Buffer
-	cmd.SetOut(&buf)
-
-	err = cmd.Execute()
-	if err != nil {
-		t.Fatalf("Command failed: %v", err)
-	}
-
-	output := buf.String()
-	if output == "" {
-		t.Error("Expected output from dry-run")
-	}
-
-	// Verify no files were created
-	outputPath := filepath.Join(outputDir, ".opencode", "skills", "commit", "SKILL.md")
-	if _, err := os.Stat(outputPath); !os.IsNotExist(err) {
-		t.Error("Dry-run should not create files")
-	}
-}
+// Legacy TestInitCommand_* tests were removed in slice 5; they used
+// cmd.SetOut(&buf) to capture Cobra stdout, incompatible with the new
+// pattern where output goes to opts.IO.Out via the Factory. Proper
+// coverage lives in cmd/init_test.go using iostreams.Test() + runF
+// injection.

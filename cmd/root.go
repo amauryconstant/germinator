@@ -30,7 +30,7 @@ Germinator source format and adapts it for target platforms like Claude Code and
 	cmd.AddCommand(NewCmdCanonicalize(f, nil))
 	cmd.AddCommand(NewVersionCommand(f, bridge))
 	cmd.AddCommand(NewLibraryCommand(f, bridge, nil))
-	cmd.AddCommand(NewInitCommand(f, bridge))
+	cmd.AddCommand(NewCmdInit(f, nil))
 	cmd.AddCommand(NewCompletionCommand(f, bridge))
 	cmd.AddCommand(NewConfigCommand(f, bridge))
 

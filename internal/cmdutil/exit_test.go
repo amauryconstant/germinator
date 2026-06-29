@@ -54,7 +54,7 @@ func TestExitCodeFor(t *testing.T) {
 		{name: "core TransformError", err: core.NewTransformError("op", "plat", "msg", nil), want: ExitCodeError},
 		{name: "core FileError", err: core.NewFileError("/tmp/x", "op", "msg", nil), want: ExitCodeError},
 		{name: "core ConfigError", err: core.NewConfigError("f", "v", "msg"), want: ExitCodeError},
-		{name: "core NotFoundError", err: core.NewNotFoundError("library ref", "missing"), want: ExitCodeError},
+		{name: "core NotFoundError", err: core.NewNotFoundError("library ref", "missing"), want: ExitCodeUsage},
 		{name: "generic error", err: errors.New("boom"), want: ExitCodeError},
 		{name: "PartialSuccessError S>0", err: core.NewPartialSuccessError(3, 1, nil), want: ExitCodeSuccess},
 		{name: "PartialSuccessError S==0", err: core.NewPartialSuccessError(0, 1, nil), want: ExitCodeError},

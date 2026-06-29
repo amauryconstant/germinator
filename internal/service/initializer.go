@@ -3,7 +3,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"os"
 	"path/filepath"
 
@@ -109,19 +108,11 @@ func (i *initializer) Initialize(_ context.Context, req *application.InitializeR
 		results = append(results, result)
 	}
 
-	// Return error only if ALL resources failed
-	hasSuccess := false
-	for _, r := range results {
-		if r.Error == nil {
-			hasSuccess = true
-			break
-		}
-	}
-	if !hasSuccess && len(results) > 0 {
-		// All resources failed - return an aggregate error
-		return results, errors.New("all resources failed to initialize")
-	}
-
+	// Per the slice-5 contract: error is reserved for transport-level
+	// failures. Per-resource outcomes (success or per-resource error)
+	// always live in result.Error; callers inspect the slice to detect
+	// partial success / all-failed / all-success and synthesize the
+	// appropriate *core.PartialSuccessError (or nil).
 	return results, nil
 }
 

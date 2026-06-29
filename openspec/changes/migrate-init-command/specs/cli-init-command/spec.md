@@ -144,7 +144,7 @@ When `--preset <name>` references a preset that does not exist, the command SHAL
 
 - **GIVEN** no preset named `ghost` in the library
 - **WHEN** `germinator init --platform opencode --preset ghost` is run
-- **THEN** `runInit` SHALL return `*core.NotFoundError{Entity: "preset", Name: "ghost"}`
+- **THEN** `runInit` SHALL return `*core.NotFoundError{Entity: "preset", Key: "ghost"}`
 - **AND** `cmdutil.ExitCodeFor(err)` SHALL return `ExitCodeUsage` (2)
 
 ### Requirement: Initializer wired through Factory

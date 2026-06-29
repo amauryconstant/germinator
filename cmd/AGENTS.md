@@ -26,7 +26,6 @@ Cobra-based CLI with platform-specific validation, typed errors, and verbosity c
 | `init.go` | Install resources from library to project |
 | `completion.go` | Shell completion command (carapace-based, multi-shell) |
 | `completions.go` | Dynamic completion actions with caching |
-| `formatters.go` | Init command output formatting (dry-run, success) |
 | `library_formatters.go` | Library command output formatting |
 | `error_handler.go` | Error categorization and exit code handling (legacy; slice 7) |
 | `error_formatter.go` | Typed error formatting with contextual hints (legacy; slice 7) |
@@ -142,6 +141,38 @@ holds for all current and future library sub-commands (`add`, `create`,
 `init`, `refresh`, `remove`, `validate` migrate in slice 6/7). The
 parent never threads the `runF` between sub-commands because the
 option types differ.
+
+## Canonical example (slice 5)
+
+Slice 5 migrates the top-level `init` command — the first command
+with a per-resource partial-success aggregate — to the
+`NewCmdXxx(f, runF)` pattern. Key differences from the slice-2/4
+templates:
+
+- **No parent `--library` sharing.** Top-level `init` owns its own
+  `--library` flag via `initLibrary(f, explicitPath)`; the lazy loader
+  resolves per-call so changes to `--library` between invocations
+  are honored.
+- **`--output-dir` rename (breaking).** The legacy `--output` / `-o`
+  flag is gone; the new flag is `--output-dir` only.
+- **`--resources` is `StringSliceVar`.** No comma-splitting is done
+  in the run body.
+- **`Initializer` lazy field.** `initInitializer(f)` returns the
+  Factory's `application.Initializer` lazy field; nil field yields
+  nil (runInit surfaces an error rather than a nil dereference).
+- **Partial success.** `runInit` returns `*core.PartialSuccessError`
+  on partial / all-failed outcomes; `cmdutil.ExitCodeFor` returns 0
+  for `Succeeded > 0` and 1 for `Succeeded == 0`. Preset-not-found
+  returns `*core.NotFoundError` → exit 2 (mapped by the slice-5 §5.0.1
+  extension to `cmdutil.ExitCodeFor`).
+- **Per-resource errors.** `renderResults` writes successes to
+  `opts.IO.Out` and failures to `opts.IO.ErrOut` via
+  `output.FormatError(io, *core.InitializeError)`.
+
+See:
+- `cmd/init.go` — `NewCmdInit(f, runF)` + `runInit(opts)`;
+  uses `(*library.Library).ResolvePreset` (slice-5 §5.0.2) and
+  `core.ValidatePlatform` for validation.
 
 - `cmd/legacy_bridge.go` — `LegacyBridge` shim (transitional; slice 7
   deletes it). `legacyCfgFrom(bridge)` builds the per-command
