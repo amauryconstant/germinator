@@ -104,6 +104,10 @@ func TestNoNewForbidigoPatterns(t *testing.T) {
 		{path: "adapt.go", pattern: `os\.Exit\(`},
 		{path: "resources.go", pattern: `fmt\.Fprintf\(os\.`},
 		{path: "resources.go", pattern: `os\.Exit\(`},
+		{path: "presets.go", pattern: `fmt\.Fprintf\(os\.`},
+		{path: "presets.go", pattern: `os\.Exit\(`},
+		{path: "show.go", pattern: `fmt\.Fprintf\(os\.`},
+		{path: "show.go", pattern: `os\.Exit\(`},
 	}
 
 	for _, p := range patterns {

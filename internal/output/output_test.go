@@ -49,6 +49,11 @@ func TestFormatErrorDispatch(t *testing.T) {
 			contains: "config (platform): invalid platform",
 		},
 		{
+			name:     "NotFoundError",
+			err:      core.NewNotFoundError("library ref", "nonexistent-ref"),
+			contains: "not found: nonexistent-ref",
+		},
+		{
 			name:     "PartialSuccessError",
 			err:      core.NewPartialSuccessError(3, 1, []core.InitializeError{}),
 			contains: "partial success: 3 succeeded, 1 failed",
@@ -82,6 +87,25 @@ func TestFormatErrorNil(t *testing.T) {
 	buf, ok := io.ErrOut.(*bytes.Buffer)
 	require.True(t, ok)
 	assert.Equal(t, "", buf.String())
+}
+
+func TestFormatError_NotFound(t *testing.T) {
+	t.Parallel()
+
+	io := iostreams.Test()
+	err := core.NewNotFoundError("library ref", "nonexistent-ref")
+
+	FormatError(io, err)
+
+	stderr, ok := io.ErrOut.(*bytes.Buffer)
+	require.True(t, ok)
+	assert.Equal(t, "Error: not found: nonexistent-ref\n", stderr.String(),
+		"NotFoundError must render canonical message to stderr")
+
+	stdout, ok := io.Out.(*bytes.Buffer)
+	require.True(t, ok)
+	assert.Empty(t, stdout.String(),
+		"NotFoundError must NOT write to stdout (stream discipline)")
 }
 
 func TestFormatError_PartialSuccessCrossPackage(t *testing.T) {

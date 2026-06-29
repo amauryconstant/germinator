@@ -5,6 +5,24 @@ import (
 	"strings"
 )
 
+// NotFoundError represents a missing-entity lookup (e.g., library ref,
+// preset name). It is the typed error consumers use to detect
+// "not found" conditions via errors.As.
+type NotFoundError struct {
+	Entity string
+	Key    string
+}
+
+// NewNotFoundError creates a NotFoundError for the named entity and key.
+func NewNotFoundError(entity, key string) *NotFoundError {
+	return &NotFoundError{Entity: entity, Key: key}
+}
+
+// Error formats the not-found error as a canonical "not found: <key>".
+func (e *NotFoundError) Error() string {
+	return "not found: " + e.Key
+}
+
 // ParseError represents a parsing failure with immutable builders for fluent construction.
 type ParseError struct {
 	path        string

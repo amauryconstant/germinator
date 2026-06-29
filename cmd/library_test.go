@@ -2,9 +2,18 @@ package cmd
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"gitlab.com/amoconst/germinator/internal/cmdutil"
+	"gitlab.com/amoconst/germinator/internal/core"
+	"gitlab.com/amoconst/germinator/internal/iostreams"
 )
 
 func TestLibraryCommand_Resources(t *testing.T) {
@@ -38,75 +47,70 @@ func TestLibraryCommand_Resources(t *testing.T) {
 }
 
 func TestLibraryCommand_Presets(t *testing.T) {
-	_ = newTestConfig()
-
 	fixturePath := filepath.Join("..", "test", "fixtures", "library")
 	absPath, err := filepath.Abs(fixturePath)
-	if err != nil {
-		t.Fatalf("Failed to get absolute path: %v", err)
-	}
+	require.NoError(t, err)
 	t.Setenv("GERMINATOR_LIBRARY", absPath)
 
-	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
-	cmd.SetArgs([]string{"presets"})
+	io := iostreams.Test()
+	outBuf, ok := io.Out.(*bytes.Buffer)
+	require.True(t, ok, "io.Out must be a *bytes.Buffer")
+
+	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
 
 	var buf bytes.Buffer
+	cmd := NewLibraryCommand(f, newTestBridge(), nil)
+	cmd.SetArgs([]string{"presets"})
 	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
 
-	err = cmd.Execute()
-	if err != nil {
-		t.Fatalf("Command failed: %v", err)
-	}
+	require.NoError(t, cmd.Execute())
 
-	output := buf.String()
-	if output == "" {
-		t.Error("Expected output from library presets command")
-	}
+	assert.NotEmpty(t, outBuf.String(),
+		"Expected output from library presets command")
 }
 
 func TestLibraryCommand_Show(t *testing.T) {
-	_ = newTestConfig()
-
 	fixturePath := filepath.Join("..", "test", "fixtures", "library")
 	absPath, err := filepath.Abs(fixturePath)
-	if err != nil {
-		t.Fatalf("Failed to get absolute path: %v", err)
-	}
+	require.NoError(t, err)
 	t.Setenv("GERMINATOR_LIBRARY", absPath)
 
-	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
-	cmd.SetArgs([]string{"show", "skill/commit"})
+	io := iostreams.Test()
+	outBuf, ok := io.Out.(*bytes.Buffer)
+	require.True(t, ok, "io.Out must be a *bytes.Buffer")
+
+	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
 
 	var buf bytes.Buffer
+	cmd := NewLibraryCommand(f, newTestBridge(), nil)
+	cmd.SetArgs([]string{"show", "skill/commit"})
 	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
 
-	err = cmd.Execute()
-	if err != nil {
-		t.Fatalf("Command failed: %v", err)
-	}
+	require.NoError(t, cmd.Execute())
 
-	output := buf.String()
-	if output == "" {
-		t.Error("Expected output from library show command")
-	}
+	assert.NotEmpty(t, outBuf.String(),
+		"Expected output from library show command")
 }
 
 func TestLibraryCommand_InvalidRef(t *testing.T) {
-	_ = newTestConfig()
-
 	fixturePath := filepath.Join("..", "test", "fixtures", "library")
 	absPath, err := filepath.Abs(fixturePath)
-	if err != nil {
-		t.Fatalf("Failed to get absolute path: %v", err)
-	}
+	require.NoError(t, err)
 	t.Setenv("GERMINATOR_LIBRARY", absPath)
 
-	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
+	f := newTestFactory()
+	cmd := NewLibraryCommand(f, newTestBridge(), nil)
 	cmd.SetArgs([]string{"show", "invalidformat"})
 
-	// Execute and expect error (will call os.Exit, but we can check the command setup)
-	// Note: This test would need special handling for os.Exit calls
-	// For now, we just verify the command structure is correct
+	err = cmd.Execute()
+	require.Error(t, err, "invalid ref must produce an error")
+
+	var notFound *core.NotFoundError
+	require.True(t, errors.As(err, &notFound),
+		"error must be a *core.NotFoundError, got %T: %v", err, err)
+	assert.Equal(t, "invalidformat", notFound.Key)
 }
 
 func TestInitCommand_RequiresPlatform(_ *testing.T) {

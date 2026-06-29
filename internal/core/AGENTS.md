@@ -55,6 +55,7 @@ depguard:
 | TransformError | Transformation failures |
 | FileError | File I/O failures |
 | ConfigError | Configuration failures |
+| NotFoundError | Missing-entity lookup (carries `Entity`, `Key`); `output.FormatError` renders `Error: not found: <key>` to stderr |
 | InitializeError | Per-resource install failure (carries `Ref`, `InputPath`, `OutputPath`, `Cause`); builder `WithSuggestions`/`WithContext` |
 | PartialSuccessError | Aggregated install outcome (`Succeeded`, `Failed`, `[]InitializeError`); `cmdutil.ExitCodeFor` returns 0 when `Succeeded > 0` |
 

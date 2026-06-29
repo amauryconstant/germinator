@@ -920,6 +920,86 @@ func TestErrorsAsDetection(t *testing.T) {
 			t.Errorf("target.Field() = %q, want %q", target.Field(), "field")
 		}
 	})
+
+	t.Run("NotFoundError", func(t *testing.T) {
+		err := NewNotFoundError("library ref", "nonexistent-ref")
+		var target *NotFoundError
+		if !errors.As(err, &target) {
+			t.Error("errors.As failed to detect NotFoundError")
+		}
+		if target.Entity != "library ref" {
+			t.Errorf("target.Entity = %q, want %q", target.Entity, "library ref")
+		}
+		if target.Key != "nonexistent-ref" {
+			t.Errorf("target.Key = %q, want %q", target.Key, "nonexistent-ref")
+		}
+	})
+}
+
+func TestNotFoundError(t *testing.T) {
+	t.Run("constructor stores Entity and Key", func(t *testing.T) {
+		err := NewNotFoundError("library ref", "skill/missing")
+		if err.Entity != "library ref" {
+			t.Errorf("Entity = %q, want %q", err.Entity, "library ref")
+		}
+		if err.Key != "skill/missing" {
+			t.Errorf("Key = %q, want %q", err.Key, "skill/missing")
+		}
+	})
+
+	t.Run("Error format", func(t *testing.T) {
+		tests := []struct {
+			name string
+			err  *NotFoundError
+			want string
+		}{
+			{
+				name: "preset ref",
+				err:  NewNotFoundError("library ref", "nonexistent-ref"),
+				want: "not found: nonexistent-ref",
+			},
+			{
+				name: "preset name",
+				err:  NewNotFoundError("preset", "ghost"),
+				want: "not found: ghost",
+			},
+			{
+				name: "empty key",
+				err:  NewNotFoundError("library ref", ""),
+				want: "not found: ",
+			},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				if got := tt.err.Error(); got != tt.want {
+					t.Errorf("Error() = %q, want %q", got, tt.want)
+				}
+			})
+		}
+	})
+
+	t.Run("errors.As detects type", func(t *testing.T) {
+		err := NewNotFoundError("library ref", "missing")
+		var target *NotFoundError
+		if !errors.As(err, &target) {
+			t.Fatal("errors.As returned false for *NotFoundError")
+		}
+		if target.Key != "missing" {
+			t.Errorf("target.Key = %q, want %q", target.Key, "missing")
+		}
+	})
+
+	t.Run("errors.As works through wrapping", func(t *testing.T) {
+		base := NewNotFoundError("library ref", "wrapped")
+		wrapped := fmt.Errorf("context: %w", base)
+		var target *NotFoundError
+		if !errors.As(wrapped, &target) {
+			t.Fatal("errors.As returned false for wrapped *NotFoundError")
+		}
+		if target.Key != "wrapped" {
+			t.Errorf("target.Key = %q, want %q", target.Key, "wrapped")
+		}
+	})
 }
 
 func TestWrappedErrors(t *testing.T) {

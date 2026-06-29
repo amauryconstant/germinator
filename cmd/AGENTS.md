@@ -113,6 +113,36 @@ are the canonical references for the new pattern. See:
   table exporter, or plain output via the shared `formatResourcesList`
   helper. The `libraryPath *string` parameter is the parent's
   shared `--library` pointer so the parent's flag value is honored.
+
+## Canonical examples (slice 4)
+
+Slice 4 extends the library-command pattern to `presets` and `show`.
+Both follow the slice-3 `resources` template, but each carries its
+own options struct (the per-command runF is typed to that struct,
+not to `*libraryResourcesOptions`). The parent's `NewLibraryCommand`
+passes `nil` for the per-command runF (the production wiring is done
+by main.go at the composition root, not by the parent). See:
+
+- `cmd/presets.go` — `NewCmdPresets(f, libraryPath, runF)` +
+  `runPresets(opts)`. Uses `library.ListPresets` (a package function,
+  not a method on `*library.Library`); dispatches on `opts.Output`
+  to plain/JSON/table. Owns its own `formatPresetsList`,
+  `flattenPresets`, and `presetsRow` types — no shared formatter file.
+- `cmd/show.go` — `NewCmdShow(f, libraryPath, runF)` + `runShow(opts)`.
+  Resolves the ref via `strings.HasPrefix(opts.Ref, "preset/")` +
+  `strings.TrimPrefix` for presets, and `library.ParseRef` for
+  resources; on miss returns `core.NewNotFoundError("library ref", opts.Ref)`
+  which `output.FormatError` renders as `Error: not found: <ref>` to
+  stderr. Owns its own `formatResourceDetails`, `formatPresetDetails`,
+  and `showResourceRow`/`showPresetRow` types.
+
+The pattern of per-command `runF` (typed to the command's options
+struct) and the shared `(f, libraryPath *string, runF)` signature
+holds for all current and future library sub-commands (`add`, `create`,
+`init`, `refresh`, `remove`, `validate` migrate in slice 6/7). The
+parent never threads the `runF` between sub-commands because the
+option types differ.
+
 - `cmd/legacy_bridge.go` — `LegacyBridge` shim (transitional; slice 7
   deletes it). `legacyCfgFrom(bridge)` builds the per-command
   `CommandConfig` consumed by non-migrated commands during the

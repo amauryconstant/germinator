@@ -65,11 +65,11 @@ var _ = Describe("Library Command", func() {
 		})
 	})
 
-	Describe("showing an invalid reference", func() {
-		It("should fail with invalid format error", func() {
+	Describe("showing a missing reference", func() {
+		It("should fail with not-found error", func() {
 			session := cli.Run("library", "show", "invalid-format", "--library", fixtures.LibraryDir())
 			cli.ShouldFailWithExit(session, 1)
-			cli.ShouldErrorOutput(session, "invalid reference format")
+			cli.ShouldErrorOutput(session, "not found: invalid-format")
 		})
 	})
 

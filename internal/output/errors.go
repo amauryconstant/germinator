@@ -24,6 +24,7 @@ func FormatError(io *iostreams.IOStreams, err error) {
 		transform *core.TransformError
 		file      *core.FileError
 		config    *core.ConfigError
+		notFound  *core.NotFoundError
 		partial   *core.PartialSuccessError
 	)
 	switch {
@@ -37,6 +38,8 @@ func FormatError(io *iostreams.IOStreams, err error) {
 		writeErrOut(io, formatFileError(io, file))
 	case errors.As(err, &config):
 		writeErrOut(io, formatConfigError(io, config))
+	case errors.As(err, &notFound):
+		writeErrOut(io, formatNotFoundError(io, notFound))
 	case errors.As(err, &partial):
 		writeErrOut(io, formatPartialSuccessError(partial))
 	default:
@@ -96,6 +99,10 @@ func formatConfigError(io *iostreams.IOStreams, e *core.ConfigError) string {
 		body = fmt.Sprintf("config (%s): %s", e.Field(), e.Message())
 	}
 	return io.Styles.Error("Error: ") + body + "\n"
+}
+
+func formatNotFoundError(io *iostreams.IOStreams, e *core.NotFoundError) string {
+	return io.Styles.Error("Error: ") + "not found: " + e.Key + "\n"
 }
 
 func formatPartialSuccessError(e *core.PartialSuccessError) string {

@@ -1,7 +1,10 @@
 package cmd
 
+// TODO(slice-7): delete this file once slice-3/slice-6 consumers migrate
+// off the remaining helpers (formatResourcesList, formatPresetOutput,
+// FormatBatchAddSummary).
+
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -56,75 +59,6 @@ func formatResourcesList(lib *library.Library) string {
 	return sb.String()
 }
 
-func formatPresetsList(lib *library.Library) string {
-	var sb strings.Builder
-
-	presets := library.ListPresets(lib)
-
-	if len(presets) == 0 {
-		return "No presets found.\n"
-	}
-
-	for _, preset := range presets {
-		if preset.Description != "" {
-			fmt.Fprintf(&sb, "%s - %s\n", preset.Name, preset.Description)
-		} else {
-			fmt.Fprintf(&sb, "%s\n", preset.Name)
-		}
-
-		for _, ref := range preset.Resources {
-			fmt.Fprintf(&sb, "  - %s\n", ref)
-		}
-	}
-
-	return sb.String()
-}
-
-func formatResourceDetails(lib *library.Library, ref string) (string, error) {
-	typ, name, err := library.ParseRef(ref)
-	if err != nil {
-		return "", fmt.Errorf("parsing ref %q: %w", ref, err)
-	}
-
-	resources, ok := lib.Resources[typ]
-	if !ok {
-		return "", fmt.Errorf("resource not found: %s", ref)
-	}
-
-	res, ok := resources[name]
-	if !ok {
-		return "", fmt.Errorf("resource not found: %s", ref)
-	}
-
-	var sb strings.Builder
-	fmt.Fprintf(&sb, "Reference: %s\n", ref)
-	fmt.Fprintf(&sb, "Path: %s\n", res.Path)
-	if res.Description != "" {
-		fmt.Fprintf(&sb, "Description: %s\n", res.Description)
-	}
-
-	return sb.String(), nil
-}
-
-func formatPresetDetails(lib *library.Library, name string) (string, error) {
-	preset, ok := lib.Presets[name]
-	if !ok {
-		return "", fmt.Errorf("preset not found: %s", name)
-	}
-
-	var sb strings.Builder
-	fmt.Fprintf(&sb, "Preset: %s\n", name)
-	if preset.Description != "" {
-		fmt.Fprintf(&sb, "Description: %s\n", preset.Description)
-	}
-	sb.WriteString("Resources:\n")
-	for _, ref := range preset.Resources {
-		fmt.Fprintf(&sb, "  - %s\n", ref)
-	}
-
-	return sb.String(), nil
-}
-
 // formatPresetOutput formats a preset for command output (e.g., after creation).
 func formatPresetOutput(lib *library.Library, name string) string {
 	preset, ok := lib.Presets[name]
@@ -143,106 +77,6 @@ func formatPresetOutput(lib *library.Library, name string) string {
 	}
 
 	return sb.String()
-}
-
-// PresetsJSONOutput represents the JSON output for library presets.
-type PresetsJSONOutput struct {
-	Presets []PresetInfoJSON `json:"presets"`
-}
-
-// PresetInfoJSON represents a preset in JSON output.
-type PresetInfoJSON struct {
-	Name        string   `json:"name"`
-	Description string   `json:"description,omitempty"`
-	Resources   []string `json:"resources"`
-}
-
-// outputPresetsJSON outputs presets in JSON format.
-func outputPresetsJSON(c *cobra.Command, lib *library.Library) error {
-	presets := library.ListPresets(lib)
-
-	allPresets := make([]PresetInfoJSON, 0, len(presets))
-	for _, preset := range presets {
-		allPresets = append(allPresets, PresetInfoJSON{
-			Name:        preset.Name,
-			Description: preset.Description,
-			Resources:   preset.Resources,
-		})
-	}
-
-	output := PresetsJSONOutput{Presets: allPresets}
-	encoder := json.NewEncoder(c.OutOrStdout())
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(output); err != nil {
-		return fmt.Errorf("encoding JSON output: %w", err)
-	}
-	return nil
-}
-
-// ShowResourceJSONOutput represents the JSON output for a single resource.
-type ShowResourceJSONOutput struct {
-	Ref         string `json:"ref"`
-	Path        string `json:"path"`
-	Description string `json:"description,omitempty"`
-}
-
-// outputShowResourceJSON outputs a resource in JSON format.
-func outputShowResourceJSON(c *cobra.Command, lib *library.Library, ref string) error {
-	typ, name, err := library.ParseRef(ref)
-	if err != nil {
-		return fmt.Errorf("parsing ref %q: %w", ref, err)
-	}
-
-	resources, ok := lib.Resources[typ]
-	if !ok {
-		return fmt.Errorf("resource not found: %s", ref)
-	}
-
-	res, ok := resources[name]
-	if !ok {
-		return fmt.Errorf("resource not found: %s", ref)
-	}
-
-	output := ShowResourceJSONOutput{
-		Ref:         ref,
-		Path:        res.Path,
-		Description: res.Description,
-	}
-
-	encoder := json.NewEncoder(c.OutOrStdout())
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(output); err != nil {
-		return fmt.Errorf("encoding JSON output: %w", err)
-	}
-	return nil
-}
-
-// ShowPresetJSONOutput represents the JSON output for a single preset.
-type ShowPresetJSONOutput struct {
-	Name        string   `json:"name"`
-	Description string   `json:"description,omitempty"`
-	Resources   []string `json:"resources"`
-}
-
-// outputShowPresetJSON outputs a preset in JSON format.
-func outputShowPresetJSON(c *cobra.Command, lib *library.Library, name string) error {
-	preset, ok := lib.Presets[name]
-	if !ok {
-		return fmt.Errorf("preset not found: %s", name)
-	}
-
-	output := ShowPresetJSONOutput{
-		Name:        preset.Name,
-		Description: preset.Description,
-		Resources:   preset.Resources,
-	}
-
-	encoder := json.NewEncoder(c.OutOrStdout())
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(output); err != nil {
-		return fmt.Errorf("encoding JSON output: %w", err)
-	}
-	return nil
 }
 
 // FormatBatchAddSummary formats and outputs the batch add summary.
