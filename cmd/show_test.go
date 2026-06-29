@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -174,6 +175,8 @@ func TestRunShow(t *testing.T) {
 		require.ErrorAs(t, err, &notFound,
 			"empty ref must produce NotFoundError")
 		assert.Equal(t, "", notFound.Key)
+		assert.Equal(t, cmdutil.ExitCodeError, cmdutil.ExitCodeFor(err),
+			"empty-ref NotFoundError must map to ExitCodeError (1)")
 	})
 
 	t.Run("no-slash ref", func(t *testing.T) {
@@ -340,4 +343,37 @@ func TestNewCmdShow_OldJSONFlagIsRejected(t *testing.T) {
 	require.Error(t, err, "old --json flag must be rejected as unknown")
 	assert.Contains(t, err.Error(), "unknown flag",
 		"error must indicate the rejected flag: %v", err)
+}
+
+func TestNewCmdShow_PassesLibraryFlagToLoader(t *testing.T) {
+	t.Parallel()
+
+	fixtureRel, err := filepath.Abs(filepath.Join("..", "test", "fixtures", "library"))
+	require.NoError(t, err)
+
+	var capturedPath string
+	var runOpts *showOptions
+	runF := func(opts *showOptions) error {
+		runOpts = opts
+		lib, lerr := opts.Library()
+		if lerr != nil {
+			return lerr
+		}
+		capturedPath = lib.RootPath
+		return nil
+	}
+
+	io := iostreams.Test()
+	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
+
+	libraryFlag := fixtureRel
+	cmd := NewCmdShow(f, &libraryFlag, runF)
+	cmd.SetArgs([]string{"skill/commit"})
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
+
+	require.NoError(t, cmd.Execute())
+	require.NotNil(t, runOpts)
+	assert.Equal(t, fixtureRel, capturedPath,
+		"--library flag value must drive the resolved library path")
 }
