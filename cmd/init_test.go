@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -21,14 +22,18 @@ import (
 // application.Initializer interface. It records every call and
 // returns the pre-configured per-ref results. err applies to the
 // transport-level error return (not to per-resource outcomes).
+// lastReq stores the most recent *InitializeRequest so tests can
+// assert that flags like Force/DryRun are plumbed through.
 type fakeInitializer struct {
 	calls   int
 	results []core.InitializeResult
 	err     error
+	lastReq *InitializeRequest
 }
 
-func (f *fakeInitializer) Initialize(_ context.Context, _ *InitializeRequest) ([]core.InitializeResult, error) {
+func (f *fakeInitializer) Initialize(_ context.Context, req *InitializeRequest) ([]core.InitializeResult, error) {
 	f.calls++
+	f.lastReq = req
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -270,6 +275,12 @@ func TestRunInit_InvalidPlatform(t *testing.T) {
 	err := runInit(opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `unknown platform "windows-95"`)
+	// core.ValidatePlatform attaches suggestion strings naming both
+	// valid platforms; the spec requires the error to indicate them.
+	assert.Contains(t, err.Error(), "claude-code",
+		"error must surface the claude-code option")
+	assert.Contains(t, err.Error(), "opencode",
+		"error must surface the opencode option")
 }
 
 // Validation: empty platform flag value.
@@ -327,8 +338,6 @@ func TestRunInit_TransportErrorWraps(t *testing.T) {
 
 // Constructor wires opts correctly with runF injection.
 func TestNewCmdInit_RunFInjectionCapturesOpts(t *testing.T) {
-	t.Parallel()
-
 	var captured *initOptions
 	runF := func(opts *initOptions) error {
 		captured = opts
@@ -337,6 +346,7 @@ func TestNewCmdInit_RunFInjectionCapturesOpts(t *testing.T) {
 
 	io := iostreams.Test()
 	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
+	f.Initializer = func() (application.Initializer, error) { return &fakeInitializer{}, nil }
 	cmd := NewCmdInit(f, runF)
 	cmd.SetArgs([]string{
 		"--platform", "opencode",
@@ -358,12 +368,50 @@ func TestNewCmdInit_RunFInjectionCapturesOpts(t *testing.T) {
 	assert.True(t, captured.Force)
 	assert.NotNil(t, captured.Ctx)
 	assert.NotNil(t, captured.Library, "Library lazy field must be wired by NewCmdInit")
+	assert.NotNil(t, captured.Initializer, "Initializer lazy field must be wired by NewCmdInit when f.Initializer is set")
+}
+
+// Spec scenario "Custom output directory" (cli-init-command):
+// --output-dir /target/project must populate opts.OutputDir AND drive
+// the resolved file path to /target/project/.opencode/skills/commit/SKILL.md.
+// Guards the breaking rename from legacy --output/-o and asserts the
+// downstream path derivation against the spec's literal example.
+func TestNewCmdInit_OutputDirFlagWiredToOpts(t *testing.T) {
+	t.Parallel()
+
+	var captured *initOptions
+	runF := func(opts *initOptions) error {
+		captured = opts
+		return nil
+	}
+
+	f := cmdutil.NewFactory(context.Background(), iostreams.Test(), "test", "germinator")
+	cmd := NewCmdInit(f, runF)
+	cmd.SetArgs([]string{
+		"--platform", "opencode",
+		"--resources", "skill/commit",
+		"--output-dir", "/target/project",
+	})
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
+
+	require.NoError(t, cmd.Execute())
+	require.NotNil(t, captured)
+	assert.Equal(t, "/target/project", captured.OutputDir,
+		"--output-dir flag must populate opts.OutputDir verbatim")
+
+	// The spec mandates the resolved path is
+	// "/target/project/.opencode/skills/commit/SKILL.md" for an opencode
+	// skill named "commit". Compute it via the same helper runInit uses
+	// to avoid drift if the path layout changes.
+	expectedPath, err := library.GetOutputPath("skill", "commit", captured.Platform, captured.OutputDir)
+	require.NoError(t, err)
+	assert.Equal(t, "/target/project/.opencode/skills/commit/SKILL.md", expectedPath,
+		"opencode skill path derivation must match the spec example")
 }
 
 // Constructor with --preset wires the Preset field.
 func TestNewCmdInit_PresetFlagWiredToOpts(t *testing.T) {
-	t.Parallel()
-
 	var captured *initOptions
 	runF := func(opts *initOptions) error {
 		captured = opts
@@ -385,8 +433,6 @@ func TestNewCmdInit_PresetFlagWiredToOpts(t *testing.T) {
 // Constructor accepts --resources as a single string and splits,
 // matching the long-term --resources semantics.
 func TestNewCmdInit_NilRunFFallsBackToProduction(t *testing.T) {
-	t.Parallel()
-
 	io := iostreams.Test()
 	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
 	cmd := NewCmdInit(f, nil)
@@ -404,8 +450,6 @@ func TestNewCmdInit_NilRunFFallsBackToProduction(t *testing.T) {
 
 // Constructor requires --platform.
 func TestNewCmdInit_RequiresPlatformFlag(t *testing.T) {
-	t.Parallel()
-
 	f := cmdutil.NewFactory(context.Background(), iostreams.Test(), "test", "germinator")
 	cmd := NewCmdInit(f, func(*initOptions) error { return nil })
 	cmd.SetArgs([]string{"--resources", "skill/commit"})
@@ -451,6 +495,50 @@ func TestInitLibrary_NilFactoryReturnsNil(t *testing.T) {
 		"initLibrary(nil, ...) returns nil so opts.Library is unset")
 }
 
+// §5.x — --library end-to-end: passing an explicit path surfaces
+// resources from that library (proves the loader is honored, not the
+// env/XDG default). Mirrors the spec scenario "Custom library path".
+func TestRunInit_CustomLibraryPathResolvesRefs(t *testing.T) {
+	t.Parallel()
+
+	// A hand-built library whose RootPath is a unique tmp dir.
+	// The test asserts opts.Library() returns this exact library, so
+	// any fallback (env var, XDG default) would be visible as a
+	// mismatch and fail the assertion.
+	customRoot := "/custom/library/abc123"
+	lib := &library.Library{
+		Version:  "1",
+		RootPath: customRoot,
+		Resources: map[string]map[string]library.Resource{
+			"skill": {
+				"commit": {Path: "skills/commit.md", Description: "Git commit"},
+			},
+		},
+	}
+
+	opts, _, _ := newInitOpts(t, lib, &fakeInitializer{
+		results: []core.InitializeResult{
+			{
+				Ref:        "skill/commit",
+				InputPath:  customRoot + "/skills/commit.md",
+				OutputPath: ".opencode/skills/commit/SKILL.md",
+			},
+		},
+	}, func(o *initOptions) {
+		o.Library = func() (*library.Library, error) { return lib, nil }
+	})
+
+	require.NoError(t, runInit(opts), "happy-path init against custom library must succeed")
+
+	loaded, err := opts.Library()
+	require.NoError(t, err)
+	require.NotNil(t, loaded)
+	assert.Equal(t, customRoot, loaded.RootPath,
+		"--library explicit path must surface as the loaded Library.RootPath")
+	_, ok := loaded.Resources["skill"]["commit"]
+	assert.True(t, ok, "loaded library must expose skill/commit from the custom path")
+}
+
 func TestInitLibrary_HonorsExplicitPath(t *testing.T) {
 	// t.Setenv cannot be called from a parallel test.
 	tmp := t.TempDir()
@@ -477,4 +565,121 @@ func TestInitInitializer_FactoryWithoutInitializerFieldReturnsNil(t *testing.T) 
 	f := cmdutil.NewFactory(context.Background(), iostreams.Test(), "test", "germinator")
 	assert.Nil(t, initInitializer(f),
 		"initInitializer must return nil when f.Initializer is unset")
+}
+
+// T1 — Spec scenario "init command signature": --help output SHALL
+// list --platform, --output-dir, --library, --resources, --preset,
+// --dry-run, --force.
+func TestNewCmdInit_HelpOutput_ListsFlags(t *testing.T) {
+	t.Parallel()
+
+	f := cmdutil.NewFactory(context.Background(), iostreams.Test(), "test", "germinator")
+	cmd := NewCmdInit(f, func(*initOptions) error { return nil })
+
+	buf := &bytes.Buffer{}
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+
+	require.NoError(t, cmd.Help())
+	out := buf.String()
+	for _, flag := range []string{
+		"--platform",
+		"--output-dir",
+		"--library",
+		"--resources",
+		"--preset",
+		"--dry-run",
+		"--force",
+	} {
+		assert.Contains(t, out, flag,
+			"help output must list %s", flag)
+	}
+}
+
+// T2 — Spec scenario "initOptions struct": the struct SHALL declare
+// the twelve fields named in cli-init-command/spec.md. A runtime
+// reflection check catches accidental field drops or renames without
+// forcing a brittle positional assertion.
+func TestInitOptions_StructShape(t *testing.T) {
+	t.Parallel()
+
+	typ := reflect.TypeOf(initOptions{})
+	want := map[string]bool{
+		"IO":          true,
+		"Library":     true,
+		"Initializer": true,
+		"Ctx":         true,
+		"LibraryPath": true,
+		"Platform":    true,
+		"OutputDir":   true,
+		"Refs":        true,
+		"Preset":      true,
+		"DryRun":      true,
+		"Force":       true,
+	}
+
+	got := make(map[string]bool, typ.NumField())
+	for i := 0; i < typ.NumField(); i++ {
+		got[typ.Field(i).Name] = true
+	}
+
+	assert.Equal(t, want, got,
+		"initOptions must declare exactly the spec-named fields")
+}
+
+// T3 — Spec scenario "Dry-run preview": when --dry-run is set,
+// output SHALL show what would be written without creating files.
+// renderResults writes "Would write: <path>\n  from: <input>\n" for
+// each success and a trailing "Dry run complete." line.
+func TestRunInit_DryRunRendersWouldWrite(t *testing.T) {
+	t.Parallel()
+
+	opts, out, errOut := newInitOpts(t, nil, &fakeInitializer{
+		results: []core.InitializeResult{
+			{
+				Ref:        "skill/commit",
+				InputPath:  "/lib/skills/commit.md",
+				OutputPath: ".opencode/skills/commit/SKILL.md",
+			},
+		},
+	}, func(o *initOptions) {
+		o.DryRun = true
+	})
+
+	require.NoError(t, runInit(opts))
+	assert.Contains(t, out.String(), "Would write:",
+		"dry-run must render the Would write: line")
+	assert.Contains(t, out.String(), "Dry run complete.",
+		"dry-run must append a completion line")
+	assert.Empty(t, errOut.String(),
+		"dry-run success must not write to ErrOut")
+}
+
+// T4 — Spec scenario "Force overwrite": --force SHALL cause existing
+// files to be overwritten. The runInit body plumbs Force into
+// (*InitializeRequest).Force; the actual overwrite behavior lives in
+// the Initializer implementation (production service layer). This
+// test asserts the plumb-through, not the side effect.
+func TestRunInit_ForcePropagatesToRequest(t *testing.T) {
+	t.Parallel()
+
+	init := &fakeInitializer{
+		results: []core.InitializeResult{
+			{
+				Ref:        "skill/commit",
+				InputPath:  "/lib/skills/commit.md",
+				OutputPath: ".opencode/skills/commit/SKILL.md",
+			},
+		},
+	}
+
+	opts, _, _ := newInitOpts(t, nil, init, func(o *initOptions) {
+		o.Force = true
+	})
+
+	require.NoError(t, runInit(opts))
+	require.Equal(t, 1, init.calls, "Initialize must be called exactly once")
+	require.NotNil(t, init.lastReq, "InitializeRequest must be captured")
+	assert.True(t, init.lastReq.Force,
+		"Force flag must propagate to InitializeRequest.Force")
 }

@@ -162,8 +162,6 @@ func TestRunPresets_LibraryLoadError(t *testing.T) {
 }
 
 func TestNewCmdPresets_RunFInjectionCapturesOpts(t *testing.T) {
-	t.Parallel()
-
 	var captured *presetsOptions
 	runF := func(opts *presetsOptions) error {
 		captured = opts
@@ -186,8 +184,6 @@ func TestNewCmdPresets_RunFInjectionCapturesOpts(t *testing.T) {
 }
 
 func TestNewCmdPresets_PassesLibraryFlagToLoader(t *testing.T) {
-	t.Parallel()
-
 	fixtureRel, err := filepath.Abs(filepath.Join("..", "test", "fixtures", "library"))
 	require.NoError(t, err)
 
@@ -219,13 +215,9 @@ func TestNewCmdPresets_PassesLibraryFlagToLoader(t *testing.T) {
 }
 
 func TestNewCmdPresets_HonorsOutputFlagValue(t *testing.T) {
-	t.Parallel()
-
 	for _, format := range []string{"json", "table", "plain"} {
 		format := format
 		t.Run("format="+format, func(t *testing.T) {
-			t.Parallel()
-
 			lib := loadFixtureLibrary(t)
 			var capturedOutput string
 			runF := func(opts *presetsOptions) error {

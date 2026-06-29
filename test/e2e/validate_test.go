@@ -26,9 +26,11 @@ var _ = Describe("Validate Command", func() {
 	})
 
 	Describe("validating without platform flag", func() {
-		It("should fail with exit code 1 and show required flag error", func() {
+		It("should fail with exit code 2 and show required flag error", func() {
 			session := cli.Run("validate", fixtures.ValidDocument())
-			cli.ShouldFailWithExit(session, 1)
+			// Cobra's MarkFlagRequired enforcement maps to ExitCodeUsage (2)
+			// via internal/cmdutil/exit.go cobraUsagePrefixes.
+			cli.ShouldFailWithExit(session, 2)
 			output := cli.GetErrorOutput(session)
 			Expect(output).To(Or(
 				ContainSubstring("required"),
@@ -40,9 +42,11 @@ var _ = Describe("Validate Command", func() {
 	Describe("validating a nonexistent file", func() {
 		It("should fail with exit code > 0 and show file error", func() {
 			session := cli.Run("validate", fixtures.NonexistentFile(), "--platform", "opencode")
-			// CLI returns exit code 3 for file/parse errors
+			// Parse/file errors emit an ExitCodeError (1) via cmdutil.ExitCodeFor.
 			Expect(session.ExitCode()).To(BeNumerically(">", 0))
-			cli.ShouldErrorOutput(session, "error")
+			// Stderr now contains only output.FormatError output (Cobra's
+			// usage block is suppressed via cmd/root.go SilenceUsage).
+			cli.ShouldErrorOutput(session, "Error")
 		})
 	})
 
@@ -84,7 +88,7 @@ var _ = Describe("Validate Command", func() {
 		It("should fail with exit code > 0 and show file error", func() {
 			session := cli.Run("validate", fixtures.NonexistentFile(), "--platform", "claude-code")
 			Expect(session.ExitCode()).To(BeNumerically(">", 0))
-			cli.ShouldErrorOutput(session, "error")
+			cli.ShouldErrorOutput(session, "Error")
 		})
 	})
 

@@ -199,8 +199,6 @@ func TestRunResources_LibraryLoadError(t *testing.T) {
 }
 
 func TestNewCmdResources_RunFInjectionCapturesOpts(t *testing.T) {
-	t.Parallel()
-
 	var captured *libraryResourcesOptions
 	runF := func(opts *libraryResourcesOptions) error {
 		captured = opts
@@ -223,8 +221,6 @@ func TestNewCmdResources_RunFInjectionCapturesOpts(t *testing.T) {
 }
 
 func TestNewCmdResources_PassesLibraryFlagToLoader(t *testing.T) {
-	t.Parallel()
-
 	fixturePath, err := filepath.Abs(filepath.Join("..", "test", "fixtures", "library"))
 	require.NoError(t, err)
 
@@ -256,8 +252,6 @@ func TestNewCmdResources_PassesLibraryFlagToLoader(t *testing.T) {
 }
 
 func TestNewCmdResources_OldJSONFlagIsRejected(t *testing.T) {
-	t.Parallel()
-
 	io := iostreams.Test()
 	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
 
@@ -280,13 +274,9 @@ func TestNewCmdResources_OldJSONFlagIsRejected(t *testing.T) {
 }
 
 func TestNewCmdResources_HonorsOutputFlagValue(t *testing.T) {
-	t.Parallel()
-
 	for _, format := range []string{"json", "table", "plain"} {
 		format := format
 		t.Run("format="+format, func(t *testing.T) {
-			t.Parallel()
-
 			lib := loadFixtureLibrary(t)
 			var capturedOutput string
 			runF := func(opts *libraryResourcesOptions) error {

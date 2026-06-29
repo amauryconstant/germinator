@@ -2,6 +2,7 @@ package core
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 )
 
@@ -101,4 +102,38 @@ func TestIsError(t *testing.T) {
 			t.Error("expected IsError() to return false for success result")
 		}
 	})
+}
+
+// T6 — Spec scenario "InitializeResult fields" (delta spec
+// library-partial-initialization): InitializeResult SHALL carry
+// exactly {Ref, InputPath, OutputPath, Error}; success is implied by
+// Error == nil and there is no separate Succeeded field.
+func TestInitializeResult_StructShape(t *testing.T) {
+	typ := reflect.TypeOf(InitializeResult{})
+
+	want := map[string]bool{
+		"Ref":        true,
+		"InputPath":  true,
+		"OutputPath": true,
+		"Error":      true,
+	}
+
+	got := make(map[string]bool, typ.NumField())
+	for i := 0; i < typ.NumField(); i++ {
+		got[typ.Field(i).Name] = true
+	}
+
+	if len(got) != len(want) {
+		t.Errorf("InitializeResult has %d fields, want exactly %d: %v", len(got), len(want), got)
+	}
+	for name := range want {
+		if !got[name] {
+			t.Errorf("InitializeResult missing required field %q", name)
+		}
+	}
+	for name := range got {
+		if !want[name] {
+			t.Errorf("InitializeResult has unexpected field %q (spec mandates no Succeeded field)", name)
+		}
+	}
 }

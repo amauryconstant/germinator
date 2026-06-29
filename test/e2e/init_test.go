@@ -59,7 +59,7 @@ var _ = Describe("Init Command", func() {
 	})
 
 	Describe("init fails without force when file exists", func() {
-		It("should return error when file exists and force not set", func() {
+		It("should fail with exit code 1 when file exists and force not set", func() {
 			outputPath := filepath.Join(tmpDir, ".opencode", "skills", "commit", "SKILL.md")
 			Expect(os.MkdirAll(filepath.Dir(outputPath), 0755)).To(Succeed())
 			Expect(os.WriteFile(outputPath, []byte("existing content"), 0644)).To(Succeed())
@@ -68,10 +68,10 @@ var _ = Describe("Init Command", func() {
 				"init", "--platform", "opencode", "--resources", "skill/commit",
 				"--output-dir", tmpDir,
 			)
-			Expect(session.ExitCode()).To(BeNumerically(">", 0))
-			// Per the slice-5 contract, per-resource errors render via
-			// output.FormatError to stderr; the partial-success summary
-			// goes to stdout.
+			// Per the slice-5 contract, the per-resource failure aggregates
+			// as *core.PartialSuccessError{Succeeded: 0, Failed: 1}; the
+			// 0/1 bucket maps to ExitCodeError (1) via cmdutil.ExitCodeFor.
+			cli.ShouldFailWithExit(session, 1)
 			cli.ShouldErrorOutput(session, "exists")
 		})
 	})
@@ -91,37 +91,44 @@ var _ = Describe("Init Command", func() {
 	})
 
 	Describe("init fails for nonexistent resource", func() {
-		It("should return error for invalid resource reference", func() {
+		It("should fail with exit code 1 for invalid resource reference", func() {
 			session := cli.RunWithEnv(libraryEnv(),
 				"init", "--platform", "opencode", "--resources", "skill/nonexistent",
 				"--output-dir", tmpDir,
 			)
-			Expect(session.ExitCode()).To(BeNumerically(">", 0))
-			// Per the slice-5 contract, per-resource errors render via
-			// output.FormatError to stderr. The new pattern writes a
-			// partial-success summary like "0 succeeded, 1 failed".
-			Expect(cli.GetErrorOutput(session)).To(ContainSubstring("nonexistent"))
+			// Per the slice-5 contract, the per-resource failure aggregates
+			// as *core.PartialSuccessError{Succeeded: 0, Failed: 1} which
+			// maps to ExitCodeError (1) via cmdutil.ExitCodeFor.
+			cli.ShouldFailWithExit(session, 1)
+			cli.ShouldErrorOutput(session, "nonexistent")
 		})
 	})
 
 	Describe("init fails for nonexistent preset", func() {
-		It("should return exit code 2 for invalid preset name (NotFoundError → ExitCodeUsage)", func() {
+		It("should fail with exit code 2 for invalid preset name (NotFoundError → ExitCodeUsage)", func() {
 			session := cli.RunWithEnv(libraryEnv(),
 				"init", "--platform", "opencode", "--preset", "nonexistent-preset",
 				"--output-dir", tmpDir,
 			)
-			Expect(session.ExitCode()).To(BeNumerically(">", 0))
+			// Per slice-5 §5.0.1: --preset <missing> returns
+			// *core.NotFoundError{Entity: "preset", Key: <name>}; the
+			// cmdutil.ExitCodeFor extension added in slice 5 maps this
+			// to ExitCodeUsage (2).
+			cli.ShouldFailWithExit(session, 2)
 			cli.ShouldErrorOutput(session, "nonexistent-preset")
 		})
 	})
 
 	Describe("init requires platform flag", func() {
-		It("should fail with exit code 1 when platform not specified", func() {
+		It("should fail with exit code 2 when platform not specified (cobra required-flag maps to ExitCodeUsage)", func() {
 			session := cli.RunWithEnv(libraryEnv(),
 				"init", "--resources", "skill/commit",
 				"--output-dir", tmpDir,
 			)
-			cli.ShouldFailWithExit(session, 1)
+			// Per cmd/init.go: MarkFlagRequired("platform"); the cobra
+			// missing-required-flag error is mapped to ExitCodeUsage (2)
+			// via internal/cmdutil/exit.go cobraUsagePrefixes.
+			cli.ShouldFailWithExit(session, 2)
 			output := cli.GetErrorOutput(session)
 			Expect(output).To(Or(
 				ContainSubstring("required"),

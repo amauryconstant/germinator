@@ -48,13 +48,15 @@ var _ = Describe("Canonicalize Command", func() {
 	})
 
 	Describe("canonicalizing without platform flag", func() {
-		It("should fail with exit code 1 and show required flag error", func() {
+		It("should fail with exit code 2 and show required flag error", func() {
 			outputPath, err := fixtures.TempOutputFile("canonicalize-no-platform")
 			Expect(err).NotTo(HaveOccurred())
 			defer os.Remove(outputPath)
 
 			session := cli.Run("canonicalize", fixtures.ValidDocument(), outputPath, "--type", "agent")
-			cli.ShouldFailWithExit(session, 1)
+			// Cobra's MarkFlagRequired enforcement maps to ExitCodeUsage (2)
+			// via internal/cmdutil/exit.go cobraUsagePrefixes.
+			cli.ShouldFailWithExit(session, 2)
 			output := cli.GetErrorOutput(session)
 			Expect(output).To(Or(
 				ContainSubstring("required"),
@@ -64,13 +66,15 @@ var _ = Describe("Canonicalize Command", func() {
 	})
 
 	Describe("canonicalizing without type flag", func() {
-		It("should fail with exit code 1 and show required flag error", func() {
+		It("should fail with exit code 2 and show required flag error", func() {
 			outputPath, err := fixtures.TempOutputFile("canonicalize-no-type")
 			Expect(err).NotTo(HaveOccurred())
 			defer os.Remove(outputPath)
 
 			session := cli.Run("canonicalize", fixtures.ValidDocument(), outputPath, "--platform", "opencode")
-			cli.ShouldFailWithExit(session, 1)
+			// Cobra's MarkFlagRequired enforcement maps to ExitCodeUsage (2)
+			// via internal/cmdutil/exit.go cobraUsagePrefixes.
+			cli.ShouldFailWithExit(session, 2)
 			output := cli.GetErrorOutput(session)
 			Expect(output).To(Or(
 				ContainSubstring("required"),

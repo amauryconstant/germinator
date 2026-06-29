@@ -46,6 +46,7 @@ func TestExitCodeFor(t *testing.T) {
 		{name: "cobra flag needs arg", err: errors.New("flag needs an argument: --platform"), want: ExitCodeUsage},
 		{name: "cobra invalid argument", err: errors.New("invalid argument \"foo\" for \"--platform\" flag"), want: ExitCodeUsage},
 		{name: "cobra bad flag syntax", err: errors.New("bad flag syntax: ---foo"), want: ExitCodeUsage},
+		{name: "cobra required flag", err: errors.New(`required flag(s) "platform" not set`), want: ExitCodeUsage},
 		{name: "pflag NotExistError", err: pflagNotExist, want: ExitCodeUsage},
 		{name: "pflag ValueRequiredError", err: pflagValueRequired, want: ExitCodeUsage},
 		{name: "pflag InvalidSyntaxError", err: pflagInvalidSyntax, want: ExitCodeUsage},

@@ -235,8 +235,6 @@ func TestRunValidate_VerboseProgressToStderr(t *testing.T) {
 }
 
 func TestNewCmdValidate_RunFCapturesOpts(t *testing.T) {
-	t.Parallel()
-
 	var captured *validateOptions
 	runF := func(opts *validateOptions) error {
 		captured = opts
@@ -265,8 +263,6 @@ func TestNewCmdValidate_RunFCapturesOpts(t *testing.T) {
 }
 
 func TestNewCmdValidate_RequiresPlatformFlag(t *testing.T) {
-	t.Parallel()
-
 	io := iostreams.Test()
 	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
 	cmd := NewCmdValidate(f, func(*validateOptions) error { return nil })
@@ -279,8 +275,6 @@ func TestNewCmdValidate_RequiresPlatformFlag(t *testing.T) {
 }
 
 func TestNewCmdValidate_NilRunFFallsBackToProduction(t *testing.T) {
-	t.Parallel()
-
 	io, out, errOut := newValidateTestIO()
 	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
 	f.Validator = cmdutil.OnceValuesFunc(func() (application.Validator, error) {

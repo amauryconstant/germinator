@@ -272,8 +272,6 @@ func TestRunCanonicalize_CanonicalizerReceivesExactRequest(t *testing.T) {
 }
 
 func TestNewCmdCanonicalize_RunFCapturesOpts(t *testing.T) {
-	t.Parallel()
-
 	var captured *canonicalizeOptions
 	runF := func(opts *canonicalizeOptions) error {
 		captured = opts
@@ -303,8 +301,6 @@ func TestNewCmdCanonicalize_RunFCapturesOpts(t *testing.T) {
 }
 
 func TestNewCmdCanonicalize_RequiresPlatformAndTypeFlags(t *testing.T) {
-	t.Parallel()
-
 	io := iostreams.Test()
 	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
 	cmd := NewCmdCanonicalize(f, func(*canonicalizeOptions) error { return nil })
@@ -317,8 +313,6 @@ func TestNewCmdCanonicalize_RequiresPlatformAndTypeFlags(t *testing.T) {
 }
 
 func TestNewCmdCanonicalize_RequiresTypeFlag(t *testing.T) {
-	t.Parallel()
-
 	io := iostreams.Test()
 	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
 	cmd := NewCmdCanonicalize(f, func(*canonicalizeOptions) error { return nil })

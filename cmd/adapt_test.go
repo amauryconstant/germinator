@@ -212,8 +212,6 @@ func TestRunAdapt_TransformerReceivesExactRequest(t *testing.T) {
 }
 
 func TestNewCmdAdapt_RunFInjectionCapturesOpts(t *testing.T) {
-	t.Parallel()
-
 	var captured *adaptOptions
 	runF := func(opts *adaptOptions) error {
 		captured = opts
@@ -238,8 +236,6 @@ func TestNewCmdAdapt_RunFInjectionCapturesOpts(t *testing.T) {
 }
 
 func TestNewCmdAdapt_NilRunFFallsBackToProduction(t *testing.T) {
-	t.Parallel()
-
 	io, out, errOut := newAdaptTestIO()
 	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
 	f.Transformer = cmdutil.OnceValuesFunc(func() (application.Transformer, error) {
@@ -259,8 +255,6 @@ func TestNewCmdAdapt_NilRunFFallsBackToProduction(t *testing.T) {
 }
 
 func TestNewCmdAdapt_RequiresPlatformFlag(t *testing.T) {
-	t.Parallel()
-
 	io := iostreams.Test()
 	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
 	cmd := NewCmdAdapt(f, func(*adaptOptions) error { return nil })

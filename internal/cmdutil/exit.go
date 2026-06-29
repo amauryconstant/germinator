@@ -29,6 +29,7 @@ var cobraUsagePrefixes = []string{
 	"no such flag",
 	"invalid syntax",
 	"unknown shorthand flag",
+	"required flag",
 }
 
 // ExitCodeFor maps an error to an ExitCode.

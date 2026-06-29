@@ -273,8 +273,6 @@ func TestRunShow_LibraryLoadError(t *testing.T) {
 }
 
 func TestNewCmdShow_RunFInjectionCapturesOpts(t *testing.T) {
-	t.Parallel()
-
 	var captured *showOptions
 	runF := func(opts *showOptions) error {
 		captured = opts
@@ -298,13 +296,9 @@ func TestNewCmdShow_RunFInjectionCapturesOpts(t *testing.T) {
 }
 
 func TestNewCmdShow_HonorsOutputFlagValue(t *testing.T) {
-	t.Parallel()
-
 	for _, format := range []string{"json", "table", "plain"} {
 		format := format
 		t.Run("format="+format, func(t *testing.T) {
-			t.Parallel()
-
 			lib := loadFixtureLibrary(t)
 			var capturedOutput string
 			runF := func(opts *showOptions) error {
@@ -328,8 +322,6 @@ func TestNewCmdShow_HonorsOutputFlagValue(t *testing.T) {
 }
 
 func TestNewCmdShow_OldJSONFlagIsRejected(t *testing.T) {
-	t.Parallel()
-
 	io := iostreams.Test()
 	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
 
@@ -346,8 +338,6 @@ func TestNewCmdShow_OldJSONFlagIsRejected(t *testing.T) {
 }
 
 func TestNewCmdShow_PassesLibraryFlagToLoader(t *testing.T) {
-	t.Parallel()
-
 	fixtureRel, err := filepath.Abs(filepath.Join("..", "test", "fixtures", "library"))
 	require.NoError(t, err)
 

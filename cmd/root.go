@@ -21,6 +21,10 @@ Germinator source format and adapts it for target platforms like Claude Code and
 		Run: func(c *cobra.Command, _ []string) {
 			_ = c.Help()
 		},
+		// main.go owns all error/usage rendering via output.FormatError;
+		// suppress Cobra's built-in copy so users see a single message.
+		SilenceErrors: true,
+		SilenceUsage:  true,
 	}
 
 	cmd.PersistentFlags().CountP("verbose", "v", "Increase verbosity (use -v or -vv)")

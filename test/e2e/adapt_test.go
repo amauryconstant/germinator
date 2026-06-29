@@ -45,13 +45,15 @@ var _ = Describe("Adapt Command", func() {
 	})
 
 	Describe("adapting without platform flag", func() {
-		It("should fail with exit code 1 and show required flag error", func() {
+		It("should fail with exit code 2 and show required flag error", func() {
 			outputPath, err := fixtures.TempOutputFile("adapt-no-platform")
 			Expect(err).NotTo(HaveOccurred())
 			defer os.Remove(outputPath)
 
 			session := cli.Run("adapt", fixtures.ValidDocument(), outputPath)
-			cli.ShouldFailWithExit(session, 1)
+			// Cobra's MarkFlagRequired enforcement maps to ExitCodeUsage (2)
+			// via internal/cmdutil/exit.go cobraUsagePrefixes.
+			cli.ShouldFailWithExit(session, 2)
 			output := cli.GetErrorOutput(session)
 			Expect(output).To(Or(
 				ContainSubstring("required"),

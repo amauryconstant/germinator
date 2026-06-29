@@ -23,12 +23,12 @@ The `Initializer.Initialize(ctx, req) ([]core.InitializeResult, error)` method S
 #### Scenario: All success
 
 - **WHEN** `Initialize` processes N refs and all succeed
-- **THEN** it SHALL return `([]result{N items, all Succeeded: true}, nil)`
+- **THEN** it SHALL return `([]result{N items, all with Error: nil}, nil)`
 
 #### Scenario: Partial success
 
 - **WHEN** `Initialize` processes N refs and M fail
-- **THEN** it SHALL return `([]result{N items, M with Succeeded: false and Error: ...}, nil)` — the error return is `nil`; per-resource failures are in the result slice
+- **THEN** it SHALL return `([]result{N items, M with non-nil Error}, nil)` — the error return is `nil`; per-resource failures are encoded in the `Error` field of the result slice
 
 #### Scenario: Transport failure
 
@@ -58,17 +58,17 @@ Each `core.InitializeResult` SHALL carry: `Ref string`, `InputPath string`, `Out
 
 ### Requirement: Caller distinguishes partial vs full failure
 
-The caller (`runInit`) SHALL distinguish partial success from full failure by inspecting the count of `Succeeded == true` results and synthesizing the appropriate `*core.PartialSuccessError`.
+The caller (`runInit`) SHALL distinguish partial success from full failure by inspecting the count of results with `Error == nil` and synthesizing the appropriate `*core.PartialSuccessError`.
 
 #### Scenario: Partial → exit 0
 
-- **WHEN** the result slice has at least one `Succeeded: true` entry
+- **WHEN** the result slice has at least one entry with `Error == nil`
 - **THEN** `runInit` SHALL return `*core.PartialSuccessError{Succeeded: <count>, Failed: <count>}`
 - **AND** `cmdutil.ExitCodeFor` SHALL return 0
 
 #### Scenario: Full failure → exit 1
 
-- **WHEN** the result slice has zero `Succeeded: true` entries
+- **WHEN** the result slice has zero entries with `Error == nil`
 - **THEN** `runInit` SHALL return `*core.PartialSuccessError{Succeeded: 0, Failed: <count>}`
 - **AND** `cmdutil.ExitCodeFor` SHALL return 1
 
