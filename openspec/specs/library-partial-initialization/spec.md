@@ -58,21 +58,64 @@ The system SHALL return results for all resources, including failures.
 - **AND** second result has an error
 - **AND** third result has no error
 
-### Requirement: Error return only when all resources fail
+### Requirement: Initializer.Initialize contract
 
-The system SHALL return nil error if at least one resource succeeded.
+The `Initializer.Initialize(ctx, req) ([]core.InitializeResult, error)` method SHALL always return the full list of per-resource results, even on partial success or full failure. The `error` return is reserved for transport-level failures (e.g. library not found); per-resource failures are encoded in `core.InitializeResult.Error`.
 
-#### Scenario: Return nil error on partial success
-- **GIVEN** resources where some succeed and some fail
-- **WHEN** Initialize is called
-- **THEN** the returned error is nil
-- **AND** individual results contain the failures
+#### Scenario: All success
+- **WHEN** `Initialize` processes N refs and all succeed
+- **THEN** it SHALL return `([]result{N items, all with Error: nil}, nil)`
 
-#### Scenario: Return error when all resources fail
-- **GIVEN** resources where all fail
-- **WHEN** Initialize is called
-- **THEN** a non-nil error is returned
-- **AND** individual results contain the failures
+#### Scenario: Partial success
+- **WHEN** `Initialize` processes N refs and M fail
+- **THEN** it SHALL return `([]result{N items, M with non-nil Error}, nil)` — the error return is `nil`; per-resource failures are encoded in the `Error` field of the result slice
+
+#### Scenario: Transport failure
+- **WHEN** the library cannot be loaded
+- **THEN** it SHALL return `(nil, err)` — the result slice is nil and the error is non-nil
+
+### Requirement: core.InitializeResult
+
+Each `core.InitializeResult` SHALL carry: `Ref string`, `InputPath string`, `OutputPath string`, `Error error`. Success is implied by `Error == nil`; there is no separate `Succeeded` field.
+
+#### Scenario: InitializeResult fields
+- **WHEN** an `InitializeResult` is inspected
+- **THEN** it SHALL have the four fields above
+- **AND** `Error == nil` SHALL indicate a successful initialization
+- **AND** `Error != nil` SHALL indicate a failed initialization
+
+### Requirement: core.InitializeError wraps the cause
+
+`core.InitializeError` SHALL carry a `Cause error` field and SHALL implement `Unwrap() error` returning the cause so `errors.As(err, &typedErr)` reaches the underlying typed error.
+
+#### Scenario: Unwrap chain reachable
+- **WHEN** `core.InitializeError` wraps a typed error
+- **THEN** `errors.As` SHALL reach the wrapped cause
+- **AND** `core.PartialSuccessError.Errors()` SHALL yield `core.InitializeError` values consumable by `output.FormatError`
+
+### Requirement: Caller distinguishes partial vs full failure
+
+The caller (`runInit`) SHALL distinguish partial success from full failure by inspecting the count of results with `Error == nil` and synthesizing the appropriate `*core.PartialSuccessError`.
+
+#### Scenario: Partial → exit 0
+- **WHEN** the result slice has at least one entry with `Error == nil`
+- **THEN** `runInit` SHALL return `*core.PartialSuccessError{Succeeded: <count>, Failed: <count>}`
+- **AND** `cmdutil.ExitCodeFor` SHALL return 0
+
+#### Scenario: Full failure → exit 1
+- **WHEN** the result slice has zero entries with `Error == nil`
+- **THEN** `runInit` SHALL return `*core.PartialSuccessError{Succeeded: 0, Failed: <count>}`
+- **AND** `cmdutil.ExitCodeFor` SHALL return 1
+
+### Requirement: Preset-not-found reported as usage error
+
+When `--preset <name>` references a non-existent preset, `runInit` SHALL return `*core.NotFoundError{Entity: "preset", Key: <name>}`. The `cmdutil.ExitCodeFor` mapping returns `ExitCodeUsage` (2) for `*core.NotFoundError`.
+
+#### Scenario: Preset not found → exit 2
+- **GIVEN** no preset named `ghost` in the library
+- **WHEN** `germinator init --platform opencode --preset ghost` is run
+- **THEN** `runInit` SHALL return `*core.NotFoundError{Entity: "preset", Key: "ghost"}`
+- **AND** `cmdutil.ExitCodeFor(err)` SHALL return `ExitCodeUsage` (2)
 
 ### Requirement: Support dry-run with partial processing
 
