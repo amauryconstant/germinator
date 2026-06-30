@@ -123,6 +123,9 @@ git-workflow - Git workflow tools
 ## Library Create Preset
 
 Create a new preset that references existing resources in the library.
+The `library create` Cobra group wrapper was collapsed to a leaf in
+slice 6 — `library create preset` is now a single command (no group
+indirection), registered directly under `library` in `cmd/library.go`.
 
 | Flag | Default | Description |
 |------|---------|-------------|
@@ -131,7 +134,12 @@ Create a new preset that references existing resources in the library.
 | `--force` | false | Overwrite existing preset |
 | `--library` | XDG default | Path to library directory |
 
-Validation: Fails if referenced resources don't exist; fails if preset exists without `--force`.
+**Output flag:** `library create preset` does NOT expose `--output`
+(the legacy implementation did not have `--json`). This matches the
+`output-formats` capability's "only commands that previously
+supported `--json` get `--output`" rule.
+
+Validation: Fails if referenced resources don't exist; fails if preset exists without `--force`. Empty `--resources` returns a usage error (exit 2).
 
 ```bash
 # Create preset with single resource
@@ -148,6 +156,65 @@ germinator library create preset git-workflow --resources skill/commit --force
 ```
 
 **Output:** Displays preset name, description, and resources on success.
+
+## Library Add
+
+Import resources to the library. Supports three modes dispatched on
+the `--discover` and `--batch` flags.
+
+### Mode 1: explicit files
+
+```bash
+germinator library add <file> --type skill --name test
+germinator library add <file> --type skill --name test --dry-run
+germinator library add <file> --force
+```
+
+### Mode 2: `--discover` (report-only)
+
+Scans `skills/`, `agents/`, `commands/`, `memory/` directories for
+orphan files (not registered in `library.yaml`) and reports them.
+Without `--batch --force`, this is report-only.
+
+```bash
+germinator library add --discover
+germinator library add --discover --dry-run
+```
+
+`name_conflict` (orphan name already registered under a different
+type) is recorded as a `*core.OperationError` per file and counts
+toward `PartialSuccessError.Failed`. The exit code is 0 if any
+succeeded and 1 otherwise.
+
+### Mode 3: `--discover --batch --force` (continuous)
+
+Continuously processes all orphans, registering them in
+`library.yaml`. On cancellation (Ctrl-C), partial successes are
+reported and the function returns wrapped `ctx.Err()`.
+
+```bash
+germinator library add --discover --batch --force
+germinator library add --discover --batch --force --dry-run
+```
+
+### Output formats
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--output` | `plain` | `plain` (byte-identical to pre-change), `json` (via `output.NewJSONExporter`), or `table` (via `output.NewTableExporter`) |
+
+```bash
+germinator library add --discover --batch --force --output json
+germinator library add --discover --output table
+```
+
+### Stream discipline
+
+- **Stdout (`opts.IO.Out`):** primary data — added resources, summary lines, table rows, JSON output.
+- **Stderr (`opts.IO.ErrOut`):** per-resource errors via `output.FormatError`; verbose progress via `opts.IO.Verbosef`; partial-success aggregates.
+
+Never mix diagnostic output into stdout — this preserves
+`germinator library add --discover --batch --force --output json | jq '.'`.
 
 ---
 

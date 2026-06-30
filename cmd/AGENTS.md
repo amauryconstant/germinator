@@ -179,6 +179,74 @@ See:
   `CommandConfig` consumed by non-migrated commands during the
   migration window.
 
+## Canonical example (slice 6)
+
+Slice 6 migrates the mutating library commands `library add` (three
+modes) and `library create preset`. The migrated files stay **flat**
+in `cmd/` (per Decision 7 in
+`openspec/changes/migrate-library-add-create/design.md`) — no
+`cmd/library/` subdirectory is created. Key differences from the
+slice-2/4/5 templates:
+
+- **Three modes in `library add`.** Mode dispatch happens in
+  `runAdd` based on the `Discover` and `Batch` flags:
+  - **Mode 1 (explicit files):** for each `InputPath`, call
+    `lib.AddResource(opts.Ctx, ...)`; collect into a partial-success
+    aggregate.
+  - **Mode 2 (`--discover`):** call `lib.DiscoverOrphans(opts.Ctx, ...)`;
+    for each orphan, validate ref via `core.CanInstallResource`; on
+    `name_conflict`, record `*core.OperationError` and increment
+    `PartialSuccessError.Failed`. Return `*core.PartialSuccessError`
+    on partial success.
+  - **Mode 3 (`--discover --batch --force`):** continuous loop; on
+    cancellation, collect partial successes and return wrapped
+    `ctx.Err()`.
+- **Per-resource `name_conflict` is distinct from skip.** Conflicts
+  produce a `*core.OperationError{Op: "register", Message: "name
+  conflict: <ref>"}` and count as failures (matches the pre-change
+  semantics; see design Decision 3).
+- **`Ctx context.Context` in `addOptions`.** Threaded into every
+  call to `library.DiscoverOrphans`, `library.BatchAddResources`,
+  `library.LoadLibrary`.
+- **`--output` only on `library add`.** `library create preset` does
+  not get `--output` (legacy did not have `--json`). Plain output
+  is byte-identical to the pre-change `library_add.go` output
+  (per design Decision 9 and the spec delta at
+  `openspec/changes/migrate-library-add-create/specs/library-library-json-output/spec.md`).
+- **`library create` collapses to a leaf.** The
+  `NewLibraryCreateCommand` Cobra group wrapper is deleted
+  (per design Decision 8); `NewCmdCreatePreset` is registered
+  directly under `library` in `cmd/library.go`. User-facing command
+  path is unchanged: `germinator library create preset <name>
+  --resources ...`.
+- **`core.CanInstallResource` (pure, in `internal/core/rules.go`).**
+  String-only ref validation; depguard-compatible (no `library`
+  import). The authoritative validation still happens in the
+  library; this is a fast-fail check before I/O.
+- **Library type renames.** `library.AddOptions` → `library.AddRequest`
+  and `library.OrphanInfo` → `library.Orphan` (per design Decision 6)
+  to align the public types with the `Library` interface declared
+  in `cmd/library_add.go`.
+
+See:
+- `cmd/library_add.go` (rewritten in place) — `NewCmdAdd(f,
+  libraryPath, runF)` + `runAdd(opts)`. Uses
+  `core.CanInstallResource` for ref validation; partial-success
+  aggregation via `*core.PartialSuccessError`. Three modes; per-
+  resource errors aggregate.
+- `cmd/library_create.go` (rewritten in place; group wrapper
+  removed) — `NewCmdCreatePreset(f, libraryPath, runF)` +
+  `runCreatePreset(opts)`. Registered directly under `library` in
+  `cmd/library.go`.
+- `cmd/library.go` — rewires `NewLibraryAddCommand(bridge, ...)` to
+  `NewCmdAdd(f, ...)` and `NewLibraryCreateCommand(bridge, ...)` to
+  `NewCmdCreatePreset(f, ...)`.
+- `internal/library/adder.go` — adds `ctx context.Context` to
+  `AddResource`, `BatchAddResources`, `DiscoverOrphans`; renames
+  `AddOptions` → `AddRequest` and `OrphanInfo` → `Orphan`.
+- `internal/library/loader.go` — adds `ctx context.Context` to
+  `LoadLibrary`.
+
 ---
 
 # CommandConfig (legacy; slice 7)
