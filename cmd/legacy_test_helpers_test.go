@@ -58,7 +58,7 @@ func newTestFactory() *cmdutil.Factory {
 	})
 	f.Library = cmdutil.OnceValuesFunc(func() (*library.Library, error) {
 		path := library.FindLibrary("", os.Getenv("GERMINATOR_LIBRARY"))
-		return library.LoadLibrary(path)
+		return library.LoadLibrary(context.Background(), path)
 	})
 	return f
 }

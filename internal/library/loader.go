@@ -1,6 +1,7 @@
 package library
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -20,8 +21,14 @@ type libraryYAML struct {
 }
 
 // LoadLibrary loads a library from the given directory path.
-// It expects a library.yaml file in the directory.
-func LoadLibrary(path string) (*Library, error) {
+// It expects a library.yaml file in the directory. The provided ctx is
+// checked between I/O operations; on cancellation, the partial result
+// is discarded and the function returns ctx.Err() wrapped with context.
+func LoadLibrary(ctx context.Context, path string) (*Library, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("loading library: %w", err)
+	}
+
 	// Check if directory exists
 	info, err := os.Stat(path)
 	if err != nil {
@@ -34,6 +41,10 @@ func LoadLibrary(path string) (*Library, error) {
 		return nil, gerrors.NewFileError(path, "access", "path is not a directory", nil)
 	}
 
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("loading library: %w", err)
+	}
+
 	// Read library.yaml
 	yamlPath := filepath.Join(path, "library.yaml")
 	yamlContent, err := os.ReadFile(yamlPath) //nolint:gosec // G304: User provides library path, must read fixed library.yaml from it
@@ -42,6 +53,10 @@ func LoadLibrary(path string) (*Library, error) {
 			return nil, gerrors.NewFileError(yamlPath, "read", "library.yaml not found", nil)
 		}
 		return nil, gerrors.NewFileError(yamlPath, "read", "failed to read library.yaml", err)
+	}
+
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("loading library: %w", err)
 	}
 
 	// Parse YAML
@@ -56,6 +71,10 @@ func LoadLibrary(path string) (*Library, error) {
 	}
 	if libYAML.Version != SupportedVersion {
 		return nil, gerrors.NewConfigError("version", libYAML.Version, fmt.Sprintf("unsupported library version (expected %s)", SupportedVersion))
+	}
+
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("loading library: %w", err)
 	}
 
 	// Create library

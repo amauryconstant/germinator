@@ -1,8 +1,7 @@
 package cmd
 
 // TODO(slice-7): delete this file once slice-3/slice-6 consumers migrate
-// off the remaining helpers (formatResourcesList, formatPresetOutput,
-// FormatBatchAddSummary).
+// off the remaining helpers (formatResourcesList, FormatBatchAddSummary).
 
 import (
 	"fmt"
@@ -54,26 +53,6 @@ func formatResourcesList(lib *library.Library) string {
 
 	if !hasContent {
 		return "No resources found.\n"
-	}
-
-	return sb.String()
-}
-
-// formatPresetOutput formats a preset for command output (e.g., after creation).
-func formatPresetOutput(lib *library.Library, name string) string {
-	preset, ok := lib.Presets[name]
-	if !ok {
-		return fmt.Sprintf("Preset '%s' created successfully.\n", name)
-	}
-
-	var sb strings.Builder
-	fmt.Fprintf(&sb, "Preset '%s' created successfully.\n", name)
-	if preset.Description != "" {
-		fmt.Fprintf(&sb, "Description: %s\n", preset.Description)
-	}
-	sb.WriteString("Resources:\n")
-	for _, ref := range preset.Resources {
-		fmt.Fprintf(&sb, "  - %s\n", ref)
 	}
 
 	return sb.String()

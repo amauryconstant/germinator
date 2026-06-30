@@ -1,6 +1,7 @@
 package library
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -48,8 +49,11 @@ type RefreshError struct {
 // It updates descriptions when they differ from frontmatter, updates paths when files
 // are renamed (if frontmatter name matches), and detects conflicts.
 func RefreshLibrary(opts RefreshOptions) (*RefreshResult, error) {
+	// TODO(slice-7): replace with caller context (c.Context() in runF wiring).
+	ctx := context.Background()
+
 	// Load the library
-	lib, err := LoadLibrary(opts.LibraryPath)
+	lib, err := LoadLibrary(ctx, opts.LibraryPath)
 	if err != nil {
 		return nil, fmt.Errorf("loading library: %w", err)
 	}

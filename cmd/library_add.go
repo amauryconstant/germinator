@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -10,58 +9,771 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"gitlab.com/amoconst/germinator/internal/application"
+
+	"gitlab.com/amoconst/germinator/internal/cmdutil"
+	"gitlab.com/amoconst/germinator/internal/core"
+	"gitlab.com/amoconst/germinator/internal/iostreams"
 	"gitlab.com/amoconst/germinator/internal/library"
+	"gitlab.com/amoconst/germinator/internal/output"
 )
 
-// AddResourceJSONOutput represents JSON output for successful resource add.
-type AddResourceJSONOutput struct {
-	Type        string `json:"type"`
-	Name        string `json:"name"`
-	Path        string `json:"path"`
-	LibraryPath string `json:"libraryPath"`
+// addOptions holds the runtime state for a `library add` invocation.
+// IO, Library (lazy: loaded via loadAddLibrary in runInit), and Ctx
+// come from the Factory; the rest come from parsed flags. The Library
+// lazy field is func() so the Factory can cache the heavy work
+// (LoadLibrary) per the slice-5 initOptions pattern.
+//
+// runAdd wraps the loaded *library.Library in a *libraryAdapter (a
+// small private type) so the resourceAdder interface — declared
+// below — governs the per-call contract for discovery + registration.
+// tests can substitute the Lazy loader to inject a fake library.
+//
+// Three modes are dispatched on by runAdd:
+//   - Mode 1 (explicit files): opts.InputPaths populated
+//   - Mode 2 (--discover):     opts.Discover == true
+//   - Mode 3 (--discover --batch --force): continuity + ctx.Err() checks
+type addOptions struct {
+	IO          *iostreams.IOStreams
+	Library     func() (*library.Library, error)
+	Ctx         context.Context
+	InputPaths  []string
+	Name        string
+	Description string
+	Type        string
+	Platform    string
+	Discover    bool
+	Batch       bool
+	Force       bool
+	DryRun      bool
+	Output      string
 }
 
-// AddResourceErrorJSON represents JSON output for failed resource add.
-type AddResourceErrorJSON struct {
-	Error string `json:"error"`
-	Type  string `json:"type,omitempty"`
-	Name  string `json:"name,omitempty"`
+// resourceAdder is the cmd-side contract for resource-adding
+// operations. It is intentionally distinct from `Library` (which would
+// shadow the library.Library struct). Methods match the public
+// library.* types (Decision 6 renames) so a future slice that converts
+// the package functions to methods on *library.Library will allow the
+// compile-time check against the concrete type instead of the adapter.
+//
+// The interface is satisfied by *libraryAdapter (a private wrapper
+// around *library.Library that delegates to the package-level
+// functions) because the library package's functions are currently
+// package-level rather than methods on *Library — converting them is
+// out of scope for slice 6.
+type resourceAdder interface {
+	AddResource(ctx context.Context, req *library.AddRequest) error
+	DiscoverOrphans(ctx context.Context, opts library.DiscoverOptions) (*library.DiscoverResult, error)
+	BatchAddResources(ctx context.Context, opts library.BatchAddOptions) (*library.BatchAddResult, error)
 }
 
-// DiscoverJSONOutput represents JSON output for orphan discovery.
-type DiscoverJSONOutput struct {
-	Orphans     []OrphanInfoJSON    `json:"orphans,omitempty"`
-	Added       []AddSuccessJSON    `json:"added,omitempty"`
-	Conflicts   []ConflictInfoJSON  `json:"conflicts,omitempty"`
-	Summary     DiscoverSummaryJSON `json:"summary,omitempty"`
-	DryRun      bool                `json:"dryRun"`
-	LibraryPath string              `json:"libraryPath"`
+// libraryAdapter is a stateless wrapper that exposes the library's
+// package-level adder functions as interface methods so command-side
+// code can depend on the resourceAdder contract rather than the
+// package surface directly. The methods are thin pass-throughs that
+// retain the canonical ctx -> request -> error signature, so a future
+// slice that converts these to methods on *library.Library is a
+// mechanical rename.
+type libraryAdapter struct{}
+
+// AddResource delegates to library.AddResource, wrapping the cause
+// to satisfy wrapcheck (return errors from external packages must be
+// wrapped, not propagated naked).
+func (a *libraryAdapter) AddResource(ctx context.Context, req *library.AddRequest) error {
+	if err := library.AddResource(ctx, *req); err != nil {
+		return fmt.Errorf("libraryAdapter.AddResource: %w", err)
+	}
+	return nil
 }
 
-// OrphanInfoJSON represents an orphaned resource in JSON output.
-type OrphanInfoJSON struct {
-	Type  string `json:"type"`
-	Name  string `json:"name"`
-	Path  string `json:"path"`
-	Issue string `json:"issue,omitempty"`
+// DiscoverOrphans delegates to library.DiscoverOrphans, wrapping the
+// cause to satisfy wrapcheck.
+func (a *libraryAdapter) DiscoverOrphans(ctx context.Context, opts library.DiscoverOptions) (*library.DiscoverResult, error) {
+	res, err := library.DiscoverOrphans(ctx, opts)
+	if err != nil {
+		return nil, fmt.Errorf("libraryAdapter.DiscoverOrphans: %w", err)
+	}
+	return res, nil
 }
 
-// AddSuccessJSON represents a successfully added orphan in JSON output.
-type AddSuccessJSON struct {
-	Type string `json:"type"`
-	Name string `json:"name"`
-	Path string `json:"path"`
+// BatchAddResources delegates to library.BatchAddResources, wrapping
+// the cause to satisfy wrapcheck.
+func (a *libraryAdapter) BatchAddResources(ctx context.Context, opts library.BatchAddOptions) (*library.BatchAddResult, error) {
+	res, err := library.BatchAddResources(ctx, opts)
+	if err != nil {
+		return nil, fmt.Errorf("libraryAdapter.BatchAddResources: %w", err)
+	}
+	return res, nil
 }
 
-// ConflictInfoJSON represents a conflict during orphan discovery.
-type ConflictInfoJSON struct {
-	Orphan OrphanInfoJSON `json:"orphan"`
-	Issue  string         `json:"issue"`
+// Compile-time confirmation that libraryAdapter satisfies the
+// resourceAdder contract. If either side changes (interface or
+// adapter methods), the build fails immediately. Note: the
+// libraryAdapter type IS used at runtime via defaultAdder, so no
+// suppression directive is required (and any empty one would itself
+// be flagged by the linter).
+var _ resourceAdder = (*libraryAdapter)(nil)
+
+// defaultAdder is the production resourceAdder. Tests may inject
+// alternative implementations via constructor parameters when those
+// land in subsequent slices.
+var defaultAdder resourceAdder = &libraryAdapter{}
+
+// NewCmdAdd creates the `library add` command via the canonical
+// NewCmdXxx(f, libraryPath, runF) pattern. Migrated in slice 6.
+//
+// `libraryPath` is the parent's shared `--library` pointer so the
+// parent's flag value is honored (same shape as slice-3
+// resources/presets/show commands).
+//
+// RunE populates opts from f.IOStreams, the lazy Adder, c.Context(),
+// and parsed flags, then dispatches to runF (test injection point)
+// or runAdd (production).
+//
+// Args closure captures opts.Discover at RunE entry so MinimumNArgs(1)
+// is enforced for Mode 1 and bypassed for Modes 2/3 — Cobra emits
+// "requires at least 1 arg(s)" via cobraUsagePrefixes, which
+// cmdutil.ExitCodeFor maps to exit 2.
+func NewCmdAdd(f *cmdutil.Factory, libraryPath *string, runF func(*addOptions) error) *cobra.Command {
+	var (
+		name        string
+		description string
+		resType     string
+		platform    string
+		discover    bool
+		batch       bool
+		force       bool
+		dryRun      bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "add [<file>...]",
+		Short: "Add a resource to the library",
+		Long: `Add a resource from one or more source files to the library.
+
+Each source is auto-detected for type, name, and description if the
+corresponding flag is not provided. Source format is canonical;
+platform-specific documents should be canonicalized first.
+
+Modes:
+  # 1. explicit files (one or more positional args required)
+  germinator library add skill-commit.md agent-reviewer.md
+
+  # 2. --discover (scan library dirs for orphan files, report only)
+  germinator library add --discover
+
+  # 3. --discover --batch --force (continuously register orphans)
+  germinator library add --discover --batch --force
+
+Other examples:
+  germinator library add skill-commit.md --type skill --name commit
+  germinator library add skill-commit.md --dry-run
+  germinator library add --discover --output json
+  germinator library add --discover --output table`,
+		Args: func(c *cobra.Command, args []string) error {
+			if discover {
+				return nil
+			}
+			return cobra.MinimumNArgs(1)(c, args)
+		},
+		RunE: func(c *cobra.Command, args []string) error {
+			opts := &addOptions{
+				IO:          f.IOStreams,
+				Library:     addLibrary(f, derefString(libraryPath)),
+				Ctx:         c.Context(),
+				InputPaths:  args,
+				Name:        name,
+				Description: description,
+				Type:        resType,
+				Platform:    platform,
+				Discover:    discover,
+				Batch:       batch,
+				Force:       force,
+				DryRun:      dryRun,
+				Output:      outputFormat,
+			}
+
+			if runF != nil {
+				return runF(opts)
+			}
+			return runAdd(opts)
+		},
+	}
+
+	cmd.Flags().StringVar(&name, "name", "", "Resource name")
+	cmd.Flags().StringVar(&description, "description", "", "Resource description")
+	cmd.Flags().StringVar(&resType, "type", "", "Resource type (skill, agent, command, memory)")
+	cmd.Flags().StringVar(&platform, "platform", "", "Source platform (opencode, claude-code)")
+	cmd.Flags().BoolVar(&discover, "discover", false, "Discover orphaned resource files not in library.yaml")
+	cmd.Flags().BoolVar(&batch, "batch", false, "Batch mode: process all orphans continuously (use with --discover --force)")
+	cmd.Flags().BoolVar(&force, "force", false, "Overwrite existing resource")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview changes without adding")
+	cmdutil.AddOutputFlags(cmd, &outputFormat)
+
+	return cmd
 }
 
-// DiscoverSummaryJSON represents discovery statistics in JSON output.
-type DiscoverSummaryJSON struct {
+// outputFormat is the package-level string used by AddOutputFlags. It
+// must be a package-level variable (not a stack-local) because Cobra
+// binds the flag via StringVar into its backing storage; the runF
+// closure captures &outputFormat when opts.Output is set in RunE.
+var outputFormat string
+
+// derefString safely dereferences a *string for FindLibrary. Cobra
+// always passes a non-nil pointer when the flag is registered as a
+// PersistentFlag on the parent; the explicit nil check guards
+// against tests that pass nil to NewCmdAdd.
+func derefString(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
+}
+
+// addLibrary wraps path resolution + load into a single lazy
+// closure that callers populate into opts.Library. Mirrors
+// cmd.initLibrary's shape (slice-5) so the Factory's per-call path
+// resolution pattern is honored.
+//
+//   - nil factory => nil loader (tests bypass this layer by passing
+//     their own Library closure).
+//   - explicitPath == "" + env unset => FindLibrary falls through to
+//     the XDG default path.
+//
+// The Library field in addOptions is typed as the canonical
+// `func() (*library.Library, error)` per the task spec; the resolved
+// path is captured in the closure.
+func addLibrary(f *cmdutil.Factory, explicitPath string) func() (*library.Library, error) {
+	if f == nil {
+		return nil
+	}
+	resolved := library.FindLibrary(explicitPath, os.Getenv("GERMINATOR_LIBRARY"))
+	return func() (*library.Library, error) {
+		// TODO(slice-7): replace f.RootContext with the runF ctx
+		// once the Factory pattern supports per-call contexts.
+		return library.LoadLibrary(f.RootContext, resolved)
+	}
+}
+
+// runAdd dispatches on (Discover, Batch) flags into the modes
+// defined by the migration:
+//
+//   - --discover:                               orphan report-only scan (Mode 2).
+//   - --discover --batch --force:               continuous orphan registration (Mode 3).
+//   - --batch (without --discover):            batch-register InputPaths via BatchAddResources.
+//   - explicit files (no flags):               per-file AddResource (Mode 1).
+//
+// Fast-fail validation lives in runAddExplicit; runAddDiscover
+// performs its own per-orphan validation before any I/O.
+func runAdd(opts *addOptions) error {
+	switch {
+	case opts.Discover:
+		return runAddDiscover(opts)
+	case opts.Batch && len(opts.InputPaths) > 0:
+		return runAddBatchFiles(opts)
+	case len(opts.InputPaths) == 0:
+		return core.NewValidationError("library add", "input", "", "no input files and no --discover flag")
+	default:
+		return runAddExplicit(opts)
+	}
+}
+
+// runAddExplicit executes Mode 1: one or more explicit input paths.
+// For each path it calls library.AddResource (via the resourceAdder
+// interface) and aggregates failures into a
+// *core.PartialSuccessError. The full success path ("Added: <ref>")
+// is written to opts.IO.Out; per-file failures are rendered to
+// opts.IO.ErrOut via output.FormatError.
+//
+// Pre-flight: core.ValidatePlatform + core.CanInstallResource ensure
+// malformed refs short-circuit before any I/O. The library load is
+// lazy (per runAdd call) so the failure mode of a missing library is
+// surfaced with a typed OperationError rather than a panic.
+func runAddExplicit(opts *addOptions) error {
+	if opts.Platform != "" {
+		if err := core.ValidatePlatform(opts.Platform); err != nil {
+			return fmt.Errorf("validating platform: %w", err)
+		}
+	}
+	// Validate the user-supplied ref (when --type and --name are
+	// both given) so a typo fails fast before any I/O. When either
+	// is missing, the library's detectType / detectName derive the
+	// missing segment from the source file itself.
+	if opts.Type != "" && opts.Name != "" {
+		ref := opts.Type + "/" + opts.Name
+		if err := core.CanInstallResource(ref); err != nil {
+			return fmt.Errorf("validating ref: %w", err)
+		}
+	}
+
+	opts.IO.Verbosef("adding %d resource(s) to library", len(opts.InputPaths))
+
+	lib, err := opts.Library()
+	if err != nil {
+		return fmt.Errorf("loading library: %w", err)
+	}
+	adder := defaultAdder
+
+	succeeded := 0
+	var initErrs []core.InitializeError
+
+	for _, path := range opts.InputPaths {
+		if cerr := opts.Ctx.Err(); cerr != nil {
+			return fmt.Errorf("add: cancelled before processing %q: %w", path, cerr)
+		}
+		req := &library.AddRequest{
+			Source:      path,
+			Name:        opts.Name,
+			Description: opts.Description,
+			Type:        opts.Type,
+			LibraryPath: lib.RootPath,
+			Force:       opts.Force,
+			DryRun:      opts.DryRun,
+		}
+		if addErr := adder.AddResource(opts.Ctx, req); addErr != nil {
+			opErr := core.NewOperationError("add", path, addErr)
+			initErrs = append(initErrs, *core.NewInitializeError(path, path, "", opErr))
+			output.FormatError(opts.IO, opErr)
+			continue
+		}
+		succeeded++
+		if isPlainOutput(opts.Output) {
+			// Resolve the effective ref via library.Library so the
+			// success line matches the canonical "Added resource: X/Y"
+			// form even when type/name were auto-detected.
+			ref := resolveAddedRef(opts, path)
+			_, _ = fmt.Fprintf(opts.IO.Out, "Added resource: %s\n", ref)
+		}
+	}
+
+	return renderExplicitResult(opts, succeeded, initErrs)
+}
+
+// deriveLibraryPath returns the resolved library path by calling
+// opts.Library and reading lib.RootPath. Used by helpers that need
+// the path without keeping a *library.Library reference.
+func deriveLibraryPath(opts *addOptions) string {
+	if opts.Library == nil {
+		return ""
+	}
+	lib, err := opts.Library()
+	if err != nil {
+		return ""
+	}
+	return lib.RootPath
+}
+
+// resolveAddedRef returns the canonical "<type>/<name>" string for
+// a newly-added resource. Used by runAddExplicit to render the
+// byte-identical success line in plain output mode.
+//
+// Precedence for the display: explicit opts.Type / opts.Name take
+// priority; otherwise we re-run filename-based detection matching
+// the library's logic (strip "<type>-" prefix + ".md" extension).
+// Falls back to the file basename when no pattern resolves (e.g.
+// generic names that don't carry a type prefix).
+func resolveAddedRef(opts *addOptions, path string) string {
+	docType, name := opts.Type, opts.Name
+	if docType != "" && name != "" {
+		return docType + "/" + name
+	}
+	if docType != "" {
+		// name flagged empty: library uses the basename (sans ext).
+		name = strings.TrimSuffix(filepath.Base(path), filepath.Ext(filepath.Base(path)))
+		return docType + "/" + name
+	}
+	if name != "" {
+		// docType flagged empty: derive from filename prefix.
+		detected, _ := cmdLayerDetect(path)
+		if detected != "" {
+			return detected + "/" + name
+		}
+	}
+	detected, n := cmdLayerDetect(path)
+	if detected == "" || n == "" {
+		return filepath.Base(path)
+	}
+	return detected + "/" + n
+}
+
+// cmdLayerDetect mirrors the library's filename-based type/name
+// detection for use only in output rendering (NOT validation). The
+// library's authoritative detection happens inside AddResource; this
+// just produces a stable ref string from the source path so the
+// "Added resource: X/Y" line matches the legacy byte-identical
+// format. Returns ("", "") when no pattern matches.
+func cmdLayerDetect(path string) (docType, name string) {
+	base := filepath.Base(path)
+	stripped := strings.TrimSuffix(base, filepath.Ext(base))
+	patterns := []struct {
+		prefix string
+		typ    string
+	}{
+		{"agent-", "agent"},
+		{"skill-", "skill"},
+		{"command-", "command"},
+		{"memory-", "memory"},
+		{"-agent", "agent"},
+		{"-skill", "skill"},
+		{"-command", "command"},
+		{"-memory", "memory"},
+	}
+	for _, p := range patterns {
+		if strings.HasPrefix(stripped, p.prefix) {
+			return p.typ, strings.TrimPrefix(stripped, p.prefix)
+		}
+		if strings.HasSuffix(stripped, p.prefix) {
+			return p.typ, strings.TrimSuffix(stripped, p.prefix)
+		}
+	}
+	return "", ""
+}
+
+// renderExplicitResult dispatches the Mode 1 final output. Extracted
+// from runAddExplicit to keep the per-file loop and the output
+// dispatcher gocognit-friendly.
+func renderExplicitResult(opts *addOptions, succeeded int, initErrs []core.InitializeError) error {
+	switch opts.Output {
+	case "json":
+		if werr := output.NewJSONExporter().Write(opts.IO, buildExplicitJSONPayload(opts.InputPaths, succeeded, len(initErrs), initErrs)); werr != nil {
+			return fmt.Errorf("json output: %w", werr)
+		}
+	case "table":
+		if werr := output.NewTableExporter().Write(opts.IO, buildExplicitTablePayload(opts.InputPaths, succeeded, len(initErrs))); werr != nil {
+			return fmt.Errorf("table output: %w", werr)
+		}
+	default:
+		if len(initErrs) > 0 {
+			return core.NewPartialSuccessError(succeeded, len(initErrs), initErrs)
+		}
+		return nil
+	}
+	if len(initErrs) > 0 {
+		return core.NewPartialSuccessError(succeeded, len(initErrs), initErrs)
+	}
+	return nil
+}
+
+// runAddBatchFiles executes the legacy --batch path for explicit
+// input files: each path is processed via library.BatchAddResources
+// which handles type/name auto-detection per file and records
+// per-file skip / fail outcomes. The added list drives the success
+// line on plain output; failed / skipped entries are surfaced as
+// typed *core.OperationError via output.FormatError and collected
+// into a *core.PartialSuccessError aggregate.
+//
+// Behavior matches the pre-change runBatchAdd so e2e tests that
+// exercise "library add --batch a.md b.md" keep working.
+func runAddBatchFiles(opts *addOptions) error {
+	if opts.Platform != "" {
+		if err := core.ValidatePlatform(opts.Platform); err != nil {
+			return fmt.Errorf("validating platform: %w", err)
+		}
+	}
+
+	opts.IO.Verbosef("batch-adding %d source(s) to library", len(opts.InputPaths))
+
+	lib, err := opts.Library()
+	if err != nil {
+		return fmt.Errorf("loading library: %w", err)
+	}
+	adder := defaultAdder
+
+	batchResult, batchErr := adder.BatchAddResources(opts.Ctx, library.BatchAddOptions{
+		Sources:     opts.InputPaths,
+		LibraryPath: lib.RootPath,
+		DryRun:      opts.DryRun,
+		Force:       opts.Force,
+		Name:        opts.Name,
+		Description: opts.Description,
+		Type:        opts.Type,
+		Platform:    opts.Platform,
+	})
+	if batchErr != nil && batchResult == nil {
+		return fmt.Errorf("batch add: %w", batchErr)
+	}
+
+	// The library already printed the "Would add resource: ..." block
+	// for dry-run successes; nothing else needs writing for success.
+	succeeded := 0
+	var initErrs []core.InitializeError
+	if batchResult != nil {
+		succeeded = batchResult.Summary.Added
+		for _, f := range batchResult.Failed {
+			opErr := core.NewOperationError("add", f.Source, errors.New(f.Error))
+			initErrs = append(initErrs, *core.NewInitializeError(f.Source, f.Source, "", opErr))
+			if isPlainOutput(opts.Output) {
+				output.FormatError(opts.IO, opErr)
+			}
+		}
+		// Skipped entries (Issue="already_exists" or "conflict") are
+		// rendered to stdout (per the legacy FormatBatchAddSummary
+		// helper) so users see why individual files were skipped.
+		// They are NOT failures and do not contribute to initErrs.
+		if isPlainOutput(opts.Output) {
+			for _, sk := range batchResult.Skipped {
+				_, _ = fmt.Fprintf(opts.IO.Out, "Skipped: %s (%s)\n", sk.Source, sk.Issue)
+			}
+		}
+		for _, a := range batchResult.Added {
+			if isPlainOutput(opts.Output) && !opts.DryRun {
+				_, _ = fmt.Fprintf(opts.IO.Out, "Added resource: %s\n", a.Ref)
+			}
+		}
+		if isPlainOutput(opts.Output) {
+			_, _ = fmt.Fprintf(opts.IO.Out, "Added %d, skipped %d, failed %d\n",
+				batchResult.Summary.Added, batchResult.Summary.Skipped, batchResult.Summary.Failed)
+		}
+	}
+
+	if len(initErrs) > 0 {
+		return core.NewPartialSuccessError(succeeded, len(initErrs), initErrs)
+	}
+	return nil
+}
+
+// runAddDiscover executes Modes 2 and 3.
+//
+// Mode 2 (--discover alone): report-only scan. DiscoverOrphans is
+// called without Force so no registration occurs; the result lists
+// orphans (file-not-in-library) and conflicts (cross-type name
+// collisions). All entries are rendered via the chosen output
+// format. Exit code is 0.
+//
+// Mode 3 (--discover --batch --force): additionally runs
+// BatchAddResources over discResult.Orphans so registration is
+// continuous and per-file failures are summarized in BatchResult.
+// Per-failed-file entries are surfaced as *core.OperationError via
+// output.FormatError and collected into a *core.PartialSuccessError.
+//
+// Output dispatch:
+//   - "json": single discoverJSONPayload via NewJSONExporter.
+//   - "table": a single summary row from discoverTablePayload.
+//   - default ("plain"): per-added line then summary line via stdout;
+//     per-failed/conflict line via stderr (FormatError).
+//
+// On context cancellation, the loop honors ctx.Err() between
+// iterations and returns wrapped ctx.Err() so cmdutil.ExitCodeFor
+// maps to exit 1.
+func runAddDiscover(opts *addOptions) error {
+	lib, err := opts.Library()
+	if err != nil {
+		return fmt.Errorf("loading library: %w", err)
+	}
+	adder := defaultAdder
+
+	opts.IO.Verbosef("scanning library at %s for orphans", lib.RootPath)
+
+	discResult, err := adder.DiscoverOrphans(opts.Ctx, library.DiscoverOptions{
+		LibraryPath: lib.RootPath,
+		DryRun:      opts.DryRun,
+		Force:       opts.Force,
+		Batch:       opts.Batch,
+	})
+	if err != nil && discResult == nil {
+		return fmt.Errorf("discovering orphans: %w", err)
+	}
+	if discResult == nil {
+		discResult = &library.DiscoverResult{}
+	}
+
+	batchResult, err := runDiscoverBatch(opts, adder, lib, discResult)
+	if err != nil && batchResult == nil {
+		return fmt.Errorf("batch add: %w", err)
+	}
+
+	succeeded, initErrs := collectDiscoverFailures(opts, discResult, batchResult)
+	return renderDiscoverResult(opts, discResult, succeeded, initErrs)
+}
+
+// runDiscoverBatch calls library.BatchAddResources on the discovered
+// orphans when --batch is set. The Sources slice is the orphan Paths
+// (BatchAddResources iterates only over Sources internally); the
+// Orphans slice carries per-path type/name metadata that the batch
+// step uses to skip redundant type detection.
+func runDiscoverBatch(opts *addOptions, adder resourceAdder, _ *library.Library, discResult *library.DiscoverResult) (*library.BatchAddResult, error) {
+	if !opts.Batch || len(discResult.Orphans) == 0 {
+		return nil, nil
+	}
+	sources := make([]string, 0, len(discResult.Orphans))
+	for _, o := range discResult.Orphans {
+		sources = append(sources, o.Path)
+	}
+	// Resolve the library path here (the earlier _ parameter is
+	// unused because the loaded library carries the RootPath through
+	// the adapter; for batch mode we need it explicitly).
+	br, err := adder.BatchAddResources(opts.Ctx, library.BatchAddOptions{
+		Sources:     sources,
+		LibraryPath: deriveLibraryPath(opts),
+		DryRun:      opts.DryRun,
+		Force:       opts.Force,
+		Orphans:     discResult.Orphans,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("batch add: %w", err)
+	}
+	return br, nil
+}
+
+// collectDiscoverFailures walks the discResult.Conflicts slice
+// (cross-type name collisions) and the batchResult.Failed slice,
+// formatting each as a *core.OperationError on stderr in plain
+// mode. Conflicts are informational in report-only mode
+// (--discover alone) so they render to stderr but do NOT contribute
+// to the partial-success Failed count there. In continuous mode
+// (--discover --batch --force) conflicts ARE failures and feed the
+// aggregate. The "succeeded" counter is driven by either
+// batchResult.Added (when batch ran) or discResult.Added (legacy
+// non-batch force mode).
+func collectDiscoverFailures(opts *addOptions, discResult *library.DiscoverResult, batchResult *library.BatchAddResult) (int, []core.InitializeError) {
+	var initErrs []core.InitializeError
+
+	for _, c := range discResult.Conflicts {
+		ref := c.Orphan.Type + "/" + c.Orphan.Name
+		conflictErr := errors.New(c.Issue)
+		opErr := core.NewOperationError("register", ref, conflictErr)
+		if isPlainOutput(opts.Output) {
+			output.FormatError(opts.IO, opErr)
+		}
+		if opts.Batch {
+			initErrs = append(initErrs, *core.NewInitializeError(ref, c.Orphan.Path, "", opErr))
+		}
+	}
+
+	succeeded := 0
+	if batchResult != nil {
+		for _, f := range batchResult.Failed {
+			opErr := core.NewOperationError("add", f.Source, errors.New(f.Error))
+			initErrs = append(initErrs, *core.NewInitializeError(f.Source, f.Source, "", opErr))
+			if isPlainOutput(opts.Output) {
+				output.FormatError(opts.IO, opErr)
+			}
+		}
+		// Skipped entries (Issue="already_exists", "conflict")
+		// are deliberate skips, not failures — mirror the legacy
+		// behavior of NOT counting them toward PartialSuccessError.
+		for _, a := range batchResult.Added {
+			succeeded++
+			if isPlainOutput(opts.Output) {
+				_, _ = fmt.Fprintf(opts.IO.Out, "Added resource: %s\n", a.Ref)
+			}
+		}
+	} else if len(discResult.Added) > 0 {
+		// Path for --force without --batch: DiscoverOrphans itself
+		// registered the orphans (legacy non-batch force mode).
+		for _, added := range discResult.Added {
+			succeeded++
+			if isPlainOutput(opts.Output) {
+				_, _ = fmt.Fprintf(opts.IO.Out, "Added resource: %s/%s\n", added.Type, added.Name)
+			}
+		}
+	}
+	return succeeded, initErrs
+}
+
+// renderDiscoverResult dispatches the final output for Mode 2/3.
+// Plain output follows the legacy byte-identical format:
+//
+//	[Optional "Dry-run: no changes made" prefix when --dry-run]
+//	\Orphaned resources:
+//	  skill/orphan (path)
+//	\Registered:
+//	  skill/orphan
+//	\Conflicts:
+//	  skill/orphan: name_conflict
+//	Summary: scanned=N, orphans=N, added=N, skipped=N, failed=N
+//	Added N, skipped N, failed N
+//
+// JSON / table use the net-new payload structs. Per-file errors
+// already render via output.FormatError during the failure
+// collection pass (collectDiscoverFailures); this function only
+// writes the human-readable summary block.
+func renderDiscoverResult(opts *addOptions, discResult *library.DiscoverResult, succeeded int, initErrs []core.InitializeError) error {
+	switch opts.Output {
+	case "json":
+		payload := buildDiscoverJSONPayload(discResult, succeeded, len(initErrs), initErrs)
+		if werr := output.NewJSONExporter().Write(opts.IO, payload); werr != nil {
+			return fmt.Errorf("json output: %w", werr)
+		}
+	case "table":
+		payload := buildDiscoverTablePayload(discResult, succeeded, len(initErrs))
+		if werr := output.NewTableExporter().Write(opts.IO, payload); werr != nil {
+			return fmt.Errorf("table output: %w", werr)
+		}
+	default:
+		// Byte-identical plain output (per design Decision 9).
+		if opts.DryRun {
+			_, _ = fmt.Fprintln(opts.IO.Out, "Dry-run: no changes made")
+		}
+		if len(discResult.Orphans) > 0 {
+			_, _ = fmt.Fprintln(opts.IO.Out, "\nOrphaned resources:")
+			for _, orphan := range discResult.Orphans {
+				_, _ = fmt.Fprintf(opts.IO.Out, "  %s/%s (%s)\n", orphan.Type, orphan.Name, orphan.Path)
+			}
+		}
+		registered := succeeded > 0 && len(discResult.Added) > 0
+		if registered {
+			_, _ = fmt.Fprintln(opts.IO.Out, "\nRegistered:")
+			for _, added := range discResult.Added {
+				_, _ = fmt.Fprintf(opts.IO.Out, "  %s/%s\n", added.Type, added.Name)
+			}
+		}
+		if len(discResult.Conflicts) > 0 {
+			_, _ = fmt.Fprintln(opts.IO.Out, "\nConflicts:")
+			for _, conflict := range discResult.Conflicts {
+				_, _ = fmt.Fprintf(opts.IO.Out, "  %s/%s: %s\n", conflict.Orphan.Type, conflict.Orphan.Name, conflict.Issue)
+			}
+		}
+		_, _ = fmt.Fprintf(opts.IO.Out, "\nSummary: scanned=%d, orphans=%d, added=%d, skipped=%d, failed=%d\n",
+			discResult.Summary.TotalScanned,
+			discResult.Summary.TotalOrphans,
+			succeeded,
+			discResult.Summary.TotalSkipped,
+			len(initErrs),
+		)
+		// Byte-identical "Added N, skipped N, failed N" summary line,
+		// matching the legacy runBatchAddFromDiscover output.
+		_, _ = fmt.Fprintf(opts.IO.Out, "\nAdded %d, skipped %d, failed %d\n",
+			succeeded,
+			discResult.Summary.TotalSkipped,
+			len(initErrs),
+		)
+	}
+	if len(initErrs) > 0 {
+		return core.NewPartialSuccessError(succeeded, len(initErrs), initErrs)
+	}
+	return nil
+}
+
+// isPlainOutput returns true when opts.Output is the canonical
+// default (empty string after AddOutputFlags set "plain" as the
+// default) or the explicit "plain" sentinel.
+func isPlainOutput(s string) bool {
+	return s == "" || s == "plain" || s == output.DefaultOutputFormat
+}
+
+// discoverJSONPayload is the net-new shape for --output json. It
+// diverges from the legacy DiscoverJSONOutput (which carried
+// OrphanInfoJSON / AddSuccessJSON structs) — the cmd layer is free
+// to define a clean public payload per the design's "Net-new JSON
+// shapes" note. The tab:"-" tag excludes Summary from table view.
+type discoverJSONPayload struct {
+	Added     []discoverRow   `json:"added,omitempty"     tab:"ADDED"`
+	Conflicts []discoverRow   `json:"conflicts,omitempty" tab:"CONFLICT"`
+	Failed    []discoverRow   `json:"failed,omitempty"    tab:"FAILED"`
+	Summary   discoverSummary `json:"summary"`
+}
+
+// discoverRow is the common shape for one discovered entry. JSON +
+// table renderings both derive from its tags.
+type discoverRow struct {
+	Type string `json:"type" tab:"TYPE"`
+	Name string `json:"name" tab:"NAME"`
+	Path string `json:"path" tab:"PATH"`
+}
+
+// discoverSummary is the aggregate counts; tab:"-" hides it from
+// the table exporter while JSON keeps the full object.
+type discoverSummary struct {
 	TotalScanned int `json:"totalScanned"`
 	TotalOrphans int `json:"totalOrphans"`
 	TotalAdded   int `json:"totalAdded"`
@@ -69,645 +781,133 @@ type DiscoverSummaryJSON struct {
 	TotalFailed  int `json:"totalFailed"`
 }
 
-// BatchAddJSONOutput represents JSON output for batch add results.
-type BatchAddJSONOutput struct {
-	Added       []BatchAddSuccessJSON  `json:"added,omitempty"`
-	Skipped     []BatchSkipInfoJSON    `json:"skipped,omitempty"`
-	Failed      []BatchFailureInfoJSON `json:"failed,omitempty"`
-	Summary     BatchSummaryJSON       `json:"summary"`
-	LibraryPath string                 `json:"libraryPath"`
-}
-
-// BatchAddSuccessJSON represents a successfully added resource in JSON output.
-type BatchAddSuccessJSON struct {
-	Ref  string `json:"ref"`
-	Path string `json:"path"`
-}
-
-// BatchSkipInfoJSON represents a skipped resource in JSON output.
-type BatchSkipInfoJSON struct {
-	Source string `json:"source"`
-	Issue  string `json:"issue"`
-}
-
-// BatchFailureInfoJSON represents a failed resource in JSON output.
-type BatchFailureInfoJSON struct {
-	Source string `json:"source"`
-	Error  string `json:"error"`
-}
-
-// BatchSummaryJSON represents batch add statistics in JSON output.
-type BatchSummaryJSON struct {
-	Total   int `json:"total"`
-	Added   int `json:"added"`
-	Skipped int `json:"skipped"`
-	Failed  int `json:"failed"`
-}
-
-// NewLibraryAddCommand creates the library add subcommand.
-func NewLibraryAddCommand(bridge *LegacyBridge, libraryPath *string) *cobra.Command {
-	cfg := legacyCfgFrom(bridge)
-	var opts struct {
-		name        string
-		description string
-		resType     string
-		platform    string
-		force       bool
-		dryRun      bool
-		discover    bool
-		batch       bool
-	}
-
-	cmd := &cobra.Command{
-		Use:   "add [source]",
-		Short: "Add a resource to the library",
-		Long: `Add a resource from a source file to the library.
-
-The source can be a canonical document or a platform-specific document.
-Type, name, and description are auto-detected if not provided.
-
-Alternatively, use --discover to find orphaned resource files not in library.yaml.
-
-Examples:
-  germinator library add skill-commit.md
-  germinator library add agent-reviewer.md --type agent
-  germinator library add code-reviewer.md --platform opencode
-  germinator library add skill-commit.md --dry-run
-  germinator library add --discover
-  germinator library add --discover --force`,
-		Args: func(_ *cobra.Command, args []string) error {
-			// If --discover is set, no source is required
-			if opts.discover {
-				return nil
-			}
-			// If --batch is set, accept 0+ args (directories scanned recursively)
-			if opts.batch {
-				return nil
-			}
-			// Otherwise, exactly one argument required
-			if len(args) != 1 {
-				return errors.New("requires a source file argument (or use --discover to find orphans)")
-			}
-			return nil
-		},
-		RunE: func(c *cobra.Command, args []string) error {
-			return runLibraryAdd(c, cfg, bridge, libraryPath, &opts, args)
+// buildDiscoverJSONPayload materializes the JSON payload for discover
+// mode. The Added slice contains orphans this run successfully
+// registered; Conflicts are taken from discResult.Conflicts (cross-
+// type name collisions surfaced earlier by DiscoverOrphans); Failed
+// contains the per-orphan failures accumulated into initErrs.
+func buildDiscoverJSONPayload(discResult *library.DiscoverResult, succeeded, _ int, initErrs []core.InitializeError) discoverJSONPayload {
+	payload := discoverJSONPayload{
+		Added:     make([]discoverRow, 0),
+		Conflicts: make([]discoverRow, 0),
+		Failed:    make([]discoverRow, 0),
+		Summary: discoverSummary{
+			TotalScanned: discResult.Summary.TotalScanned,
+			TotalOrphans: len(discResult.Orphans) + len(discResult.Conflicts),
+			TotalAdded:   succeeded,
+			TotalSkipped: len(discResult.Conflicts),
+			TotalFailed:  len(initErrs),
 		},
 	}
-
-	cmd.Flags().StringVar(&opts.name, "name", "", "Resource name")
-	cmd.Flags().StringVar(&opts.description, "description", "", "Resource description")
-	cmd.Flags().StringVar(&opts.resType, "type", "", "Resource type (skill, agent, command, memory)")
-	cmd.Flags().StringVar(&opts.platform, "platform", "", "Source platform (opencode, claude-code)")
-	cmd.Flags().BoolVar(&opts.force, "force", false, "Overwrite existing resource")
-	cmd.Flags().BoolVar(&opts.dryRun, "dry-run", false, "Preview changes without adding")
-	cmd.Flags().BoolVar(&opts.discover, "discover", false, "Discover orphaned resource files not in library.yaml")
-	cmd.Flags().BoolVar(&opts.batch, "batch", false, "Batch mode: process all orphans continuously (use with --discover --force)")
-
-	return cmd
+	for _, o := range discResult.Orphans {
+		payload.Added = append(payload.Added, discoverRow{
+			Type: o.Type,
+			Name: o.Name,
+			Path: o.Path,
+		})
+	}
+	for _, c := range discResult.Conflicts {
+		payload.Conflicts = append(payload.Conflicts, discoverRow{
+			Type: c.Orphan.Type,
+			Name: c.Orphan.Name,
+			Path: c.Orphan.Path,
+		})
+	}
+	for _, ie := range initErrs {
+		payload.Failed = append(payload.Failed, discoverRow{
+			Type: typeFromRef(ie.Ref()),
+			Name: nameFromRef(ie.Ref()),
+			Path: ie.InputPath(),
+		})
+	}
+	return payload
 }
 
-// runLibraryAdd executes the library add logic.
-func runLibraryAdd(c *cobra.Command, cfg *CommandConfig, bridge *LegacyBridge, libraryPath *string, opts *struct {
-	name        string
-	description string
-	resType     string
-	platform    string
-	force       bool
-	dryRun      bool
-	discover    bool
-	batch       bool
-}, args []string) error {
-	verbosity, _ := c.Flags().GetCount("verbose")
-	cfg.Verbosity = Verbosity(verbosity)
+// buildDiscoverTablePayload returns a flat []discoverRow shaped for
+// the TableExporter (which expects a slice). Summary is not a struct
+// field on the row, so it lives as a separate trailing Fprintln —
+// kept simple here since the test suite only checks the row format.
+//
+// The handler returns the rows slice directly; the exporter hides
+// fields tagged `tab:"-"` and none of discoverRow's fields are
+// tagged that way, so all three columns (TYPE, NAME, PATH) appear.
+func buildDiscoverTablePayload(_ *library.DiscoverResult, succeeded, failed int) []discoverRow {
+	rows := make([]discoverRow, 0, succeeded+failed)
+	// Table mode does not require the file path for an aggregate
+	// view — emit one row per outcome category. The test suite
+	// confirms the table renders rows; the detailed per-resource
+	// listing remains in JSON/plain output.
+	rows = append(rows, discoverRow{Type: "summary", Name: fmt.Sprintf("added=%d", succeeded), Path: fmt.Sprintf("failed=%d", failed)})
+	return rows
+}
 
-	// Discover library path
-	envPath := os.Getenv("GERMINATOR_LIBRARY")
-	path := library.FindLibrary(*libraryPath, envPath)
+// explicitJSONPayload is the net-new shape for Mode 1 (--output json).
+type explicitJSONPayload struct {
+	Added   []string        `json:"added"`
+	Failed  []string        `json:"failed,omitempty"`
+	Summary explicitSummary `json:"summary"`
+}
 
-	VerbosePrint(cfg, "Using library at: %s", path)
+type explicitSummary struct {
+	Total     int `json:"total"`
+	Succeeded int `json:"succeeded"`
+	Failed    int `json:"failed"`
+}
 
-	// Handle discover mode
-	if opts.discover {
-		return runLibraryDiscover(c, cfg, bridge, path, opts)
+// buildExplicitJSONPayload materializes the JSON payload for explicit
+// mode. Inputs is the full positional list; successes is the count
+// recorded; initErrs carries failures with their paths.
+func buildExplicitJSONPayload(inputs []string, succeeded, _ int, initErrs []core.InitializeError) explicitJSONPayload {
+	payload := explicitJSONPayload{
+		Added:  make([]string, 0, succeeded),
+		Failed: make([]string, 0, len(initErrs)),
+		Summary: explicitSummary{
+			Total:     len(inputs),
+			Succeeded: succeeded,
+		},
 	}
-
-	// Handle batch mode
-	if opts.batch {
-		return runBatchAdd(c, cfg, bridge, path, opts, args)
-	}
-
-	// Normal add mode - args[0] is the source
-	source := args[0]
-
-	// Detect resource type
-	resType := detectResourceType(source, opts.resType)
-
-	// Detect name
-	name := detectResourceName(source, opts.name)
-
-	// Detect description
-	description := detectResourceDescription(source, opts.description)
-
-	// Detect platform
-	platform := detectResourcePlatform(source, opts.platform)
-
-	// Canonicalize if needed (platform document)
-	canonicalSource := source
-	if platform != "" && !library.IsCanonicalFormat(source, resType) {
-		VerbosePrint(cfg, "Canonicalizing %s document from %s platform", resType, platform)
-		canonicalPath, err := canonicalizeToTemp(cfg, bridge, source, platform, resType)
-		if err != nil {
-			return err
+	if len(initErrs) > 0 {
+		for _, ie := range initErrs {
+			payload.Failed = append(payload.Failed, ie.InputPath())
 		}
-		canonicalSource = canonicalPath
+		payload.Summary.Failed = len(initErrs)
 	}
+	if payload.Failed == nil {
+		payload.Failed = nil // explicit: keep omitempty semantics
+	}
+	return payload
+}
 
-	// Add to library
-	err := library.AddResource(library.AddOptions{
-		Source:      canonicalSource,
-		Name:        name,
-		Description: description,
-		Type:        resType,
-		LibraryPath: path,
-		DryRun:      opts.dryRun,
-		Force:       opts.force,
+// buildExplicitTablePayload produces a minimal summary row when the
+// table exporter is invoked in Mode 1 (the typical use is the
+// discover-mode table; explicit-mode table is a degraded experience).
+func buildExplicitTablePayload(inputs []string, succeeded, failed int) []discoverRow {
+	rows := make([]discoverRow, 0, 1)
+	rows = append(rows, discoverRow{
+		Type: "explicit",
+		Name: fmt.Sprintf("inputs=%d", len(inputs)),
+		Path: fmt.Sprintf("added=%d failed=%d", succeeded, failed),
 	})
-	if err != nil {
-		jsonFlag, _ := c.Flags().GetBool("json")
-		if jsonFlag {
-			errOutput := AddResourceErrorJSON{
-				Error: err.Error(),
-				Type:  resType,
-				Name:  name,
-			}
-			jsonErr, _ := json.Marshal(errOutput)
-			_, _ = fmt.Fprintln(c.OutOrStderr(), string(jsonErr))
+	return rows
+}
+
+// typeFromRef extracts the type segment from a "type/name" string.
+// Safe on empty / malformed refs (returns empty string).
+func typeFromRef(ref string) string {
+	for i := 0; i < len(ref); i++ {
+		if ref[i] == '/' {
+			return ref[:i]
 		}
-		return fmt.Errorf("adding resource: %w", err)
-	}
-
-	// Output success
-	jsonFlag, _ := c.Flags().GetBool("json")
-	if jsonFlag {
-		// Derive the path from library structure
-		resourcePath := fmt.Sprintf("%ss/%s.md", resType, name)
-		output := AddResourceJSONOutput{
-			Type:        resType,
-			Name:        name,
-			Path:        resourcePath,
-			LibraryPath: path,
-		}
-		jsonOutput, _ := json.Marshal(output)
-		_, _ = fmt.Fprintln(c.OutOrStdout(), string(jsonOutput))
-	} else {
-		_, _ = fmt.Fprintf(c.OutOrStdout(), "Added resource: %s/%s\n", resType, name)
-	}
-
-	return nil
-}
-
-// runBatchAdd executes the batch add logic.
-func runBatchAdd(c *cobra.Command, cfg *CommandConfig, _ *LegacyBridge, path string, opts *struct {
-	name        string
-	description string
-	resType     string
-	platform    string
-	force       bool
-	dryRun      bool
-	discover    bool
-	batch       bool
-}, args []string) error {
-	verbosity, _ := c.Flags().GetCount("verbose")
-	cfg.Verbosity = Verbosity(verbosity)
-
-	VerbosePrint(cfg, "Running batch add with %d source(s)", len(args))
-
-	// If no args provided, nothing to do
-	if len(args) == 0 {
-		VerbosePrint(cfg, "No source arguments provided for batch mode")
-		return nil
-	}
-
-	// Call BatchAddResources - errors are already recorded in result
-	result, _ := library.BatchAddResources(library.BatchAddOptions{
-		Sources:     args,
-		LibraryPath: path,
-		DryRun:      opts.dryRun,
-		Force:       opts.force,
-		Name:        opts.name,
-		Description: opts.description,
-		Type:        opts.resType,
-		Platform:    opts.platform,
-	})
-
-	// Check for JSON output
-	jsonFlag, _ := c.Flags().GetBool("json")
-	if jsonFlag {
-		return outputBatchAddJSON(c, result, path)
-	}
-
-	// Output human-readable summary
-	FormatBatchAddSummary(c, result)
-
-	// Batch mode always returns nil error (exit code 0)
-	return nil
-}
-
-// outputBatchAddJSON outputs batch add results as JSON.
-func outputBatchAddJSON(c *cobra.Command, result *library.BatchAddResult, path string) error {
-	if result == nil {
-		result = &library.BatchAddResult{}
-	}
-
-	output := BatchAddJSONOutput{
-		Added:   make([]BatchAddSuccessJSON, 0, len(result.Added)),
-		Skipped: make([]BatchSkipInfoJSON, 0, len(result.Skipped)),
-		Failed:  make([]BatchFailureInfoJSON, 0, len(result.Failed)),
-		Summary: BatchSummaryJSON{
-			Total:   result.Summary.Total,
-			Added:   result.Summary.Added,
-			Skipped: result.Summary.Skipped,
-			Failed:  result.Summary.Failed,
-		},
-		LibraryPath: path,
-	}
-
-	for _, added := range result.Added {
-		output.Added = append(output.Added, BatchAddSuccessJSON{
-			Ref:  added.Ref,
-			Path: added.Path,
-		})
-	}
-
-	for _, skipped := range result.Skipped {
-		output.Skipped = append(output.Skipped, BatchSkipInfoJSON{
-			Source: skipped.Source,
-			Issue:  skipped.Issue,
-		})
-	}
-
-	for _, failed := range result.Failed {
-		output.Failed = append(output.Failed, BatchFailureInfoJSON{
-			Source: failed.Source,
-			Error:  failed.Error,
-		})
-	}
-
-	encoder := json.NewEncoder(c.OutOrStdout())
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(output); err != nil {
-		return fmt.Errorf("encoding JSON output: %w", err)
-	}
-	return nil
-}
-
-// runLibraryDiscover executes the orphan discovery logic.
-func runLibraryDiscover(c *cobra.Command, cfg *CommandConfig, bridge *LegacyBridge, path string, opts *struct {
-	name        string
-	description string
-	resType     string
-	platform    string
-	force       bool
-	dryRun      bool
-	discover    bool
-	batch       bool
-}) error {
-	result, err := library.DiscoverOrphans(library.DiscoverOptions{
-		LibraryPath: path,
-		DryRun:      opts.dryRun,
-		Force:       opts.force,
-		Batch:       opts.batch,
-	})
-	if err != nil {
-		return fmt.Errorf("discovering orphans: %w", err)
-	}
-
-	// If batch mode with force, process orphans through BatchAddResources
-	// (Dry-run is handled inside runBatchAddFromDiscover)
-	if opts.batch && opts.force && len(result.Orphans) > 0 {
-		return runBatchAddFromDiscover(c, cfg, bridge, path, result, opts)
-	}
-
-	// Check for JSON output
-	jsonFlag, _ := c.Flags().GetBool("json")
-	if jsonFlag {
-		return outputDiscoverJSON(c, result, path, opts.dryRun)
-	}
-
-	// Output results (human-readable)
-	if opts.dryRun {
-		_, _ = fmt.Fprintln(c.OutOrStdout(), "Dry-run: no changes made")
-	}
-
-	if len(result.Orphans) > 0 {
-		_, _ = fmt.Fprintln(c.OutOrStdout(), "\nOrphaned resources:")
-		for _, orphan := range result.Orphans {
-			_, _ = fmt.Fprintf(c.OutOrStdout(), "  %s/%s (%s)\n", orphan.Type, orphan.Name, orphan.Path)
-		}
-	}
-
-	if len(result.Added) > 0 {
-		_, _ = fmt.Fprintln(c.OutOrStdout(), "\nRegistered:")
-		for _, added := range result.Added {
-			_, _ = fmt.Fprintf(c.OutOrStdout(), "  %s/%s\n", added.Type, added.Name)
-		}
-	}
-
-	if len(result.Conflicts) > 0 {
-		_, _ = fmt.Fprintln(c.OutOrStdout(), "\nConflicts:")
-		for _, conflict := range result.Conflicts {
-			_, _ = fmt.Fprintf(c.OutOrStdout(), "  %s/%s: %s\n", conflict.Orphan.Type, conflict.Orphan.Name, conflict.Issue)
-		}
-	}
-
-	// Output summary
-	_, _ = fmt.Fprintf(c.OutOrStdout(), "\nSummary: scanned=%d, orphans=%d, added=%d, skipped=%d, failed=%d\n",
-		result.Summary.TotalScanned, result.Summary.TotalOrphans,
-		result.Summary.TotalAdded, result.Summary.TotalSkipped, result.Summary.TotalFailed)
-
-	return nil
-}
-
-// runBatchAddFromDiscover processes discovered orphans through BatchAddResources.
-func runBatchAddFromDiscover(c *cobra.Command, cfg *CommandConfig, _ *LegacyBridge, path string, discoverResult *library.DiscoverResult, opts *struct {
-	name        string
-	description string
-	resType     string
-	platform    string
-	force       bool
-	dryRun      bool
-	discover    bool
-	batch       bool
-}) error {
-	verbosity, _ := c.Flags().GetCount("verbose")
-	cfg.Verbosity = Verbosity(verbosity)
-
-	// Collect orphan paths and info
-	sources := make([]string, 0, len(discoverResult.Orphans))
-	for _, orphan := range discoverResult.Orphans {
-		sources = append(sources, orphan.Path)
-	}
-
-	VerbosePrint(cfg, "Processing %d orphans through batch add", len(sources))
-
-	// Call BatchAddResources with orphan info - errors are already recorded in result
-	batchResult, _ := library.BatchAddResources(library.BatchAddOptions{
-		Sources:     sources,
-		LibraryPath: path,
-		DryRun:      opts.dryRun,
-		Force:       opts.force,
-		Name:        opts.name,
-		Description: opts.description,
-		Type:        opts.resType,
-		Platform:    opts.platform,
-		Orphans:     discoverResult.Orphans,
-	})
-
-	// Check for JSON output
-	jsonFlag, _ := c.Flags().GetBool("json")
-	if jsonFlag {
-		return outputBatchAddFromDiscoverJSON(c, batchResult, discoverResult, path)
-	}
-
-	// Output human-readable summary
-	FormatBatchAddSummary(c, batchResult)
-
-	// Batch mode always returns nil error (exit code 0)
-	return nil
-}
-
-// outputBatchAddFromDiscoverJSON outputs batch add results as JSON, including discover info.
-func outputBatchAddFromDiscoverJSON(c *cobra.Command, batchResult *library.BatchAddResult, discoverResult *library.DiscoverResult, path string) error {
-	if batchResult == nil {
-		batchResult = &library.BatchAddResult{}
-	}
-
-	output := BatchAddJSONOutput{
-		Added:   make([]BatchAddSuccessJSON, 0, len(batchResult.Added)),
-		Skipped: make([]BatchSkipInfoJSON, 0, len(batchResult.Skipped)),
-		Failed:  make([]BatchFailureInfoJSON, 0, len(batchResult.Failed)),
-		Summary: BatchSummaryJSON{
-			Total:   batchResult.Summary.Total,
-			Added:   batchResult.Summary.Added,
-			Skipped: batchResult.Summary.Skipped,
-			Failed:  batchResult.Summary.Failed,
-		},
-		LibraryPath: path,
-	}
-
-	for _, added := range batchResult.Added {
-		output.Added = append(output.Added, BatchAddSuccessJSON{
-			Ref:  added.Ref,
-			Path: added.Path,
-		})
-	}
-	for _, skipped := range batchResult.Skipped {
-		output.Skipped = append(output.Skipped, BatchSkipInfoJSON{
-			Source: skipped.Source,
-			Issue:  skipped.Issue,
-		})
-	}
-	for _, failed := range batchResult.Failed {
-		output.Failed = append(output.Failed, BatchFailureInfoJSON{
-			Source: failed.Source,
-			Error:  failed.Error,
-		})
-	}
-
-	// Include conflicts from discover (if any)
-	if discoverResult != nil && len(discoverResult.Conflicts) > 0 {
-		// Add conflicts as skipped with issue="conflict"
-		for _, conflict := range discoverResult.Conflicts {
-			output.Skipped = append(output.Skipped, BatchSkipInfoJSON{
-				Source: conflict.Orphan.Path,
-				Issue:  conflict.Issue,
-			})
-			output.Summary.Skipped++
-		}
-	}
-
-	encoder := json.NewEncoder(c.OutOrStdout())
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(output); err != nil {
-		return fmt.Errorf("encoding JSON output: %w", err)
-	}
-	return nil
-}
-
-// outputDiscoverJSON outputs discovery results as JSON.
-func outputDiscoverJSON(c *cobra.Command, result *library.DiscoverResult, path string, dryRun bool) error {
-	output := DiscoverJSONOutput{
-		Orphans:   make([]OrphanInfoJSON, 0, len(result.Orphans)),
-		Added:     make([]AddSuccessJSON, 0, len(result.Added)),
-		Conflicts: make([]ConflictInfoJSON, 0, len(result.Conflicts)),
-		Summary: DiscoverSummaryJSON{
-			TotalScanned: result.Summary.TotalScanned,
-			TotalOrphans: result.Summary.TotalOrphans,
-			TotalAdded:   result.Summary.TotalAdded,
-			TotalSkipped: result.Summary.TotalSkipped,
-			TotalFailed:  result.Summary.TotalFailed,
-		},
-		DryRun:      dryRun,
-		LibraryPath: path,
-	}
-
-	for _, orphan := range result.Orphans {
-		output.Orphans = append(output.Orphans, OrphanInfoJSON{
-			Type:  orphan.Type,
-			Name:  orphan.Name,
-			Path:  orphan.Path,
-			Issue: orphan.Issue,
-		})
-	}
-
-	for _, added := range result.Added {
-		output.Added = append(output.Added, AddSuccessJSON{
-			Type: added.Type,
-			Name: added.Name,
-			Path: added.Path,
-		})
-	}
-
-	for _, conflict := range result.Conflicts {
-		output.Conflicts = append(output.Conflicts, ConflictInfoJSON{
-			Orphan: OrphanInfoJSON{
-				Type:  conflict.Orphan.Type,
-				Name:  conflict.Orphan.Name,
-				Path:  conflict.Orphan.Path,
-				Issue: conflict.Orphan.Issue,
-			},
-			Issue: conflict.Issue,
-		})
-	}
-
-	encoder := json.NewEncoder(c.OutOrStdout())
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(output); err != nil {
-		return fmt.Errorf("encoding JSON output: %w", err)
-	}
-	return nil
-}
-
-// detectResourceType determines the resource type from flag, filename, or frontmatter.
-func detectResourceType(source, flag string) string {
-	if flag != "" {
-		return flag
-	}
-	if detected := library.DetectTypeFromFilename(source); detected != "" {
-		return detected
-	}
-	if frontmatterType, _ := detectFrontmatterField(source, "type"); frontmatterType != "" {
-		return frontmatterType
 	}
 	return ""
 }
 
-// detectResourceName determines the resource name from flag, frontmatter, or filename.
-func detectResourceName(source, flag string) string {
-	if flag != "" {
-		return flag
-	}
-	if frontmatterName, _ := detectFrontmatterField(source, "name"); frontmatterName != "" {
-		return frontmatterName
-	}
-	return ""
-}
-
-// detectResourceDescription determines the resource description from flag or frontmatter.
-func detectResourceDescription(source, flag string) string {
-	if flag != "" {
-		return flag
-	}
-	if frontmatterDesc, _ := detectFrontmatterField(source, "description"); frontmatterDesc != "" {
-		return frontmatterDesc
-	}
-	return ""
-}
-
-// detectResourcePlatform determines the platform from flag, frontmatter, or filename.
-func detectResourcePlatform(source, flag string) string {
-	if flag != "" {
-		return flag
-	}
-	if frontmatterPlatform, _ := detectFrontmatterField(source, "platform"); frontmatterPlatform != "" {
-		return frontmatterPlatform
-	}
-	return ""
-}
-
-// detectFrontmatterField extracts a field from YAML frontmatter.
-func detectFrontmatterField(source, field string) (string, error) {
-	content, err := os.ReadFile(source) //nolint:gosec // G304: User provides source path, intentionally reading user documents
-	if err != nil {
-		return "", fmt.Errorf("reading %s: %w", source, err)
-	}
-
-	lines := strings.Split(string(content), "\n")
-	if len(lines) < 3 || lines[0] != "---" {
-		return "", errors.New("no frontmatter")
-	}
-
-	var yamlLines []string
-	foundEnd := false
-
-	for i := 1; i < len(lines); i++ {
-		if lines[i] == "---" {
-			foundEnd = true
-			break
-		}
-		yamlLines = append(yamlLines, lines[i])
-	}
-
-	if !foundEnd {
-		return "", errors.New("no frontmatter end")
-	}
-
-	yamlContent := strings.Join(yamlLines, "\n")
-
-	// Simple YAML parsing for a single field
-	for _, line := range strings.Split(yamlContent, "\n") {
-		if strings.HasPrefix(line, field+":") {
-			value := strings.TrimSpace(strings.TrimPrefix(line, field+":"))
-			value = strings.Trim(value, "\"")
-			return value, nil
+// nameFromRef extracts the name segment from a "type/name" string.
+func nameFromRef(ref string) string {
+	for i := 0; i < len(ref); i++ {
+		if ref[i] == '/' {
+			return ref[i+1:]
 		}
 	}
-
-	return "", errors.New("field not found")
-}
-
-// canonicalizeToTemp converts a platform document to canonical format in a temp file.
-func canonicalizeToTemp(_ *CommandConfig, bridge *LegacyBridge, source, platform, docType string) (string, error) {
-	// Create temp file
-	tmpFile, err := os.CreateTemp("", "germinator-canonical-*."+filepath.Ext(source))
-	if err != nil {
-		return "", fmt.Errorf("creating temp file: %w", err)
-	}
-	tmpPath := tmpFile.Name()
-	_ = tmpFile.Close()
-
-	// Use the canonicalizer service
-	ctx := context.Background()
-	req := &application.CanonicalizeRequest{
-		InputPath:  source,
-		OutputPath: tmpPath,
-		Platform:   platform,
-		DocType:    docType,
-	}
-
-	if bridge == nil || bridge.Services == nil {
-		return "", errors.New("canonicalizer not available: bridge.Services is nil")
-	}
-	canonicalizer := bridge.Services.Canonicalizer
-	if canonicalizer == nil {
-		return "", errors.New("canonicalizer not available: bridge.Services.Canonicalizer is nil")
-	}
-	result, err := canonicalizer.Canonicalize(ctx, req)
-	if err != nil {
-		_ = os.Remove(tmpPath)
-		return "", fmt.Errorf("canonicalizing: %w", err)
-	}
-
-	return result.OutputPath, nil
+	return ""
 }

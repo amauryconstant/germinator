@@ -1002,6 +1002,111 @@ func TestNotFoundError(t *testing.T) {
 	})
 }
 
+func TestOperationError(t *testing.T) {
+	t.Run("constructor_stores_fields", func(t *testing.T) {
+		cause := errors.New("name taken")
+		err := NewOperationError("register", "skill/commit", cause)
+		if err.Op != "register" {
+			t.Errorf("Op = %q, want %q", err.Op, "register")
+		}
+		if err.Resource != "skill/commit" {
+			t.Errorf("Resource = %q, want %q", err.Resource, "skill/commit")
+		}
+		if err.Cause != cause {
+			t.Errorf("Cause = %v, want %v", err.Cause, cause)
+		}
+	})
+
+	t.Run("error_format", func(t *testing.T) {
+		tests := []struct {
+			name string
+			err  *OperationError
+			want string
+		}{
+			{
+				name: "register with nil cause",
+				err:  NewOperationError("register", "skill/commit", nil),
+				want: "register: skill/commit",
+			},
+			{
+				name: "different op and resource",
+				err:  NewOperationError("load", "preset/foo", nil),
+				want: "load: preset/foo",
+			},
+			{
+				name: "op only with empty resource",
+				err:  NewOperationError("register", "", nil),
+				want: "register: ",
+			},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				if got := tt.err.Error(); got != tt.want {
+					t.Errorf("Error() = %q, want %q", got, tt.want)
+				}
+			})
+		}
+	})
+
+	t.Run("unwrap_returns_cause", func(t *testing.T) {
+		cause := errors.New("original failure")
+		err := NewOperationError("register", "skill/commit", cause)
+		if got := errors.Unwrap(err); got != cause {
+			t.Errorf("Unwrap() = %v, want %v", got, cause)
+		}
+	})
+
+	t.Run("unwrap_returns_nil_when_no_cause", func(t *testing.T) {
+		err := NewOperationError("register", "skill/commit", nil)
+		if got := errors.Unwrap(err); got != nil {
+			t.Errorf("Unwrap() = %v, want nil", got)
+		}
+	})
+
+	t.Run("errors_is_detects_cause", func(t *testing.T) {
+		cause := errors.New("name taken by skill/x")
+		err := NewOperationError("register", "skill/commit", cause)
+		if !errors.Is(err, cause) {
+			t.Error("errors.Is returned false for wrapped cause")
+		}
+	})
+
+	t.Run("errors_as_detects_type", func(t *testing.T) {
+		err := NewOperationError("register", "skill/commit", nil)
+		var target *OperationError
+		if !errors.As(err, &target) {
+			t.Fatal("errors.As returned false for *OperationError")
+		}
+		if target == nil {
+			t.Fatal("target is nil after errors.As")
+		}
+		if target.Op != "register" {
+			t.Errorf("target.Op = %q, want %q", target.Op, "register")
+		}
+		if target.Resource != "skill/commit" {
+			t.Errorf("target.Resource = %q, want %q", target.Resource, "skill/commit")
+		}
+	})
+
+	t.Run("errors_as_through_wrap", func(t *testing.T) {
+		base := NewOperationError("register", "skill/commit", nil)
+		outer := fmt.Errorf("outer: %w", base)
+		var target *OperationError
+		if !errors.As(outer, &target) {
+			t.Fatal("errors.As returned false for wrapped *OperationError")
+		}
+		if target == nil {
+			t.Fatal("target is nil after errors.As through wrap")
+		}
+		if target.Op != "register" {
+			t.Errorf("target.Op = %q, want %q", target.Op, "register")
+		}
+		if target.Resource != "skill/commit" {
+			t.Errorf("target.Resource = %q, want %q", target.Resource, "skill/commit")
+		}
+	})
+}
+
 func TestWrappedErrors(t *testing.T) {
 	inner := fmt.Errorf("inner error")
 	wrapped := NewParseError("file.yaml", "outer", inner)

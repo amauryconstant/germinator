@@ -71,8 +71,9 @@ FindLibrary(explicitPath string) (string, error)
 ## Loading
 
 ```go
-// Load library from path
-LoadLibrary(path string) (*Library, error)
+// Load library from path. ctx is checked between I/O operations; on
+// cancellation ctx.Err() is returned, wrapped.
+LoadLibrary(ctx context.Context, path string) (*Library, error)
 ```
 
 Validation: Parses `library.yaml`, validates structure, returns error if invalid.
@@ -120,19 +121,19 @@ ResolveResource(libPath, ref string) (string, error)
 ## Adding Resources
 
 ```go
-type AddOptions struct {
-    SourcePath   string  // Source file to import
-    Name         string  // Resource name (auto-detected if empty)
-    Description  string  // Resource description (auto-detected if empty)
-    Type         string  // Resource type: agent, command, skill, memory (auto-detected)
-    Platform     string  // Source platform: opencode, claude-code (auto-detected)
-    LibraryPath  string  // Target library path
-    DryRun       bool    // Preview without modifying
-    Force        bool    // Overwrite existing
+type AddRequest struct {
+    Source      string  // Source file to import
+    Name        string  // Resource name (auto-detected if empty)
+    Description string  // Resource description (auto-detected if empty)
+    Type        string  // Resource type: agent, command, skill, memory (auto-detected)
+    LibraryPath string  // Target library path
+    DryRun      bool    // Preview without modifying
+    Force       bool    // Overwrite existing
 }
 
-// Add resource to library (imports, canonicalizes if needed, validates, registers)
-AddResource(opts AddOptions) error
+// Add resource to library (imports, canonicalizes if needed, validates, registers).
+// ctx is checked before each I/O step; on cancellation it returns wrapped ctx.Err().
+AddResource(ctx context.Context, opts AddRequest) error
 ```
 
 Type detection priority: `--type` flag > frontmatter `type:` > filename pattern
@@ -182,11 +183,13 @@ type BatchAddOptions struct {
     Description string       // Optional resource description override
     Type        string       // Optional resource type override
     Platform    string       // Optional platform override
-    Orphans     []OrphanInfo // Orphan info for discovered resources (provides type/name)
+    Orphans     []Orphan     // Orphan info for discovered resources (provides type/name)
 }
 
 // BatchAddResources adds multiple resources to the library in batch mode.
-BatchAddResources(opts BatchAddOptions) (*BatchAddResult, error)
+// ctx is checked between files; on cancellation partial results are returned
+// alongside wrapped ctx.Err().
+BatchAddResources(ctx context.Context, opts BatchAddOptions) (*BatchAddResult, error)
 ```
 
 ### Batch Behavior
@@ -369,6 +372,14 @@ RefreshLibrary(opts RefreshOptions) (*RefreshResult, error)
 ## Orphan Discovery
 
 ```go
+// ErrNameConflict is returned by checkNameConflict when an orphan name
+// collides with an existing resource of a different type. Callers use
+// errors.Is(err, ErrNameConflict) to detect a typed name-conflict error
+// (this is the producer-side half of the contract; the consumer-side
+// half is verified in task 6.4's runAdd tests via *core.OperationError's
+// Unwrap chain).
+var ErrNameConflict = errors.New("name conflict with existing resource")
+
 type DiscoverOptions struct {
     LibraryPath string
     DryRun      bool
@@ -376,7 +387,7 @@ type DiscoverOptions struct {
     Batch       bool // Process all orphans continuously
 }
 
-type OrphanInfo struct {
+type Orphan struct {
     Path  string `json:"path"`
     Type  string `json:"type"` // "skill", "agent", "command", "memory"
     Name  string `json:"name"`
@@ -384,8 +395,8 @@ type OrphanInfo struct {
 }
 
 type ConflictInfo struct {
-    Orphan OrphanInfo `json:"orphan"`
-    Issue  string    `json:"issue"` // "name_conflict"
+    Orphan Orphan `json:"orphan"`
+    Issue  string `json:"issue"` // "<type>/<name>: <wrapped ErrNameConflict>"
 }
 
 type AddSuccess struct {
@@ -403,14 +414,22 @@ type DiscoverSummary struct {
 }
 
 type DiscoverResult struct {
-    Orphans   []OrphanInfo   `json:"orphans"`
+    Orphans   []Orphan   `json:"orphans"`
     Added     []AddSuccess   `json:"added"`
     Conflicts []ConflictInfo `json:"conflicts"`
     Summary   DiscoverSummary `json:"summary"`
 }
 
-// DiscoverOrphans finds resource files not registered in library.yaml
-DiscoverOrphans(opts DiscoverOptions) (*DiscoverResult, error)
+// DiscoverOrphans finds resource files not registered in library.yaml.
+// ctx is checked between files; on cancellation a partial DiscoverResult
+// is returned alongside wrapped ctx.Err().
+DiscoverOrphans(ctx context.Context, opts DiscoverOptions) (*DiscoverResult, error)
+
+// checkNameConflict returns ErrNameConflict wrapped with the offending
+// "<type>/<name>" ref when the orphan collides with an existing
+// resource of a different type; nil otherwise. Same-type duplicates
+// are handled elsewhere (isRegistered + AddResource).
+checkNameConflict(lib *Library, orphan *Orphan) error
 ```
 
 ### Discover Behavior

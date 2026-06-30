@@ -3,9 +3,11 @@ package library
 // Package library provides library management for canonical resources.
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	gerrors "gitlab.com/amoconst/germinator/internal/core"
 )
@@ -65,7 +67,9 @@ func CreateLibrary(opts CreateOptions) error {
 	}
 
 	// Validate created library by loading it
-	if _, err := LoadLibrary(opts.Path); err != nil {
+	// TODO(slice-7): replace with caller context (c.Context() in runF wiring).
+	ctx := context.Background()
+	if _, err := LoadLibrary(ctx, opts.Path); err != nil {
 		// Validation failed - leave partial structure for debugging
 		return fmt.Errorf("library created but validation failed: %w (partial structure left for debugging)", err)
 	}
@@ -83,4 +87,114 @@ resources:
   memory: {}
 presets: {}
 `
+}
+
+// CreatePresetRequest contains the parameters for CreatePreset.
+//
+// Name is the preset identifier (required). Description is optional
+// human-readable text. Resources is the slice of "type/name" refs the
+// preset bundles; each ref must parse via ParseRef and resolve to a
+// registered resource in lib. Force bypasses the existence check so an
+// existing preset can be overwritten.
+type CreatePresetRequest struct {
+	Name        string
+	Description string
+	Resources   []string
+	Force       bool
+}
+
+// CreatePreset adds or replaces a preset in lib. It centralizes the
+// validation + mutation steps the cmd layer used to perform inline.
+//
+// Pre-flight:
+//   - ctx.Err() guard (caller-supplied cancellation is honored before
+//     any I/O).
+//   - Name is required and non-empty after trimming.
+//   - Resources must contain at least one ref; each ref must parse
+//     via ParseRef and resolve to a registered resource under
+//     lib.Resources.
+//
+// Mutation:
+//   - PresetExists + !Force returns *gerrors.ValidationError so the
+//     cmd layer maps it to exit 1 via the default-error case in
+//     cmdutil.ExitCodeFor.
+//   - AddPreset applies lib.Preset.Validate which enforces the same
+//     non-empty Resources constraint as a defensive check.
+//   - SaveLibrary persists the in-memory mutation to disk.
+//
+// Returns wrapped errors using fmt.Errorf("%w", err) so callers can
+// errors.Is / errors.As the typed core errors without losing context.
+func CreatePreset(ctx context.Context, lib *Library, req *CreatePresetRequest) error {
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("create preset: %w", err)
+	}
+	if req == nil {
+		return gerrors.NewValidationError("library", "request", "", "create preset request must not be nil")
+	}
+	return lib.CreatePreset(ctx, req)
+}
+
+// CreatePreset is the method form of the preset creation routine.
+// It mirrors the package-level CreatePreset so *library.Library can
+// satisfy the cmd-side presetWriter interface without an adapter
+// shim (matching the slice-5 ResolvePreset dual form).
+//
+// The method receiver is required because preset creation is a
+// mutating operation against the live in-memory library state;
+// subsequent SaveLibrary persists the mutation to library.yaml.
+func (lib *Library) CreatePreset(ctx context.Context, req *CreatePresetRequest) error {
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("create preset: %w", err)
+	}
+	if req == nil {
+		return gerrors.NewValidationError("library", "request", "", "create preset request must not be nil")
+	}
+
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		return gerrors.NewValidationError("library create preset", "name", req.Name, "preset name cannot be empty or whitespace")
+	}
+
+	if len(req.Resources) == 0 {
+		return gerrors.NewValidationError("library create preset", "resources", "", "preset must reference at least one resource")
+	}
+
+	// Authoritative validation: each ref must parse and resolve against
+	// the live library. core.CanInstallResource is the cmd-layer
+	// pre-flight (string-only) check; this is the library-layer
+	// authoritative check (must exist on disk + in lib.Resources).
+	for _, ref := range req.Resources {
+		typ, resName, parseErr := ParseRef(ref)
+		if parseErr != nil {
+			return gerrors.NewValidationError("library create preset", "resources", ref, "invalid resource reference").WithContext(parseErr.Error())
+		}
+
+		typeResources, ok := lib.Resources[typ]
+		if !ok {
+			return gerrors.NewNotFoundError("resource type", typ)
+		}
+		if _, exists := typeResources[resName]; !exists {
+			return gerrors.NewNotFoundError("resource", ref)
+		}
+	}
+
+	if PresetExists(lib, name) && !req.Force {
+		return gerrors.NewValidationError("library create preset", "name", name, fmt.Sprintf("preset %q already exists (use --force to overwrite)", name))
+	}
+
+	preset := Preset{
+		Name:        name,
+		Description: req.Description,
+		Resources:   append([]string(nil), req.Resources...),
+	}
+
+	if err := AddPreset(lib, preset); err != nil {
+		return fmt.Errorf("adding preset: %w", err)
+	}
+
+	if err := SaveLibrary(lib); err != nil {
+		return fmt.Errorf("saving library: %w", err)
+	}
+
+	return nil
 }

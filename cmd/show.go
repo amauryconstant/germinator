@@ -86,7 +86,7 @@ Examples:
 			}
 			resolved := library.FindLibrary(lp, os.Getenv("GERMINATOR_LIBRARY"))
 			opts.Library = func() (*library.Library, error) {
-				return library.LoadLibrary(resolved)
+				return library.LoadLibrary(opts.Ctx, resolved)
 			}
 			if runF != nil {
 				return runF(opts)

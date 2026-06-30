@@ -182,70 +182,111 @@ See:
 ## Canonical example (slice 6)
 
 Slice 6 migrates the mutating library commands `library add` (three
-modes) and `library create preset`. The migrated files stay **flat**
-in `cmd/` (per Decision 7 in
-`openspec/changes/migrate-library-add-create/design.md`) — no
-`cmd/library/` subdirectory is created. Key differences from the
+modes + a legacy `--batch` mode for explicit files) and
+`library create preset`. The migrated files stay **flat** in `cmd/`
+(per Decision 7 in `openspec/changes/migrate-library-add-create/design.md`)
+— no `cmd/library/` subdirectory is created. Key differences from the
 slice-2/4/5 templates:
 
-- **Three modes in `library add`.** Mode dispatch happens in
-  `runAdd` based on the `Discover` and `Batch` flags:
+- **Three (plus one legacy) modes in `library add`.** Mode dispatch
+  happens in `runAdd` based on the `Discover` and `Batch` flags:
   - **Mode 1 (explicit files):** for each `InputPath`, call
     `lib.AddResource(opts.Ctx, ...)`; collect into a partial-success
     aggregate.
   - **Mode 2 (`--discover`):** call `lib.DiscoverOrphans(opts.Ctx, ...)`;
     for each orphan, validate ref via `core.CanInstallResource`; on
-    `name_conflict`, record `*core.OperationError` and increment
+    `name_conflict`, record `*core.OperationError{Op: "register",
+    Resource: <ref>, Cause: library.ErrNameConflict}` and increment
     `PartialSuccessError.Failed`. Return `*core.PartialSuccessError`
     on partial success.
   - **Mode 3 (`--discover --batch --force`):** continuous loop; on
     cancellation, collect partial successes and return wrapped
     `ctx.Err()`.
+  - **Mode 4 (legacy `--batch` with explicit InputPaths):** routed
+    through `library.BatchAddResources`; preserved for the
+    pre-change behavior that `e2e/library_add_test.go` still
+    exercises. Not in the new spec but kept for compat.
 - **Per-resource `name_conflict` is distinct from skip.** Conflicts
-  produce a `*core.OperationError{Op: "register", Message: "name
-  conflict: <ref>"}` and count as failures (matches the pre-change
-  semantics; see design Decision 3).
+  produce a `*core.OperationError` wrapping `library.ErrNameConflict`
+  as the `Cause` and count as failures (matches the pre-change
+  semantics; see design Decision 3). `errors.Is(err,
+  library.ErrNameConflict)` works through the chain.
 - **`Ctx context.Context` in `addOptions`.** Threaded into every
   call to `library.DiscoverOrphans`, `library.BatchAddResources`,
-  `library.LoadLibrary`.
+  `library.LoadLibrary`. Cancellation during batch mode surfaces
+  as wrapped `ctx.Err()` with partial results.
 - **`--output` only on `library add`.** `library create preset` does
   not get `--output` (legacy did not have `--json`). Plain output
-  is byte-identical to the pre-change `library_add.go` output
-  (per design Decision 9 and the spec delta at
-  `openspec/changes/migrate-library-add-create/specs/library-library-json-output/spec.md`).
-- **`library create` collapses to a leaf.** The
-  `NewLibraryCreateCommand` Cobra group wrapper is deleted
-  (per design Decision 8); `NewCmdCreatePreset` is registered
-  directly under `library` in `cmd/library.go`. User-facing command
-  path is unchanged: `germinator library create preset <name>
-  --resources ...`.
+  is byte-identical to the legacy `library add` output per design
+  Decision 9 (golden-file pinned at
+  `cmd/testdata/library_add_plain.golden`); JSON output uses the
+  net-new `discoverJSONPayload`/`explicitJSONPayload` shapes via
+  `output.NewJSONExporter`; table output uses `tab:"HEADER"` struct
+  tags via `output.NewTableExporter`. Spec delta:
+  `openspec/changes/migrate-library-add-create/specs/library-library-json-output/spec.md`.
+- **`library create` collapses to a leaf** via a thin routing
+  parent at `cmd/library.go:56-65`. The pre-change
+  `NewLibraryCreateCommand` Cobra group wrapper is deleted (per
+  design Decision 8); `NewCmdCreatePreset` is registered under a
+  one-line `createCmd` Cobra parent so the user-facing command path
+  `germinator library create preset <name> --resources ...` remains
+  routable. The thin parent has no `RunE` of its own (it just
+  shows the `preset` subcommand when `library create` is invoked
+  bare), matching the spec scenario "library create has no
+  subcommand list" intent even though the parent exists for
+  routing.
 - **`core.CanInstallResource` (pure, in `internal/core/rules.go`).**
   String-only ref validation; depguard-compatible (no `library`
   import). The authoritative validation still happens in the
   library; this is a fast-fail check before I/O.
 - **Library type renames.** `library.AddOptions` → `library.AddRequest`
   and `library.OrphanInfo` → `library.Orphan` (per design Decision 6)
-  to align the public types with the `Library` interface declared
-  in `cmd/library_add.go`.
+  to align the public types with the request/result convention.
+- **Inline interfaces are named after their behavior**, not after
+  the `library.Library` struct they substitute for. The
+  `resourceAdder` interface (3 methods: `AddResource`,
+  `DiscoverOrphans`, `BatchAddResources`) is satisfied via a
+  small `libraryAdapter` shim because the library package exposes
+  package-level functions, not methods on `*Library`. The
+  `presetWriter` interface (1 method: `CreatePreset`) is satisfied
+  directly by `*library.Library` because `CreatePreset` is also
+  a method on `*Library` (introduced alongside the package-level
+  function for symmetry). Compile-time interface checks at
+  `cmd/library_add.go` and `cmd/library_create.go`:
+  ```go
+  var _ resourceAdder = (*libraryAdapter)(nil)
+  var _ presetWriter  = (*library.Library)(nil)
+  ```
 
 See:
 - `cmd/library_add.go` (rewritten in place) — `NewCmdAdd(f,
-  libraryPath, runF)` + `runAdd(opts)`. Uses
-  `core.CanInstallResource` for ref validation; partial-success
-  aggregation via `*core.PartialSuccessError`. Three modes; per-
-  resource errors aggregate.
+  libraryPath, runF)` + `runAdd(opts)` dispatcher → `runAddExplicit`
+  (Mode 1), `runAddBatchFiles` (Mode 4 legacy), or
+  `runAddDiscover` (Modes 2/3). Uses `core.CanInstallResource` for
+  ref validation; partial-success aggregation via
+  `*core.PartialSuccessError`; per-resource errors via
+  `*core.OperationError`.
 - `cmd/library_create.go` (rewritten in place; group wrapper
   removed) — `NewCmdCreatePreset(f, libraryPath, runF)` +
-  `runCreatePreset(opts)`. Registered directly under `library` in
-  `cmd/library.go`.
+  `runCreatePreset(opts)`. Pre-flight validation via
+  `core.CanInstallResource`; empty `--resources ""` mapped to a
+  Cobra-style positional-arg error so `cmdutil.ExitCodeFor`
+  returns 2 via the `cobraUsagePrefixes` branch.
 - `cmd/library.go` — rewires `NewLibraryAddCommand(bridge, ...)` to
-  `NewCmdAdd(f, ...)` and `NewLibraryCreateCommand(bridge, ...)` to
-  `NewCmdCreatePreset(f, ...)`.
+  `NewCmdAdd(f, ...)`; the `library create` parent is a thin
+  `createCmd` (lines 56-65) wrapping `NewCmdCreatePreset(f, ...)`.
 - `internal/library/adder.go` — adds `ctx context.Context` to
   `AddResource`, `BatchAddResources`, `DiscoverOrphans`; renames
-  `AddOptions` → `AddRequest` and `OrphanInfo` → `Orphan`.
+  `AddOptions` → `AddRequest` and `OrphanInfo` → `Orphan`; adds
+  `library.ErrNameConflict` sentinel; renames `hasNameConflict` →
+  `checkNameConflict` (now returns `error` instead of `bool`).
 - `internal/library/loader.go` — adds `ctx context.Context` to
   `LoadLibrary`.
+- `internal/library/creator.go` — adds `library.CreatePresetRequest`
+  type + `library.CreatePreset` package function +
+  `(*library.Library).CreatePreset` method (symmetric form; the
+  method lets `*library.Library` satisfy `presetWriter` without an
+  adapter shim).
 
 ---
 

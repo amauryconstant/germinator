@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -123,6 +124,67 @@ func TestFormatError_PartialSuccessCrossPackage(t *testing.T) {
 	got := buf.String()
 	assert.Contains(t, got, "partial success: 3 succeeded, 1 failed")
 	assert.Contains(t, got, "skill/missing")
+}
+
+func TestFormatError_OperationError(t *testing.T) {
+	t.Run("basic_render", func(t *testing.T) {
+		t.Parallel()
+		io := iostreams.Test()
+		err := core.NewOperationError("register", "skill/commit", nil)
+
+		FormatError(io, err)
+
+		stderr, ok := io.ErrOut.(*bytes.Buffer)
+		require.True(t, ok)
+		assert.Equal(t, "Error: register: skill/commit\n", stderr.String(),
+			"OperationError must render canonical message to stderr")
+
+		stdout, ok := io.Out.(*bytes.Buffer)
+		require.True(t, ok)
+		assert.Empty(t, stdout.String(),
+			"OperationError must NOT write to stdout (stream discipline)")
+	})
+
+	t.Run("with_cause", func(t *testing.T) {
+		t.Parallel()
+		io := iostreams.Test()
+		cause := errors.New("name taken by skill/x")
+		err := core.NewOperationError("register", "skill/commit", cause)
+
+		FormatError(io, err)
+
+		stderr, ok := io.ErrOut.(*bytes.Buffer)
+		require.True(t, ok)
+		got := stderr.String()
+		assert.Contains(t, got, "Error: register: skill/commit",
+			"stderr must contain the canonical first line")
+		assert.Contains(t, got, "name taken by skill/x",
+			"stderr must contain the wrapped cause")
+		assert.Contains(t, got, "  name taken by skill/x",
+			"cause must be rendered on an indented second line")
+
+		stdout, ok := io.Out.(*bytes.Buffer)
+		require.True(t, ok)
+		assert.Empty(t, stdout.String(),
+			"OperationError with cause must NOT write to stdout")
+	})
+
+	t.Run("dispatch_precedence", func(t *testing.T) {
+		t.Parallel()
+		io := iostreams.Test()
+		base := core.NewOperationError("register", "skill/commit", nil)
+		wrapped := fmt.Errorf("registering: %w", base)
+
+		FormatError(io, wrapped)
+
+		stderr, ok := io.ErrOut.(*bytes.Buffer)
+		require.True(t, ok)
+		got := stderr.String()
+		assert.Contains(t, got, "Error: register: skill/commit",
+			"errors.As dispatch must select the OperationError branch")
+		assert.NotContains(t, got, "registering:",
+			"outer wrapping string must NOT appear in rendered output")
+	})
 }
 
 func TestJSONExporter(t *testing.T) {

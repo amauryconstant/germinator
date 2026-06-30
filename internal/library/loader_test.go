@@ -1,6 +1,7 @@
 package library
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -14,7 +15,7 @@ func TestLoadLibrary(t *testing.T) {
 		t.Fatalf("Failed to get absolute path: %v", err)
 	}
 
-	lib, err := LoadLibrary(absPath)
+	lib, err := LoadLibrary(context.Background(), absPath)
 	if err != nil {
 		t.Fatalf("LoadLibrary() error = %v", err)
 	}
@@ -74,7 +75,7 @@ func TestLoadLibrary(t *testing.T) {
 }
 
 func TestLoadLibrary_MissingDirectory(t *testing.T) {
-	_, err := LoadLibrary("/nonexistent/path/to/library")
+	_, err := LoadLibrary(context.Background(), "/nonexistent/path/to/library")
 	if err == nil {
 		t.Error("LoadLibrary() expected error for missing directory")
 	}
@@ -84,7 +85,7 @@ func TestLoadLibrary_MissingYAML(t *testing.T) {
 	// Create temp directory without library.yaml
 	tmpDir := t.TempDir()
 
-	_, err := LoadLibrary(tmpDir)
+	_, err := LoadLibrary(context.Background(), tmpDir)
 	if err == nil {
 		t.Error("LoadLibrary() expected error for missing library.yaml")
 	}
@@ -99,7 +100,7 @@ func TestLoadLibrary_InvalidYAML(t *testing.T) {
 		t.Fatalf("Failed to write library.yaml: %v", err)
 	}
 
-	_, err := LoadLibrary(tmpDir)
+	_, err := LoadLibrary(context.Background(), tmpDir)
 	if err == nil {
 		t.Error("LoadLibrary() expected error for invalid YAML")
 	}
@@ -120,7 +121,7 @@ resources:
 		t.Fatalf("Failed to write library.yaml: %v", err)
 	}
 
-	_, err := LoadLibrary(tmpDir)
+	_, err := LoadLibrary(context.Background(), tmpDir)
 	if err == nil {
 		t.Error("LoadLibrary() expected error for missing version")
 	}
@@ -142,7 +143,7 @@ resources:
 		t.Fatalf("Failed to write library.yaml: %v", err)
 	}
 
-	_, err := LoadLibrary(tmpDir)
+	_, err := LoadLibrary(context.Background(), tmpDir)
 	if err == nil {
 		t.Error("LoadLibrary() expected error for unsupported version")
 	}
@@ -164,7 +165,7 @@ resources:
 		t.Fatalf("Failed to write library.yaml: %v", err)
 	}
 
-	_, err := LoadLibrary(tmpDir)
+	_, err := LoadLibrary(context.Background(), tmpDir)
 	if err == nil {
 		t.Error("LoadLibrary() expected error for invalid resource type")
 	}
@@ -184,7 +185,7 @@ presets: {}
 		t.Fatalf("Failed to write library.yaml: %v", err)
 	}
 
-	lib, err := LoadLibrary(tmpDir)
+	lib, err := LoadLibrary(context.Background(), tmpDir)
 	if err != nil {
 		t.Fatalf("LoadLibrary() error = %v", err)
 	}
@@ -204,7 +205,7 @@ func TestLoadLibrary_NotADirectory(t *testing.T) {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
 
-	_, err := LoadLibrary(tmpFile)
+	_, err := LoadLibrary(context.Background(), tmpFile)
 	if err == nil {
 		t.Error("LoadLibrary() expected error for file path")
 	}

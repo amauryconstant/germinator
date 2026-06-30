@@ -28,7 +28,7 @@ internal/
 Pure computation with no I/O. Types with behavior, validation, business rules, decision logic. Depends on nothing except stdlib and `samber/lo`. Tested with values in, values out — no mocks.
 
 - `core/types.go` — domain types (Agent, Command, Skill, Memory, Platform)
-- `core/errors.go` — typed domain errors (ParseError, ValidationError, TransformError, FileError, ConfigError, NotFoundError, InitializeError, PartialSuccessError) carrying semantic meaning only — no exit codes
+- `core/errors.go` — typed domain errors (ParseError, ValidationError, TransformError, FileError, ConfigError, NotFoundError, OperationError, InitializeError, PartialSuccessError) carrying semantic meaning only — no exit codes
 - `core/validation.go` — generic validators with `Validator[T]` and `Pipeline[T]`
 - `core/rules.go` — business rule functions spanning types/config
 - `core/result.go` — `Result[T]` for composable error handling

@@ -2,353 +2,448 @@ package cmd
 
 import (
 	"bytes"
+	"context"
+	"errors"
+	"reflect"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"gitlab.com/amoconst/germinator/internal/cmdutil"
+	"gitlab.com/amoconst/germinator/internal/core"
+	"gitlab.com/amoconst/germinator/internal/iostreams"
 	"gitlab.com/amoconst/germinator/internal/library"
 )
 
-func TestCreatePresetCommand_Success(t *testing.T) {
-	_ = newTestConfig()
+// newCreatePresetTestIO returns the buffer-backed IOStreams that
+// create-preset tests use to assert on captured Out / ErrOut. Mirrors
+// the slice-5 newInitTestIO and slice-6 newAddTestIO helpers. Panics
+// if iostreams.Test() does not return *bytes.Buffer writers (it
+// always does in this codebase, but guard anyway).
+func newCreatePresetTestIO() (*iostreams.IOStreams, *bytes.Buffer, *bytes.Buffer) {
+	ios := iostreams.Test()
+	out, okOut := ios.Out.(*bytes.Buffer)
+	errOut, okErr := ios.ErrOut.(*bytes.Buffer)
+	if !okOut || !okErr {
+		panic("iostreams.Test did not return *bytes.Buffer-backed streams")
+	}
+	return ios, out, errOut
+}
 
-	// Create a temporary library
-	tmpDir := t.TempDir()
-	if err := library.CreateLibrary(library.CreateOptions{Path: tmpDir, Force: true}); err != nil {
-		t.Fatalf("Failed to create test library: %v", err)
-	}
+// makePresetTestLibrary scaffolds a minimal library dir with one
+// skill file already registered in library.yaml. Returns the resolved
+// RootPath. Mirrors the slice-6 makeTestLibrary helper.
+func makePresetTestLibrary(t *testing.T, registered map[string]map[string]library.Resource) string {
+	t.Helper()
+	dir := makeTestLibrary(t, registered)
+	return dir
+}
 
-	// Add a resource to the library first
-	lib, err := library.LoadLibrary(tmpDir)
-	if err != nil {
-		t.Fatalf("Failed to load library: %v", err)
-	}
-	if lib.Resources == nil {
-		lib.Resources = make(map[string]map[string]library.Resource)
-	}
-	if lib.Resources["skill"] == nil {
-		lib.Resources["skill"] = make(map[string]library.Resource)
-	}
-	lib.Resources["skill"]["commit"] = library.Resource{
-		Path:        "skills/commit.md",
-		Description: "Git commit skill",
-	}
-	if err := library.SaveLibrary(lib); err != nil {
-		t.Fatalf("Failed to save library: %v", err)
-	}
-
-	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
-	cmd.SetArgs([]string{"create", "preset", "test-preset", "--resources", "skill/commit", "--library", tmpDir})
-
-	var buf bytes.Buffer
-	cmd.SetOut(&buf)
-
-	err = cmd.Execute()
-	if err != nil {
-		t.Fatalf("Command failed: %v", err)
-	}
-
-	// Verify preset was created
-	loadedLib, err := library.LoadLibrary(tmpDir)
-	if err != nil {
-		t.Fatalf("Failed to load library: %v", err)
-	}
-
-	if !library.PresetExists(loadedLib, "test-preset") {
-		t.Error("Preset was not created")
-	}
-
-	preset, ok := loadedLib.Presets["test-preset"]
-	if !ok {
-		t.Fatal("Preset not found in library")
-	}
-	if preset.Description != "" {
-		t.Errorf("Expected empty description, got %s", preset.Description)
-	}
-	if len(preset.Resources) != 1 || preset.Resources[0] != "skill/commit" {
-		t.Errorf("Expected resources [skill/commit], got %v", preset.Resources)
+// presetTestResources returns a small resource set used across the
+// success / description / force-overwrite / multi-resource tests.
+func presetTestResources() map[string]map[string]library.Resource {
+	return map[string]map[string]library.Resource{
+		"skill": {
+			"commit":  {Path: "skills/commit.md", Description: "Git commit skill"},
+			"release": {Path: "skills/release.md", Description: "Release skill"},
+		},
+		"agent": {
+			"reviewer": {Path: "agents/reviewer.md", Description: "Code reviewer agent"},
+		},
 	}
 }
 
-func TestCreatePresetCommand_WithDescription(t *testing.T) {
-	_ = newTestConfig()
-
-	tmpDir := t.TempDir()
-	if err := library.CreateLibrary(library.CreateOptions{Path: tmpDir, Force: true}); err != nil {
-		t.Fatalf("Failed to create test library: %v", err)
+// T1 — Constructor wires opts correctly via runF injection: --resources,
+// --description, --force, Ctx, Library all populated from the parsed
+// flags and the Factory.
+func TestNewCmdCreatePreset_ValidatesArgs(t *testing.T) {
+	var captured *createPresetOptions
+	runF := func(opts *createPresetOptions) error {
+		captured = opts
+		return nil
 	}
 
-	// Add resources
-	lib, err := library.LoadLibrary(tmpDir)
-	if err != nil {
-		t.Fatalf("Failed to load library: %v", err)
-	}
-	if lib.Resources["skill"] == nil {
-		lib.Resources["skill"] = make(map[string]library.Resource)
-	}
-	lib.Resources["skill"]["test"] = library.Resource{Path: "skills/test.md"}
-	if err := library.SaveLibrary(lib); err != nil {
-		t.Fatalf("Failed to save library: %v", err)
-	}
+	ios, _, _ := newCreatePresetTestIO()
+	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
+	libPath := ""
+	cmd := NewCmdCreatePreset(f, &libPath, runF)
+	cmd.SetArgs([]string{"dev-setup", "--resources", "skill/commit,agent/reviewer",
+		"--description", "Dev environment", "--force"})
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
 
-	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
-	cmd.SetArgs([]string{"create", "preset", "my-preset", "--resources", "skill/test", "--description", "My test preset", "--library", tmpDir})
-
-	var buf bytes.Buffer
-	cmd.SetOut(&buf)
-
-	err = cmd.Execute()
-	if err != nil {
-		t.Fatalf("Command failed: %v", err)
-	}
-
-	// Verify preset
-	loadedLib, err := library.LoadLibrary(tmpDir)
-	if err != nil {
-		t.Fatalf("Failed to load library: %v", err)
-	}
-
-	preset := loadedLib.Presets["my-preset"]
-	if preset.Description != "My test preset" {
-		t.Errorf("Expected description 'My test preset', got %s", preset.Description)
-	}
+	require.NoError(t, cmd.Execute())
+	require.NotNil(t, captured)
+	assert.Equal(t, []string{"skill/commit", "agent/reviewer"}, captured.Resources)
+	assert.Equal(t, "Dev environment", captured.Description)
+	assert.True(t, captured.Force)
+	assert.NotNil(t, captured.Library, "opts.Library must be wired by NewCmdCreatePreset")
+	assert.NotNil(t, captured.IO)
+	assert.NotNil(t, captured.Ctx)
 }
 
-func TestCreatePresetCommand_AlreadyExistsError(t *testing.T) {
-	_ = newTestConfig()
+// T2 — Spec scenario "Valid refs pass pre-flight validation":
+// `core.CanInstallResource` returns nil for both skill/commit and
+// agent/reviewer; the preset is created successfully; the
+// "Created preset:" line appears on stdout.
+func TestRunCreatePreset_ValidSuccess(t *testing.T) {
+	libDir := makePresetTestLibrary(t, presetTestResources())
 
-	tmpDir := t.TempDir()
-	if err := library.CreateLibrary(library.CreateOptions{Path: tmpDir, Force: true}); err != nil {
-		t.Fatalf("Failed to create test library: %v", err)
-	}
-
-	// Add resources and existing preset
-	lib, err := library.LoadLibrary(tmpDir)
-	if err != nil {
-		t.Fatalf("Failed to load library: %v", err)
-	}
-	if lib.Resources["skill"] == nil {
-		lib.Resources["skill"] = make(map[string]library.Resource)
-	}
-	lib.Resources["skill"]["test"] = library.Resource{Path: "skills/test.md"}
-	lib.Presets["existing"] = library.Preset{Name: "existing", Resources: []string{"skill/test"}}
-	if err := library.SaveLibrary(lib); err != nil {
-		t.Fatalf("Failed to save library: %v", err)
+	ios, out, errOut := newCreatePresetTestIO()
+	opts := &createPresetOptions{
+		IO:        ios,
+		Ctx:       context.Background(),
+		Resources: []string{"skill/commit", "agent/reviewer"},
+		Library: func() (*library.Library, error) {
+			return library.LoadLibrary(context.Background(), libDir)
+		},
 	}
 
-	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
-	cmd.SetArgs([]string{"create", "preset", "existing", "--resources", "skill/test", "--library", tmpDir})
+	require.NoError(t, runCreatePreset(opts, "dev-setup"))
+	assert.Contains(t, out.String(), "Created preset: dev-setup")
+	assert.Empty(t, errOut.String(), "no errors on success")
 
-	err = cmd.Execute()
-	if err == nil {
-		t.Error("Expected error when preset already exists")
-	}
+	// Preset was persisted.
+	lib, err := library.LoadLibrary(context.Background(), libDir)
+	require.NoError(t, err)
+	preset, ok := lib.Presets["dev-setup"]
+	require.True(t, ok, "preset must be persisted")
+	assert.Equal(t, []string{"skill/commit", "agent/reviewer"}, preset.Resources)
 }
 
-func TestCreatePresetCommand_ForceOverwrite(t *testing.T) {
-	_ = newTestConfig()
+// T3 — Spec scenario "First malformed ref fails pre-flight validation":
+// `--resources skills/commit,agent/reviewer` returns a
+// *core.ValidationError because core.CanInstallResource rejects the
+// invalid type "skills". cmdutil.ExitCodeFor maps the default
+// *core.ValidationError to exit 1 (not exit 2; --resources is
+// present and non-empty, only its VALUE is malformed).
+func TestRunCreatePreset_InvalidRef(t *testing.T) {
+	libDir := makePresetTestLibrary(t, presetTestResources())
 
-	tmpDir := t.TempDir()
-	if err := library.CreateLibrary(library.CreateOptions{Path: tmpDir, Force: true}); err != nil {
-		t.Fatalf("Failed to create test library: %v", err)
-	}
-
-	// Add resources and existing preset
-	lib, err := library.LoadLibrary(tmpDir)
-	if err != nil {
-		t.Fatalf("Failed to load library: %v", err)
-	}
-	if lib.Resources["skill"] == nil {
-		lib.Resources["skill"] = make(map[string]library.Resource)
-	}
-	lib.Resources["skill"]["test"] = library.Resource{Path: "skills/test.md"}
-	if lib.Resources["agent"] == nil {
-		lib.Resources["agent"] = make(map[string]library.Resource)
-	}
-	lib.Resources["agent"]["new"] = library.Resource{Path: "agents/new.md"}
-	lib.Presets["existing"] = library.Preset{Name: "existing", Description: "Old description", Resources: []string{"skill/test"}}
-	if err := library.SaveLibrary(lib); err != nil {
-		t.Fatalf("Failed to save library: %v", err)
+	ios, _, _ := newCreatePresetTestIO()
+	opts := &createPresetOptions{
+		IO:        ios,
+		Ctx:       context.Background(),
+		Resources: []string{"skills/commit", "agent/reviewer"},
+		Library: func() (*library.Library, error) {
+			return library.LoadLibrary(context.Background(), libDir)
+		},
 	}
 
-	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
-	cmd.SetArgs([]string{"create", "preset", "existing", "--resources", "agent/new", "--description", "New description", "--force", "--library", tmpDir})
+	err := runCreatePreset(opts, "dev-setup")
+	require.Error(t, err)
 
-	var buf bytes.Buffer
-	cmd.SetOut(&buf)
+	var verr *core.ValidationError
+	require.True(t, errors.As(err, &verr), "expected *core.ValidationError in chain")
+	assert.Equal(t, cmdutil.ExitCodeError, cmdutil.ExitCodeFor(err),
+		"malformed ref must map to ExitCodeError (1)")
 
-	err = cmd.Execute()
-	if err != nil {
-		t.Fatalf("Command failed: %v", err)
-	}
-
-	// Verify preset was overwritten
-	loadedLib, err := library.LoadLibrary(tmpDir)
-	if err != nil {
-		t.Fatalf("Failed to load library: %v", err)
-	}
-
-	preset := loadedLib.Presets["existing"]
-	if preset.Description != "New description" {
-		t.Errorf("Expected description 'New description', got %s", preset.Description)
-	}
-	if len(preset.Resources) != 1 || preset.Resources[0] != "agent/new" {
-		t.Errorf("Expected resources [agent/new], got %v", preset.Resources)
-	}
+	// Preset must NOT have been created.
+	lib, lerr := library.LoadLibrary(context.Background(), libDir)
+	require.NoError(t, lerr)
+	_, exists := lib.Presets["dev-setup"]
+	assert.False(t, exists, "preset must not be created on validation failure")
 }
 
-func TestCreatePresetCommand_ResourceNotFound(t *testing.T) {
-	_ = newTestConfig()
+// T4 — Spec scenario "Empty resources flag fails pre-flight validation":
+// `--resources ""` produces a wrapped cobraUsagePrefixes-style
+// message so cmdutil.ExitCodeFor maps it to ExitCodeUsage (2).
+func TestRunCreatePreset_EmptyResourcesValue(t *testing.T) {
+	libDir := makePresetTestLibrary(t, presetTestResources())
 
-	tmpDir := t.TempDir()
-	if err := library.CreateLibrary(library.CreateOptions{Path: tmpDir, Force: true}); err != nil {
-		t.Fatalf("Failed to create test library: %v", err)
+	ios, _, _ := newCreatePresetTestIO()
+	opts := &createPresetOptions{
+		IO:        ios,
+		Ctx:       context.Background(),
+		Resources: []string{""},
+		Library: func() (*library.Library, error) {
+			return library.LoadLibrary(context.Background(), libDir)
+		},
 	}
 
-	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
-	cmd.SetArgs([]string{"create", "preset", "test", "--resources", "skill/nonexistent", "--library", tmpDir})
+	err := runCreatePreset(opts, "dev-setup")
+	require.Error(t, err)
+	assert.Equal(t, cmdutil.ExitCodeUsage, cmdutil.ExitCodeFor(err),
+		"empty --resources value must map to ExitCodeUsage (2)")
+	assert.Contains(t, err.Error(), "flag needs an argument")
+}
+
+// T5 — Constructor requires --resources: passing a preset name
+// without --resources triggers Cobra's MarkFlagRequired check,
+// which emits "required flag(s) \"resources\" not set"; this is
+// mapped to exit 2 by cobraUsagePrefixes.
+func TestNewCmdCreatePreset_RequiresResources(t *testing.T) {
+	ios, _, _ := newCreatePresetTestIO()
+	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
+	libPath := ""
+	cmd := NewCmdCreatePreset(f, &libPath, func(*createPresetOptions) error { return nil })
+	cmd.SetArgs([]string{"dev-setup"})
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
 
 	err := cmd.Execute()
-	if err == nil {
-		t.Error("Expected error when resource doesn't exist")
-	}
+	require.Error(t, err, "missing --resources flag must fail")
+	assert.Equal(t, cmdutil.ExitCodeUsage, cmdutil.ExitCodeFor(err),
+		"missing required --resources must map to ExitCodeUsage (2)")
+	assert.Contains(t, err.Error(), "required flag")
 }
 
-func TestCreatePresetCommand_InvalidResourceFormat(t *testing.T) {
-	_ = newTestConfig()
+// T6 — Description is preserved on the persisted preset.
+func TestRunCreatePreset_Description(t *testing.T) {
+	libDir := makePresetTestLibrary(t, presetTestResources())
 
-	tmpDir := t.TempDir()
-	if err := library.CreateLibrary(library.CreateOptions{Path: tmpDir, Force: true}); err != nil {
-		t.Fatalf("Failed to create test library: %v", err)
+	ios, _, _ := newCreatePresetTestIO()
+	opts := &createPresetOptions{
+		IO:          ios,
+		Ctx:         context.Background(),
+		Resources:   []string{"skill/commit"},
+		Description: "Dev environment bootstrap",
+		Library: func() (*library.Library, error) {
+			return library.LoadLibrary(context.Background(), libDir)
+		},
 	}
 
-	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
-	cmd.SetArgs([]string{"create", "preset", "test", "--resources", "invalid-format", "--library", tmpDir})
+	require.NoError(t, runCreatePreset(opts, "dev-setup"))
 
-	err := cmd.Execute()
-	if err == nil {
-		t.Error("Expected error for invalid resource format")
-	}
+	lib, err := library.LoadLibrary(context.Background(), libDir)
+	require.NoError(t, err)
+	preset, ok := lib.Presets["dev-setup"]
+	require.True(t, ok, "preset must be persisted")
+	assert.Equal(t, "Dev environment bootstrap", preset.Description)
 }
 
-func TestCreatePresetCommand_MultipleResources(t *testing.T) {
-	_ = newTestConfig()
+// T7 — Spec scenario "Reject duplicate preset without --force":
+// existing preset + no --force returns *core.ValidationError
+// (exit 1).
+func TestRunCreatePreset_NoForce_ExistingFails(t *testing.T) {
+	libDir := makePresetTestLibrary(t, presetTestResources())
 
-	tmpDir := t.TempDir()
-	if err := library.CreateLibrary(library.CreateOptions{Path: tmpDir, Force: true}); err != nil {
-		t.Fatalf("Failed to create test library: %v", err)
+	// Seed an existing preset.
+	lib, err := library.LoadLibrary(context.Background(), libDir)
+	require.NoError(t, err)
+	lib.Presets["existing"] = library.Preset{
+		Name:        "existing",
+		Description: "old",
+		Resources:   []string{"skill/commit"},
 	}
+	require.NoError(t, library.SaveLibrary(lib))
 
-	// Add resources
-	lib, err := library.LoadLibrary(tmpDir)
-	if err != nil {
-		t.Fatalf("Failed to load library: %v", err)
-	}
-	if lib.Resources["skill"] == nil {
-		lib.Resources["skill"] = make(map[string]library.Resource)
-	}
-	if lib.Resources["agent"] == nil {
-		lib.Resources["agent"] = make(map[string]library.Resource)
-	}
-	lib.Resources["skill"]["commit"] = library.Resource{Path: "skills/commit.md"}
-	lib.Resources["agent"]["reviewer"] = library.Resource{Path: "agents/reviewer.md"}
-	if err := library.SaveLibrary(lib); err != nil {
-		t.Fatalf("Failed to save library: %v", err)
-	}
-
-	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
-	cmd.SetArgs([]string{"create", "preset", "multi", "--resources", "skill/commit,agent/reviewer", "--library", tmpDir})
-
-	var buf bytes.Buffer
-	cmd.SetOut(&buf)
-
-	err = cmd.Execute()
-	if err != nil {
-		t.Fatalf("Command failed: %v", err)
+	ios, _, _ := newCreatePresetTestIO()
+	opts := &createPresetOptions{
+		IO:        ios,
+		Ctx:       context.Background(),
+		Resources: []string{"agent/reviewer"},
+		Library: func() (*library.Library, error) {
+			return library.LoadLibrary(context.Background(), libDir)
+		},
 	}
 
-	// Verify preset
-	loadedLib, err := library.LoadLibrary(tmpDir)
-	if err != nil {
-		t.Fatalf("Failed to load library: %v", err)
-	}
+	err = runCreatePreset(opts, "existing")
+	require.Error(t, err)
 
-	preset := loadedLib.Presets["multi"]
-	if len(preset.Resources) != 2 {
-		t.Errorf("Expected 2 resources, got %d", len(preset.Resources))
-	}
+	var verr *core.ValidationError
+	require.True(t, errors.As(err, &verr), "expected *core.ValidationError")
+	assert.Contains(t, verr.Error(), "already exists")
+	assert.Equal(t, cmdutil.ExitCodeError, cmdutil.ExitCodeFor(err),
+		"duplicate without --force must map to ExitCodeError (1)")
 }
 
-func TestCreatePresetCommand_MissingResourcesFlag(t *testing.T) {
-	_ = newTestConfig()
+// T8 — Spec scenario "Reject preset name with whitespace": a name
+// consisting of only whitespace triggers the early validation
+// branch and returns *core.ValidationError (exit 1).
+func TestRunCreatePreset_EmptyPresetName(t *testing.T) {
+	libDir := makePresetTestLibrary(t, presetTestResources())
 
-	tmpDir := t.TempDir()
-	if err := library.CreateLibrary(library.CreateOptions{Path: tmpDir, Force: true}); err != nil {
-		t.Fatalf("Failed to create test library: %v", err)
+	ios, _, _ := newCreatePresetTestIO()
+	opts := &createPresetOptions{
+		IO:        ios,
+		Ctx:       context.Background(),
+		Resources: []string{"skill/commit"},
+		Library: func() (*library.Library, error) {
+			return library.LoadLibrary(context.Background(), libDir)
+		},
 	}
 
-	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
-	cmd.SetArgs([]string{"create", "preset", "test", "--library", tmpDir})
+	err := runCreatePreset(opts, "   ")
+	require.Error(t, err)
 
-	err := cmd.Execute()
-	if err == nil {
-		t.Error("Expected error when --resources flag is missing")
-	}
+	var verr *core.ValidationError
+	require.True(t, errors.As(err, &verr), "expected *core.ValidationError")
+	assert.Equal(t, cmdutil.ExitCodeError, cmdutil.ExitCodeFor(err))
 }
 
-func TestCreatePresetCommand_WhitespaceName(t *testing.T) {
-	_ = newTestConfig()
+// T9 — Spec scenario "Force overwrite existing preset":
+// existing preset + --force succeeds; description + resources are
+// replaced.
+func TestRunCreatePreset_ForceOverwrite(t *testing.T) {
+	libDir := makePresetTestLibrary(t, presetTestResources())
 
-	tmpDir := t.TempDir()
-	if err := library.CreateLibrary(library.CreateOptions{Path: tmpDir, Force: true}); err != nil {
-		t.Fatalf("Failed to create test library: %v", err)
+	lib, err := library.LoadLibrary(context.Background(), libDir)
+	require.NoError(t, err)
+	lib.Presets["existing"] = library.Preset{
+		Name:        "existing",
+		Description: "Old description",
+		Resources:   []string{"skill/commit"},
+	}
+	require.NoError(t, library.SaveLibrary(lib))
+
+	ios, _, _ := newCreatePresetTestIO()
+	opts := &createPresetOptions{
+		IO:        ios,
+		Ctx:       context.Background(),
+		Resources: []string{"agent/reviewer"},
+		Force:     true,
+		Library: func() (*library.Library, error) {
+			return library.LoadLibrary(context.Background(), libDir)
+		},
 	}
 
-	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
-	cmd.SetArgs([]string{"create", "preset", "   ", "--resources", "skill/test", "--library", tmpDir})
+	require.NoError(t, runCreatePreset(opts, "existing"))
 
-	err := cmd.Execute()
-	if err == nil {
-		t.Error("Expected error for whitespace-only name")
-	}
+	reloaded, err := library.LoadLibrary(context.Background(), libDir)
+	require.NoError(t, err)
+	preset, ok := reloaded.Presets["existing"]
+	require.True(t, ok)
+	assert.Equal(t, "agent/reviewer", preset.Resources[0],
+		"--force must overwrite the resources list")
+	assert.Empty(t, preset.Description,
+		"--force must overwrite the description")
 }
 
-func TestCreatePresetCommand_ResourceTypeNotFound(t *testing.T) {
-	_ = newTestConfig()
+// T10 — Multiple resources, all valid: 3+ refs all resolve and the
+// preset carries the full list.
+func TestRunCreatePreset_MultipleResources(t *testing.T) {
+	libDir := makePresetTestLibrary(t, presetTestResources())
 
-	tmpDir := t.TempDir()
-	if err := library.CreateLibrary(library.CreateOptions{Path: tmpDir, Force: true}); err != nil {
-		t.Fatalf("Failed to create test library: %v", err)
-	}
-
-	// Add a skill resource but not an agent
-	lib, err := library.LoadLibrary(tmpDir)
-	if err != nil {
-		t.Fatalf("Failed to load library: %v", err)
-	}
-	if lib.Resources["skill"] == nil {
-		lib.Resources["skill"] = make(map[string]library.Resource)
-	}
-	lib.Resources["skill"]["test"] = library.Resource{Path: "skills/test.md"}
-	if err := library.SaveLibrary(lib); err != nil {
-		t.Fatalf("Failed to save library: %v", err)
+	ios, _, _ := newCreatePresetTestIO()
+	opts := &createPresetOptions{
+		IO:        ios,
+		Ctx:       context.Background(),
+		Resources: []string{"skill/commit", "skill/release", "agent/reviewer"},
+		Library: func() (*library.Library, error) {
+			return library.LoadLibrary(context.Background(), libDir)
+		},
 	}
 
-	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
-	cmd.SetArgs([]string{"create", "preset", "test", "--resources", "agent/nonexistent", "--library", tmpDir})
+	require.NoError(t, runCreatePreset(opts, "multi"))
 
-	err = cmd.Execute()
-	if err == nil {
-		t.Error("Expected error when resource type doesn't exist in library")
-	}
+	lib, err := library.LoadLibrary(context.Background(), libDir)
+	require.NoError(t, err)
+	preset, ok := lib.Presets["multi"]
+	require.True(t, ok)
+	assert.Equal(t, []string{"skill/commit", "skill/release", "agent/reviewer"}, preset.Resources)
 }
 
-func TestCreatePresetCommand_LibraryNotFound(t *testing.T) {
-	_ = newTestConfig()
+// T11 — Spec scenario "Validate referenced resources exist":
+// `core.CanInstallResource` accepts the syntactic shape of a ref,
+// but the library must also have the resource registered. A
+// syntactically-valid ref pointing to a non-existent resource
+// surfaces from lib.CreatePreset as *core.NotFoundError; cmdutil.ExitCodeFor
+// maps NotFoundError to ExitCodeUsage (2) per its explicit
+// `errors.As(notFound)` branch. The preset is NOT created.
+func TestRunCreatePreset_RefReferencesMissingResource(t *testing.T) {
+	libDir := makePresetTestLibrary(t, presetTestResources())
 
-	cmd := NewLibraryCommand(newTestFactory(), newTestBridge(), nil)
-	cmd.SetArgs([]string{"create", "preset", "test", "--resources", "skill/test", "--library", "/nonexistent/path"})
-
-	err := cmd.Execute()
-	if err == nil {
-		t.Error("Expected error when library doesn't exist")
+	ios, _, _ := newCreatePresetTestIO()
+	opts := &createPresetOptions{
+		IO:        ios,
+		Ctx:       context.Background(),
+		Resources: []string{"skill/nonexistent"},
+		Library: func() (*library.Library, error) {
+			return library.LoadLibrary(context.Background(), libDir)
+		},
 	}
+
+	err := runCreatePreset(opts, "broken")
+	require.Error(t, err)
+
+	var nf *core.NotFoundError
+	require.True(t, errors.As(err, &nf), "expected *core.NotFoundError from lib.CreatePreset")
+	assert.Equal(t, "resource", nf.Entity)
+	assert.Equal(t, cmdutil.ExitCodeUsage, cmdutil.ExitCodeFor(err),
+		"missing-resource error maps to ExitCodeUsage (2) via NotFoundError branch")
+
+	lib, lerr := library.LoadLibrary(context.Background(), libDir)
+	require.NoError(t, lerr)
+	_, exists := lib.Presets["broken"]
+	assert.False(t, exists, "preset must not be created when resource is missing")
+}
+
+// T12 — createPresetOptions struct shape: declares exactly the
+// spec-named fields; reflection guards against accidental drops
+// or renames.
+func TestCreatePresetOptions_StructShape(t *testing.T) {
+	t.Parallel()
+
+	typ := reflect.TypeOf(createPresetOptions{})
+	want := map[string]bool{
+		"IO":          true,
+		"Library":     true,
+		"Ctx":         true,
+		"Resources":   true,
+		"Description": true,
+		"Force":       true,
+	}
+	got := make(map[string]bool, typ.NumField())
+	for i := 0; i < typ.NumField(); i++ {
+		got[typ.Field(i).Name] = true
+	}
+
+	assert.Equal(t, want, got,
+		"createPresetOptions must declare exactly the spec-named fields")
+}
+
+// T13 — presetWriter interface satisfied by *library.Library:
+// compile-time check is exercised by the var _ presetWriter
+// declaration in library_create.go; this test asserts at runtime
+// that the contract holds.
+func TestPresetWriterInterfaceSatisfied(t *testing.T) {
+	t.Parallel()
+
+	lib := &library.Library{}
+	var pw presetWriter = lib
+	assert.NotNil(t, pw, "*library.Library must satisfy presetWriter")
+}
+
+// T14 — createPresetLibrary helper: nil factory returns a nil
+// loader so tests that don't care about the loader can ignore it.
+func TestCreatePresetLibrary_NilFactoryReturnsNil(t *testing.T) {
+	t.Parallel()
+
+	assert.Nil(t, createPresetLibrary(nil, "/tmp"),
+		"createPresetLibrary(nil, ...) returns nil so opts.Library is unset")
+}
+
+// T15 — No --output flag on `library create preset`: design
+// Decision 5. Help output must NOT mention --output.
+func TestNewCmdCreatePreset_HelpOutput_NoOutputFlag(t *testing.T) {
+	t.Parallel()
+
+	ios := iostreams.Test()
+	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
+	cmd := NewCmdCreatePreset(f, nil, func(*createPresetOptions) error { return nil })
+
+	buf := &bytes.Buffer{}
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+
+	require.NoError(t, cmd.Help())
+	out := buf.String()
+	assert.NotContains(t, out, "--output",
+		"library create preset help must not advertise --output (design Decision 5)")
+}
+
+// T16 — library create preset is a leaf: there are no subcommands
+// under it. Spec scenario "library create preset help resolves to
+// a single command".
+func TestNewCmdCreatePreset_NoSubcommands(t *testing.T) {
+	t.Parallel()
+
+	ios := iostreams.Test()
+	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
+	cmd := NewCmdCreatePreset(f, nil, func(*createPresetOptions) error { return nil })
+
+	assert.Empty(t, cmd.Commands(),
+		"library create preset must not have subcommands (leaf under library)")
 }

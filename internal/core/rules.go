@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -56,4 +57,41 @@ func ResolveOutputPath(docType, name, platform string) string {
 	default:
 		return strings.Join([]string{root, docType, name + ".md"}, "/")
 	}
+}
+
+// validResourceTypes lists the recognized resource type segments of an
+// installable ref (e.g. "skill/commit").
+var validResourceTypes = []string{"skill", "agent", "command", "memory"}
+
+// CanInstallResource validates the syntactic shape of a ref like
+// "skill/commit". It is a fast pre-flight check used by the library add
+// and library create preset commands before any I/O is performed.
+//
+// Returns nil if the ref is well-formed and the type segment is one of
+// {skill, agent, command, memory}. Otherwise returns a *core.ValidationError
+// describing the malformed component.
+//
+// This function is string-only — it does NOT look the resource up in the
+// library; the authoritative validation happens after this returns nil.
+func CanInstallResource(ref string) error {
+	typ, name, ok := strings.Cut(ref, "/")
+	if !ok || typ == "" {
+		return NewValidationError(
+			"library", "ref", ref, "ref must be type/name",
+		)
+	}
+	if name == "" {
+		return NewValidationError(
+			"library", "ref", ref, "ref name must be non-empty",
+		)
+	}
+	if !slices.Contains(validResourceTypes, typ) {
+		return NewValidationError(
+			"library", "ref", ref,
+			"ref type must be one of skill, agent, command, memory",
+		).WithSuggestions([]string{
+			"use one of: skill, agent, command, memory",
+		})
+	}
+	return nil
 }

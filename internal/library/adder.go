@@ -2,6 +2,8 @@
 package library
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,8 +14,15 @@ import (
 	yaml "gopkg.in/yaml.v3"
 )
 
-// AddOptions contains options for adding a resource to the library.
-type AddOptions struct {
+// ErrNameConflict is returned by [checkNameConflict] when an orphan name
+// collides with an existing resource of a different type. It is the typed
+// sentinel for the orphan-discovery name-conflict path; callers should use
+// [errors.Is] to detect it in an error chain (for example, when wrapping
+// it as the Cause of a [*core.OperationError]).
+var ErrNameConflict = errors.New("name conflict with existing resource")
+
+// AddRequest contains options for adding a resource to the library.
+type AddRequest struct {
 	// Source is the path to the source file to add (must be canonical format).
 	Source string
 	// Name is the optional resource name (overrides auto-detection).
@@ -33,7 +42,14 @@ type AddOptions struct {
 // AddResource adds a resource from a source file to the library.
 // The source must already be in canonical format (canonicalization should be done by caller).
 // It handles type detection, name detection, description detection, and library.yaml updates.
-func AddResource(opts AddOptions) error {
+// The provided ctx is checked before each file I/O operation; on
+// cancellation, the function returns wrapped ctx.Err() so the caller can
+// distinguish a cancelled write from a regular library error.
+func AddResource(ctx context.Context, opts AddRequest) error {
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("adding resource: %w", err)
+	}
+
 	// Validate source file exists
 	if err := validateSourceExists(opts.Source); err != nil {
 		return err
@@ -55,7 +71,10 @@ func AddResource(opts AddOptions) error {
 	description := detectDescription(opts.Source, opts.Description)
 
 	// Load the library
-	lib, err := LoadLibrary(opts.LibraryPath)
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("adding resource: %w", err)
+	}
+	lib, err := LoadLibrary(ctx, opts.LibraryPath)
 	if err != nil {
 		return fmt.Errorf("loading library: %w", err)
 	}
@@ -87,10 +106,18 @@ func AddResource(opts AddOptions) error {
 		return core.NewFileError(targetDir, "create", "failed to create resource directory", err)
 	}
 
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("adding resource: %w", err)
+	}
+
 	// Read source content
 	content, err := os.ReadFile(opts.Source) //nolint:gosec,nolintlint // G304: User provides source path, must read user documents
 	if err != nil {
 		return core.NewFileError(opts.Source, "read", "failed to read source file", err)
+	}
+
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("adding resource: %w", err)
 	}
 
 	// Write to target path
@@ -104,7 +131,7 @@ func AddResource(opts AddOptions) error {
 	}
 
 	// Validate the updated library
-	if _, err := LoadLibrary(opts.LibraryPath); err != nil {
+	if _, err := LoadLibrary(ctx, opts.LibraryPath); err != nil {
 		return fmt.Errorf("validating updated library: %w", err)
 	}
 
@@ -436,8 +463,8 @@ type DiscoverOptions struct {
 	Batch       bool
 }
 
-// OrphanInfo represents an orphaned resource found during discovery.
-type OrphanInfo struct {
+// Orphan represents an orphaned resource found during discovery.
+type Orphan struct {
 	Path  string `json:"path"`
 	Type  string `json:"type"`
 	Name  string `json:"name"`
@@ -446,8 +473,8 @@ type OrphanInfo struct {
 
 // ConflictInfo represents a conflict during orphan discovery.
 type ConflictInfo struct {
-	Orphan OrphanInfo `json:"orphan"`
-	Issue  string     `json:"issue"`
+	Orphan Orphan `json:"orphan"`
+	Issue  string `json:"issue"`
 }
 
 // AddSuccess represents a successfully added orphan resource.
@@ -468,7 +495,7 @@ type DiscoverSummary struct {
 
 // DiscoverResult contains the result of an orphan discovery operation.
 type DiscoverResult struct {
-	Orphans   []OrphanInfo    `json:"orphans"`
+	Orphans   []Orphan        `json:"orphans"`
 	Added     []AddSuccess    `json:"added"`
 	Conflicts []ConflictInfo  `json:"conflicts"`
 	Summary   DiscoverSummary `json:"summary"`
@@ -510,24 +537,32 @@ type BatchSummary struct {
 
 // BatchAddOptions contains options for batch adding resources.
 type BatchAddOptions struct {
-	Sources     []string     // Source files/directories to add
-	LibraryPath string       // Path to the library
-	DryRun      bool         // Preview without modifying
-	Force       bool         // Overwrite existing resources
-	Name        string       // Optional resource name override
-	Description string       // Optional resource description override
-	Type        string       // Optional resource type override
-	Platform    string       // Optional platform override
-	Orphans     []OrphanInfo // Orphan info for discovered resources (provides type/name)
+	Sources     []string // Source files/directories to add
+	LibraryPath string   // Path to the library
+	DryRun      bool     // Preview without modifying
+	Force       bool     // Overwrite existing resources
+	Name        string   // Optional resource name override
+	Description string   // Optional resource description override
+	Type        string   // Optional resource type override
+	Platform    string   // Optional platform override
+	Orphans     []Orphan // Orphan info for discovered resources (provides type/name)
 }
 
 // BatchAddResources adds multiple resources to the library in batch mode.
-// It processes all sources sequentially, collecting results by category (added/skipped/failed).
-func BatchAddResources(opts BatchAddOptions) (*BatchAddResult, error) {
+// It processes all sources sequentially, collecting results by category
+// (added/skipped/failed). The provided ctx is checked between files in the
+// inner loop; on cancellation the partial BatchAddResult is returned
+// alongside wrapped ctx.Err() so callers can inspect successes/failures
+// observed up to the cancel point.
+func BatchAddResources(ctx context.Context, opts BatchAddOptions) (*BatchAddResult, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("batch add: %w", err)
+	}
+
 	result := &BatchAddResult{}
 
 	// Build a map of source path to orphan info for quick lookup
-	orphanMap := make(map[string]OrphanInfo)
+	orphanMap := make(map[string]Orphan)
 	for _, orphan := range opts.Orphans {
 		orphanMap[orphan.Path] = orphan
 	}
@@ -543,11 +578,18 @@ func BatchAddResources(opts BatchAddOptions) (*BatchAddResult, error) {
 
 	// Process each file
 	for _, source := range files {
-		var orphan OrphanInfo
+		if cerr := ctx.Err(); cerr != nil {
+			return result, fmt.Errorf("batch add: %w", cerr)
+		}
+		var orphan Orphan
 		if o, ok := orphanMap[source]; ok {
 			orphan = o
 		}
-		_ = processBatchAddFile(source, opts, result, orphan) // Error is already recorded in result
+		_ = processBatchAddFile(ctx, source, opts, result, orphan) // Error is already recorded in result
+	}
+
+	if err := ctx.Err(); err != nil {
+		return result, fmt.Errorf("batch add: %w", err)
 	}
 
 	return result, nil
@@ -594,7 +636,21 @@ func collectSourceFiles(sources []string) ([]string, error) {
 }
 
 // processBatchAddFile processes a single file for batch add.
-func processBatchAddFile(source string, opts BatchAddOptions, result *BatchAddResult, orphan OrphanInfo) error {
+// The ctx is propagated into the library load and the recursive AddResource
+// call; a mid-batch cancellation is reported as a per-file failure so the
+// partial summary remains consistent.
+func processBatchAddFile(ctx context.Context, source string, opts BatchAddOptions, result *BatchAddResult, orphan Orphan) error {
+	// Pre-flight cancellation check so a cancelled context short-circuits
+	// the detect → load → add pipeline per file.
+	if err := ctx.Err(); err != nil {
+		result.Failed = append(result.Failed, BatchFailureInfo{
+			Source: source,
+			Error:  err.Error(),
+		})
+		result.Summary.Failed++
+		return fmt.Errorf("processBatchAddFile: %w", err)
+	}
+
 	// Detect resource type - use orphan type if available (from discover), otherwise detect
 	docType := orphan.Type
 	if docType == "" {
@@ -638,7 +694,7 @@ func processBatchAddFile(source string, opts BatchAddOptions, result *BatchAddRe
 	resourceKey := FormatRef(docType, name)
 
 	// Load the library to check for existing resources
-	lib, err := LoadLibrary(opts.LibraryPath)
+	lib, err := LoadLibrary(ctx, opts.LibraryPath)
 	if err != nil {
 		result.Failed = append(result.Failed, BatchFailureInfo{
 			Source: source,
@@ -693,7 +749,7 @@ func processBatchAddFile(source string, opts BatchAddOptions, result *BatchAddRe
 	}
 
 	// Add the resource using existing AddResource function
-	addErr := AddResource(AddOptions{
+	addErr := AddResource(ctx, AddRequest{
 		Source:      source,
 		Name:        name,
 		Description: description,
@@ -721,9 +777,13 @@ func processBatchAddFile(source string, opts BatchAddOptions, result *BatchAddRe
 }
 
 // DiscoverOrphans scans library directories for orphaned resource files.
-func DiscoverOrphans(opts DiscoverOptions) (*DiscoverResult, error) {
+// The provided ctx is checked between scanned directories and inside the
+// per-directory walk; on cancellation, the partial DiscoverResult is
+// returned alongside wrapped ctx.Err() so callers can inspect what was
+// found before the cancel arrived.
+func DiscoverOrphans(ctx context.Context, opts DiscoverOptions) (*DiscoverResult, error) {
 	// Load the library to get registered resources
-	lib, err := LoadLibrary(opts.LibraryPath)
+	lib, err := LoadLibrary(ctx, opts.LibraryPath)
 	if err != nil {
 		return nil, fmt.Errorf("loading library: %w", err)
 	}
@@ -739,9 +799,12 @@ func DiscoverOrphans(opts DiscoverOptions) (*DiscoverResult, error) {
 	}
 
 	for dir, resType := range directories {
+		if err := ctx.Err(); err != nil {
+			return result, fmt.Errorf("discovering orphans: %w", err)
+		}
 		dirPath := filepath.Join(opts.LibraryPath, dir)
-		if err := scanDirectory(dirPath, resType, lib, opts, result); err != nil {
-			return nil, err
+		if err := scanDirectory(ctx, dirPath, resType, lib, opts, result); err != nil {
+			return result, err
 		}
 	}
 
@@ -752,6 +815,9 @@ func DiscoverOrphans(opts DiscoverOptions) (*DiscoverResult, error) {
 	// Note: When Batch is true, we defer to BatchAddResources for full processing
 	if !opts.Batch && opts.Force && len(result.Conflicts) == 0 && !opts.DryRun {
 		for _, orphan := range result.Orphans {
+			if err := ctx.Err(); err != nil {
+				return result, fmt.Errorf("discovering orphans: %w", err)
+			}
 			if err := registerOrphan(opts.LibraryPath, orphan); err != nil {
 				return nil, err
 			}
@@ -764,11 +830,18 @@ func DiscoverOrphans(opts DiscoverOptions) (*DiscoverResult, error) {
 		}
 	}
 
+	if err := ctx.Err(); err != nil {
+		return result, fmt.Errorf("discovering orphans: %w", err)
+	}
+
 	return result, nil
 }
 
 // scanDirectory scans a single resource directory for orphans recursively.
-func scanDirectory(dirPath, resType string, lib *Library, _ DiscoverOptions, result *DiscoverResult) error {
+// The walker inspects ctx.Err() per file entry so that a mid-walk
+// cancellation surfaces a wrapped context.Canceled / DeadlineExceeded
+// instead of running to completion.
+func scanDirectory(ctx context.Context, dirPath, resType string, lib *Library, _ DiscoverOptions, result *DiscoverResult) error {
 	err := filepath.WalkDir(dirPath, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			// Skip entries we can't access - continue walking
@@ -785,6 +858,11 @@ func scanDirectory(dirPath, resType string, lib *Library, _ DiscoverOptions, res
 			return nil
 		}
 
+		// Per-file cancellation check inside the walk.
+		if cerr := ctx.Err(); cerr != nil {
+			return fmt.Errorf("scan: %w", cerr)
+		}
+
 		// Increment scanned count for .md files
 		result.Summary.TotalScanned++
 
@@ -795,11 +873,16 @@ func scanDirectory(dirPath, resType string, lib *Library, _ DiscoverOptions, res
 			return nil
 		}
 
-		// Check for name conflict with other type
-		if hasNameConflict(lib, orphan.Name) {
+		// Check for name conflict with other type. checkNameConflict
+		// returns ErrNameConflict wrapped with the offending <type>/<name>
+		// ref so callers (notably runAdd Mode 2 in task 6.4) can wrap the
+		// collision as the Cause of a *core.OperationError. We surface it
+		// via the per-file ConflictInfo here so the existing JSON / human
+		// output continues to show the conflict alongside the orphan.
+		if conflictErr := checkNameConflict(lib, &orphan); conflictErr != nil {
 			result.Conflicts = append(result.Conflicts, ConflictInfo{
 				Orphan: orphan,
-				Issue:  "name_conflict",
+				Issue:  conflictErr.Error(),
 			})
 			return nil
 		}
@@ -808,14 +891,17 @@ func scanDirectory(dirPath, resType string, lib *Library, _ DiscoverOptions, res
 		return nil
 	})
 	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return fmt.Errorf("scanning directory %s: %w", dirPath, err)
+		}
 		return fmt.Errorf("walking directory %s: %w", dirPath, err)
 	}
 	return nil
 }
 
 // detectOrphan detects orphan metadata from a file.
-func detectOrphan(filePath, resType string) OrphanInfo {
-	orphan := OrphanInfo{
+func detectOrphan(filePath, resType string) Orphan {
+	orphan := Orphan{
 		Type: resType,
 		Path: filePath,
 	}
@@ -840,18 +926,31 @@ func isRegistered(lib *Library, resType, name string) bool {
 	return exists
 }
 
-// hasNameConflict checks if the orphan name conflicts with resources of other types.
-func hasNameConflict(lib *Library, name string) bool {
-	for _, resources := range lib.Resources {
-		if _, exists := resources[name]; exists {
-			return true
+// checkNameConflict reports whether the given orphan collides with an
+// already-registered resource of a different type. On collision it
+// returns ErrNameConflict wrapped with the offending "<type>/<name>"
+// ref (e.g., "agent/commit: name conflict with existing resource"); on
+// no collision it returns nil.
+//
+// Cross-type only by design: same-type duplicates are surfaced earlier
+// by isRegistered (and gated on --force by AddResource), so they are not
+// reported as a typed conflict here. This keeps "the same type already
+// has this name" distinct from "a different type already has this name"
+// for callers that branch on errors.Is(err, ErrNameConflict).
+func checkNameConflict(lib *Library, orphan *Orphan) error {
+	for resType, resources := range lib.Resources {
+		if resType == orphan.Type {
+			continue
+		}
+		if _, exists := resources[orphan.Name]; exists {
+			return fmt.Errorf("%s/%s: %w", orphan.Type, orphan.Name, ErrNameConflict)
 		}
 	}
-	return false
+	return nil
 }
 
 // registerOrphan adds an orphan to the library.
-func registerOrphan(libraryPath string, orphan OrphanInfo) error {
+func registerOrphan(libraryPath string, orphan Orphan) error {
 	// Extract description from frontmatter when registering
 	description := extractFrontmatterField(orphan.Path, "description")
 

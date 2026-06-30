@@ -3,6 +3,7 @@ package library
 // Package library provides library management for canonical resources.
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -59,6 +60,9 @@ type RemovePresetError struct {
 // RemoveResource removes a resource from the library.
 // It deletes both the physical file and the YAML entry.
 func RemoveResource(opts RemoveResourceOptions) (*RemoveResourceOutput, error) {
+	// TODO(slice-7): replace with caller context (c.Context() in runF wiring).
+	ctx := context.Background()
+
 	typ, name, err := ParseRef(opts.Ref)
 	if err != nil {
 		return nil, fmt.Errorf("parsing reference: %w", err)
@@ -69,7 +73,7 @@ func RemoveResource(opts RemoveResourceOptions) (*RemoveResourceOutput, error) {
 		return nil, gerrors.NewConfigError("type", typ, "invalid resource type")
 	}
 
-	lib, err := LoadLibrary(opts.LibraryPath)
+	lib, err := LoadLibrary(ctx, opts.LibraryPath)
 	if err != nil {
 		return nil, fmt.Errorf("loading library: %w", err)
 	}
@@ -106,7 +110,7 @@ func RemoveResource(opts RemoveResourceOptions) (*RemoveResourceOutput, error) {
 		return nil, fmt.Errorf("updating library.yaml: %w", err)
 	}
 
-	if _, err := LoadLibrary(opts.LibraryPath); err != nil {
+	if _, err := LoadLibrary(ctx, opts.LibraryPath); err != nil {
 		return nil, fmt.Errorf("validating updated library: %w", err)
 	}
 
@@ -121,11 +125,14 @@ func RemoveResource(opts RemoveResourceOptions) (*RemoveResourceOutput, error) {
 
 // RemovePreset removes a preset from the library.
 func RemovePreset(opts RemovePresetOptions) (*RemovePresetOutput, error) {
+	// TODO(slice-7): replace with caller context (c.Context() in runF wiring).
+	ctx := context.Background()
+
 	if opts.Name == "" {
 		return nil, gerrors.NewValidationError("", "name", "", "preset name is required")
 	}
 
-	lib, err := LoadLibrary(opts.LibraryPath)
+	lib, err := LoadLibrary(ctx, opts.LibraryPath)
 	if err != nil {
 		return nil, fmt.Errorf("loading library: %w", err)
 	}
@@ -143,7 +150,7 @@ func RemovePreset(opts RemovePresetOptions) (*RemovePresetOutput, error) {
 		return nil, fmt.Errorf("updating library.yaml: %w", err)
 	}
 
-	if _, err := LoadLibrary(opts.LibraryPath); err != nil {
+	if _, err := LoadLibrary(ctx, opts.LibraryPath); err != nil {
 		return nil, fmt.Errorf("validating updated library: %w", err)
 	}
 

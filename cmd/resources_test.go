@@ -26,7 +26,7 @@ func loadFixtureLibrary(t *testing.T) *library.Library {
 	abs, err := filepath.Abs(filepath.Join("..", "test", "fixtures", "library"))
 	require.NoError(t, err)
 
-	lib, err := library.LoadLibrary(abs)
+	lib, err := library.LoadLibrary(context.Background(), abs)
 	require.NoError(t, err, "fixture library must load: %s", abs)
 	return lib
 }

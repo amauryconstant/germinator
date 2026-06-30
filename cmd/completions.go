@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"os"
 	"sync"
 	"time"
@@ -119,7 +120,10 @@ func actionResources(cmd *cobra.Command) carapace.Action {
 		errCh := make(chan error, 1)
 
 		go func() {
-			lib, err := library.LoadLibrary(libPath)
+			// TODO(slice-7): thread cmd Context() instead of context.Background().
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			defer cancel()
+			lib, err := library.LoadLibrary(ctx, libPath)
 			if err != nil {
 				errCh <- err
 				return
@@ -161,7 +165,10 @@ func actionPresets(cmd *cobra.Command) carapace.Action {
 		errCh := make(chan error, 1)
 
 		go func() {
-			lib, err := library.LoadLibrary(libPath)
+			// TODO(slice-7): thread cmd Context() instead of context.Background().
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			defer cancel()
+			lib, err := library.LoadLibrary(ctx, libPath)
 			if err != nil {
 				errCh <- err
 				return
@@ -203,7 +210,10 @@ func actionLibraryRefs(cmd *cobra.Command) carapace.Action {
 		errCh := make(chan error, 1)
 
 		go func() {
-			lib, err := library.LoadLibrary(libPath)
+			// TODO(slice-7): thread cmd Context() instead of context.Background().
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			defer cancel()
+			lib, err := library.LoadLibrary(ctx, libPath)
 			if err != nil {
 				errCh <- err
 				return

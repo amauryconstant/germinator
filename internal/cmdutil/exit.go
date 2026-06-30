@@ -30,6 +30,10 @@ var cobraUsagePrefixes = []string{
 	"invalid syntax",
 	"unknown shorthand flag",
 	"required flag",
+	"requires at least",
+	"requires exactly",
+	"accepts at most",
+	"requires at most",
 }
 
 // ExitCodeFor maps an error to an ExitCode.
@@ -43,6 +47,7 @@ var cobraUsagePrefixes = []string{
 //	*core.NotFoundError                   -> 2
 //	*core.PartialSuccessError (S>0)       -> 0
 //	*core.PartialSuccessError (S==0)      -> 1
+//	*core.OperationError                  -> 1 (default-error case)
 //	all other errors                      -> 1
 func ExitCodeFor(err error) ExitCode {
 	if err == nil {

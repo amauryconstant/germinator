@@ -201,11 +201,25 @@ germinator library add --discover --batch --force --dry-run
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--output` | `plain` | `plain` (byte-identical to pre-change), `json` (via `output.NewJSONExporter`), or `table` (via `output.NewTableExporter`) |
+| `--output` | `plain` | `plain` (byte-identical to legacy format), `json` (via `output.NewJSONExporter`), or `table` (via `output.NewTableExporter`) |
 
 ```bash
+# Plain (default)
+germinator library add --discover --batch --force
+# -> Added resource: skill/foo
+# -> Orphaned resources:
+# ->   skill/foo (/path/to/skills/foo.md)
+# -> Summary: scanned=N, orphans=N, added=N, skipped=N, failed=N
+# -> Added N, skipped N, failed N
+
+# JSON
 germinator library add --discover --batch --force --output json
+# -> { "added": [...], "summary": { "totalScanned": N, ... } }
+
+# Table
 germinator library add --discover --output table
+# -> TYPE   NAME   PATH
+# -> skill  foo    /path/to/skills/foo.md
 ```
 
 ### Stream discipline

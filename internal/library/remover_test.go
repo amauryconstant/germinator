@@ -1,6 +1,7 @@
 package library
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -25,7 +26,7 @@ tools:
 		t.Fatalf("Failed to write test file: %v", err)
 	}
 
-	err := AddResource(AddOptions{
+	err := AddResource(context.Background(), AddRequest{
 		Source:      srcPath,
 		LibraryPath: tmpLibDir,
 	})
@@ -34,7 +35,7 @@ tools:
 	}
 
 	// Verify resource exists
-	lib, err := LoadLibrary(tmpLibDir)
+	lib, err := LoadLibrary(context.Background(), tmpLibDir)
 	if err != nil {
 		t.Fatalf("LoadLibrary() error = %v", err)
 	}
@@ -62,7 +63,7 @@ tools:
 	}
 
 	// Verify resource no longer exists in library
-	lib, err = LoadLibrary(tmpLibDir)
+	lib, err = LoadLibrary(context.Background(), tmpLibDir)
 	if err != nil {
 		t.Fatalf("LoadLibrary() error = %v", err)
 	}
@@ -109,7 +110,7 @@ tools:
 		t.Fatalf("Failed to write test file: %v", err)
 	}
 
-	err := AddResource(AddOptions{
+	err := AddResource(context.Background(), AddRequest{
 		Source:      srcPath,
 		LibraryPath: tmpLibDir,
 	})
@@ -118,7 +119,7 @@ tools:
 	}
 
 	// Create a preset that references the resource
-	lib, err := LoadLibrary(tmpLibDir)
+	lib, err := LoadLibrary(context.Background(), tmpLibDir)
 	if err != nil {
 		t.Fatalf("LoadLibrary() error = %v", err)
 	}
@@ -193,7 +194,7 @@ tools:
 		t.Fatalf("Failed to write test file: %v", err)
 	}
 
-	err := AddResource(AddOptions{
+	err := AddResource(context.Background(), AddRequest{
 		Source:      srcPath,
 		LibraryPath: tmpLibDir,
 	})
@@ -202,7 +203,7 @@ tools:
 	}
 
 	// Create a preset
-	lib, err := LoadLibrary(tmpLibDir)
+	lib, err := LoadLibrary(context.Background(), tmpLibDir)
 	if err != nil {
 		t.Fatalf("LoadLibrary() error = %v", err)
 	}
@@ -222,7 +223,7 @@ tools:
 	}
 
 	// Verify preset exists
-	lib, err = LoadLibrary(tmpLibDir)
+	lib, err = LoadLibrary(context.Background(), tmpLibDir)
 	if err != nil {
 		t.Fatalf("LoadLibrary() error = %v", err)
 	}
@@ -250,7 +251,7 @@ tools:
 	}
 
 	// Verify preset no longer exists
-	lib, err = LoadLibrary(tmpLibDir)
+	lib, err = LoadLibrary(context.Background(), tmpLibDir)
 	if err != nil {
 		t.Fatalf("LoadLibrary() error = %v", err)
 	}

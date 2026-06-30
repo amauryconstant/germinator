@@ -25,7 +25,7 @@ func TestInitializeResources_DryRun(t *testing.T) {
 		t.Fatalf("Failed to get absolute path: %v", err)
 	}
 
-	lib, err := library.LoadLibrary(absPath)
+	lib, err := library.LoadLibrary(context.Background(), absPath)
 	if err != nil {
 		t.Fatalf("LoadLibrary() error = %v", err)
 	}
@@ -65,7 +65,7 @@ func TestInitializeResources_FileExists(t *testing.T) {
 		t.Fatalf("Failed to get absolute path: %v", err)
 	}
 
-	lib, err := library.LoadLibrary(absPath)
+	lib, err := library.LoadLibrary(context.Background(), absPath)
 	if err != nil {
 		t.Fatalf("LoadLibrary() error = %v", err)
 	}
@@ -111,7 +111,7 @@ func TestInitializeResources_ForceOverwrite(t *testing.T) {
 		t.Fatalf("Failed to get absolute path: %v", err)
 	}
 
-	lib, err := library.LoadLibrary(absPath)
+	lib, err := library.LoadLibrary(context.Background(), absPath)
 	if err != nil {
 		t.Fatalf("LoadLibrary() error = %v", err)
 	}
@@ -190,7 +190,7 @@ func TestInitialize_WithPresetRefs(t *testing.T) {
 		t.Fatalf("Failed to get absolute path: %v", err)
 	}
 
-	lib, err := library.LoadLibrary(absPath)
+	lib, err := library.LoadLibrary(context.Background(), absPath)
 	if err != nil {
 		t.Fatalf("LoadLibrary() error = %v", err)
 	}
@@ -301,7 +301,7 @@ func TestInitialize_PartialSuccess(t *testing.T) {
 		t.Fatalf("Failed to get absolute path: %v", err)
 	}
 
-	lib, err := library.LoadLibrary(absPath)
+	lib, err := library.LoadLibrary(context.Background(), absPath)
 	if err != nil {
 		t.Fatalf("LoadLibrary() error = %v", err)
 	}
@@ -390,7 +390,7 @@ func TestInitialize_AllResultsReturnedRegardlessOfErrors(t *testing.T) {
 		t.Fatalf("Failed to get absolute path: %v", err)
 	}
 
-	lib, err := library.LoadLibrary(absPath)
+	lib, err := library.LoadLibrary(context.Background(), absPath)
 	if err != nil {
 		t.Fatalf("LoadLibrary() error = %v", err)
 	}
@@ -444,7 +444,7 @@ func TestInitialize_ContinuesAfterFileExistsError(t *testing.T) {
 		t.Fatalf("Failed to get absolute path: %v", err)
 	}
 
-	lib, err := library.LoadLibrary(absPath)
+	lib, err := library.LoadLibrary(context.Background(), absPath)
 	if err != nil {
 		t.Fatalf("LoadLibrary() error = %v", err)
 	}
@@ -509,7 +509,7 @@ func TestInitialize_AllSuccessContract(t *testing.T) {
 		t.Fatalf("Failed to get absolute fixture path: %v", err)
 	}
 
-	lib, err := library.LoadLibrary(absPath)
+	lib, err := library.LoadLibrary(context.Background(), absPath)
 	if err != nil {
 		t.Fatalf("LoadLibrary() error = %v", err)
 	}

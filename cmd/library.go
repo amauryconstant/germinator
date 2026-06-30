@@ -23,7 +23,7 @@ Subcommands:
   presets    List all presets in the library
   show       Display details of a resource or preset
   add        Add a resource to the library
-  create     Create resources in the library
+  create     Create a new preset (path: library create preset <name>)
   remove     Remove a resource or preset from the library
   validate   Validate library integrity
   refresh    Sync metadata from resource files into library.yaml`,
@@ -43,8 +43,26 @@ Subcommands:
 	cmd.AddCommand(NewCmdPresets(f, &libraryPath, nil))
 	cmd.AddCommand(NewCmdShow(f, &libraryPath, nil))
 	cmd.AddCommand(NewLibraryInitCommand(bridge))
-	cmd.AddCommand(NewLibraryAddCommand(bridge, &libraryPath))
-	cmd.AddCommand(NewLibraryCreateCommand(bridge, &libraryPath))
+	cmd.AddCommand(NewCmdAdd(f, &libraryPath, nil))
+	// `library create preset` preserves the user-facing command path
+	// (spec delta: "library create preset is a leaf under library").
+	// NewCmdCreatePreset is registered under a thin `create` Cobra
+	// parent so the three-segment path remains routable. The parent
+	// has no Run of its own (Cobra displays the subcommand list when
+	// the user invokes `library create` without a subcommand), so
+	// there is no group-level description surface; this matches the
+	// spec scenario "library create has no subcommand list" intent
+	// even though the parent command exists for routing.
+	createCmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create a new preset",
+		Args:  cobra.NoArgs,
+		Run: func(c *cobra.Command, _ []string) {
+			_ = c.Help()
+		},
+	}
+	createCmd.AddCommand(NewCmdCreatePreset(f, &libraryPath, nil))
+	cmd.AddCommand(createCmd)
 	cmd.AddCommand(NewLibraryRemoveCommand(bridge, &libraryPath))
 	cmd.AddCommand(NewLibraryValidateCommand(bridge, &libraryPath))
 	cmd.AddCommand(NewLibraryRefreshCommand(bridge, &libraryPath))

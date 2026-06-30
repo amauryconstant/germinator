@@ -1,6 +1,7 @@
 package library
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -89,7 +90,7 @@ presets: {}
 			}
 
 			// Load library
-			lib, err := LoadLibrary(tmpDir)
+			lib, err := LoadLibrary(context.Background(), tmpDir)
 			if err != nil {
 				t.Fatalf("Failed to load library: %v", err)
 			}
@@ -193,7 +194,7 @@ presets: {}
 			}
 
 			// Load library
-			lib, err := LoadLibrary(tmpDir)
+			lib, err := LoadLibrary(context.Background(), tmpDir)
 			if err != nil {
 				t.Fatalf("Failed to load library: %v", err)
 			}
@@ -313,7 +314,7 @@ presets:
 			}
 
 			// Load library
-			lib, err := LoadLibrary(tmpDir)
+			lib, err := LoadLibrary(context.Background(), tmpDir)
 			if err != nil {
 				t.Fatalf("Failed to load library: %v", err)
 			}
@@ -443,7 +444,7 @@ presets: {}
 			}
 
 			// Load library
-			lib, err := LoadLibrary(tmpDir)
+			lib, err := LoadLibrary(context.Background(), tmpDir)
 			if err != nil {
 				t.Fatalf("Failed to load library: %v", err)
 			}
@@ -609,7 +610,7 @@ presets:
 			}
 
 			// Load library
-			lib, err := LoadLibrary(tmpDir)
+			lib, err := LoadLibrary(context.Background(), tmpDir)
 			if err != nil {
 				t.Fatalf("Failed to load library: %v", err)
 			}
@@ -747,7 +748,7 @@ presets:
 			}
 
 			// Load library
-			lib, err := LoadLibrary(tmpDir)
+			lib, err := LoadLibrary(context.Background(), tmpDir)
 			if err != nil {
 				t.Fatalf("Failed to load library: %v", err)
 			}
@@ -767,7 +768,7 @@ presets:
 			}
 
 			// Reload library to verify it was saved
-			savedLib, err := LoadLibrary(tmpDir)
+			savedLib, err := LoadLibrary(context.Background(), tmpDir)
 			if err != nil {
 				t.Fatalf("Failed to reload library: %v", err)
 			}

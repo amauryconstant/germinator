@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -61,8 +62,11 @@ func runLibraryValidate(c *cobra.Command, cfg *CommandConfig, libraryPath *strin
 
 	VerbosePrint(cfg, "Loading library from: %s", path)
 
+	// TODO(slice-7): replace with cmd Context() once runValidate migrates.
+	ctx := context.Background()
+
 	// Load library
-	lib, err := library.LoadLibrary(path)
+	lib, err := library.LoadLibrary(ctx, path)
 	if err != nil {
 		return fmt.Errorf("loading library: %w", err)
 	}

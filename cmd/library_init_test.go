@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -48,7 +49,7 @@ func TestLibraryInitCommand_CustomPath(t *testing.T) {
 	}
 
 	// Verify library can be loaded
-	loadedLib, err := library.LoadLibrary(libPath)
+	loadedLib, err := library.LoadLibrary(context.Background(), libPath)
 	if err != nil {
 		t.Errorf("Created library is not valid: %v", err)
 	}
@@ -109,7 +110,7 @@ resources:
 	}
 
 	// Verify library was overwritten with new version
-	loadedLib, err := library.LoadLibrary(libPath)
+	loadedLib, err := library.LoadLibrary(context.Background(), libPath)
 	if err != nil {
 		t.Errorf("Created library is not valid: %v", err)
 	}
@@ -156,7 +157,7 @@ func TestLibraryInitCommand_ValidAndLoadable(t *testing.T) {
 	}
 
 	// Verify library can be loaded and has correct structure
-	loadedLib, err := library.LoadLibrary(libPath)
+	loadedLib, err := library.LoadLibrary(context.Background(), libPath)
 	if err != nil {
 		t.Fatalf("Created library is not loadable: %v", err)
 	}

@@ -131,7 +131,9 @@ func initLibrary(f *cmdutil.Factory, explicitPath string) func() (*library.Libra
 	}
 	return func() (*library.Library, error) {
 		resolved := library.FindLibrary(explicitPath, os.Getenv("GERMINATOR_LIBRARY"))
-		return library.LoadLibrary(resolved)
+		// TODO(slice-7): replace with cmd Context() instead of context.Background().
+		ctx := context.Background()
+		return library.LoadLibrary(ctx, resolved)
 	}
 }
 

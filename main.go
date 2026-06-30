@@ -50,7 +50,7 @@ func main() {
 	})
 	f.Library = cmdutil.OnceValuesFunc(func() (*library.Library, error) {
 		path := library.FindLibrary("", os.Getenv("GERMINATOR_LIBRARY"))
-		return library.LoadLibrary(path)
+		return library.LoadLibrary(ctx, path)
 	})
 
 	// LegacyBridge keeps non-migrated commands (init, library

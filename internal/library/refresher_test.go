@@ -1,6 +1,7 @@
 package library
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -376,7 +377,7 @@ description: command commit
 			opts := tt.opts
 			opts.LibraryPath = tmpDir
 
-			result, err := DiscoverOrphans(opts)
+			result, err := DiscoverOrphans(context.Background(), opts)
 			if err != nil {
 				t.Fatalf("DiscoverOrphans() error = %v", err)
 			}
@@ -489,7 +490,7 @@ resources: {}
 			opts := tt.opts
 			opts.LibraryPath = tmpDir
 
-			result, err := DiscoverOrphans(opts)
+			result, err := DiscoverOrphans(context.Background(), opts)
 			if err != nil {
 				t.Fatalf("DiscoverOrphans() error = %v", err)
 			}
@@ -622,7 +623,7 @@ resources:
 			opts := tt.opts
 			opts.LibraryPath = tmpDir
 
-			result, err := DiscoverOrphans(opts)
+			result, err := DiscoverOrphans(context.Background(), opts)
 			if err != nil {
 				t.Fatalf("DiscoverOrphans() error = %v", err)
 			}
@@ -671,7 +672,7 @@ resources: {}
 		}
 	}
 
-	result, err := DiscoverOrphans(DiscoverOptions{
+	result, err := DiscoverOrphans(context.Background(), DiscoverOptions{
 		LibraryPath: tmpDir,
 		DryRun:      false,
 		Force:       false,

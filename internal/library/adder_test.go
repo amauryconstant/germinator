@@ -1,9 +1,13 @@
 package library
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestDetectType(t *testing.T) {
@@ -377,7 +381,7 @@ tools:
 	}
 
 	// Run AddResource with DryRun
-	err := AddResource(AddOptions{
+	err := AddResource(context.Background(), AddRequest{
 		Source:      srcPath,
 		LibraryPath: tmpLibDir,
 		DryRun:      true,
@@ -387,7 +391,7 @@ tools:
 	}
 
 	// Verify library.yaml was NOT modified
-	lib, err := LoadLibrary(tmpLibDir)
+	lib, err := LoadLibrary(context.Background(), tmpLibDir)
 	if err != nil {
 		t.Fatalf("LoadLibrary() error = %v", err)
 	}
@@ -417,7 +421,7 @@ tools:
 	}
 
 	// Run AddResource
-	err := AddResource(AddOptions{
+	err := AddResource(context.Background(), AddRequest{
 		Source:      srcPath,
 		LibraryPath: tmpLibDir,
 		DryRun:      false,
@@ -427,7 +431,7 @@ tools:
 	}
 
 	// Verify library was updated
-	lib, err := LoadLibrary(tmpLibDir)
+	lib, err := LoadLibrary(context.Background(), tmpLibDir)
 	if err != nil {
 		t.Fatalf("LoadLibrary() error = %v", err)
 	}
@@ -463,7 +467,7 @@ tools:
 	}
 
 	// Add the initial resource
-	err := AddResource(AddOptions{
+	err := AddResource(context.Background(), AddRequest{
 		Source:      initialSrcPath,
 		LibraryPath: tmpLibDir,
 		Force:       false,
@@ -487,7 +491,7 @@ tools:
 	}
 
 	// Try to add without force - should fail
-	err = AddResource(AddOptions{
+	err = AddResource(context.Background(), AddRequest{
 		Source:      newSrcPath,
 		LibraryPath: tmpLibDir,
 		Force:       false,
@@ -497,7 +501,7 @@ tools:
 	}
 
 	// Add with force - should succeed
-	err = AddResource(AddOptions{
+	err = AddResource(context.Background(), AddRequest{
 		Source:      newSrcPath,
 		LibraryPath: tmpLibDir,
 		Force:       true,
@@ -535,7 +539,7 @@ tools:
 	}
 
 	// First add should succeed
-	err := AddResource(AddOptions{
+	err := AddResource(context.Background(), AddRequest{
 		Source:      srcPath,
 		LibraryPath: tmpLibDir,
 		Force:       false,
@@ -545,7 +549,7 @@ tools:
 	}
 
 	// Second add without force should fail
-	err = AddResource(AddOptions{
+	err = AddResource(context.Background(), AddRequest{
 		Source:      srcPath,
 		LibraryPath: tmpLibDir,
 		Force:       false,
@@ -622,7 +626,7 @@ tools:
 	}
 
 	// Run BatchAddResources
-	result, err := BatchAddResources(BatchAddOptions{
+	result, err := BatchAddResources(context.Background(), BatchAddOptions{
 		Sources:     []string{srcPath1},
 		LibraryPath: tmpLibDir,
 		DryRun:      false,
@@ -647,7 +651,7 @@ tools:
 	}
 
 	// Verify library was updated
-	lib, err := LoadLibrary(tmpLibDir)
+	lib, err := LoadLibrary(context.Background(), tmpLibDir)
 	if err != nil {
 		t.Fatalf("LoadLibrary() error = %v", err)
 	}
@@ -689,7 +693,7 @@ tools:
 	}
 
 	// Run BatchAddResources
-	result, err := BatchAddResources(BatchAddOptions{
+	result, err := BatchAddResources(context.Background(), BatchAddOptions{
 		Sources:     []string{srcPath1, srcPath2},
 		LibraryPath: tmpLibDir,
 		DryRun:      false,
@@ -708,7 +712,7 @@ tools:
 	}
 
 	// Verify both resources were added
-	lib, err := LoadLibrary(tmpLibDir)
+	lib, err := LoadLibrary(context.Background(), tmpLibDir)
 	if err != nil {
 		t.Fatalf("LoadLibrary() error = %v", err)
 	}
@@ -758,7 +762,7 @@ tools:
 	}
 
 	// Run BatchAddResources with directory
-	result, err := BatchAddResources(BatchAddOptions{
+	result, err := BatchAddResources(context.Background(), BatchAddOptions{
 		Sources:     []string{tmpSrcDir},
 		LibraryPath: tmpLibDir,
 		DryRun:      false,
@@ -798,7 +802,7 @@ tools:
 	}
 
 	// Add once
-	_, err := BatchAddResources(BatchAddOptions{
+	_, err := BatchAddResources(context.Background(), BatchAddOptions{
 		Sources:     []string{srcPath},
 		LibraryPath: tmpLibDir,
 		DryRun:      false,
@@ -809,7 +813,7 @@ tools:
 	}
 
 	// Try to add again
-	result, err := BatchAddResources(BatchAddOptions{
+	result, err := BatchAddResources(context.Background(), BatchAddOptions{
 		Sources:     []string{srcPath},
 		LibraryPath: tmpLibDir,
 		DryRun:      false,
@@ -858,7 +862,7 @@ tools:
 	}
 
 	// Run BatchAddResources with DryRun
-	result, err := BatchAddResources(BatchAddOptions{
+	result, err := BatchAddResources(context.Background(), BatchAddOptions{
 		Sources:     []string{srcPath},
 		LibraryPath: tmpLibDir,
 		DryRun:      true,
@@ -874,7 +878,7 @@ tools:
 	}
 
 	// Verify library was NOT modified
-	lib, err := LoadLibrary(tmpLibDir)
+	lib, err := LoadLibrary(context.Background(), tmpLibDir)
 	if err != nil {
 		t.Fatalf("LoadLibrary() error = %v", err)
 	}
@@ -904,7 +908,7 @@ tools:
 	}
 
 	// Add once
-	_, err := BatchAddResources(BatchAddOptions{
+	_, err := BatchAddResources(context.Background(), BatchAddOptions{
 		Sources:     []string{srcPath},
 		LibraryPath: tmpLibDir,
 		DryRun:      false,
@@ -928,7 +932,7 @@ tools:
 	}
 
 	// Add again with force
-	result, err := BatchAddResources(BatchAddOptions{
+	result, err := BatchAddResources(context.Background(), BatchAddOptions{
 		Sources:     []string{srcPath},
 		LibraryPath: tmpLibDir,
 		DryRun:      false,
@@ -957,7 +961,7 @@ func TestBatchAddResources_InvalidFile(t *testing.T) {
 	createTestLibrary(t, tmpLibDir)
 
 	// Run BatchAddResources with nonexistent file
-	result, err := BatchAddResources(BatchAddOptions{
+	result, err := BatchAddResources(context.Background(), BatchAddOptions{
 		Sources:     []string{"/nonexistent/file.md"},
 		LibraryPath: tmpLibDir,
 		DryRun:      false,
@@ -973,5 +977,41 @@ func TestBatchAddResources_InvalidFile(t *testing.T) {
 	}
 	if len(result.Failed) != 1 {
 		t.Errorf("Expected 1 failed entry, got %d", len(result.Failed))
+	}
+}
+
+// TestCheckNameConflict exercises the renamed checkNameConflict helper
+// to confirm that collisions surface ErrNameConflict through errors.Is,
+// and that non-collision paths return nil (the consumer-side verification
+// through *core.OperationError is covered in task 6.4's runAdd tests).
+func TestCheckNameConflict(t *testing.T) {
+	lib := &Library{
+		Resources: map[string]map[string]Resource{
+			"skill": {"commit": {Path: "/skills/commit.md"}},
+		},
+	}
+
+	tests := []struct {
+		name       string
+		orphan     Orphan
+		wantErr    bool
+		wantIsName bool // errors.Is(err, ErrNameConflict)
+	}{
+		{"no conflict - new type/name", Orphan{Type: "agent", Name: "reviewer"}, false, false},
+		{"conflict - same name different type", Orphan{Type: "agent", Name: "commit"}, true, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := checkNameConflict(lib, &tt.orphan)
+			if tt.wantErr {
+				require.Error(t, err)
+				if tt.wantIsName {
+					require.True(t, errors.Is(err, ErrNameConflict), "errors.Is should detect ErrNameConflict")
+				}
+			} else {
+				require.NoError(t, err)
+			}
+		})
 	}
 }

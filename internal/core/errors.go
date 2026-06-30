@@ -730,3 +730,30 @@ func (e *PartialSuccessError) Error() string {
 // Unwrap returns nil (PartialSuccessError aggregates other errors but
 // does not chain a single cause).
 func (e *PartialSuccessError) Unwrap() error { return nil }
+
+// OperationError represents a per-operation failure with an optional
+// wrapped cause. It is the typed error used for per-file library
+// operations (orphan discovery name_conflict aggregation, etc.) so
+// callers can errors.As detect it and output.FormatError can render it
+// through the typed-error dispatcher chain.
+type OperationError struct {
+	Op       string
+	Resource string
+	Cause    error
+}
+
+// NewOperationError creates an OperationError for the given operation,
+// resource, and wrapped cause. Cause may be nil.
+func NewOperationError(op, resource string, cause error) *OperationError {
+	return &OperationError{Op: op, Resource: resource, Cause: cause}
+}
+
+// Error renders the operation error as "<op>: <resource>".
+// Error strings are lowercase with no trailing punctuation.
+func (e *OperationError) Error() string {
+	return fmt.Sprintf("%s: %s", e.Op, e.Resource)
+}
+
+// Unwrap returns the wrapped cause so errors.Is and errors.As traverse
+// the chain.
+func (e *OperationError) Unwrap() error { return e.Cause }

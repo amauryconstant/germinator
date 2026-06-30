@@ -1,6 +1,7 @@
 package library
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -42,7 +43,7 @@ func TestSaveLibrary(t *testing.T) {
 	}
 
 	// Verify content by loading it back
-	loadedLib, err := LoadLibrary(tmpDir)
+	loadedLib, err := LoadLibrary(context.Background(), tmpDir)
 	if err != nil {
 		t.Fatalf("LoadLibrary() error = %v", err)
 	}

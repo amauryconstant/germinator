@@ -26,6 +26,7 @@ func FormatError(io *iostreams.IOStreams, err error) {
 		config    *core.ConfigError
 		notFound  *core.NotFoundError
 		partial   *core.PartialSuccessError
+		operation *core.OperationError
 	)
 	switch {
 	case errors.As(err, &parse):
@@ -42,6 +43,8 @@ func FormatError(io *iostreams.IOStreams, err error) {
 		writeErrOut(io, formatNotFoundError(io, notFound))
 	case errors.As(err, &partial):
 		writeErrOut(io, formatPartialSuccessError(partial))
+	case errors.As(err, &operation):
+		writeErrOut(io, formatOperationError(io, operation))
 	default:
 		writeErrOut(io, io.Styles.Error("Error: "+err.Error())+"\n")
 	}
@@ -110,6 +113,21 @@ func formatPartialSuccessError(e *core.PartialSuccessError) string {
 	fmt.Fprintf(&sb, "partial success: %d succeeded, %d failed\n", e.Succeeded(), e.Failed())
 	for _, ie := range e.Errors() {
 		fmt.Fprintf(&sb, "  - %s\n", ie.Error())
+	}
+	return sb.String()
+}
+
+func formatOperationError(io *iostreams.IOStreams, e *core.OperationError) string {
+	var sb strings.Builder
+	sb.WriteString(io.Styles.Error("Error: "))
+	sb.WriteString(e.Op)
+	sb.WriteString(": ")
+	sb.WriteString(e.Resource)
+	sb.WriteString("\n")
+	if e.Cause != nil {
+		sb.WriteString("  ")
+		sb.WriteString(io.Styles.Dim(e.Cause.Error()))
+		sb.WriteString("\n")
 	}
 	return sb.String()
 }
