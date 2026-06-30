@@ -447,3 +447,42 @@ func TestNewCmdCreatePreset_NoSubcommands(t *testing.T) {
 	assert.Empty(t, cmd.Commands(),
 		"library create preset must not have subcommands (leaf under library)")
 }
+
+// T17 — Spec scenario "library create has no subcommand list": the
+// thin `library create` parent lists `preset` as a child in --help
+// but the parent itself has no group description. Cobra's default
+// parent rendering is asserted via the presence of "preset" in the
+// help output and the parent's empty parent-commands slice (the
+// parent holds only `preset`).
+func TestNewCmdCreate_ShowsPresetAsChild(t *testing.T) {
+	t.Parallel()
+
+	ios := iostreams.Test()
+	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
+	libPath := ""
+	cmd := NewCmdCreate(f, &libPath)
+
+	buf := &bytes.Buffer{}
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+
+	require.NoError(t, cmd.Help())
+	out := buf.String()
+
+	require.NotEmpty(t, cmd.Commands(),
+		"library create parent must contain at least the 'preset' child command")
+	var sawPreset bool
+	for _, c := range cmd.Commands() {
+		if c.Name() == "preset" {
+			sawPreset = true
+			break
+		}
+	}
+	assert.True(t, sawPreset,
+		"library create parent must register 'preset' as a child command")
+
+	// The Help() output advertises the preset child for users
+	// invoking `germinator library create` bare.
+	assert.Contains(t, out, "preset",
+		"library create --help must mention the 'preset' child command")
+}

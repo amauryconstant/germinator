@@ -53,6 +53,22 @@ Subcommands:
 	// there is no group-level description surface; this matches the
 	// spec scenario "library create has no subcommand list" intent
 	// even though the parent command exists for routing.
+	cmd.AddCommand(NewCmdCreate(f, &libraryPath))
+	cmd.AddCommand(NewLibraryRemoveCommand(bridge, &libraryPath))
+	cmd.AddCommand(NewLibraryValidateCommand(bridge, &libraryPath))
+	cmd.AddCommand(NewLibraryRefreshCommand(bridge, &libraryPath))
+
+	return cmd
+}
+
+// NewCmdCreate constructs the thin `library create` parent command
+// that routes to `library create preset` only. Exported for test
+// reachability (`TestNewCmdCreate_ShowsPresetAsChild`); the parent has
+// no Run of its own — Cobra prints the subcommand list when the user
+// invokes `library create` bare, matching the
+// library-library-json-output spec scenario "library create has no
+// subcommand list".
+func NewCmdCreate(f *cmdutil.Factory, libraryPath *string) *cobra.Command {
 	createCmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a new preset",
@@ -61,11 +77,6 @@ Subcommands:
 			_ = c.Help()
 		},
 	}
-	createCmd.AddCommand(NewCmdCreatePreset(f, &libraryPath, nil))
-	cmd.AddCommand(createCmd)
-	cmd.AddCommand(NewLibraryRemoveCommand(bridge, &libraryPath))
-	cmd.AddCommand(NewLibraryValidateCommand(bridge, &libraryPath))
-	cmd.AddCommand(NewLibraryRefreshCommand(bridge, &libraryPath))
-
-	return cmd
+	createCmd.AddCommand(NewCmdCreatePreset(f, libraryPath, nil))
+	return createCmd
 }

@@ -294,13 +294,19 @@ func runAddExplicit(opts *addOptions) error {
 			return fmt.Errorf("validating platform: %w", err)
 		}
 	}
-	// Validate the user-supplied ref (when --type and --name are
-	// both given) so a typo fails fast before any I/O. When either
-	// is missing, the library's detectType / detectName derive the
-	// missing segment from the source file itself.
-	if opts.Type != "" && opts.Name != "" {
-		ref := opts.Type + "/" + opts.Name
-		if err := core.CanInstallResource(ref); err != nil {
+	// Validate the user-supplied ref so a typo fails fast before any
+	// I/O. The library's detectType / detectName derive the missing
+	// segments from the source file itself, but only when both flags
+	// are absent — if either is user-supplied, run a pre-flight check
+	// covering both halves of the spec's empty-name and no-slash
+	// scenarios.
+	switch {
+	case opts.Type != "":
+		if err := core.CanInstallResource(opts.Type + "/" + opts.Name); err != nil {
+			return fmt.Errorf("validating ref: %w", err)
+		}
+	case opts.Name != "":
+		if err := core.CanInstallResource(opts.Name); err != nil {
 			return fmt.Errorf("validating ref: %w", err)
 		}
 	}
@@ -442,15 +448,36 @@ func renderExplicitResult(opts *addOptions, succeeded int, initErrs []core.Initi
 			return fmt.Errorf("table output: %w", werr)
 		}
 	default:
-		if len(initErrs) > 0 {
-			return core.NewPartialSuccessError(succeeded, len(initErrs), initErrs)
+		if quietPlainOnAllFailure(succeeded, initErrs) {
+			break
 		}
-		return nil
+		renderExplicitPlainResult(opts, succeeded, initErrs)
 	}
 	if len(initErrs) > 0 {
 		return core.NewPartialSuccessError(succeeded, len(initErrs), initErrs)
 	}
 	return nil
+}
+
+// renderExplicitPlainResult is a no-op kept for symmetry with the
+// discover-mode plain path. Explicit-mode success lines are written
+// per-file by runAddExplicit's loop (byte-identical to the legacy
+// output per design Decision 9); the all-failure suppression is
+// handled by quietPlainOnAllFailure above.
+func renderExplicitPlainResult(_ *addOptions, _ int, _ []core.InitializeError) {
+}
+
+// quietPlainOnAllFailure returns true when the all-failure exit path
+// should emit no stdout at all. Honors the spec scenario "All
+// conflicts returns exit 1" (library-library-orphan-discovery):
+// stdout SHALL be empty on all-failure paths so pipelines consuming
+// `germinator library add ... 2>errors.log` see per-resource errors
+// only on stderr.
+func quietPlainOnAllFailure(succeeded int, initErrs []core.InitializeError) bool {
+	if succeeded != 0 {
+		return false
+	}
+	return len(initErrs) > 0
 }
 
 // runAddBatchFiles executes the legacy --batch path for explicit
@@ -629,8 +656,16 @@ func collectDiscoverFailures(opts *addOptions, discResult *library.DiscoverResul
 
 	for _, c := range discResult.Conflicts {
 		ref := c.Orphan.Type + "/" + c.Orphan.Name
-		conflictErr := errors.New(c.Issue)
-		opErr := core.NewOperationError("register", ref, conflictErr)
+		// Prefer the typed sentinel (library.ErrNameConflict) when the
+		// library surfaced it; fall back to a plain error wrapping the
+		// human-readable Issue string for older data paths.
+		var cause error
+		if c.Cause != nil {
+			cause = c.Cause
+		} else {
+			cause = errors.New(c.Issue)
+		}
+		opErr := core.NewOperationError("register", ref, cause)
 		if isPlainOutput(opts.Output) {
 			output.FormatError(opts.IO, opErr)
 		}
@@ -700,7 +735,13 @@ func renderDiscoverResult(opts *addOptions, discResult *library.DiscoverResult, 
 			return fmt.Errorf("table output: %w", werr)
 		}
 	default:
-		// Byte-identical plain output (per design Decision 9).
+		// Byte-identical plain output (per design Decision 9),
+		// suppressed on all-failure paths per the spec scenario "All
+		// conflicts returns exit 1" so stdout carries no data when
+		// every file failed (per-resource errors live on stderr).
+		if quietPlainOnAllFailure(succeeded, initErrs) {
+			break
+		}
 		if opts.DryRun {
 			_, _ = fmt.Fprintln(opts.IO.Out, "Dry-run: no changes made")
 		}

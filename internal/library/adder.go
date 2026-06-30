@@ -475,6 +475,7 @@ type Orphan struct {
 type ConflictInfo struct {
 	Orphan Orphan `json:"orphan"`
 	Issue  string `json:"issue"`
+	Cause  error  `json:"-"`
 }
 
 // AddSuccess represents a successfully added orphan resource.
@@ -883,6 +884,7 @@ func scanDirectory(ctx context.Context, dirPath, resType string, lib *Library, _
 			result.Conflicts = append(result.Conflicts, ConflictInfo{
 				Orphan: orphan,
 				Issue:  conflictErr.Error(),
+				Cause:  conflictErr,
 			})
 			return nil
 		}

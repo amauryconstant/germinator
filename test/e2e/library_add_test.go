@@ -65,8 +65,10 @@ description: My custom resource
 # My Resource`
 			Expect(os.WriteFile(sourcePath, []byte(content), 0o644)).To(Succeed())
 
-			// Add with explicit type
-			session = cli.Run("library", "add", sourcePath, "--type", "skill", "--library", libPath)
+			// Add with explicit type (and explicit name so the
+			// slice-6 pre-flight `core.CanInstallResource` validation
+			// can resolve the ref without auto-detect).
+			session = cli.Run("library", "add", sourcePath, "--type", "skill", "--name", "my-resource", "--library", libPath)
 			cli.ShouldSucceed(session)
 			cli.ShouldOutput(session, "Added resource: skill/my-resource")
 
@@ -93,8 +95,10 @@ description: Test description
 # Test Skill`
 			Expect(os.WriteFile(sourcePath, []byte(content), 0o644)).To(Succeed())
 
-			// Add with explicit name
-			session = cli.Run("library", "add", sourcePath, "--name", "custom-name", "--library", libPath)
+			// Add with explicit name (and explicit type so the
+			// slice-6 pre-flight `core.CanInstallResource` validation
+			// can resolve the ref without auto-detect).
+			session = cli.Run("library", "add", sourcePath, "--type", "skill", "--name", "custom-name", "--library", libPath)
 			cli.ShouldSucceed(session)
 			cli.ShouldOutput(session, "Added resource: skill/custom-name")
 
@@ -275,11 +279,13 @@ description: Test
 # Test`
 			Expect(os.WriteFile(sourcePath, []byte(content), 0o644)).To(Succeed())
 
-			// Try to add with invalid type. Slice-2 collapse: ConfigError
-			// now maps to ExitCodeError (1) instead of ExitCodeConfig (3).
+			// Try to add with invalid type. Slice-6 pre-flight
+			// (`core.CanInstallResource`) rejects the unknown type
+			// before any I/O with a `*core.ValidationError` whose
+			// suggestion list names the valid types.
 			session = cli.Run("library", "add", sourcePath, "--type", "invalid", "--library", libPath)
 			cli.ShouldFailWithExit(session, 1)
-			cli.ShouldErrorOutput(session, "invalid resource type")
+			cli.ShouldErrorOutput(session, "ref type must be one of")
 		})
 	})
 

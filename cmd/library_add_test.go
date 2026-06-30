@@ -716,6 +716,7 @@ func TestRunAdd_ExplicitMode_PartialSuccess(t *testing.T) {
 		Ctx:        context.Background(),
 		Output:     "plain",
 		InputPaths: []string{good, bad},
+		Name:       "good",
 		Type:       "skill",
 		Library:    func() (*library.Library, error) { return library.LoadLibrary(context.Background(), libDir) },
 	}
@@ -726,9 +727,8 @@ func TestRunAdd_ExplicitMode_PartialSuccess(t *testing.T) {
 	var ps *core.PartialSuccessError
 	require.True(t, errors.As(err, &ps), "expected *core.PartialSuccessError")
 	assert.Equal(t, 1, ps.Succeeded())
-	// makeTestSkillFile prepends "skill-" to the name, so the rendered
-	// ref is "skill/skill-good" not "skill/good".
-	assert.Contains(t, out.String(), "Added resource: skill/skill-good")
+	// explicit --name "good" with --type "skill" → resolved ref is "skill/good".
+	assert.Contains(t, out.String(), "Added resource: skill/good")
 }
 
 // T22 — cmdLayerDetect is a pure function that maps a source path
@@ -826,4 +826,259 @@ func TestDeriveLibraryPath(t *testing.T) {
 		t.Parallel()
 		assert.Equal(t, "", deriveLibraryPath(&addOptions{}))
 	})
+}
+
+// T23 — Spec scenario "Legacy --json flag is rejected": invoking
+// `library add --json` returns a Cobra usage error and exit code 2
+// (`ExitCodeUsage`). Cobra reports the unknown flag to stderr; the
+// run function never executes.
+func TestRunAdd_RejectsLegacyJSONFlag(t *testing.T) {
+	t.Parallel()
+
+	ios, _, errOut := newAddTestIO()
+	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
+	libPath := ""
+	cmd := NewCmdAdd(f, &libPath, nil)
+	cmd.SetArgs([]string{"./missing.md", "--type", "skill", "--name", "x", "--json"})
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(errOut)
+
+	err := cmd.Execute()
+	require.Error(t, err)
+	assert.Equal(t, cmdutil.ExitCodeUsage, cmdutil.ExitCodeFor(err),
+		"unknown --json flag must map to ExitCodeUsage (2)")
+	assert.Contains(t, errOut.String(), "json",
+		"stderr must mention the rejected --json flag")
+}
+
+// T24 — Spec scenario "Empty name fails pre-flight validation":
+// `library add <file> --type skill --name ""` resolves the ref to
+// `skill/`, which `core.CanInstallResource` rejects as empty-name
+// before any I/O is performed. The returned error is a
+// `*core.ValidationError` (exit 1 via default-error case).
+func TestRunAdd_EmptyNameAbortsBeforeIO(t *testing.T) {
+	t.Parallel()
+
+	libDir := makeTestLibrary(t, map[string]map[string]library.Resource{})
+	srcDir := t.TempDir()
+	src := makeTestSkillFile(t, srcDir, "any", "Any")
+
+	ios, _, _ := newAddTestIO()
+	opts := &addOptions{
+		IO:         ios,
+		Ctx:        context.Background(),
+		Output:     "plain",
+		InputPaths: []string{src},
+		Type:       "skill",
+		Name:       "",
+		Library: func() (*library.Library, error) {
+			return library.LoadLibrary(context.Background(), libDir)
+		},
+	}
+
+	err := runAdd(opts)
+	require.Error(t, err)
+
+	var verr *core.ValidationError
+	require.True(t, errors.As(err, &verr),
+		"expected *core.ValidationError in chain")
+	assert.Contains(t, verr.Message(), "ref name must be non-empty")
+	assert.Equal(t, "skill/", verr.Value(),
+		"resolved ref must be 'skill/' (empty-name slot)")
+	assert.Equal(t, cmdutil.ExitCodeError, cmdutil.ExitCodeFor(err),
+		"empty-name ValidationError must map to ExitCodeError (1)")
+
+	// No file is copied: skills/ contains the directory only.
+	entries, readErr := os.ReadDir(filepath.Join(libDir, "skills"))
+	require.NoError(t, readErr)
+	for _, e := range entries {
+		if !e.IsDir() {
+			t.Errorf("skills/ must not contain new files after pre-flight rejection; got %q", e.Name())
+		}
+	}
+}
+
+// T25 — Spec scenario "Malformed ref (no slash) fails pre-flight
+// validation": type="" with name="commit" yields a resolved ref of
+// `commit` (no slash). `core.CanInstallResource("commit")` returns a
+// ValidationError and the import aborts before I/O.
+func TestRunAdd_NoSlashAbortsBeforeIO(t *testing.T) {
+	t.Parallel()
+
+	libDir := makeTestLibrary(t, map[string]map[string]library.Resource{})
+	srcDir := t.TempDir()
+	src := makeTestSkillFile(t, srcDir, "commit", "Commit")
+
+	ios, _, _ := newAddTestIO()
+	opts := &addOptions{
+		IO:         ios,
+		Ctx:        context.Background(),
+		Output:     "plain",
+		InputPaths: []string{src},
+		Type:       "", // not detected: library falls back to filename
+		Name:       "commit",
+		Library: func() (*library.Library, error) {
+			return library.LoadLibrary(context.Background(), libDir)
+		},
+	}
+
+	err := runAdd(opts)
+	require.Error(t, err)
+
+	var verr *core.ValidationError
+	require.True(t, errors.As(err, &verr),
+		"expected *core.ValidationError in chain")
+	assert.Equal(t, "commit", verr.Value(),
+		"resolved ref must be 'commit' (no slash)")
+	assert.Equal(t, cmdutil.ExitCodeError, cmdutil.ExitCodeFor(err),
+		"no-slash ValidationError must map to ExitCodeError (1)")
+}
+
+// T26 — Spec scenario "All conflicts returns exit 1": when every
+// orphan collides, the partial-success aggregate has Succeeded==0
+// and Failed==N. `cmdutil.ExitCodeFor(err)` returns
+// `ExitCodeError` (1); stderr carries per-file `Error: register:`
+// lines; stdout is empty (no data leakage on error paths).
+func TestRunAdd_DiscoverMode_AllConflicts(t *testing.T) {
+	libDir := makeTestLibrary(t, map[string]map[string]library.Resource{
+		"skill": {
+			"clash1": {Path: "skills/clash1.md", Description: "Existing 1"},
+			"clash2": {Path: "skills/clash2.md", Description: "Existing 2"},
+		},
+	})
+	// Two orphans under agents/, each with a name that collides with
+	// an existing skill — cross-type name conflict per orphan.
+	for _, name := range []string{"clash1", "clash2"} {
+		srcDir := t.TempDir()
+		orphan := makeTestSkillFile(t, srcDir, name, name)
+		if err := os.Rename(orphan, filepath.Join(libDir, "agents", name+".md")); err != nil {
+			t.Fatalf("rename %s: %v", name, err)
+		}
+	}
+
+	ios, out, errOut := newAddTestIO()
+	opts := &addOptions{
+		IO:       ios,
+		Ctx:      context.Background(),
+		Output:   "plain",
+		Discover: true,
+		Batch:    true,
+		Force:    true,
+		Library: func() (*library.Library, error) {
+			return library.LoadLibrary(context.Background(), libDir)
+		},
+	}
+
+	err := runAdd(opts)
+	require.Error(t, err, "all-conflicts batch must return non-nil error")
+
+	var ps *core.PartialSuccessError
+	require.True(t, errors.As(err, &ps), "expected *core.PartialSuccessError")
+	assert.Equal(t, 0, ps.Succeeded(), "Succeeded must be 0")
+	assert.Equal(t, 2, ps.Failed(), "Failed must be 2")
+	assert.Equal(t, cmdutil.ExitCodeError, cmdutil.ExitCodeFor(err),
+		"all-failures aggregate must map to ExitCodeError (1)")
+	assert.Empty(t, out.String(), "stdout must be empty on all-failure paths")
+	gotErr := errOut.String()
+	assert.Contains(t, gotErr, "Error: register: agent/clash1",
+		"stderr must carry per-file rendering for first conflict")
+	assert.Contains(t, gotErr, "Error: register: agent/clash2",
+		"stderr must carry per-file rendering for second conflict")
+}
+
+// T27 — Spec scenario "Name conflict counts as failure, not success":
+// mixed discovery (one valid orphan + one conflicting orphan) yields
+// Succeeded==1 / Failed==1, exit 0 (partial success), stdout carries
+// the success line, stderr carries the per-file OperationError.
+func TestRunAdd_DiscoverMode_MixedSuccessAndConflict(t *testing.T) {
+	libDir := makeTestLibrary(t, map[string]map[string]library.Resource{
+		"skill": {
+			"clash": {Path: "skills/clash.md", Description: "Existing skill"},
+		},
+	})
+	// One valid orphan (no conflict) under skills/, plus one
+	// cross-type orphan under agents/ that conflicts with skill/clash.
+	srcDir := t.TempDir()
+	valid := makeTestSkillFile(t, srcDir, "fresh", "Fresh orphan")
+	if err := os.Rename(valid, filepath.Join(libDir, "skills", "fresh.md")); err != nil {
+		t.Fatalf("rename fresh: %v", err)
+	}
+	srcConflict := makeTestSkillFile(t, t.TempDir(), "clash", "Conflicting orphan")
+	if err := os.Rename(srcConflict, filepath.Join(libDir, "agents", "clash.md")); err != nil {
+		t.Fatalf("rename clash: %v", err)
+	}
+
+	ios, out, errOut := newAddTestIO()
+	opts := &addOptions{
+		IO:       ios,
+		Ctx:      context.Background(),
+		Output:   "plain",
+		Discover: true,
+		Batch:    true,
+		Force:    true,
+		Library: func() (*library.Library, error) {
+			return library.LoadLibrary(context.Background(), libDir)
+		},
+	}
+
+	err := runAdd(opts)
+	require.Error(t, err, "partial-success must surface as a non-nil error")
+
+	var ps *core.PartialSuccessError
+	require.True(t, errors.As(err, &ps), "expected *core.PartialSuccessError")
+	assert.Equal(t, 1, ps.Succeeded(), "Succeeded must be 1")
+	assert.Equal(t, 1, ps.Failed(), "Failed must be 1")
+	assert.Equal(t, cmdutil.ExitCodeSuccess, cmdutil.ExitCodeFor(err),
+		"partial-success with Succeeded>0 must map to ExitCodeSuccess (0)")
+	assert.Contains(t, out.String(), "Added resource: skill/fresh",
+		"stdout must carry the success line for the valid orphan")
+	assert.Contains(t, errOut.String(), "Error: register: agent/clash",
+		"stderr must carry the per-file OperationError for the conflict")
+}
+
+// T28 — Spec scenario "OperationError preserves wrapped cause":
+// `errors.Is(err, library.ErrNameConflict)` traverses through
+// `*core.OperationError.Unwrap()` to the typed sentinel. The cmd-layer
+// aggregator now wraps `library.ErrNameConflict` (sourced from
+// `ConflictInfo.Cause`) so the chain is preserved end-to-end.
+func TestRunAdd_NameConflictCauseIsErrNameConflict(t *testing.T) {
+	libDir := makeTestLibrary(t, map[string]map[string]library.Resource{
+		"skill": {
+			"clash": {Path: "skills/clash.md", Description: "Existing skill"},
+		},
+	})
+	srcDir := t.TempDir()
+	orphan := makeTestSkillFile(t, srcDir, "clash", "Conflicting agent")
+	if err := os.Rename(orphan, filepath.Join(libDir, "agents", "clash.md")); err != nil {
+		t.Fatalf("rename: %v", err)
+	}
+
+	ios, _, _ := newAddTestIO()
+	opts := &addOptions{
+		IO:       ios,
+		Ctx:      context.Background(),
+		Output:   "plain",
+		Discover: true,
+		Batch:    true,
+		Force:    false,
+		Library: func() (*library.Library, error) {
+			return library.LoadLibrary(context.Background(), libDir)
+		},
+	}
+
+	err := runAdd(opts)
+	require.Error(t, err)
+
+	var ps *core.PartialSuccessError
+	require.True(t, errors.As(err, &ps), "expected *core.PartialSuccessError")
+
+	saw := false
+	for _, ie := range ps.Errors() {
+		if errors.Is(&ie, library.ErrNameConflict) {
+			saw = true
+			break
+		}
+	}
+	assert.True(t, saw,
+		"errors.Is must traverse *core.InitializeError → *core.OperationError → library.ErrNameConflict")
 }

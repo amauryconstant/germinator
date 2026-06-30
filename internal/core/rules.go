@@ -80,11 +80,6 @@ func CanInstallResource(ref string) error {
 			"library", "ref", ref, "ref must be type/name",
 		)
 	}
-	if name == "" {
-		return NewValidationError(
-			"library", "ref", ref, "ref name must be non-empty",
-		)
-	}
 	if !slices.Contains(validResourceTypes, typ) {
 		return NewValidationError(
 			"library", "ref", ref,
@@ -92,6 +87,11 @@ func CanInstallResource(ref string) error {
 		).WithSuggestions([]string{
 			"use one of: skill, agent, command, memory",
 		})
+	}
+	if name == "" {
+		return NewValidationError(
+			"library", "ref", ref, "ref name must be non-empty",
+		)
 	}
 	return nil
 }

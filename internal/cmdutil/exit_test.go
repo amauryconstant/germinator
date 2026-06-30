@@ -59,6 +59,10 @@ func TestExitCodeFor(t *testing.T) {
 		{name: "generic error", err: errors.New("boom"), want: ExitCodeError},
 		{name: "PartialSuccessError S>0", err: core.NewPartialSuccessError(3, 1, nil), want: ExitCodeSuccess},
 		{name: "PartialSuccessError S==0", err: core.NewPartialSuccessError(0, 1, nil), want: ExitCodeError},
+		{name: "core OperationError", err: core.NewOperationError("register", "skill/commit", nil), want: ExitCodeError},
+		{name: "OperationError wrapped in PartialSuccessError S>0", err: core.NewPartialSuccessError(1, 1, []core.InitializeError{
+			*core.NewInitializeError("skill/commit", "/in", "/out", core.NewOperationError("register", "skill/commit", nil)),
+		}), want: ExitCodeSuccess},
 	}
 
 	for _, tt := range tests {
