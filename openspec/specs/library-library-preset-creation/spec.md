@@ -85,6 +85,42 @@ The system SHALL persist the new preset to library.yaml.
 - **WHEN** CreatePreset succeeds
 - **THEN** library.yaml is updated with the new preset
 
+### Requirement: Pre-flight ref validation via core.CanInstallResource
+
+When `library create preset` is invoked, the command SHALL validate each ref in `opts.Resources` via `core.CanInstallResource(ref)` before calling `library.CreatePreset`. If any ref fails validation, the command SHALL return `*core.ValidationError` (mapped to exit 1 by `cmdutil.ExitCodeFor` via the default-error case at `internal/cmdutil/exit.go:77`).
+
+#### Scenario: Valid refs pass pre-flight validation
+
+- **GIVEN** `--resources skill/commit,agent/reviewer`
+- **WHEN** `germinator library create preset dev-setup --resources skill/commit,agent/reviewer` is invoked
+- **THEN** `core.CanInstallResource("skill/commit")` SHALL return `nil`
+- **AND** `core.CanInstallResource("agent/reviewer")` SHALL return `nil`
+- **AND** the preset is created
+
+#### Scenario: First malformed ref fails pre-flight validation
+
+- **GIVEN** `--resources skills/commit,agent/reviewer` (invalid type `skills`)
+- **WHEN** `germinator library create preset dev-setup --resources skills/commit,agent/reviewer` is invoked
+- **THEN** `core.CanInstallResource("skills/commit")` SHALL return a non-nil `*core.ValidationError`
+- **AND** `output.FormatError` SHALL render `Error: ref type must be one of skill, agent, command, memory\n` to stderr
+- **AND** no preset is created (no library.yaml update)
+
+#### Scenario: Second malformed ref (after valid first) still fails
+
+- **GIVEN** `--resources skill/commit,agent/` (empty name in second ref)
+- **WHEN** `germinator library create preset dev-setup --resources skill/commit,agent/` is invoked
+- **THEN** `core.CanInstallResource("skill/commit")` SHALL return `nil`
+- **THEN** `core.CanInstallResource("agent/")` SHALL return a non-nil `*core.ValidationError`
+- **AND** the preset creation is aborted before `CreatePreset` is called
+
+#### Scenario: Empty resources flag fails pre-flight validation
+
+- **GIVEN** `--resources ""` (empty string)
+- **WHEN** `germinator library create preset dev-setup --resources ""` is invoked
+- **THEN** the command SHALL return a usage error (exit 2)
+- **AND** `output.FormatError` SHALL render the usage error to stderr
+- **AND** no preset is created
+
 ### Requirement: CLI command interface
 
 The system SHALL provide a CLI command `germinator library create preset <name>`.

@@ -114,16 +114,47 @@ The system SHALL preview orphan registration without modifying library.yaml in d
 - **THEN** no files are modified
 - **AND** the expected additions are described
 
-### Requirement: Conflict detection for duplicate names
+### Requirement: Conflict detection produces typed OperationError
 
-The system SHALL detect when an orphan has the same name as an existing resource.
+The `library add --discover` command SHALL detect when an orphan has the same name as an existing resource. The conflict SHALL be reported as a `*core.OperationError{Op: "register", Resource: <ref>, Cause: <origErr>}` per file, aggregated into a `*core.PartialSuccessError`, and counted toward `Failed`. The conflict SHALL be rendered to stderr via `output.FormatError` per file.
 
-#### Scenario: Detect name conflict with existing resource
+> Replaces the pre-change behavior where `ConflictInfo{Issue: "name_conflict"}` was carried as a string field on `DiscoverResult`.
+
+#### Scenario: Detect name conflict produces OperationError
+
 - **GIVEN** a library with existing resource `skill/commit`
 - **AND** an orphan file `skills/commit.md` not in library.yaml
-- **WHEN** AddResource is called with `--discover --force`
-- **THEN** an error is reported for the conflict
-- **AND** the orphan is not registered
+- **WHEN** `germinator library add --discover --force` is invoked
+- **THEN** a `*core.OperationError{Op: "register", Resource: "skill/commit", Cause: <origErr>}` SHALL be produced for the file
+- **AND** the OperationError SHALL be aggregated into the partial-success result with `Failed` incremented by 1
+- **AND** `output.FormatError` SHALL render `Error: register: skill/commit\n` to **stderr** (`opts.IO.ErrOut`)
+- **AND** the orphan SHALL NOT be registered (the file is left untouched)
+
+#### Scenario: Name conflict counts as failure, not success
+
+- **GIVEN** a library with 2 orphans: `skills/orphan1.md` (valid, no conflict) and `skills/orphan2.md` (conflicts with existing `skill/orphan2`)
+- **WHEN** `germinator library add --discover --force --batch` is invoked
+- **THEN** the partial-success aggregate SHALL have `Succeeded == 1` and `Failed == 1`
+- **AND** `cmdutil.ExitCodeFor(err)` SHALL return `ExitCodeSuccess` (0) because `Succeeded > 0`
+- **AND** stdout SHALL contain the success listing for `skill/orphan1`
+- **AND** stderr SHALL contain `Error: register: skill/orphan2` from the per-file FormatError render
+
+#### Scenario: All conflicts returns exit 1
+
+- **GIVEN** a library with 2 orphans, both conflicting with existing resources
+- **WHEN** `germinator library add --discover --force --batch` is invoked
+- **THEN** the partial-success aggregate SHALL have `Succeeded == 0` and `Failed == 2`
+- **AND** `cmdutil.ExitCodeFor(err)` SHALL return `ExitCodeError` (1)
+- **AND** stdout SHALL be empty (no data leakage on error paths)
+- **AND** stderr SHALL contain the two `Error: register: ...` lines
+
+#### Scenario: OperationError preserves wrapped cause
+
+- **GIVEN** a name conflict where the library package returns a typed `library.ErrNameConflict` as the underlying cause
+- **WHEN** the conflict is reported as `*core.OperationError{Op: "register", Resource: <ref>, Cause: library.ErrNameConflict}`
+- **THEN** `errors.Is(err, library.ErrNameConflict)` SHALL be `true`
+- **AND** `errors.Unwrap(err)` SHALL return the cause
+- **AND** `output.FormatError` SHALL render both the typed error message and the cause on separate lines
 
 ### Requirement: Discover library path
 
@@ -157,14 +188,8 @@ The system SHALL return a DiscoverResult with comprehensive information for batc
 - **GIVEN** a library with 5 `.md` files scanned and 3 orphans found
 - **WHEN** AddResource is called with `--discover`
 - **THEN** the result Summary includes TotalScanned=5 and TotalOrphans=3
-
 #### Scenario: Discover result tracks added resources
+
 - **GIVEN** a library with orphan `skills/new-skill.md`
 - **WHEN** AddResource is called with `--discover --force`
 - **THEN** the result Added contains the successfully registered orphan
-
-#### Scenario: Discover result tracks conflicts
-- **GIVEN** a library with existing resource `skill/commit`
-- **AND** an orphan file `skills/commit.md` not in library.yaml
-- **WHEN** AddResource is called with `--discover`
-- **THEN** the result Conflicts contains the conflict with Issue="name_conflict"
