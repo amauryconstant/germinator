@@ -124,7 +124,7 @@ This project follows the **golang-cli-architecture** pattern. Load these skills 
 | `germinator library remove`          | Remove resource or preset                    |
 | `germinator library validate`        | Check library integrity                      |
 
-**Global `--json` flag:** All `germinator library` subcommands support `--json` for machine-readable output (inherited from parent command).
+**Global `--json` flag:** Most `germinator library` subcommands support `--json` for machine-readable output (inherited from parent command). Migrated commands use `--output plain|json|table` instead (currently `library add`; remaining commands migrate in slice 7).
 
 **Library init flags:**
 - `--path <path>` - Library location (default: `$XDG_DATA_HOME/germinator/library/` or `~/.local/share/germinator/library/`)
@@ -150,7 +150,7 @@ germinator library init --force                 # Overwrite existing
 - `--force` - Overwrite existing resource with same name
 - `--discover` - Find orphaned files not in library.yaml (recursive, report-only unless `--force` is also specified)
 - `--batch` - Batch mode: process all discovered orphans continuously (use with `--discover --force`)
-- `--json` - Output as JSON (inherited from parent)
+- `--output <format>` - Output format: `plain` (default, byte-identical to legacy), `json`, or `table`
 
 **Discover behavior:**
 - Scans `skills/`, `agents/`, `commands/`, `memory/` directories recursively
@@ -378,6 +378,7 @@ graph TB
 | ---------------------------------------------------------- | ------------------------------------------------------------ |
 | [cmd/AGENTS.md](cmd/AGENTS.md)                             | CLI architecture: DI, error handling, exit codes, verbosity, lint enforcement |
 | [cmd/commands/AGENTS.md](cmd/commands/AGENTS.md)           | Per-command flag tables and behavior (Library, Init, Config, Completion) |
+| [cmd/canonical-examples/AGENTS.md](cmd/canonical-examples/AGENTS.md) | Canonical `NewCmdXxx(f, runF)` + `runXxx(opts)` migration examples (slices 2, 4, 5, 6) |
 | [internal/core/AGENTS.md](internal/core/AGENTS.md)         | Functional Core: types, validation, rules, errors (pure)     |
 | [internal/iostreams/AGENTS.md](internal/iostreams/AGENTS.md) | IOStreams abstraction, TTY detection, Styles, Verbosef     |
 | [internal/output/AGENTS.md](internal/output/AGENTS.md)     | Shared output: FormatError, Exporter+AddJSONFlags, prompts   |
