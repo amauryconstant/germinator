@@ -271,3 +271,56 @@ func TestNewConfigCommand_RegistersSubcommands(t *testing.T) {
 	assert.Contains(t, long, "config init")
 	assert.Contains(t, long, "config validate")
 }
+
+// T11 — Spec scenario "Init creates config at custom location" (parent
+// directory permissions): the spec mandates parent directories are
+// created with permissions 0750 and the file with 0600. The file mode
+// (0600) is umask-stable; the directory mode is asserted as "no more
+// permissive than 0750" because umask may further narrow the bits
+// (e.g. umask 0o077 yields 0o700 while umask 0o022 yields 0o750).
+func TestRunConfigInit_FileModePermissions(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "subdir", "nested", "config.toml")
+
+	require.NoError(t, runConfigInit(newConfigInitOpts(t, func(o *configInitOptions) {
+		o.OutputPath = path
+	})))
+
+	// File must be exactly 0600 (no group/other bits to strip, so umask
+	// has no effect on this mode).
+	fi, err := os.Stat(path)
+	require.NoError(t, err, "config file must exist")
+	assert.Equal(t, os.FileMode(0o600), fi.Mode().Perm(),
+		"config file must be written with 0600 permissions")
+
+	// Newly-created parent directories must be no more permissive than
+	// 0750. umask can only narrow the requested 0750, so the resulting
+	// perm satisfies `perm <= 0750`.
+	di, err := os.Stat(filepath.Join(tmp, "subdir"))
+	require.NoError(t, err, "parent directory must exist")
+	assert.LessOrEqual(t, di.Mode().Perm(), os.FileMode(0o750),
+		"parent directory must be no more permissive than 0750 (umask may narrow it)")
+}
+
+// T12 — Spec scenario "Default output path" (fallback branch): when
+// opts.OutputPath is empty AND XDG_CONFIG_HOME is unset, the
+// ~/.config/germinator/config.toml fallback selected by HOME must be
+// created. Pinned via HOME so the test is hermetic and does not touch
+// the developer's real ~/.config. Complements T7 which pins the XDG
+// branch.
+func TestRunConfigInit_DefaultPathFallback(t *testing.T) {
+	tmp := t.TempDir()
+	// Force the XDG_CONFIG_HOME branch off so GetConfigPath falls back to
+	// $HOME/.config/germinator/config.toml.
+	t.Setenv("XDG_CONFIG_HOME", "")
+	t.Setenv("HOME", tmp)
+
+	want := filepath.Join(tmp, ".config", "germinator", "config.toml")
+
+	require.NoError(t, runConfigInit(newConfigInitOpts(t, nil)))
+
+	_, err := os.Stat(want)
+	require.NoError(t, err, "fallback-path init must create config at %s", want)
+}

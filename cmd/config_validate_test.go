@@ -233,3 +233,107 @@ func TestConfigValidateOptions_StructShape(t *testing.T) {
 	assert.Equal(t, want, got,
 		"configValidateOptions must declare exactly the spec-named fields")
 }
+
+// T10 — Spec scenario "No double-rendering of validation errors"
+// (Requirement: config validate renders errors at the boundary).
+//
+// The single-handling rule (golang-error-handling / golang-cli-architecture)
+// mandates that errors are EITHER rendered OR returned, never both.
+// runConfigValidate must NOT write anything to opts.IO.ErrOut; main.go
+// renders the returned error exactly once via output.FormatError.
+//
+// This test exercises every error branch and asserts stderr stays empty
+// so a future regression (e.g. someone copies the latent smell in
+// cmd/validate.go:120-124) fails loudly rather than double-printing in
+// production logs.
+func TestRunConfigValidate_DoesNotRenderErrors(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		setup func(t *testing.T, opts *configValidateOptions)
+	}{
+		{
+			name: "file not found",
+			setup: func(t *testing.T, opts *configValidateOptions) {
+				opts.OutputPath = filepath.Join(t.TempDir(), "missing.toml")
+			},
+		},
+		{
+			name: "malformed TOML",
+			setup: func(t *testing.T, opts *configValidateOptions) {
+				path := filepath.Join(t.TempDir(), "bad.toml")
+				writeConfig(t, path, "invalid [ [")
+				opts.OutputPath = path
+			},
+		},
+		{
+			name: "invalid platform value",
+			setup: func(t *testing.T, opts *configValidateOptions) {
+				path := filepath.Join(t.TempDir(), "bad-platform.toml")
+				writeConfig(t, path, `platform = "unknown"`+"\n")
+				opts.OutputPath = path
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			ios, _, errOut := newConfigValidateTestIO()
+			opts := &configValidateOptions{IO: ios, Ctx: t.Context()}
+			tt.setup(t, opts)
+
+			err := runConfigValidate(opts)
+			require.Error(t, err, "error path must return a non-nil error")
+			assert.Empty(t, errOut.String(),
+				"command body must NOT render to ErrOut (single-handling rule); "+
+					"main.go renders the returned error once via output.FormatError")
+		})
+	}
+}
+
+// T11 — Covers runConfigValidate's koanf.Unmarshal failure branch
+// (cmd/config_validate.go:106-108): a TOML file that parses successfully
+// but cannot unmarshal into *config.Config surfaces as a *core.ParseError
+// carrying the file path. This complements T4 (MalformedTOML) which only
+// triggers the earlier koanf.Load branch.
+func TestRunConfigValidate_UnmarshalFailure(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "type-mismatch.toml")
+	// `platform` is declared as a string in config.Config; an array value
+	// parses as valid TOML but fails mapstructure unmarshalling.
+	writeConfig(t, path, `platform = ["a", "b"]`+"\n")
+
+	err := runConfigValidate(newConfigValidateOpts(t, func(o *configValidateOptions) {
+		o.OutputPath = path
+	}))
+	require.Error(t, err)
+
+	var parseErr *core.ParseError
+	require.True(t, errors.As(err, &parseErr),
+		"Unmarshal failure must surface as *core.ParseError: %v", err)
+	assert.Equal(t, path, parseErr.Path(),
+		"ParseError must carry the offending file path")
+}
+
+// T12 — Spec scenario "Validate uses default path" (fallback branch):
+// when opts.OutputPath is empty AND XDG_CONFIG_HOME is unset, the
+// ~/.config/germinator/config.toml fallback selected by HOME must be
+// validated. Pinned via HOME so the test is hermetic and does not touch
+// the developer's real ~/.config. Complements T6 which pins the XDG
+// branch.
+func TestRunConfigValidate_DefaultPathFallback(t *testing.T) {
+	tmp := t.TempDir()
+	// Force the XDG_CONFIG_HOME branch off so GetConfigPath falls back to
+	// $HOME/.config/germinator/config.toml.
+	t.Setenv("XDG_CONFIG_HOME", "")
+	t.Setenv("HOME", tmp)
+
+	path := filepath.Join(tmp, ".config", "germinator", "config.toml")
+	writeConfig(t, path, `platform = "opencode"`+"\n")
+
+	require.NoError(t, runConfigValidate(newConfigValidateOpts(t, nil)))
+}
