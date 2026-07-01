@@ -69,6 +69,15 @@ After change-7 (`migrate-library-rest`) deletes the legacy shell, the only remai
 
 **Rationale**: matches the established precedent in `internal/library/creator.go` where `library init` reports an existing-target condition via `core.NewFileError(opts.Path, "create", ...)`. `core.FileError` already carries the path, operation, and a wrapped cause; `output.FormatError` (`internal/output/errors.go`) dispatches it correctly. Using `*core.ConfigError` would be misleading — it signals "a field in this configuration is invalid", not "this filesystem path is occupied".
 
+### 6. Success line goes to stdout (`opts.IO.Out`), not stderr
+
+**Choice**: Both `config init` and `config validate` write their single success line to `opts.IO.Out` (stdout), leaving `opts.IO.ErrOut` empty on success.
+
+**Rationale**: matches the `library_init` precedent at `cmd/library_init.go:182` (`fmt.Fprintf(opts.IO.Out, "Library created successfully at: %s\n", path)`). Keeping the success message on stdout is consistent with the rest of the migrated command family and lets users grep or pipe the output.
+
+**Alternatives considered**:
+- *Write success to stderr* — would diverge from `library_init` and the rest of the migrated family. The original draft of this proposal suggested stderr, but reviewer feedback aligned the decision with sibling commands.
+
 ## Risks / Trade-offs
 
 - **BREAKING rename of `--output`** — script breakage. **Mitigation:** CHANGELOG entry only. The deprecation canary does NOT cover this (unknown flags → Cobra usage error → exit 2; the canary fires only on exit 1).

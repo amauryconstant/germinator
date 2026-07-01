@@ -83,14 +83,14 @@ The `germinator config init` command SHALL create a new config file with explana
 
 ### Requirement: Config validate checks existing config
 
-The `germinator config validate` command SHALL validate an existing config file. The command SHALL return any error (rendered once at the boundary by `main.go`); on success it SHALL write a single success line to `opts.IO.ErrOut` and nothing to `opts.IO.Out`.
+The `germinator config validate` command SHALL validate an existing config file. The command SHALL return any error (rendered once at the boundary by `main.go`); on success it SHALL write a single success line to `opts.IO.Out` and nothing to `opts.IO.ErrOut`.
 
 #### Scenario: Validate succeeds for valid config
 
 - **WHEN** `germinator config validate --output-path /tmp/valid-config.toml` is invoked AND the file contains a valid TOML config
 - **THEN** the command SHALL return nil
-- **AND** a single success line SHALL be written to `opts.IO.ErrOut`
-- **AND** nothing SHALL be written to `opts.IO.Out`
+- **AND** a single success line SHALL be written to `opts.IO.Out`
+- **AND** nothing SHALL be written to `opts.IO.ErrOut`
 
 #### Scenario: Validate fails when file not found
 

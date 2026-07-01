@@ -25,7 +25,7 @@ The config commands are isolated (no library dependency) and small (2 commands).
     - Resolve `OutputPath` (default `$XDG_CONFIG_HOME/germinator/config.toml`)
     - Check if file exists; if so and `--force` not set, return `core.NewFileError(opts.OutputPath, "create", "config file already exists (use --force to overwrite)", nil)` (constructor — `FileError` fields are unexported)
     - Write the documented config template (the `scaffoldedConfig` constant moved out of `cmd/config.go`) to the file
-    - Write a single success line to `opts.IO.ErrOut`; nothing on `opts.IO.Out`
+    - Write a single success line to `opts.IO.Out`; nothing on `opts.IO.ErrOut`
 
 ### Migrate `cmd/config_validate.go`
 
@@ -35,7 +35,7 @@ The config commands are isolated (no library dependency) and small (2 commands).
     - Add `--output-path` (string, the file path to validate)
     - Read the file at `OutputPath`; on missing file return `core.NewFileError(opts.OutputPath, "read", "config file not found", statErr)` (not-found derived from the wrapped cause)
     - Delegate validation to `config.Validate()` (platform-only today); **return** the error — do not render inline (single-handling rule; `main.go` renders once via `output.FormatError`)
-    - On success, write a single line to `opts.IO.ErrOut`; nothing on `opts.IO.Out`
+    - On success, write a single line to `opts.IO.Out`; nothing on `opts.IO.ErrOut`
 - **NO `--output` format flag** (the command produces text output, not structured data)
 
 ## Capabilities
@@ -73,6 +73,7 @@ The slice numbers used in this proposal refer to the nine-step migration plan. M
 - **Added (1 file):** `cmd/config_init.go` (`package cmd`)
 - **Added (1 file):** `cmd/config_validate.go` (`package cmd`)
 - **Modified (1 file):** `cmd/config_test.go` (split into `config_init_test.go` + `config_validate_test.go`)
+- **Added (2 files):** `test/e2e/config_init_test.go`, `test/e2e/config_validate_test.go` — minimal Ginkgo E2E coverage following the `test/e2e/library_init_test.go` pattern
 
 ### Affected systems
 

@@ -373,7 +373,7 @@ Scaffolds `~/.config/germinator/config.toml` (or custom path) with **all setting
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--output` | XDG config path | Output file path |
+| `--output-path` | XDG config path | Output file path |
 | `--force` | false | Overwrite existing file |
 
 Settings are commented to allow selective override; users uncomment only what they need.
@@ -383,7 +383,7 @@ Settings are commented to allow selective override; users uncomment only what th
 germinator config init
 
 # Custom output path
-germinator config init --output /path/to/config.toml
+germinator config init --output-path /path/to/config.toml
 
 # Overwrite existing
 germinator config init --force
@@ -395,17 +395,19 @@ Validates a config file is parseable and conformant.
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--output` | XDG config path | Config file to validate |
+| `--output-path` | XDG config path | Config file to validate |
 
 ```bash
 # Validate default config
 germinator config validate
 
 # Validate custom path
-germinator config validate --output /path/to/config.toml
+germinator config validate --output-path /path/to/config.toml
 ```
 
-**Returns:** Success (0), NotFound (6), Config error (3), Parse error (1)
+**Returns:** Success (0), Error (1), Usage (2)
+
+> The legacy `--output` flag was renamed to `--output-path` in slice 8 (`migrate-config-commands`) to disambiguate from the `cli-output-formats` capability's `--output` format flag. The rename is BREAKING; scripts using `--output` will fail with exit 2.
 
 ---
 
