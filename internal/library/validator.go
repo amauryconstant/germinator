@@ -333,7 +333,7 @@ func FixLibrary(lib *Library) (*FixResult, error) {
 			if _, err := os.Stat(fullPath); os.IsNotExist(err) {
 				ref := FormatRef(typ, name)
 				missingRefs[ref] = true
-				result.MissingFileRefs = append(result.MissingFileRefs, ref)
+				result.RemovedEntries = append(result.RemovedEntries, ref)
 			}
 		}
 	}
@@ -387,7 +387,7 @@ func filterPresetRefs(lib *Library, missingRefs map[string]bool, refs []string, 
 			continue // Already counted as missing file
 		}
 		if isGhostRef(lib, ref) {
-			result.GhostResourceRefs = append(result.GhostResourceRefs, ref)
+			result.StrippedRefs = append(result.StrippedRefs, ref)
 			continue
 		}
 		valid = append(valid, ref)
@@ -411,9 +411,16 @@ func isGhostRef(lib *Library, ref string) bool {
 }
 
 // FixResult contains information about fixes applied to the library.
+//
+// Field names follow design Decision 6 + the spec scenario "--fix
+// with --output json returns machine-readable fix report": RemovedEntries
+// enumerates resource entries that were removed from library.yaml
+// because their backing files were missing; StrippedRefs enumerates
+// preset references that were stripped because they pointed at
+// non-existent resources.
 type FixResult struct {
-	// MissingFileRefs are refs whose files were missing and entries were removed.
-	MissingFileRefs []string `yaml:"missingFileRefs"`
-	// GhostResourceRefs are resource refs that were stripped from presets.
-	GhostResourceRefs []string `yaml:"ghostResourceRefs"`
+	// RemovedEntries are refs whose files were missing and entries were removed.
+	RemovedEntries []string `json:"removedEntries" yaml:"removedEntries"`
+	// StrippedRefs are resource refs that were stripped from presets.
+	StrippedRefs []string `json:"strippedRefs" yaml:"strippedRefs"`
 }

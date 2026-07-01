@@ -7,7 +7,6 @@ import (
 	"github.com/carapace-sh/carapace"
 	"github.com/spf13/cobra"
 
-	"gitlab.com/amoconst/germinator/internal/application"
 	"gitlab.com/amoconst/germinator/internal/cmdutil"
 	"gitlab.com/amoconst/germinator/internal/core"
 	"gitlab.com/amoconst/germinator/internal/core/opencode"
@@ -19,19 +18,23 @@ import (
 // Validator is the local command-side contract for document
 // validation. Defined in cmd/ per the target architecture
 // ("interfaces where consumed" — golang-cli-architecture principle 8).
-// Will move to internal/core/contracts.go in change-7 when
-// internal/application/ is deleted.
 type Validator interface {
 	Validate(ctx context.Context, req *ValidateRequest) (*core.ValidateResult, error)
 }
 
-// ValidateRequest is the application-side request type. Imported
-// from internal/application/requests.go (still alive in this change).
-type ValidateRequest = application.ValidateRequest
+// ValidateRequest carries the inputs for document validation. Local
+// to this package since the cross-package type alias was removed
+// when the legacy shell was deleted.
+type ValidateRequest struct {
+	InputPath string
+	Platform  string
+}
 
-// validateOptions holds the runtime state for a `validate` invocation.
-// IO, Ctx, and Validator come from the Factory; the rest come from
-// parsed flags and positional args.
+// validateOptions holds the runtime state for a `validate`
+// invocation. IO and Ctx come from the Factory; the rest come from
+// parsed flags and positional args. The Validator lazy field is the
+// per-call injection seam for tests — production wires it to a
+// closure that invokes cmd.NewValidator(); tests substitute a fake.
 type validateOptions struct {
 	IO        *iostreams.IOStreams
 	Validator func() (Validator, error)
@@ -61,7 +64,6 @@ Example:
 		RunE: func(c *cobra.Command, args []string) error {
 			opts := &validateOptions{
 				IO:        f.IOStreams,
-				Validator: validateValidator(f),
 				Ctx:       c.Context(),
 				InputPath: args[0],
 				Platform:  platform,
@@ -83,37 +85,31 @@ Example:
 	return cmd
 }
 
-// validateValidator wraps the Factory's application.Validator lazy
-// field behind the local Validator interface (matches
-// cmd/adapt.go:91-102 pattern).
-func validateValidator(f *cmdutil.Factory) func() (Validator, error) {
-	if f == nil || f.Validator == nil {
-		return nil
-	}
-	return func() (Validator, error) {
-		v, err := f.Validator()
-		if err != nil {
-			return nil, fmt.Errorf("resolving validator: %w", err)
-		}
-		return v, nil
-	}
-}
-
-// runValidate executes the validate logic against the resolved options.
-// It is the production wiring for NewCmdValidate's runF parameter.
+// runValidate executes the validate logic against the resolved
+// options. It is the production wiring for NewCmdValidate's runF
+// parameter.
+//
+// Validator resolution: production wires opts.Validator to a closure
+// that calls cmd.NewValidator(); tests may inject a fake via the same
+// field. A nil opts.Validator falls back to the production
+// constructor.
 func runValidate(opts *validateOptions) error {
 	if err := core.ValidatePlatform(opts.Platform); err != nil {
 		return fmt.Errorf("validating platform: %w", err)
 	}
 
-	validator, err := opts.Validator()
+	opts.IO.Verbosef("validating %s (platform: %s)", opts.InputPath, opts.Platform)
+
+	resolve := opts.Validator
+	if resolve == nil {
+		resolve = func() (Validator, error) { return NewValidator(), nil }
+	}
+	v, err := resolve()
 	if err != nil {
 		return fmt.Errorf("resolving validator: %w", err)
 	}
 
-	opts.IO.Verbosef("validating %s (platform: %s)", opts.InputPath, opts.Platform)
-
-	result, err := validator.Validate(opts.Ctx, &ValidateRequest{
+	result, err := v.Validate(opts.Ctx, &ValidateRequest{
 		InputPath: opts.InputPath,
 		Platform:  opts.Platform,
 	})
@@ -132,8 +128,7 @@ func runValidate(opts *validateOptions) error {
 	return nil
 }
 
-// validateDocument contains the validation logic migrated from
-// internal/service/validator.go (deleted in slice 3). Platform is
+// validateDocument contains the document validation logic. Platform is
 // already validated by runValidate.
 func validateDocument(_ context.Context, req *ValidateRequest) (*core.ValidateResult, error) {
 	docType := parser.DetectType(req.InputPath)
@@ -205,20 +200,23 @@ func unwrapErrors(err error) []error {
 	return []error{err}
 }
 
-// NewValidator returns the production wiring for application.Validator.
-// Replaces service.NewValidator (deleted in slice 3); keeps the
-// legacyBridge functional until slice 7 deletes application.Validator.
-func NewValidator() application.Validator {
-	return validatorAdapter{}
+// NewValidator returns the production wiring for the cmd-side
+// Validator interface. Mirrors NewCanonicalizer at cmd/canonicalize.go.
+func NewValidator() Validator {
+	return &validatorAdapter{}
 }
 
-// validatorAdapter wraps validateDocument to satisfy
-// application.Validator. The implementation lives in cmd/validate.go
-// per slice-3 design decision 2 (no new internal/validator/ package).
+// validatorAdapter adapts the package-private validateDocument
+// helper to the local Validator interface. The implementation lives
+// in cmd/validate.go per slice-3 design decision 2 (no new
+// internal/validator/ package).
 type validatorAdapter struct{}
 
-var _ application.Validator = (*validatorAdapter)(nil)
+// Compile-time confirmation that *validatorAdapter satisfies the
+// local Validator interface.
+var _ Validator = (*validatorAdapter)(nil)
 
+// Validate delegates to validateDocument.
 func (validatorAdapter) Validate(ctx context.Context, req *ValidateRequest) (*core.ValidateResult, error) {
 	return validateDocument(ctx, req)
 }

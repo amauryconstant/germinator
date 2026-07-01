@@ -92,8 +92,9 @@ Example:
 }
 
 // runResources executes the resources listing logic. Plain output is
-// reused from the existing formatResourcesList helper to guarantee
-// byte-identical output with the pre-change build.
+// rendered via output.FormatResourcesList (moved from cmd/library_formatters.go
+// in slice-7 7.4.7) so the read-only formatter can be reused across
+// packages without dragging in the cmd-package surface.
 func runResources(opts *libraryResourcesOptions) error {
 	lib, err := opts.Library()
 	if err != nil {
@@ -116,7 +117,7 @@ func runResources(opts *libraryResourcesOptions) error {
 		}
 		return nil
 	default:
-		if _, err := fmt.Fprint(opts.IO.Out, formatResourcesList(lib)); err != nil {
+		if _, err := fmt.Fprint(opts.IO.Out, output.FormatResourcesList(lib)); err != nil {
 			return fmt.Errorf("writing plain output: %w", err)
 		}
 		return nil

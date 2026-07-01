@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/amoconst/germinator/internal/application"
 	"gitlab.com/amoconst/germinator/internal/cmdutil"
 	"gitlab.com/amoconst/germinator/internal/core"
 	"gitlab.com/amoconst/germinator/internal/iostreams"
@@ -280,9 +279,6 @@ func TestNewCmdCanonicalize_RunFCapturesOpts(t *testing.T) {
 
 	io := iostreams.Test()
 	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
-	f.Canonicalizer = cmdutil.OnceValuesFunc(func() (application.Canonicalizer, error) {
-		return &fakeCanonicalizer{}, nil
-	})
 	cmd := NewCmdCanonicalize(f, runF)
 	cmd.SetArgs([]string{"/tmp/in.md", "/tmp/out.yaml", "--platform", "opencode", "--type", "command"})
 	cmd.SetOut(&bytes.Buffer{})
@@ -296,8 +292,6 @@ func TestNewCmdCanonicalize_RunFCapturesOpts(t *testing.T) {
 	assert.Equal(t, "command", captured.DocType)
 	assert.Equal(t, io, captured.IO, "opts.IO must be the Factory's IOStreams")
 	require.NotNil(t, captured.Ctx, "opts.Ctx must be set from c.Context()")
-	require.NotNil(t, captured.Canonicalizer,
-		"opts.Canonicalizer must be populated by NewCmdCanonicalize (via canonicalizeCanonicalizer)")
 }
 
 func TestNewCmdCanonicalize_RequiresPlatformAndTypeFlags(t *testing.T) {
@@ -324,31 +318,23 @@ func TestNewCmdCanonicalize_RequiresTypeFlag(t *testing.T) {
 	require.Error(t, err, "missing --type flag must fail")
 }
 
-func TestCanonicalizeCanonicalizer_NilFactoryReturnsNil(t *testing.T) {
-	t.Parallel()
-
-	assert.Nil(t, canonicalizeCanonicalizer(nil),
-		"canonicalizeCanonicalizer(nil) must return nil so opts.Canonicalizer is nil")
-
-	io := iostreams.Test()
-	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
-	f.Canonicalizer = nil
-	assert.Nil(t, canonicalizeCanonicalizer(f),
-		"canonicalizeCanonicalizer with nil f.Canonicalizer must return nil")
-}
+// slice-7 removed the Factory.Canonicalizer lazy field and the
+// `canonicalizeCanonicalizer(f)` factory helper. The Canonicalizer is
+// now constructed inside runCanonicalize via cmd.NewCanonicalizer();
+// test fakes are injected via runCanonicalize directly (see
+// fakeCanonicalizer at the top of this file).
 
 func TestNewCanonicalizer_AdapterSatisfiesInterface(t *testing.T) {
 	t.Parallel()
 
 	// Compile-time interface check is already in canonicalize.go
-	// (var _ application.Canonicalizer = (*canonicalizerAdapter)(nil)).
+	// (var _ Canonicalizer = (*canonicalizerAdapter)(nil)).
 	// This test verifies the runtime contract: a value returned by
 	// NewCanonicalizer() must accept the Canonicalize call shape that
 	// the local Canonicalizer interface defines, and must propagate
 	// the underlying typed error from canonicalizeDocument so callers
-	// (legacyBridge consumers) can errors.As their way to the right
-	// exit code.
-	result, err := NewCanonicalizer().Canonicalize(context.Background(), &application.CanonicalizeRequest{
+	// can errors.As their way to the right exit code.
+	result, err := NewCanonicalizer().Canonicalize(context.Background(), &CanonicalizeRequest{
 		InputPath:  "/nonexistent/agent.md",
 		OutputPath: t.TempDir() + "/out.yaml",
 		Platform:   core.PlatformClaudeCode,

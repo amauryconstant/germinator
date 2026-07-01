@@ -46,14 +46,14 @@ Or add to a completions directory:
 
 Or save to completions directory:
 
-    germinator completion fish > ~/.config/fish/completions/germinator.fish`,
+    germinator completion fish > ~/.config/germinator/completions/germinator.fish`,
 		"powershell": `Add to your PowerShell profile:
 
     germinator completion powershell | Out-String | Invoke-Expression
 
 Also enable menu completion:
 
-    Set-PSReadlineKeyHandler -Key Tab -Function MenuComplete`,
+    Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete`,
 		"elvish": `Add to your rc.elv:
 
     eval (germinator completion elvish | slurp)`,
@@ -79,9 +79,10 @@ Also enable menu completion:
 	return ""
 }
 
-// NewCompletionCommand creates the completion command with shell subcommands.
-// This replaces Cobra's default completion with Carapace's enhanced completion system.
-func NewCompletionCommand(_ *cmdutil.Factory, _ *LegacyBridge) *cobra.Command {
+// NewCompletionCommand creates the completion command with shell
+// subcommands. This replaces Cobra's default completion with
+// Carapace's enhanced completion system.
+func NewCompletionCommand(_ *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "completion",
 		Short: "Generate shell completion scripts",

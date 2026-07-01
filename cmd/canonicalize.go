@@ -8,7 +8,6 @@ import (
 	"github.com/carapace-sh/carapace"
 	"github.com/spf13/cobra"
 
-	"gitlab.com/amoconst/germinator/internal/application"
 	"gitlab.com/amoconst/germinator/internal/cmdutil"
 	"gitlab.com/amoconst/germinator/internal/core"
 	"gitlab.com/amoconst/germinator/internal/iostreams"
@@ -19,21 +18,27 @@ import (
 // Canonicalizer is the local command-side contract for document
 // canonicalization. Defined in cmd/ per the target architecture
 // ("interfaces where consumed" — golang-cli-architecture skill
-// principle 8). Will move to internal/core/contracts.go in change-7
-// when internal/application/ is deleted.
+// principle 8).
 type Canonicalizer interface {
 	Canonicalize(ctx context.Context, req *CanonicalizeRequest) (*core.CanonicalizeResult, error)
 }
 
-// CanonicalizeRequest is the application-side request type. Imported
-// from internal/application/requests.go (still alive in this change).
-type CanonicalizeRequest = application.CanonicalizeRequest
+// CanonicalizeRequest carries the inputs for document
+// canonicalization. Local to this package since the cross-package
+// type alias was removed when the legacy shell was deleted.
+type CanonicalizeRequest struct {
+	InputPath  string
+	OutputPath string
+	Platform   string
+	DocType    string
+}
 
 // canonicalizeOptions holds the runtime state for a `canonicalize`
-// invocation. IO, Ctx, and Canonicalizer come from the Factory; the
-// rest come from parsed flags and positional args. Canonicalizer is
-// the local command-side interface (defined above) which matches the
-// application.Canonicalizer implementation at runtime.
+// invocation. IO and Ctx come from the Factory; the rest come from
+// parsed flags and positional args. The Canonicalizer lazy field is
+// the per-call injection seam for tests — production wires it to a
+// closure that invokes cmd.NewCanonicalizer(); tests substitute a
+// fake.
 type canonicalizeOptions struct {
 	IO            *iostreams.IOStreams
 	Canonicalizer func() (Canonicalizer, error)
@@ -71,13 +76,12 @@ Example:
 		Args: cobra.ExactArgs(2),
 		RunE: func(c *cobra.Command, args []string) error {
 			opts := &canonicalizeOptions{
-				IO:            f.IOStreams,
-				Canonicalizer: canonicalizeCanonicalizer(f),
-				Ctx:           c.Context(),
-				InputPath:     args[0],
-				OutputPath:    args[1],
-				Platform:      platform,
-				DocType:       docType,
+				IO:         f.IOStreams,
+				Ctx:        c.Context(),
+				InputPath:  args[0],
+				OutputPath: args[1],
+				Platform:   platform,
+				DocType:    docType,
 			}
 			if runF != nil {
 				return runF(opts)
@@ -99,40 +103,32 @@ Example:
 	return cmd
 }
 
-// canonicalizeCanonicalizer wraps the Factory's application.Canonicalizer
-// lazy field behind the local Canonicalizer interface. The wrapper does
-// no work beyond the type assertion; it exists so the canonicalize
-// command stays decoupled from the application package's concrete type.
-func canonicalizeCanonicalizer(f *cmdutil.Factory) func() (Canonicalizer, error) {
-	if f == nil || f.Canonicalizer == nil {
-		return nil
-	}
-	return func() (Canonicalizer, error) {
-		c, err := f.Canonicalizer()
-		if err != nil {
-			return nil, fmt.Errorf("resolving canonicalizer: %w", err)
-		}
-		return c, nil
-	}
-}
-
-// runCanonicalize executes the canonicalize logic against the resolved
-// options. It is the production wiring for NewCmdCanonicalize's runF
-// parameter.
+// runCanonicalize executes the canonicalize logic against the
+// resolved options. It is the production wiring for
+// NewCmdCanonicalize's runF parameter.
+//
+// Canonicalizer resolution: production wires opts.Canonicalizer to a
+// closure that calls cmd.NewCanonicalizer(); tests may inject a fake
+// via the same field. A nil opts.Canonicalizer falls back to the
+// production constructor.
 func runCanonicalize(opts *canonicalizeOptions) error {
 	if err := core.ValidatePlatform(opts.Platform); err != nil {
 		return fmt.Errorf("validating platform: %w", err)
 	}
 
-	canonicalizer, err := opts.Canonicalizer()
+	opts.IO.Verbosef("canonicalizing %s → %s (platform: %s, type: %s)",
+		opts.InputPath, opts.OutputPath, opts.Platform, opts.DocType)
+
+	resolve := opts.Canonicalizer
+	if resolve == nil {
+		resolve = func() (Canonicalizer, error) { return NewCanonicalizer(), nil }
+	}
+	c, err := resolve()
 	if err != nil {
 		return fmt.Errorf("resolving canonicalizer: %w", err)
 	}
 
-	opts.IO.Verbosef("canonicalizing %s → %s (platform: %s, type: %s)",
-		opts.InputPath, opts.OutputPath, opts.Platform, opts.DocType)
-
-	if _, err := canonicalizer.Canonicalize(opts.Ctx, &CanonicalizeRequest{
+	if _, err := c.Canonicalize(opts.Ctx, &CanonicalizeRequest{
 		InputPath:  opts.InputPath,
 		OutputPath: opts.OutputPath,
 		Platform:   opts.Platform,
@@ -145,10 +141,9 @@ func runCanonicalize(opts *canonicalizeOptions) error {
 	return nil
 }
 
-// canonicalizeDocument performs the actual canonicalization: parse the
-// platform-specific document, validate it, render to canonical YAML, and
-// write to the output file. Migrated from
-// internal/service/canonicalizer.go in slice 3.
+// canonicalizeDocument performs the actual canonicalization: parse
+// the platform-specific document, validate it, render to canonical
+// YAML, and write to the output file.
 func canonicalizeDocument(_ context.Context, req *CanonicalizeRequest) (*core.CanonicalizeResult, error) {
 	doc, err := parser.ParsePlatformDocument(req.InputPath, req.Platform, req.DocType)
 	if err != nil {
@@ -171,8 +166,8 @@ func canonicalizeDocument(_ context.Context, req *CanonicalizeRequest) (*core.Ca
 	return &core.CanonicalizeResult{OutputPath: req.OutputPath}, nil
 }
 
-// validateCanonicalDoc validates a canonical document and returns any
-// validation errors. Migrated from internal/service/canonicalizer.go.
+// validateCanonicalDoc validates a canonical document and returns
+// any validation errors.
 func validateCanonicalDoc(doc interface{}) []error {
 	switch d := doc.(type) {
 	case *parser.CanonicalAgent:
@@ -197,10 +192,9 @@ func validateCanonicalDoc(doc interface{}) []error {
 	return nil
 }
 
-// unwrapCanonicalErrors unwraps a joined error into individual errors.
-// Inlined from internal/service/validator.go and renamed to avoid
-// symbol collision with the validate command (slice 3) which
-// independently owns its own unwrap helper.
+// unwrapCanonicalErrors unwraps a joined error into individual
+// errors. Renamed to avoid symbol collision with the validate
+// command which independently owns its own unwrap helper.
 func unwrapCanonicalErrors(err error) []error {
 	if err == nil {
 		return nil
@@ -214,19 +208,21 @@ func unwrapCanonicalErrors(err error) []error {
 	return []error{err}
 }
 
-// NewCanonicalizer returns the production application.Canonicalizer
+// NewCanonicalizer returns the production Canonicalizer
 // implementation backed by canonicalizeDocument. Used by main.go
 // (and tests) to wire Factory.Canonicalizer.
-func NewCanonicalizer() application.Canonicalizer {
-	return canonicalizerAdapter{}
+func NewCanonicalizer() Canonicalizer {
+	return &canonicalizerAdapter{}
 }
 
 // canonicalizerAdapter adapts the package-private canonicalizeDocument
-// helper to the application.Canonicalizer interface. It is a zero-size
-// type because the implementation is a free function.
+// helper to the local Canonicalizer interface. It is a zero-size type
+// because the implementation is a free function.
 type canonicalizerAdapter struct{}
 
-var _ application.Canonicalizer = (*canonicalizerAdapter)(nil)
+// Compile-time confirmation that *canonicalizerAdapter satisfies the
+// local Canonicalizer interface.
+var _ Canonicalizer = (*canonicalizerAdapter)(nil)
 
 // Canonicalize delegates to canonicalizeDocument.
 func (canonicalizerAdapter) Canonicalize(ctx context.Context, req *CanonicalizeRequest) (*core.CanonicalizeResult, error) {

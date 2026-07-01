@@ -17,7 +17,7 @@ import (
 // generic fixtures, comparing the output byte-for-byte against
 // test/golden/canonical/*.yaml.golden.
 //
-// Moved from internal/service/canonicalizer_golden_test.go to
+// Moved from the deleted legacy canonicalizer golden test to
 // cmd/canonicalize_golden_test.go in slice 3 so the golden file
 // tests live alongside the implementation (cmd/canonicalize.go).
 // package cmd (white-box) so the test can call the unexported

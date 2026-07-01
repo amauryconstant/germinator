@@ -7,11 +7,10 @@ import (
 	"gitlab.com/amoconst/germinator/internal/cmdutil"
 )
 
-// NewRootCommand creates the root command with all subcommands registered.
-// f is the Factory (composition root for the new architecture) and bridge
-// is the LegacyBridge shim that keeps non-migrated commands working until
-// slice 7 deletes them.
-func NewRootCommand(f *cmdutil.Factory, bridge *LegacyBridge) *cobra.Command {
+// NewRootCommand creates the root command with all subcommands
+// registered. f is the Factory (composition root for the new
+// architecture). All subcommand constructors take f directly.
+func NewRootCommand(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "germinator",
 		Short: "A configuration adapter for AI coding assistant documents",
@@ -32,11 +31,11 @@ Germinator source format and adapts it for target platforms like Claude Code and
 	cmd.AddCommand(NewCmdValidate(f, nil))
 	cmd.AddCommand(NewCmdAdapt(f, nil))
 	cmd.AddCommand(NewCmdCanonicalize(f, nil))
-	cmd.AddCommand(NewVersionCommand(f, bridge))
-	cmd.AddCommand(NewLibraryCommand(f, bridge, nil))
+	cmd.AddCommand(NewVersionCommand(f))
+	cmd.AddCommand(NewLibraryCommand(f, nil))
 	cmd.AddCommand(NewCmdInit(f, nil))
-	cmd.AddCommand(NewCompletionCommand(f, bridge))
-	cmd.AddCommand(NewConfigCommand(f, bridge))
+	cmd.AddCommand(NewCompletionCommand(f))
+	cmd.AddCommand(NewConfigCommand(f))
 
 	// Initialize carapace for enhanced completions
 	carapace.Gen(cmd)

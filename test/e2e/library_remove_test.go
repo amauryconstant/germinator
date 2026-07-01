@@ -65,10 +65,11 @@ var _ = Describe("Library Remove Resource Command", func() {
 			session := cli.Run("library", "init", "--path", libPath)
 			cli.ShouldSucceed(session)
 
-			// Try to remove nonexistent resource. Slice-2 collapse: NotFound
-			// now maps to ExitCodeError (1) instead of ExitCodeNotFound (6).
+			// Try to remove nonexistent resource. Slice-7: runRemoveResource
+			// returns *core.NotFoundError (typed), which cmdutil.ExitCodeFor
+			// maps to ExitCodeUsage (2).
 			session = cli.Run("library", "remove", "resource", "skill/nonexistent", "--library", libPath)
-			cli.ShouldFailWithExit(session, 1)
+			cli.ShouldFailWithExit(session, 2)
 			cli.ShouldErrorOutput(session, "not found")
 		})
 	})
@@ -180,10 +181,11 @@ var _ = Describe("Library Remove Preset Command", func() {
 			session := cli.Run("library", "init", "--path", libPath)
 			cli.ShouldSucceed(session)
 
-			// Try to remove nonexistent preset. Slice-2 collapse: NotFound
-			// now maps to ExitCodeError (1) instead of ExitCodeNotFound (6).
+			// Try to remove nonexistent preset. Slice-7: runRemovePreset
+			// returns *core.NotFoundError (typed), which cmdutil.ExitCodeFor
+			// maps to ExitCodeUsage (2).
 			session = cli.Run("library", "remove", "preset", "nonexistent", "--library", libPath)
-			cli.ShouldFailWithExit(session, 1)
+			cli.ShouldFailWithExit(session, 2)
 			cli.ShouldErrorOutput(session, "not found")
 		})
 	})

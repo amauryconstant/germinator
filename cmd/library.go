@@ -7,7 +7,8 @@ import (
 )
 
 // NewLibraryCommand creates the library command with subcommands.
-func NewLibraryCommand(f *cmdutil.Factory, bridge *LegacyBridge, runF func(*libraryResourcesOptions) error) *cobra.Command {
+// Per-subcommand constructors all receive the parent Factory directly.
+func NewLibraryCommand(f *cmdutil.Factory, runF func(*libraryResourcesOptions) error) *cobra.Command {
 	var libraryPath string
 
 	cmd := &cobra.Command{
@@ -26,7 +27,8 @@ Subcommands:
   create     Create a new preset (path: library create preset <name>)
   remove     Remove a resource or preset from the library
   validate   Validate library integrity
-  refresh    Sync metadata from resource files into library.yaml`,
+  refresh    Sync metadata from resource files into library.yaml
+  init       Scaffold a new library directory structure`,
 		Run: func(c *cobra.Command, _ []string) {
 			_ = c.Help()
 		},
@@ -42,7 +44,7 @@ Subcommands:
 	// (composition root) per command, not by this parent.
 	cmd.AddCommand(NewCmdPresets(f, &libraryPath, nil))
 	cmd.AddCommand(NewCmdShow(f, &libraryPath, nil))
-	cmd.AddCommand(NewLibraryInitCommand(bridge))
+	cmd.AddCommand(NewCmdLibraryInit(f, nil))
 	cmd.AddCommand(NewCmdAdd(f, &libraryPath, nil))
 	// `library create preset` preserves the user-facing command path
 	// (spec delta: "library create preset is a leaf under library").
@@ -54,18 +56,18 @@ Subcommands:
 	// spec scenario "library create has no subcommand list" intent
 	// even though the parent command exists for routing.
 	cmd.AddCommand(NewCmdCreate(f, &libraryPath))
-	cmd.AddCommand(NewLibraryRemoveCommand(bridge, &libraryPath))
-	cmd.AddCommand(NewLibraryValidateCommand(bridge, &libraryPath))
-	cmd.AddCommand(NewLibraryRefreshCommand(bridge, &libraryPath))
+	cmd.AddCommand(NewCmdRemove(f, &libraryPath, nil))
+	cmd.AddCommand(NewCmdLibraryValidate(f, nil))
+	cmd.AddCommand(NewCmdRefresh(f, &libraryPath, nil))
 
 	return cmd
 }
 
 // NewCmdCreate constructs the thin `library create` parent command
 // that routes to `library create preset` only. Exported for test
-// reachability (`TestNewCmdCreate_ShowsPresetAsChild`); the parent has
-// no Run of its own — Cobra prints the subcommand list when the user
-// invokes `library create` bare, matching the
+// reachability (`TestNewCmdCreate_ShowsPresetAsChild`); the parent
+// has no Run of its own — Cobra prints the subcommand list when the
+// user invokes `library create` bare, matching the
 // library-library-json-output spec scenario "library create has no
 // subcommand list".
 func NewCmdCreate(f *cmdutil.Factory, libraryPath *string) *cobra.Command {

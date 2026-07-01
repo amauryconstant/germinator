@@ -636,12 +636,12 @@ presets:
 
 func TestFixLibrary(t *testing.T) {
 	tests := []struct {
-		name                  string
-		libraryYAML           string
-		files                 map[string]string
-		wantMissingFileRefs   []string
-		wantGhostResourceRefs []string
-		wantSavedLibHas       map[string]bool // ref -> should exist after fix
+		name               string
+		libraryYAML        string
+		files              map[string]string
+		wantRemovedEntries []string
+		wantStrippedRefs   []string
+		wantSavedLibHas    map[string]bool // ref -> should exist after fix
 	}{
 		{
 			name: "fix removes missing file entry",
@@ -660,8 +660,8 @@ presets: {}
 			files: map[string]string{
 				"skills/commit.md": "---\nname: commit\n---\nContent",
 			},
-			wantMissingFileRefs:   []string{"skill/missing"},
-			wantGhostResourceRefs: nil,
+			wantRemovedEntries: []string{"skill/missing"},
+			wantStrippedRefs:   nil,
 			wantSavedLibHas: map[string]bool{
 				"skill/commit":  true,
 				"skill/missing": false,
@@ -686,8 +686,8 @@ presets:
 			files: map[string]string{
 				"skills/commit.md": "---\nname: commit\n---\nContent",
 			},
-			wantMissingFileRefs:   nil,
-			wantGhostResourceRefs: []string{"skill/ghost"},
+			wantRemovedEntries: nil,
+			wantStrippedRefs:   []string{"skill/ghost"},
 			wantSavedLibHas: map[string]bool{
 				"skill/commit": true,
 			},
@@ -717,8 +717,8 @@ presets:
 			files: map[string]string{
 				"skills/commit.md": "---\nname: commit\n---\nContent",
 			},
-			wantMissingFileRefs:   []string{"skill/missing1", "skill/missing2"},
-			wantGhostResourceRefs: []string{"skill/ghost"},
+			wantRemovedEntries: []string{"skill/missing1", "skill/missing2"},
+			wantStrippedRefs:   []string{"skill/ghost"},
 			wantSavedLibHas: map[string]bool{
 				"skill/commit":   true,
 				"skill/missing1": false,
@@ -760,11 +760,11 @@ presets:
 			}
 
 			// Check result
-			if len(result.MissingFileRefs) != len(tt.wantMissingFileRefs) {
-				t.Errorf("MissingFileRefs count = %d, want %d", len(result.MissingFileRefs), len(tt.wantMissingFileRefs))
+			if len(result.RemovedEntries) != len(tt.wantRemovedEntries) {
+				t.Errorf("RemovedEntries count = %d, want %d", len(result.RemovedEntries), len(tt.wantRemovedEntries))
 			}
-			if len(result.GhostResourceRefs) != len(tt.wantGhostResourceRefs) {
-				t.Errorf("GhostResourceRefs count = %d, want %d", len(result.GhostResourceRefs), len(tt.wantGhostResourceRefs))
+			if len(result.StrippedRefs) != len(tt.wantStrippedRefs) {
+				t.Errorf("StrippedRefs count = %d, want %d", len(result.StrippedRefs), len(tt.wantStrippedRefs))
 			}
 
 			// Reload library to verify it was saved

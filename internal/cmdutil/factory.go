@@ -10,7 +10,6 @@ import (
 	"sync"
 	"syscall"
 
-	"gitlab.com/amoconst/germinator/internal/application"
 	"gitlab.com/amoconst/germinator/internal/config"
 	"gitlab.com/amoconst/germinator/internal/iostreams"
 	"gitlab.com/amoconst/germinator/internal/library"
@@ -29,12 +28,8 @@ type Factory struct {
 
 	rootCancel context.CancelFunc
 
-	Config        func() (*config.Config, error)
-	Library       func() (*library.Library, error)
-	Transformer   func() (application.Transformer, error)
-	Validator     func() (application.Validator, error)
-	Canonicalizer func() (application.Canonicalizer, error)
-	Initializer   func() (application.Initializer, error)
+	Config  func() (*config.Config, error)
+	Library func() (*library.Library, error)
 }
 
 // NewFactory constructs a Factory with eager values populated. The

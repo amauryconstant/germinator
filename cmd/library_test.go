@@ -19,30 +19,21 @@ func TestLibraryCommand_Resources(t *testing.T) {
 	// Set environment variable to test fixtures
 	fixturePath := filepath.Join("..", "test", "fixtures", "library")
 	absPath, err := filepath.Abs(fixturePath)
-	if err != nil {
-		t.Fatalf("Failed to get absolute path: %v", err)
-	}
+	require.NoError(t, err)
 	t.Setenv("GERMINATOR_LIBRARY", absPath)
 
-	f := newTestFactory()
-	cmd := NewLibraryCommand(f, newTestBridge(), nil)
+	ios := iostreams.Test()
+	outBuf, ok := ios.Out.(*bytes.Buffer)
+	require.True(t, ok, "ios.Out must be a *bytes.Buffer")
+
+	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
+	cmd := NewLibraryCommand(f, nil)
 	cmd.SetArgs([]string{"resources"})
 
-	err = cmd.Execute()
-	if err != nil {
-		t.Fatalf("Command failed: %v", err)
-	}
+	require.NoError(t, cmd.Execute())
 
-	// runResources writes to f.IOStreams.Out (iostreams.Test buffer),
-	// not to the cobra command's stdout buffer.
-	outBuf, ok := f.IOStreams.Out.(*bytes.Buffer)
-	if !ok {
-		t.Fatal("f.IOStreams.Out is not a *bytes.Buffer")
-	}
-	output := outBuf.String()
-	if output == "" {
-		t.Error("Expected output from library resources command")
-	}
+	assert.NotEmpty(t, outBuf.String(),
+		"Expected output from library resources command")
 }
 
 func TestLibraryCommand_Presets(t *testing.T) {
@@ -51,14 +42,14 @@ func TestLibraryCommand_Presets(t *testing.T) {
 	require.NoError(t, err)
 	t.Setenv("GERMINATOR_LIBRARY", absPath)
 
-	io := iostreams.Test()
-	outBuf, ok := io.Out.(*bytes.Buffer)
+	ios := iostreams.Test()
+	outBuf, ok := ios.Out.(*bytes.Buffer)
 	require.True(t, ok, "io.Out must be a *bytes.Buffer")
 
-	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
 
 	var buf bytes.Buffer
-	cmd := NewLibraryCommand(f, newTestBridge(), nil)
+	cmd := NewLibraryCommand(f, nil)
 	cmd.SetArgs([]string{"presets"})
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)
@@ -75,14 +66,14 @@ func TestLibraryCommand_Show(t *testing.T) {
 	require.NoError(t, err)
 	t.Setenv("GERMINATOR_LIBRARY", absPath)
 
-	io := iostreams.Test()
-	outBuf, ok := io.Out.(*bytes.Buffer)
+	ios := iostreams.Test()
+	outBuf, ok := ios.Out.(*bytes.Buffer)
 	require.True(t, ok, "io.Out must be a *bytes.Buffer")
 
-	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
 
 	var buf bytes.Buffer
-	cmd := NewLibraryCommand(f, newTestBridge(), nil)
+	cmd := NewLibraryCommand(f, nil)
 	cmd.SetArgs([]string{"show", "skill/commit"})
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)
@@ -99,8 +90,9 @@ func TestLibraryCommand_InvalidRef(t *testing.T) {
 	require.NoError(t, err)
 	t.Setenv("GERMINATOR_LIBRARY", absPath)
 
-	f := newTestFactory()
-	cmd := NewLibraryCommand(f, newTestBridge(), nil)
+	ios := iostreams.Test()
+	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
+	cmd := NewLibraryCommand(f, nil)
 	cmd.SetArgs([]string{"show", "invalidformat"})
 
 	err = cmd.Execute()

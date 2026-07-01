@@ -9,7 +9,6 @@ import (
 	"github.com/carapace-sh/carapace"
 	"github.com/spf13/cobra"
 
-	"gitlab.com/amoconst/germinator/internal/application"
 	"gitlab.com/amoconst/germinator/internal/cmdutil"
 	"gitlab.com/amoconst/germinator/internal/core"
 	"gitlab.com/amoconst/germinator/internal/iostreams"
@@ -17,19 +16,28 @@ import (
 	"gitlab.com/amoconst/germinator/internal/output"
 )
 
-// InitializeRequest is the application-side request type, re-exported
-// for callers in this file. Imported from internal/application/requests.go.
-type InitializeRequest = application.InitializeRequest
+// InitializeRequest carries the inputs for resource installation.
+// Local to this package since the cross-package type alias was
+// removed when the legacy shell was deleted. The Library field
+// carries a fully-loaded *library.Library (its RootPath feeds the
+// loader steps inside the initializer adapter); output-path
+// derivation uses OutputDir as the base directory.
+type InitializeRequest struct {
+	Library   *library.Library
+	Platform  string
+	OutputDir string
+	Refs      []string
+	DryRun    bool
+	Force     bool
+}
 
 // initOptions holds the runtime state for an `init` invocation. IO,
-// Ctx, Library, and Initializer come from the Factory; the rest come
-// from parsed flags. Library and Initializer are lazy closures so the
-// Factory can cache the heavy work (LoadLibrary, NewInitializer) per
-// the golang-cli-architecture skill's functional-core principle.
+// Ctx, and Library come from the Factory; the rest come from parsed
+// flags. Library is a lazy closure so the Factory can cache the
+// heavy work (LoadLibrary) per call.
 type initOptions struct {
 	IO          *iostreams.IOStreams
 	Library     func() (*library.Library, error)
-	Initializer func() (application.Initializer, error)
 	Ctx         context.Context
 	LibraryPath string
 	Platform    string
@@ -43,10 +51,10 @@ type initOptions struct {
 // NewCmdInit creates the `init` command via the canonical
 // NewCmdXxx(f, runF) pattern. Migrated in slice 5.
 //
-// RunE populates opts from f.IOStreams, f.Library, f.Initializer,
-// c.Context(), and the parsed flags, then dispatches to runF or
-// runInit. test injection: tests pass a non-nil runF to capture
-// options without invoking runInit.
+// RunE populates opts from f.IOStreams, f.Library, c.Context(), and
+// the parsed flags, then dispatches to runF or runInit. Test
+// injection: tests pass a non-nil runF to capture options without
+// invoking runInit.
 func NewCmdInit(f *cmdutil.Factory, runF func(*initOptions) error) *cobra.Command {
 	var (
 		platform    string
@@ -84,8 +92,7 @@ Examples:
 		RunE: func(c *cobra.Command, _ []string) error {
 			opts := &initOptions{
 				IO:          f.IOStreams,
-				Library:     initLibrary(f, libraryPath),
-				Initializer: initInitializer(f),
+				Library:     initLibrary(f.RootContext, libraryPath),
 				Ctx:         c.Context(),
 				LibraryPath: libraryPath,
 				Platform:    platform,
@@ -121,31 +128,17 @@ Examples:
 	return cmd
 }
 
-// initLibrary wraps the Factory's lazy Library field with per-call
-// path resolution so --library is honored on each invocation (the
-// Factory's own Library uses env-only resolution; the --library flag
-// is parented to the command).
-func initLibrary(f *cmdutil.Factory, explicitPath string) func() (*library.Library, error) {
-	if f == nil {
-		return nil
-	}
+// initLibrary wraps per-call library loading so --library is
+// honored on each invocation (the Factory's own Library field uses
+// env-only resolution; the --library flag is parented to the
+// command). Uses the Factory's RootContext (signal-aware context
+// owned by the composition root) instead of context.Background() so
+// the forbidigo pattern check stays green.
+func initLibrary(ctx context.Context, explicitPath string) func() (*library.Library, error) {
 	return func() (*library.Library, error) {
 		resolved := library.FindLibrary(explicitPath, os.Getenv("GERMINATOR_LIBRARY"))
-		// TODO(slice-7): replace with cmd Context() instead of context.Background().
-		ctx := context.Background()
 		return library.LoadLibrary(ctx, resolved)
 	}
-}
-
-// initInitializer wraps the Factory's lazy application.Initializer
-// field. Nil Factory or unset Initializer returns nil so a missing
-// initializer surfaces as an error from runInit rather than a nil
-// dereference.
-func initInitializer(f *cmdutil.Factory) func() (application.Initializer, error) {
-	if f == nil || f.Initializer == nil {
-		return nil
-	}
-	return f.Initializer
 }
 
 // runInit executes the init logic against the resolved options. It
@@ -156,7 +149,7 @@ func initInitializer(f *cmdutil.Factory) func() (application.Initializer, error)
 //  2. Platform validated via core.ValidatePlatform.
 //  3. If Preset != "", expand via (*Library).ResolvePreset; on miss
 //     wrap as *core.NotFoundError so ExitCodeFor returns 2.
-//  4. Build InitializeRequest; invoke f.Initializer().
+//  4. Build InitializeRequest; invoke NewInitializer().Initialize.
 //  5. Count successes/failures from the result slice.
 //  6. Render per-resource status; return nil or *core.PartialSuccessError.
 func runInit(opts *initOptions) error {
@@ -189,12 +182,7 @@ func runInit(opts *initOptions) error {
 
 	opts.IO.Verbosef("installing resources: %s", strings.Join(refs, ", "))
 
-	initializer, err := opts.Initializer()
-	if err != nil {
-		return fmt.Errorf("resolving initializer: %w", err)
-	}
-
-	results, err := initializer.Initialize(opts.Ctx, &InitializeRequest{
+	results, err := NewInitializer().Initialize(opts.Ctx, &InitializeRequest{
 		Library:   lib,
 		Platform:  opts.Platform,
 		OutputDir: opts.OutputDir,
@@ -227,8 +215,8 @@ func runInit(opts *initOptions) error {
 // classifyResults counts successes/failures from a results slice and
 // materializes the matching []core.InitializeError list for the
 // partial-success aggregate. Success is derived from Error == nil;
-// the core.InitializeResult type does not carry an explicit Succeeded
-// field (design §3 implicitly defines it this way).
+// the core.InitializeResult type does not carry an explicit
+// Succeeded field.
 func classifyResults(results []core.InitializeResult) (succeeded, failed int, errs []core.InitializeError) {
 	for _, r := range results {
 		if r.Error != nil {
@@ -242,8 +230,8 @@ func classifyResults(results []core.InitializeResult) (succeeded, failed int, er
 }
 
 // renderResults writes per-resource status to IO: successes to Out,
-// failures to ErrOut via output.FormatError. The overall command exit
-// code is determined by runInit's error return, not by what is
+// failures to ErrOut via output.FormatError. The overall command
+// exit code is determined by runInit's error return, not by what is
 // rendered here.
 func renderResults(opts *initOptions, results []core.InitializeResult) {
 	for _, r := range results {

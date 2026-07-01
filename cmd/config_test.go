@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestConfigInitCommand(t *testing.T) {
@@ -33,7 +35,7 @@ func TestConfigInitCommand(t *testing.T) {
 			outputPath: filepath.Join(tmpDir, "config2.toml"),
 			force:      false,
 			setup: func(t *testing.T, path string) {
-				if err := os.WriteFile(path, []byte("existing"), 0644); err != nil {
+				if err := os.WriteFile(path, []byte("existing"), 0o644); err != nil {
 					t.Fatalf("Failed to create existing file: %v", err)
 				}
 			},
@@ -46,7 +48,7 @@ func TestConfigInitCommand(t *testing.T) {
 			outputPath: filepath.Join(tmpDir, "config3.toml"),
 			force:      true,
 			setup: func(t *testing.T, path string) {
-				if err := os.WriteFile(path, []byte("existing"), 0644); err != nil {
+				if err := os.WriteFile(path, []byte("existing"), 0o644); err != nil {
 					t.Fatalf("Failed to create existing file: %v", err)
 				}
 			},
@@ -69,7 +71,9 @@ func TestConfigInitCommand(t *testing.T) {
 				tt.setup(t, tt.outputPath)
 			}
 
-			cmd := NewConfigInitCommand(newTestBridge())
+			// slice-7: NewConfigInitCommand takes no Factory (the
+			// factory parameter was dropped in slice 7.5.6).
+			cmd := NewConfigInitCommand()
 			var args []string
 			args = append(args, "--output", tt.outputPath)
 			if tt.force {
@@ -110,20 +114,16 @@ func TestConfigInitCommand_ScaffoldedContent(t *testing.T) {
 	tmpDir := t.TempDir()
 	outputPath := filepath.Join(tmpDir, "config.toml")
 
-	cmd := NewConfigInitCommand(newTestBridge())
+	cmd := NewConfigInitCommand()
 	cmd.SetArgs([]string{"--output", outputPath})
 
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
 
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("Command failed: %v", err)
-	}
+	require.NoError(t, cmd.Execute(), "Command failed")
 
 	content, err := os.ReadFile(outputPath)
-	if err != nil {
-		t.Fatalf("Failed to read config file: %v", err)
-	}
+	require.NoError(t, err, "Failed to read config file")
 
 	expectedContent := []string{
 		"# Germinator configuration",
@@ -160,7 +160,7 @@ platform = "opencode"
 timeout = "500ms"
 cache_ttl = "5s"
 `
-				if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+				if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 					t.Fatalf("Failed to create valid config: %v", err)
 				}
 				return path
@@ -179,7 +179,7 @@ cache_ttl = "5s"
 			name: "invalid TOML syntax",
 			setup: func(t *testing.T) string {
 				path := filepath.Join(tmpDir, "invalid_toml.toml")
-				if err := os.WriteFile(path, []byte("invalid [ ["), 0644); err != nil {
+				if err := os.WriteFile(path, []byte("invalid [ ["), 0o644); err != nil {
 					t.Fatalf("Failed to create invalid config: %v", err)
 				}
 				return path
@@ -193,7 +193,7 @@ cache_ttl = "5s"
 				path := filepath.Join(tmpDir, "invalid_platform.toml")
 				content := `platform = "unknown"
 `
-				if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+				if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 					t.Fatalf("Failed to create invalid platform config: %v", err)
 				}
 				return path
@@ -207,7 +207,7 @@ cache_ttl = "5s"
 		t.Run(tt.name, func(t *testing.T) {
 			outputPath := tt.setup(t)
 
-			cmd := NewConfigValidateCommand(newTestBridge())
+			cmd := NewConfigValidateCommand()
 			cmd.SetArgs([]string{"--output", outputPath})
 
 			var buf bytes.Buffer
@@ -234,7 +234,10 @@ cache_ttl = "5s"
 }
 
 func TestConfigCommand_Help(t *testing.T) {
-	cmd := NewConfigCommand(newTestFactory(), newTestBridge())
+	// slice-7: NewConfigCommand takes only *cmdutil.Factory.
+	// The Factory is unused inside Help but is required by the
+	// signature for consistency with the rest of the slice-7 API.
+	cmd := NewConfigCommand(nil)
 
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)

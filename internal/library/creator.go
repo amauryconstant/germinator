@@ -77,6 +77,37 @@ func CreateLibrary(opts CreateOptions) error {
 	return nil
 }
 
+// Init is the package-level entry point for `library init` (slice 7
+// forward path). It is a thin adapter that maps *InitRequest to
+// CreateOptions and delegates to CreateLibrary.
+//
+// Init stays a package function (not a method on *Library) per
+// design Decision 6: init creates a fresh library, so there is no
+// pre-existing *Library to receive a method. The cmd layer's
+// runLibraryInit calls Init directly without an interface or adapter
+// shim, matching the CreatePreset / (*Library).CreatePreset dual
+// form at internal/library/creator.go:127.
+//
+// ctx is checked at entry to honor caller-supplied cancellation
+// before any I/O.
+func Init(ctx context.Context, req *InitRequest) error {
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("init library: %w", err)
+	}
+	if req == nil {
+		return gerrors.NewValidationError("library init", "request", "",
+			"init request must not be nil")
+	}
+	if err := CreateLibrary(CreateOptions{
+		Path:   req.Path,
+		DryRun: req.DryRun,
+		Force:  req.Force,
+	}); err != nil {
+		return fmt.Errorf("creating library: %w", err)
+	}
+	return nil
+}
+
 // defaultLibraryYAML returns the default library.yaml content.
 func defaultLibraryYAML() string {
 	return `version: "1"

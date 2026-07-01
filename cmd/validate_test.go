@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/amoconst/germinator/internal/application"
 	"gitlab.com/amoconst/germinator/internal/cmdutil"
 	"gitlab.com/amoconst/germinator/internal/core"
 	"gitlab.com/amoconst/germinator/internal/iostreams"
@@ -243,9 +242,6 @@ func TestNewCmdValidate_RunFCapturesOpts(t *testing.T) {
 
 	io := iostreams.Test()
 	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
-	f.Validator = cmdutil.OnceValuesFunc(func() (application.Validator, error) {
-		return &fakeValidator{}, nil
-	})
 	cmd := NewCmdValidate(f, runF)
 	cmd.SetArgs([]string{"/tmp/agent.md", "--platform", "opencode"})
 	cmd.SetOut(&bytes.Buffer{})
@@ -258,8 +254,6 @@ func TestNewCmdValidate_RunFCapturesOpts(t *testing.T) {
 	require.NotNil(t, captured.IO)
 	assert.Equal(t, io, captured.IO, "opts.IO must be the Factory's IOStreams")
 	require.NotNil(t, captured.Ctx, "opts.Ctx must be set from c.Context()")
-	require.NotNil(t, captured.Validator,
-		"opts.Validator must be populated by NewCmdValidate (via validateValidator)")
 }
 
 func TestNewCmdValidate_RequiresPlatformFlag(t *testing.T) {
@@ -277,44 +271,39 @@ func TestNewCmdValidate_RequiresPlatformFlag(t *testing.T) {
 func TestNewCmdValidate_NilRunFFallsBackToProduction(t *testing.T) {
 	io, out, errOut := newValidateTestIO()
 	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
-	f.Validator = cmdutil.OnceValuesFunc(func() (application.Validator, error) {
-		return nil, errors.New("no validator wired in this unit test")
-	})
 
+	// slice-7: NewCmdValidate's production wiring constructs the
+	// Validator lazily inside runValidate (cmd.NewValidator()). The
+	// nil-runF path therefore exercises the full runValidate →
+	// parse → validate pipeline. With a valid platform but a missing
+	// input file, parse fails and the error surfaces through
+	// cmdutil.ExitCodeFor → ExitCodeError (1).
 	cmd := NewCmdValidate(f, nil)
-	cmd.SetArgs([]string{"/tmp/agent.md", "--platform", "opencode"})
+	cmd.SetArgs([]string{"/nonexistent.md", "--platform", "opencode"})
 	cmd.SetOut(&bytes.Buffer{})
 	cmd.SetErr(&bytes.Buffer{})
 
 	err := cmd.Execute()
-	require.Error(t, err, "missing validator must surface as an error")
-	assert.Contains(t, err.Error(), "resolving validator")
+	require.Error(t, err, "missing input file must surface as an error")
 	assert.Empty(t, out.String())
 	assert.Empty(t, errOut.String())
 }
 
-func TestValidateValidator_NilFactoryReturnsNil(t *testing.T) {
-	t.Parallel()
-
-	assert.Nil(t, validateValidator(nil),
-		"validateValidator(nil) must return nil so opts.Validator is nil")
-
-	io := iostreams.Test()
-	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
-	f.Validator = nil
-	assert.Nil(t, validateValidator(f),
-		"validateValidator with nil f.Validator must return nil")
-}
+// slice-7 removed the Factory.Validator lazy field and the
+// `validateValidator(f)` factory helper. The Validator is now
+// constructed inside runValidate via cmd.NewValidator(); test
+// fakes are injected via runValidate directly (see fakeValidator
+// at the top of this file).
 
 func TestNewValidator_AdapterSatisfiesInterface(t *testing.T) {
 	t.Parallel()
 
 	// Compile-time interface check is already in validate.go
-	// (var _ application.Validator = (*validatorAdapter)(nil)).
+	// (var _ Validator = (*validatorAdapter)(nil)).
 	// This test verifies the runtime contract: a value returned by
 	// NewValidator() must accept the Validate call shape that the
 	// local Validator interface defines.
-	result, err := NewValidator().Validate(context.Background(), &application.ValidateRequest{
+	result, err := NewValidator().Validate(context.Background(), &ValidateRequest{
 		InputPath: "/nonexistent.md",
 		Platform:  core.PlatformClaudeCode,
 	})

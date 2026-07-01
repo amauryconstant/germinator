@@ -15,6 +15,7 @@ import (
 	"gitlab.com/amoconst/germinator/internal/cmdutil"
 	"gitlab.com/amoconst/germinator/internal/iostreams"
 	"gitlab.com/amoconst/germinator/internal/library"
+	"gitlab.com/amoconst/germinator/internal/output"
 )
 
 // loadFixtureLibrary loads the test/fixtures/library directory used by the
@@ -63,8 +64,8 @@ func TestRunResources_Plain(t *testing.T) {
 
 	require.NoError(t, runResources(opts))
 
-	assert.Equal(t, formatResourcesList(lib), out.String(),
-		"plain output must be byte-identical to formatResourcesList(lib)")
+	assert.Equal(t, output.FormatResourcesList(lib), out.String(),
+		"plain output must be byte-identical to output.FormatResourcesList(lib)")
 	assert.Empty(t, errOut.String(),
 		"plain output must NOT write to stderr (no verbose leakage)")
 }
@@ -77,14 +78,14 @@ func TestRunResources_PlainIsDefault(t *testing.T) {
 	// Both the zero-value "" and the explicit "plain" must yield the
 	// byte-identical plain output (the spec's "Plain is the default"
 	// scenario requires this equivalence).
-	for _, output := range []string{"", "plain"} {
-		output := output
-		t.Run("output="+output, func(t *testing.T) {
+	for _, format := range []string{"", "plain"} {
+		format := format
+		t.Run("output="+format, func(t *testing.T) {
 			t.Parallel()
-			opts, out, _ := newResourcesOpts(t, lib, output)
+			opts, out, _ := newResourcesOpts(t, lib, format)
 			require.NoError(t, runResources(opts))
-			assert.Equal(t, formatResourcesList(lib), out.String(),
-				"plain output (default or explicit) must match formatResourcesList")
+			assert.Equal(t, output.FormatResourcesList(lib), out.String(),
+				"plain output (default or explicit) must match output.FormatResourcesList")
 		})
 	}
 }

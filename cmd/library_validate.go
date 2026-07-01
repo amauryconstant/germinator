@@ -2,22 +2,80 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	"gitlab.com/amoconst/germinator/internal/cmdutil"
+	"gitlab.com/amoconst/germinator/internal/iostreams"
 	"gitlab.com/amoconst/germinator/internal/library"
+	"gitlab.com/amoconst/germinator/internal/output"
 )
 
-// NewLibraryValidateCommand creates the library validate subcommand.
-func NewLibraryValidateCommand(bridge *LegacyBridge, libraryPath *string) *cobra.Command {
-	cfg := legacyCfgFrom(bridge)
-	var opts struct {
-		fix bool
-	}
+// libraryValidateOptions holds the runtime state for a
+// `library validate` invocation. IO, Library (lazy: loaded via
+// validateLibrary), and Ctx come from the Factory; the rest come from
+// parsed flags. The Library lazy field is func() so the Factory can
+// cache the heavy work (LoadLibrary) per call, matching the slice-6
+// libraryPath pattern at cmd/library_create.go:149-159.
+type libraryValidateOptions struct {
+	IO      *iostreams.IOStreams
+	Library func() (*library.Library, error)
+	Ctx     context.Context
+	Fix     bool
+	Output  string
+}
+
+// validatorLibrary is the cmd-side contract for library validation.
+// It is intentionally distinct from `Library` (which would shadow
+// the library.Library struct) and from the slice-6 presetWriter
+// interface. The method signature matches the
+// (*library.Library).Validate method introduced in slice-7 7.0.2
+// which internally invokes (*library.Library).Fix when req.Fix is
+// true so the cmd-side code only needs to call Validate.
+type validatorLibrary interface {
+	Validate(ctx context.Context, req *library.ValidateRequest) (*library.ValidationResult, error)
+}
+
+// Compile-time confirmation that *library.Library satisfies the
+// validatorLibrary contract. If either side changes (interface or
+// (*Library).Validate method), the build fails immediately.
+// *library.Library is the live receiver used by runLibraryValidate,
+// so no suppression directive is required.
+var _ validatorLibrary = (*library.Library)(nil)
+
+// NewCmdLibraryValidate creates the `library validate` subcommand
+// via the canonical NewCmdXxx(f, runF) pattern. Migrated in slice 7.
+//
+// runF is the test-injection seam; production wires it to
+// runLibraryValidate, tests substitute a stub that captures the
+// fully-populated *libraryValidateOptions. The constructor receives
+// only the Factory — there is no `libraryPath *string` parameter
+// because the parent's shared `--library` persistent flag is read
+// directly from the cobra tree inside RunE (PersistentFlags are
+// merged into Flags() at parse time, so children transparently
+// inherit the parent's value via c.Flags().Lookup("library")).
+//
+// Flags:
+//
+//	--fix     (optional) auto-clean library.yaml after validation
+//	--output  (optional) plain (default), json, or table
+//
+// Examples:
+//
+//	germinator library validate
+//	germinator library validate --fix
+//	germinator library validate --output json
+//	germinator library validate --fix --output json
+//	germinator library validate --fix --output table
+func NewCmdLibraryValidate(f *cmdutil.Factory, runF func(*libraryValidateOptions) error) *cobra.Command {
+	var (
+		fix          bool
+		outputFormat string
+	)
 
 	cmd := &cobra.Command{
 		Use:   "validate",
@@ -33,78 +91,115 @@ Checks for four issue types:
 Use --fix to auto-clean library.yaml (removes missing entries, strips ghost refs).
 Only modifies library.yaml - never deletes actual files.
 
-Examples:
-  germinator library validate
-  germinator library validate --library /path/to/library
-  germinator library validate --json
-  germinator library validate --fix`,
+Output formats (--output):
+  plain  default; human-readable summary grouped by severity
+  json   machine-readable report with optional fix section
+  table  tab-aligned rows (severity, type, ref, message)`,
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
-			return runLibraryValidate(c, cfg, libraryPath, &opts)
+			opts := &libraryValidateOptions{
+				IO:      f.IOStreams,
+				Library: validateLibrary(f, resolveLibraryFlag(c)),
+				Ctx:     c.Context(),
+				Fix:     fix,
+				Output:  outputFormat,
+			}
+			if runF != nil {
+				return runF(opts)
+			}
+			return runLibraryValidate(opts)
 		},
 	}
 
-	cmd.Flags().BoolVar(&opts.fix, "fix", false, "Auto-clean library.yaml (removes missing entries and ghost preset refs)")
+	cmd.Flags().BoolVar(&fix, "fix", false, "Auto-clean library.yaml (removes missing entries and ghost preset refs)")
+	cmdutil.AddOutputFlags(cmd, &outputFormat)
 
 	return cmd
 }
 
-// runLibraryValidate executes the library validate logic.
-func runLibraryValidate(c *cobra.Command, cfg *CommandConfig, libraryPath *string, opts *struct {
-	fix bool
-}) error {
-	verbosity, _ := c.Flags().GetCount("verbose")
-	cfg.Verbosity = Verbosity(verbosity)
+// resolveLibraryFlag reads the parent's --library persistent flag
+// value from the cobra tree. PersistentFlags are merged into Flags()
+// at parse time, so children transparently inherit the parent's
+// value via c.Flags().Lookup("library"). Returns "" when the flag
+// is not registered (e.g., when NewCmdLibraryValidate is invoked
+// directly in tests without the parent cmd registered).
+func resolveLibraryFlag(c *cobra.Command) string {
+	if c == nil {
+		return ""
+	}
+	pf := c.Flags().Lookup("library")
+	if pf == nil {
+		return ""
+	}
+	return pf.Value.String()
+}
 
-	// Discover library path
-	envPath := os.Getenv("GERMINATOR_LIBRARY")
-	path := library.FindLibrary(*libraryPath, envPath)
+// validateLibrary wraps path resolution + load into a single lazy
+// closure that callers populate into opts.Library. Mirrors
+// cmd.createPresetLibrary (slice-6) and cmd.addLibrary (slice-6) so
+// the Factory's per-call path resolution pattern is honored.
+//
+//   - nil factory => nil loader (tests bypass this layer by passing
+//     their own Library closure).
+//   - explicitPath == "" + env unset => FindLibrary falls through to
+//     the XDG default path.
+//
+// The Library field in libraryValidateOptions is typed as the
+// canonical `func() (*library.Library, error)` per the task spec;
+// the resolved path is captured in the closure.
+func validateLibrary(f *cmdutil.Factory, explicitPath string) func() (*library.Library, error) {
+	if f == nil {
+		return nil
+	}
+	resolved := library.FindLibrary(explicitPath, os.Getenv("GERMINATOR_LIBRARY"))
+	return func() (*library.Library, error) {
+		return library.LoadLibrary(f.RootContext, resolved)
+	}
+}
 
-	VerbosePrint(cfg, "Loading library from: %s", path)
-
-	// TODO(slice-7): replace with cmd Context() once runValidate migrates.
-	ctx := context.Background()
-
-	// Load library
-	lib, err := library.LoadLibrary(ctx, path)
+// runLibraryValidate executes the validation logic. Dispatches on
+// opts.Output to plain / JSON / table. Errors from the
+// validatorLibrary call are surfaced via output.FormatError (to
+// stderr) and wrapped for exit-code mapping; per-issue findings
+// stay data and flow through the chosen output format.
+func runLibraryValidate(opts *libraryValidateOptions) error {
+	lib, err := opts.Library()
 	if err != nil {
+		output.FormatError(opts.IO, err)
 		return fmt.Errorf("loading library: %w", err)
 	}
 
-	// Validate library
-	result, err := library.ValidateLibrary(lib)
+	opts.IO.Verbosef("validating library at %s (fix=%t)", lib.RootPath, opts.Fix)
+
+	result, err := lib.Validate(opts.Ctx, &library.ValidateRequest{Fix: opts.Fix})
 	if err != nil {
+		output.FormatError(opts.IO, err)
 		return fmt.Errorf("validating library: %w", err)
 	}
 
-	// Apply fixes if requested
-	if opts.fix && !result.Valid {
-		fixResult, err := library.FixLibrary(lib)
-		if err != nil {
-			return fmt.Errorf("fixing library: %w", err)
-		}
-		result.FixApplied = true
-		result.FixResult = fixResult
+	switch opts.Output {
+	case outputJSON:
+		return writeValidateJSON(opts.IO, result)
+	case outputTable:
+		return writeValidateTable(opts.IO, result)
+	default:
+		return writeValidatePlain(opts.IO, result, opts.Fix)
 	}
-
-	// Output results
-	jsonFlag, _ := c.Flags().GetBool("json")
-	if jsonFlag {
-		return outputJSON(c, result)
-	}
-	return outputHuman(c, cfg, result, opts.fix)
 }
 
-// ValidationOutput is the JSON output structure for validation results.
-type ValidationOutput struct {
-	Valid        bool              `json:"valid"`
-	ErrorCount   int               `json:"errorCount"`
-	WarningCount int               `json:"warningCount"`
-	Issues       []ValidationIssue `json:"issues"`
-}
+// outputFormat sentinel constants — avoid magic-string drift with
+// output.AddOutputFlags / output.DefaultOutputFormat. Mirrors the
+// pattern at cmd/library_add.go:789-793 (isPlainOutput).
+const (
+	outputJSON  = "json"
+	outputTable = "table"
+)
 
-// ValidationIssue represents a single issue in JSON output.
-type ValidationIssue struct {
+// validateIssueJSON is the JSON projection of a single library.Issue.
+// Mirrors the legacy ValidationOutput shape (cmd pre-rewrite) for
+// backwards compatibility with downstream tooling that consumes
+// `germinator library validate --json` output.
+type validateIssueJSON struct {
 	Type     string `json:"type"`
 	Severity string `json:"severity"`
 	Ref      string `json:"ref,omitempty"`
@@ -113,17 +208,41 @@ type ValidationIssue struct {
 	Message  string `json:"message,omitempty"`
 }
 
-// outputJSON outputs validation results as JSON.
-func outputJSON(c *cobra.Command, result *library.ValidationResult) error {
-	output := ValidationOutput{
+// fixJSONSection is the JSON projection of *library.FixResult.
+// Returned under the top-level "fix" field when opts.Fix is true;
+// omitted (json:",omitempty") otherwise so default validation runs
+// stay identical to the pre-fix shape.
+type fixJSONSection struct {
+	RemovedEntries []string `json:"removedEntries"`
+	StrippedRefs   []string `json:"strippedRefs"`
+}
+
+// validateJSONPayload is the net-new JSON shape for
+// `library validate --output json`. Diverges from the legacy
+// ValidationOutput only by the optional Fix field (omitempty) so
+// pre-fix tooling keeps working unchanged.
+type validateJSONPayload struct {
+	Valid        bool                `json:"valid"`
+	ErrorCount   int                 `json:"errorCount"`
+	WarningCount int                 `json:"warningCount"`
+	Issues       []validateIssueJSON `json:"issues"`
+	Fix          *fixJSONSection     `json:"fix,omitempty"`
+}
+
+// writeValidateJSON materializes the JSON payload and writes it via
+// the JSONExporter. The Issues slice is sorted (errors before
+// warnings, then by type) to keep the byte output deterministic so
+// golden tests and downstream parsers stay stable.
+func writeValidateJSON(io *iostreams.IOStreams, result *library.ValidationResult) error {
+	payload := validateJSONPayload{
 		Valid:        result.Valid,
 		ErrorCount:   result.ErrorCount,
 		WarningCount: result.WarningCount,
-		Issues:       make([]ValidationIssue, 0, len(result.Issues)),
+		Issues:       make([]validateIssueJSON, 0, len(result.Issues)),
 	}
 
 	for _, issue := range result.Issues {
-		output.Issues = append(output.Issues, ValidationIssue{
+		payload.Issues = append(payload.Issues, validateIssueJSON{
 			Type:     string(issue.Type),
 			Severity: string(issue.Severity),
 			Ref:      issue.Ref,
@@ -133,53 +252,155 @@ func outputJSON(c *cobra.Command, result *library.ValidationResult) error {
 		})
 	}
 
-	// Sort issues for deterministic output
-	sort.Slice(output.Issues, func(i, j int) bool {
-		if output.Issues[i].Severity != output.Issues[j].Severity {
-			return output.Issues[i].Severity == "error"
+	sort.Slice(payload.Issues, func(i, j int) bool {
+		if payload.Issues[i].Severity != payload.Issues[j].Severity {
+			return payload.Issues[i].Severity == string(library.SeverityError)
 		}
-		return output.Issues[i].Type < output.Issues[j].Type
+		return payload.Issues[i].Type < payload.Issues[j].Type
 	})
 
-	encoder := json.NewEncoder(c.OutOrStdout())
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(output); err != nil {
-		return fmt.Errorf("encoding JSON output: %w", err)
+	// Populate the fix section only when --fix was actually used
+	// (lib.Validate internally calls lib.Fix and merges the result
+	// into result.FixResult; for non-fix runs FixResult stays nil).
+	if result.FixResult != nil {
+		payload.Fix = &fixJSONSection{
+			RemovedEntries: result.FixResult.RemovedEntries,
+			StrippedRefs:   result.FixResult.StrippedRefs,
+		}
+	}
+
+	if err := output.NewJSONExporter().Write(io, payload); err != nil {
+		return fmt.Errorf("writing JSON output: %w", err)
 	}
 	return nil
 }
 
-// outputHuman outputs validation results in human-readable format.
-func outputHuman(c *cobra.Command, _ *CommandConfig, result *library.ValidationResult, fix bool) error {
+// validateRow is the table-exporter projection of a single
+// library.Issue. Columns: severity, type, ref, message. The Ref
+// field falls back to Path when Ref is empty so the ref column is
+// always populated.
+type validateRow struct {
+	Severity string `tab:"SEVERITY"`
+	Type     string `tab:"TYPE"`
+	Ref      string `tab:"REF"`
+	Message  string `tab:"MESSAGE"`
+}
+
+// fixActionRow is the table-exporter projection of a single fix
+// action (removed entry or stripped ref). Columns: action, ref. The
+// action column names the category ("removed" vs "stripped") so
+// the table reads as an action log.
+type fixActionRow struct {
+	Action string `tab:"ACTION"`
+	Ref    string `tab:"REF"`
+}
+
+// writeValidateTable dispatches between the two table shapes per
+// whether --fix was used:
+//
+//   - issues-only: severity/type/ref/message (always available)
+//   - --fix:       action/ref (renders only the fix actions; the
+//     plain output above already covers the issues summary)
+//
+// The TableExporter requires a homogeneous slice, so the two shapes
+// are rendered with separate Write calls — never a single mixed
+// slice (the reflect-driven exporter cannot reconcile the two
+// column definitions inside a single call).
+func writeValidateTable(io *iostreams.IOStreams, result *library.ValidationResult) error {
+	// Fix-action table takes priority when --fix was actually used
+	// AND removed entries or stripped refs are present; the issues
+	// table supplies the always-available detail rows.
+	fixRows := buildFixActionRows(result.FixResult)
+	if len(fixRows) > 0 {
+		if err := output.NewTableExporter().Write(io, fixRows); err != nil {
+			return fmt.Errorf("writing table output: %w", err)
+		}
+		return nil
+	}
+
+	issueRows := buildIssueRows(result)
+	if len(issueRows) == 0 {
+		return nil
+	}
+	if err := output.NewTableExporter().Write(io, issueRows); err != nil {
+		return fmt.Errorf("writing table output: %w", err)
+	}
+	return nil
+}
+
+// buildIssueRows projects result.Issues into validateRow slice
+// suitable for the TableExporter. The Ref field falls back to Path
+// when Ref is empty so the column always has something to display.
+func buildIssueRows(result *library.ValidationResult) []validateRow {
+	rows := make([]validateRow, 0, len(result.Issues))
+	for _, issue := range result.Issues {
+		ref := issue.Ref
+		if ref == "" {
+			ref = issue.Path
+		}
+		rows = append(rows, validateRow{
+			Severity: string(issue.Severity),
+			Type:     string(issue.Type),
+			Ref:      ref,
+			Message:  issue.Message,
+		})
+	}
+	return rows
+}
+
+// buildFixActionRows projects a *library.FixResult into the
+// (action, ref) table rows, ordered: removed-entries first, then
+// stripped-refs. Each row gets the appropriate Action label.
+func buildFixActionRows(fix *library.FixResult) []fixActionRow {
+	if fix == nil {
+		return nil
+	}
+	rows := make([]fixActionRow, 0, len(fix.RemovedEntries)+len(fix.StrippedRefs))
+	for _, ref := range fix.RemovedEntries {
+		rows = append(rows, fixActionRow{Action: "removed", Ref: ref})
+	}
+	for _, ref := range fix.StrippedRefs {
+		rows = append(rows, fixActionRow{Action: "stripped", Ref: ref})
+	}
+	return rows
+}
+
+// writeValidatePlain renders the legacy human-readable output:
+// header (valid/invalid + counts) + issues (grouped by type /
+// severity) + footer (fix hint). Writes entirely to opts.IO.Out so
+// plain output stays scriptable via "germinator library validate |
+// grep".
+func writeValidatePlain(io *iostreams.IOStreams, result *library.ValidationResult, fix bool) error {
 	var sb strings.Builder
 
-	outputHeader(&sb, result)
-	outputIssues(&sb, result)
-	outputFooter(&sb, result, fix)
+	validatePlainHeader(&sb, result)
+	validatePlainIssues(&sb, result)
+	validatePlainFooter(&sb, result, fix)
 
-	_, err := fmt.Fprint(c.OutOrStdout(), sb.String())
-	if err != nil {
-		return fmt.Errorf("writing output: %w", err)
+	if _, err := io.Out.Write([]byte(sb.String())); err != nil {
+		return fmt.Errorf("writing plain output: %w", err)
 	}
 	return nil
 }
 
-func outputHeader(sb *strings.Builder, result *library.ValidationResult) {
+func validatePlainHeader(sb *strings.Builder, result *library.ValidationResult) {
 	if result.Valid && len(result.Issues) == 0 {
-		fmt.Fprintln(sb, "✓ Library is valid")
+		fmt.Fprintln(sb, "\u2713 Library is valid")
 		fmt.Fprintf(sb, "  errors: 0, warnings: 0\n")
-	} else if result.Valid {
-		fmt.Fprintln(sb, "✓ Library is valid (warnings only)")
+		return
+	}
+	if result.Valid {
+		fmt.Fprintln(sb, "\u2713 Library is valid (warnings only)")
 		fmt.Fprintf(sb, "  errors: 0, warnings: %d\n", result.WarningCount)
 		fmt.Fprintln(sb)
-	} else {
-		fmt.Fprintln(sb, "✗ Library has issues")
-		fmt.Fprintf(sb, "  errors: %d, warnings: %d\n", result.ErrorCount, result.WarningCount)
-		fmt.Fprintln(sb)
+		return
 	}
+	fmt.Fprintln(sb, "\u2717 Library has issues")
+	fmt.Fprintf(sb, "  errors: %d, warnings: %d\n", result.ErrorCount, result.WarningCount)
+	fmt.Fprintln(sb)
 }
 
-func outputIssues(sb *strings.Builder, result *library.ValidationResult) {
+func validatePlainIssues(sb *strings.Builder, result *library.ValidationResult) {
 	errorsByType := make(map[library.IssueType][]library.Issue)
 	warnings := make([]library.Issue, 0)
 
@@ -200,7 +421,7 @@ func outputIssues(sb *strings.Builder, result *library.ValidationResult) {
 		} {
 			if issues, ok := errorsByType[issueType]; ok && len(issues) > 0 {
 				for _, issue := range issues {
-					formatIssueLine(sb, issue)
+					validatePlainFormatIssue(sb, issue)
 				}
 			}
 		}
@@ -209,13 +430,13 @@ func outputIssues(sb *strings.Builder, result *library.ValidationResult) {
 	if len(warnings) > 0 {
 		fmt.Fprintln(sb, "Warnings:")
 		for _, issue := range warnings {
-			formatIssueLine(sb, issue)
+			validatePlainFormatIssue(sb, issue)
 		}
 	}
 }
 
-func formatIssueLine(sb *strings.Builder, issue library.Issue) {
-	fmt.Fprintf(sb, "  [%s] %s", formatIssueType(issue.Type), formatIssueRefOrPath(issue))
+func validatePlainFormatIssue(sb *strings.Builder, issue library.Issue) {
+	fmt.Fprintf(sb, "  [%s] %s", validatePlainIssueType(issue.Type), validatePlainIssueRefOrPath(issue))
 	if issue.InPreset != "" {
 		fmt.Fprintf(sb, " (in preset %q)", issue.InPreset)
 	}
@@ -225,7 +446,7 @@ func formatIssueLine(sb *strings.Builder, issue library.Issue) {
 	}
 }
 
-func outputFooter(sb *strings.Builder, result *library.ValidationResult, fix bool) {
+func validatePlainFooter(sb *strings.Builder, result *library.ValidationResult, fix bool) {
 	fmt.Fprintln(sb)
 	if !result.Valid {
 		if fix {
@@ -233,12 +454,13 @@ func outputFooter(sb *strings.Builder, result *library.ValidationResult, fix boo
 		} else {
 			fmt.Fprintln(sb, "Hint: Run with --fix to auto-clean library.yaml")
 		}
+	} else if fix {
+		fmt.Fprintln(sb, "no fixes needed")
 	}
 	fmt.Fprintln(sb, "Hint: Run with --json for machine-readable output")
 }
 
-// formatIssueType returns a human-readable issue type.
-func formatIssueType(t library.IssueType) string {
+func validatePlainIssueType(t library.IssueType) string {
 	switch t {
 	case library.IssueTypeMissingFile:
 		return "missing"
@@ -253,8 +475,7 @@ func formatIssueType(t library.IssueType) string {
 	}
 }
 
-// formatIssueRefOrPath returns the ref or path for an issue.
-func formatIssueRefOrPath(issue library.Issue) string {
+func validatePlainIssueRefOrPath(issue library.Issue) string {
 	if issue.Ref != "" {
 		return issue.Ref
 	}

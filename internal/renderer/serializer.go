@@ -262,6 +262,22 @@ func MarshalCanonical(doc interface{}) (string, error) {
 	return sb.String(), nil
 }
 
+// Serializer is the concrete serializer type. NewSerializer returns
+// *Serializer; the (*Serializer).RenderDocument method delegates to the
+// package-level RenderDocument function so callers can choose between
+// functional and method-style usage.
+type Serializer struct{}
+
+// NewSerializer creates a new Serializer instance.
+func NewSerializer() *Serializer {
+	return &Serializer{}
+}
+
+// RenderDocument renders a document to the target platform format.
+func (s *Serializer) RenderDocument(doc interface{}, platform string) (string, error) {
+	return RenderDocument(doc, platform)
+}
+
 // getCanonicalTemplatePath returns the absolute path to a canonical template file.
 func getCanonicalTemplatePath(filename string) (string, error) {
 	cwd, err := os.Getwd()

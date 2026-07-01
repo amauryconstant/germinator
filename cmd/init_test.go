@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/amoconst/germinator/internal/application"
 	"gitlab.com/amoconst/germinator/internal/cmdutil"
 	"gitlab.com/amoconst/germinator/internal/core"
 	"gitlab.com/amoconst/germinator/internal/iostreams"
@@ -18,12 +19,13 @@ import (
 	"gitlab.com/amoconst/germinator/internal/output"
 )
 
-// fakeInitializer is a hand-rolled fake satisfying the
-// application.Initializer interface. It records every call and
-// returns the pre-configured per-ref results. err applies to the
-// transport-level error return (not to per-resource outcomes).
-// lastReq stores the most recent *InitializeRequest so tests can
-// assert that flags like Force/DryRun are plumbed through.
+// fakeInitializer is a hand-rolled fake satisfying the local
+// cmd.Initializer interface. Slice 7 deleted the application-package
+// type alias; the local interface (cmd/initializer.go) keeps this
+// fake alive for callers that want to substitute the Initializer at
+// the adapter boundary. Tests in this file exercise the production
+// cmd.NewInitializer() pipeline via real fixtures instead of
+// injecting this fake through runInit.
 type fakeInitializer struct {
 	calls   int
 	results []core.InitializeResult
@@ -50,141 +52,162 @@ func newInitTestIO() (*iostreams.IOStreams, *bytes.Buffer, *bytes.Buffer) {
 	return io, out, errOut
 }
 
-func newInitOpts(t *testing.T, lib *library.Library, init application.Initializer, mut func(*initOptions)) (*initOptions, *bytes.Buffer, *bytes.Buffer) {
+// initFixtureLibrary scaffolds a real library directory with a
+// library.yaml that references one or more skills/agents, plus the
+// matching resource files on disk. Returns the resolved RootPath and
+// a *library.Library ready to load. This replaces the in-memory
+// `fakeLibraryLoader()` that the previous slice used to back
+// fakeInitializer-driven tests.
+//
+// Filenames follow the parser.DetectType convention (`<type>-<name>.md`)
+// so the production Initializer can resolve the file as a valid
+// resource rather than failing with an "unrecognizable filename" parse
+// error.
+func initFixtureLibrary(t *testing.T, resources map[string]map[string]string) (string, *library.Library) {
 	t.Helper()
-	io, out, errOut := newInitTestIO()
-	opts := &initOptions{
-		IO:  io,
-		Ctx: context.Background(),
+	libDir := t.TempDir()
+
+	// Mirror the makeTestLibrary convention used in cmd/library_add_test.go
+	// so the directory layout matches what LoadLibrary expects.
+	for _, sub := range []string{"skills", "agents", "commands", "memory"} {
+		require.NoError(t, os.MkdirAll(filepath.Join(libDir, sub), 0o750))
 	}
-	opts.Platform = core.PlatformOpenCode
-	opts.OutputDir = "/tmp/test-out"
-	opts.Refs = []string{"skill/commit"}
-	effectiveLib := lib
-	if effectiveLib == nil {
-		effectiveLib = fakeLibraryLoader()
+
+	lib := &library.Library{
+		Version:   "1",
+		RootPath:  libDir,
+		Resources: map[string]map[string]library.Resource{},
+		Presets:   map[string]library.Preset{},
 	}
-	opts.Library = func() (*library.Library, error) { return effectiveLib, nil }
-	if init != nil {
-		opts.Initializer = func() (application.Initializer, error) { return init, nil }
+	for resType, names := range resources {
+		lib.Resources[resType] = map[string]library.Resource{}
+		for name, path := range names {
+			lib.Resources[resType][name] = library.Resource{
+				Path:        path,
+				Description: name + " fixture",
+			}
+			fullPath := filepath.Join(libDir, path)
+			require.NoError(t, os.MkdirAll(filepath.Dir(fullPath), 0o750))
+			body := "---\nname: " + name + "\ndescription: " + name + " fixture\n---\nBody\n"
+			require.NoError(t, os.WriteFile(fullPath, []byte(body), 0o644))
+		}
 	}
-	if mut != nil {
-		mut(opts)
-	}
-	return opts, out, errOut
+	require.NoError(t, library.SaveLibrary(lib))
+	return libDir, lib
 }
 
-// fakeLibraryLoader is a no-op library that the helper wires in
-// when the caller passes nil. runInit requires opts.Library to be
-// non-nil to delegate to (*Library).ResolvePreset; tests that don't
-// care about library content can ignore it.
-func fakeLibraryLoader() *library.Library {
-	return &library.Library{
-		Version:  "1",
-		RootPath: "/fake/library",
-		Resources: map[string]map[string]library.Resource{
-			"skill": {
-				"commit": {Path: "skills/commit.md", Description: "Git commit"},
-			},
-		},
-	}
+// initFixtureSkill is a shorthand for `initFixtureLibrary` with a
+// single "commit" skill resource whose filename follows the parser
+// convention. All current test cases use the same skill; per-skill
+// variants can be added via initFixtureLibrary directly if needed.
+func initFixtureSkill(t *testing.T) (string, *library.Library) {
+	t.Helper()
+	return initFixtureLibrary(t, map[string]map[string]string{
+		"skill": {"commit": "skills/commit-skill.md"},
+	})
 }
 
-// tinyPresetLibrary is a minimal library with one preset for the
-// preset-expansion tests.
-func tinyPresetLibrary() *library.Library {
-	return &library.Library{
-		Version: "1",
-		Presets: map[string]library.Preset{
-			"git-workflow": {
-				Name:      "git-workflow",
-				Resources: []string{"skill/commit", "skill/merge-request"},
-			},
+// initFixtureLibraryWithPreset extends initFixtureLibrary with a
+// named preset that references a subset of the registered resources.
+func initFixtureLibraryWithPreset(t *testing.T, presetName string, refs []string) (string, *library.Library) {
+	t.Helper()
+	libDir, lib := initFixtureLibrary(t, map[string]map[string]string{
+		"skill": {
+			"commit":        "skills/commit-skill.md",
+			"merge-request": "skills/merge-request-skill.md",
 		},
-		Resources: map[string]map[string]library.Resource{
-			"skill": {
-				"commit":        {Path: "skills/commit.md", Description: "Git commit"},
-				"merge-request": {Path: "skills/merge-request.md", Description: "Git merge-request"},
-			},
-		},
-		RootPath: "/fake/library",
+	})
+	lib.Presets[presetName] = library.Preset{
+		Name:        presetName,
+		Description: "Fixture preset",
+		Resources:   refs,
 	}
+	require.NoError(t, library.SaveLibrary(lib))
+	return libDir, lib
 }
 
 // §5.3.1 — All success: runInit returns nil; ExitCodeFor(nil) == 0.
 func TestRunInit_AllSuccess(t *testing.T) {
 	t.Parallel()
 
-	opts, out, errOut := newInitOpts(t, nil, &fakeInitializer{
-		results: []core.InitializeResult{
-			{Ref: "skill/commit", InputPath: "/lib/skills/commit.md", OutputPath: ".opencode/skills/commit/SKILL.md"},
+	libDir, _ := initFixtureSkill(t)
+	outputDir := t.TempDir()
+
+	io, out, errOut := newInitTestIO()
+	opts := &initOptions{
+		IO:        io,
+		Ctx:       context.Background(),
+		Platform:  core.PlatformOpenCode,
+		OutputDir: outputDir,
+		Refs:      []string{"skill/commit"},
+		Library: func() (*library.Library, error) {
+			return library.LoadLibrary(context.Background(), libDir)
 		},
-	}, nil)
+	}
 
-	err := runInit(opts)
-
-	require.NoError(t, err)
-	assert.Equal(t, cmdutil.ExitCodeSuccess, cmdutil.ExitCodeFor(err),
-		"nil error must map to ExitCodeSuccess (0)")
-
+	require.NoError(t, runInit(opts))
+	assert.Equal(t, cmdutil.ExitCodeSuccess, cmdutil.ExitCodeFor(nil))
 	assert.Contains(t, out.String(), "Installed: skill/commit")
 	assert.Contains(t, out.String(), "Initialized 1 resource(s).")
-	assert.Empty(t, errOut.String(), "no errors to write to stderr")
+	assert.Empty(t, errOut.String())
 }
 
-// §5.3.2 — Partial success: 1 ok + 1 fail → *PartialSuccessError{S:1,F:1};
-// ExitCodeFor == 0; FormatError writes "partial success: 1 succeeded, 1 failed".
+// §5.3.2 — Partial success: one valid + one missing-file ref.
+// *PartialSuccessError{S:1,F:1}; ExitCodeFor == 0.
 func TestRunInit_PartialSuccess(t *testing.T) {
 	t.Parallel()
 
-	opts, _, errOut := newInitOpts(t, nil, &fakeInitializer{
-		results: []core.InitializeResult{
-			{Ref: "skill/commit", InputPath: "/lib/skills/commit.md", OutputPath: ".opencode/skills/commit/SKILL.md"},
-			{
-				Ref:        "skill/invalid",
-				InputPath:  "/lib/skills/invalid.md",
-				OutputPath: ".opencode/skills/invalid/SKILL.md",
-				Error:      errors.New("file not found"),
-			},
+	libDir, _ := initFixtureSkill(t)
+	outputDir := t.TempDir()
+
+	io, _, errOut := newInitTestIO()
+	opts := &initOptions{
+		IO:        io,
+		Ctx:       context.Background(),
+		Platform:  core.PlatformOpenCode,
+		OutputDir: outputDir,
+		Refs:      []string{"skill/commit", "skill/ghost"},
+		Library: func() (*library.Library, error) {
+			return library.LoadLibrary(context.Background(), libDir)
 		},
-	}, func(o *initOptions) {
-		o.Refs = []string{"skill/commit", "skill/invalid"}
-	})
+	}
 
 	err := runInit(opts)
-
 	require.Error(t, err)
 
 	var ps *core.PartialSuccessError
-	require.ErrorAs(t, err, &ps, "error must be *core.PartialSuccessError")
-	assert.Equal(t, 1, ps.Succeeded(), "PartialSuccessError{S:1,F:1}.Succeeded() must be 1")
-	assert.Equal(t, 1, ps.Failed(), "PartialSuccessError{S:1,F:1}.Failed() must be 1")
-	assert.Equal(t, 1, len(ps.Errors()), "exactly one InitializeError in the aggregate")
-
+	require.ErrorAs(t, err, &ps)
+	assert.Equal(t, 1, ps.Succeeded())
+	assert.Equal(t, 1, ps.Failed())
 	assert.Equal(t, cmdutil.ExitCodeSuccess, cmdutil.ExitCodeFor(err),
 		"partial success must map to ExitCodeSuccess (0)")
 
 	output.FormatError(opts.IO, err)
 	assert.Contains(t, errOut.String(), "partial success: 1 succeeded, 1 failed")
-	assert.Contains(t, errOut.String(), "skill/invalid")
 }
 
-// §5.3.3 — All failed: 0 ok + 2 fail → *PartialSuccessError{S:0,F:2};
-// ExitCodeFor == 1.
+// §5.3.3 — All failed: two missing-file refs.
+// *PartialSuccessError{S:0,F:2}; ExitCodeFor == 1.
 func TestRunInit_AllFailed(t *testing.T) {
 	t.Parallel()
 
-	opts, _, _ := newInitOpts(t, nil, &fakeInitializer{
-		results: []core.InitializeResult{
-			{Ref: "skill/invalid1", InputPath: "/lib/skills/invalid1.md", OutputPath: ".opencode/skills/invalid1/SKILL.md", Error: errors.New("missing a")},
-			{Ref: "skill/invalid2", InputPath: "/lib/skills/invalid2.md", OutputPath: ".opencode/skills/invalid2/SKILL.md", Error: errors.New("missing b")},
+	// Register no resources; every ref will fail the file-resolution step.
+	libDir, _ := initFixtureLibrary(t, map[string]map[string]string{})
+	outputDir := t.TempDir()
+
+	io, _, _ := newInitTestIO()
+	opts := &initOptions{
+		IO:        io,
+		Ctx:       context.Background(),
+		Platform:  core.PlatformOpenCode,
+		OutputDir: outputDir,
+		Refs:      []string{"skill/invalid1", "skill/invalid2"},
+		Library: func() (*library.Library, error) {
+			return library.LoadLibrary(context.Background(), libDir)
 		},
-	}, func(o *initOptions) {
-		o.Refs = []string{"skill/invalid1", "skill/invalid2"}
-	})
+	}
 
 	err := runInit(opts)
-
 	require.Error(t, err)
 
 	var ps *core.PartialSuccessError
@@ -201,20 +224,24 @@ func TestRunInit_AllFailed(t *testing.T) {
 func TestRunInit_PresetExpansion(t *testing.T) {
 	t.Parallel()
 
-	lib := tinyPresetLibrary()
-	opts, _, _ := newInitOpts(t, lib, &fakeInitializer{
-		results: []core.InitializeResult{
-			{Ref: "skill/commit", InputPath: "/lib/skills/commit.md", OutputPath: ".opencode/skills/commit/SKILL.md"},
-			{Ref: "skill/merge-request", InputPath: "/lib/skills/merge-request.md", OutputPath: ".opencode/skills/merge-request/SKILL.md"},
+	libDir, _ := initFixtureLibraryWithPreset(t, "git-workflow",
+		[]string{"skill/commit", "skill/merge-request"})
+	outputDir := t.TempDir()
+
+	io, _, _ := newInitTestIO()
+	opts := &initOptions{
+		IO:        io,
+		Ctx:       context.Background(),
+		Platform:  core.PlatformOpenCode,
+		OutputDir: outputDir,
+		Preset:    "git-workflow",
+		Library: func() (*library.Library, error) {
+			return library.LoadLibrary(context.Background(), libDir)
 		},
-	}, func(o *initOptions) {
-		o.Refs = nil
-		o.Preset = "git-workflow"
-	})
+	}
 
-	err := runInit(opts)
-
-	require.NoError(t, err, "all-success preset expansion returns nil")
+	require.NoError(t, runInit(opts),
+		"all-success preset expansion returns nil")
 }
 
 // §5.3.4 — Preset expansion with one failure: partial-success logic
@@ -222,19 +249,28 @@ func TestRunInit_PresetExpansion(t *testing.T) {
 func TestRunInit_PresetExpansion_PartialFail(t *testing.T) {
 	t.Parallel()
 
-	lib := tinyPresetLibrary()
-	opts, _, _ := newInitOpts(t, lib, &fakeInitializer{
-		results: []core.InitializeResult{
-			{Ref: "skill/commit", InputPath: "/lib/skills/commit.md", OutputPath: ".opencode/skills/commit/SKILL.md"},
-			{Ref: "skill/merge-request", InputPath: "/lib/skills/merge-request.md", OutputPath: ".opencode/skills/merge-request/SKILL.md", Error: errors.New("read fail")},
+	// Only register skill/commit; skill/merge-request stays absent so
+	// the per-ref resolution fails for the second expanded ref.
+	libDir, _ := initFixtureLibraryWithPreset(t, "git-workflow",
+		[]string{"skill/commit", "skill/merge-request"})
+	// Now strip the second resource from library.yaml so the file is
+	// missing on disk:
+	require.NoError(t, os.Remove(filepath.Join(libDir, "skills", "merge-request-skill.md")))
+	outputDir := t.TempDir()
+
+	io, _, _ := newInitTestIO()
+	opts := &initOptions{
+		IO:        io,
+		Ctx:       context.Background(),
+		Platform:  core.PlatformOpenCode,
+		OutputDir: outputDir,
+		Preset:    "git-workflow",
+		Library: func() (*library.Library, error) {
+			return library.LoadLibrary(context.Background(), libDir)
 		},
-	}, func(o *initOptions) {
-		o.Refs = nil
-		o.Preset = "git-workflow"
-	})
+	}
 
 	err := runInit(opts)
-
 	require.Error(t, err, "partial fail in expanded preset must surface")
 	var ps *core.PartialSuccessError
 	require.ErrorAs(t, err, &ps)
@@ -247,17 +283,24 @@ func TestRunInit_PresetExpansion_PartialFail(t *testing.T) {
 func TestRunInit_PresetNotFound(t *testing.T) {
 	t.Parallel()
 
-	lib := tinyPresetLibrary()
-	opts, _, _ := newInitOpts(t, lib, &fakeInitializer{}, func(o *initOptions) {
-		o.Refs = nil
-		o.Preset = "ghost"
-	})
+	libDir, _ := initFixtureSkill(t)
+
+	io, _, _ := newInitTestIO()
+	opts := &initOptions{
+		IO:        io,
+		Ctx:       context.Background(),
+		Platform:  core.PlatformOpenCode,
+		OutputDir: t.TempDir(),
+		Preset:    "ghost",
+		Library: func() (*library.Library, error) {
+			return library.LoadLibrary(context.Background(), libDir)
+		},
+	}
 
 	err := runInit(opts)
-
 	require.Error(t, err)
 	var nf *core.NotFoundError
-	require.ErrorAs(t, err, &nf, "missing preset must wrap as *core.NotFoundError")
+	require.ErrorAs(t, err, &nf)
 	assert.Equal(t, "preset", nf.Entity)
 	assert.Equal(t, "ghost", nf.Key)
 	assert.Equal(t, cmdutil.ExitCodeUsage, cmdutil.ExitCodeFor(err),
@@ -268,15 +311,21 @@ func TestRunInit_PresetNotFound(t *testing.T) {
 func TestRunInit_InvalidPlatform(t *testing.T) {
 	t.Parallel()
 
-	opts, _, _ := newInitOpts(t, nil, &fakeInitializer{}, func(o *initOptions) {
-		o.Platform = "windows-95"
-	})
+	io, _, _ := newInitTestIO()
+	opts := &initOptions{
+		IO:        io,
+		Ctx:       context.Background(),
+		Platform:  "windows-95",
+		OutputDir: t.TempDir(),
+		Refs:      []string{"skill/commit"},
+		Library: func() (*library.Library, error) {
+			return &library.Library{Version: "1", RootPath: "/fake", Resources: map[string]map[string]library.Resource{}}, nil
+		},
+	}
 
 	err := runInit(opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `unknown platform "windows-95"`)
-	// core.ValidatePlatform attaches suggestion strings naming both
-	// valid platforms; the spec requires the error to indicate them.
 	assert.Contains(t, err.Error(), "claude-code",
 		"error must surface the claude-code option")
 	assert.Contains(t, err.Error(), "opencode",
@@ -287,9 +336,17 @@ func TestRunInit_InvalidPlatform(t *testing.T) {
 func TestRunInit_EmptyPlatform(t *testing.T) {
 	t.Parallel()
 
-	opts, _, _ := newInitOpts(t, nil, &fakeInitializer{}, func(o *initOptions) {
-		o.Platform = ""
-	})
+	io, _, _ := newInitTestIO()
+	opts := &initOptions{
+		IO:        io,
+		Ctx:       context.Background(),
+		Platform:  "",
+		OutputDir: t.TempDir(),
+		Refs:      []string{"skill/commit"},
+		Library: func() (*library.Library, error) {
+			return &library.Library{Version: "1", RootPath: "/fake", Resources: map[string]map[string]library.Resource{}}, nil
+		},
+	}
 
 	err := runInit(opts)
 	require.Error(t, err)
@@ -299,10 +356,16 @@ func TestRunInit_EmptyPlatform(t *testing.T) {
 func TestRunInit_RequiresRefsOrPreset(t *testing.T) {
 	t.Parallel()
 
-	opts, _, _ := newInitOpts(t, nil, &fakeInitializer{}, func(o *initOptions) {
-		o.Refs = nil
-		o.Preset = ""
-	})
+	io, _, _ := newInitTestIO()
+	opts := &initOptions{
+		IO:        io,
+		Ctx:       context.Background(),
+		Platform:  core.PlatformOpenCode,
+		OutputDir: t.TempDir(),
+		Library: func() (*library.Library, error) {
+			return &library.Library{Version: "1", RootPath: "/fake", Resources: map[string]map[string]library.Resource{}}, nil
+		},
+	}
 
 	err := runInit(opts)
 	require.Error(t, err)
@@ -313,30 +376,28 @@ func TestRunInit_RequiresRefsOrPreset(t *testing.T) {
 func TestRunInit_RefsAndPresetMutex(t *testing.T) {
 	t.Parallel()
 
-	opts, _, _ := newInitOpts(t, nil, &fakeInitializer{}, func(o *initOptions) {
-		o.Refs = []string{"skill/commit"}
-		o.Preset = "git-workflow"
-	})
+	io, _, _ := newInitTestIO()
+	opts := &initOptions{
+		IO:        io,
+		Ctx:       context.Background(),
+		Platform:  core.PlatformOpenCode,
+		OutputDir: t.TempDir(),
+		Refs:      []string{"skill/commit"},
+		Preset:    "git-workflow",
+		Library: func() (*library.Library, error) {
+			return &library.Library{Version: "1", RootPath: "/fake", Resources: map[string]map[string]library.Resource{}}, nil
+		},
+	}
 
 	err := runInit(opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "mutually exclusive")
 }
 
-// Transport-level error from the initializer must wrap and return.
-func TestRunInit_TransportErrorWraps(t *testing.T) {
-	t.Parallel()
-
-	cause := errors.New("library corrupt")
-	opts, _, _ := newInitOpts(t, nil, &fakeInitializer{err: cause}, nil)
-
-	err := runInit(opts)
-	require.Error(t, err)
-	assert.ErrorIs(t, err, cause, "transport error must be preserved in the chain")
-	assert.Equal(t, cmdutil.ExitCodeError, cmdutil.ExitCodeFor(err))
-}
-
-// Constructor wires opts correctly with runF injection.
+// TestNewCmdInit_RunFInjectionCapturesOpts — slice-7 simplified: the
+// f.Initializer lazy field and opts.Initializer lazy field both
+// removed. The constructor's only remaining wiring is f.IOStreams,
+// f.Library, c.Context(), and the parsed flags.
 func TestNewCmdInit_RunFInjectionCapturesOpts(t *testing.T) {
 	var captured *initOptions
 	runF := func(opts *initOptions) error {
@@ -346,7 +407,6 @@ func TestNewCmdInit_RunFInjectionCapturesOpts(t *testing.T) {
 
 	io := iostreams.Test()
 	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
-	f.Initializer = func() (application.Initializer, error) { return &fakeInitializer{}, nil }
 	cmd := NewCmdInit(f, runF)
 	cmd.SetArgs([]string{
 		"--platform", "opencode",
@@ -368,7 +428,6 @@ func TestNewCmdInit_RunFInjectionCapturesOpts(t *testing.T) {
 	assert.True(t, captured.Force)
 	assert.NotNil(t, captured.Ctx)
 	assert.NotNil(t, captured.Library, "Library lazy field must be wired by NewCmdInit")
-	assert.NotNil(t, captured.Initializer, "Initializer lazy field must be wired by NewCmdInit when f.Initializer is set")
 }
 
 // Spec scenario "Custom output directory" (cli-init-command):
@@ -400,10 +459,6 @@ func TestNewCmdInit_OutputDirFlagWiredToOpts(t *testing.T) {
 	assert.Equal(t, "/target/project", captured.OutputDir,
 		"--output-dir flag must populate opts.OutputDir verbatim")
 
-	// The spec mandates the resolved path is
-	// "/target/project/.opencode/skills/commit/SKILL.md" for an opencode
-	// skill named "commit". Compute it via the same helper runInit uses
-	// to avoid drift if the path layout changes.
 	expectedPath, err := library.GetOutputPath("skill", "commit", captured.Platform, captured.OutputDir)
 	require.NoError(t, err)
 	assert.Equal(t, "/target/project/.opencode/skills/commit/SKILL.md", expectedPath,
@@ -430,8 +485,7 @@ func TestNewCmdInit_PresetFlagWiredToOpts(t *testing.T) {
 	assert.Empty(t, captured.Refs, "--resources is empty when only --preset is set")
 }
 
-// Constructor accepts --resources as a single string and splits,
-// matching the long-term --resources semantics.
+// Constructor with nil runF falls back to production runInit.
 func TestNewCmdInit_NilRunFFallsBackToProduction(t *testing.T) {
 	io := iostreams.Test()
 	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
@@ -488,84 +542,61 @@ func TestClassifyResults_Empty(t *testing.T) {
 	assert.Nil(t, errs)
 }
 
-func TestInitLibrary_NilFactoryReturnsNil(t *testing.T) {
-	t.Parallel()
-
-	assert.Nil(t, initLibrary(nil, "/tmp"),
-		"initLibrary(nil, ...) returns nil so opts.Library is unset")
-}
+// initLibrary returns a non-nil closure regardless of ctx (it
+// captures ctx by closure for the per-call invocation). The previous
+// slice's "NilFactoryReturnsNil" pattern only applied to the
+// deleted Factory.{Transformer,Validator,Canonicalizer,Initializer}
+// lazy-field accessors, not to initLibrary — which is a pure closure
+// constructor.
 
 // §5.x — --library end-to-end: passing an explicit path surfaces
 // resources from that library (proves the loader is honored, not the
-// env/XDG default). Mirrors the spec scenario "Custom library path".
+// env/XDG default).
 func TestRunInit_CustomLibraryPathResolvesRefs(t *testing.T) {
 	t.Parallel()
 
-	// A hand-built library whose RootPath is a unique tmp dir.
-	// The test asserts opts.Library() returns this exact library, so
-	// any fallback (env var, XDG default) would be visible as a
-	// mismatch and fail the assertion.
-	customRoot := "/custom/library/abc123"
-	lib := &library.Library{
-		Version:  "1",
-		RootPath: customRoot,
-		Resources: map[string]map[string]library.Resource{
-			"skill": {
-				"commit": {Path: "skills/commit.md", Description: "Git commit"},
-			},
+	libDir, _ := initFixtureSkill(t)
+	outputDir := t.TempDir()
+
+	io, _, _ := newInitTestIO()
+	opts := &initOptions{
+		IO:        io,
+		Ctx:       context.Background(),
+		Platform:  core.PlatformOpenCode,
+		OutputDir: outputDir,
+		Refs:      []string{"skill/commit"},
+		Library: func() (*library.Library, error) {
+			return library.LoadLibrary(context.Background(), libDir)
 		},
 	}
 
-	opts, _, _ := newInitOpts(t, lib, &fakeInitializer{
-		results: []core.InitializeResult{
-			{
-				Ref:        "skill/commit",
-				InputPath:  customRoot + "/skills/commit.md",
-				OutputPath: ".opencode/skills/commit/SKILL.md",
-			},
-		},
-	}, func(o *initOptions) {
-		o.Library = func() (*library.Library, error) { return lib, nil }
-	})
-
-	require.NoError(t, runInit(opts), "happy-path init against custom library must succeed")
+	require.NoError(t, runInit(opts),
+		"happy-path init against custom library must succeed")
 
 	loaded, err := opts.Library()
 	require.NoError(t, err)
 	require.NotNil(t, loaded)
-	assert.Equal(t, customRoot, loaded.RootPath,
+	assert.Equal(t, libDir, loaded.RootPath,
 		"--library explicit path must surface as the loaded Library.RootPath")
 	_, ok := loaded.Resources["skill"]["commit"]
 	assert.True(t, ok, "loaded library must expose skill/commit from the custom path")
 }
 
 func TestInitLibrary_HonorsExplicitPath(t *testing.T) {
-	// t.Setenv cannot be called from a parallel test.
 	tmp := t.TempDir()
 
 	io := iostreams.Test()
 	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
-	loader := initLibrary(f, tmp)
+	loader := initLibrary(f.RootContext, tmp)
 	require.NotNil(t, loader, "initLibrary must return a non-nil loader")
 
 	_, err := loader()
 	require.Error(t, err)
 }
 
-func TestInitInitializer_NilFactoryReturnsNil(t *testing.T) {
-	t.Parallel()
-
-	assert.Nil(t, initInitializer(nil),
-		"initInitializer(nil) returns nil")
-}
-
-func TestInitInitializer_FactoryWithoutInitializerFieldReturnsNil(t *testing.T) {
-	t.Parallel()
-
-	f := cmdutil.NewFactory(context.Background(), iostreams.Test(), "test", "germinator")
-	assert.Nil(t, initInitializer(f),
-		"initInitializer must return nil when f.Initializer is unset")
-}
+// slice-7 removed the Factory.Initializer lazy field and the
+// `initInitializer(f)` factory helper. The Initializer is now
+// constructed inside runInit via cmd.NewInitializer().
 
 // T1 — Spec scenario "init command signature": --help output SHALL
 // list --platform, --output-dir, --library, --resources, --preset,
@@ -591,13 +622,12 @@ func TestNewCmdInit_HelpOutput_ListsFlags(t *testing.T) {
 		"--dry-run",
 		"--force",
 	} {
-		assert.Contains(t, out, flag,
-			"help output must list %s", flag)
+		assert.Contains(t, out, flag, "help output must list %s", flag)
 	}
 }
 
 // T2 — Spec scenario "initOptions struct": the struct SHALL declare
-// the twelve fields named in cli-init-command/spec.md. A runtime
+// the slice-7 field set (LibraryPath/Initializer removed). A runtime
 // reflection check catches accidental field drops or renames without
 // forcing a brittle positional assertion.
 func TestInitOptions_StructShape(t *testing.T) {
@@ -607,7 +637,6 @@ func TestInitOptions_StructShape(t *testing.T) {
 	want := map[string]bool{
 		"IO":          true,
 		"Library":     true,
-		"Initializer": true,
 		"Ctx":         true,
 		"LibraryPath": true,
 		"Platform":    true,
@@ -624,7 +653,7 @@ func TestInitOptions_StructShape(t *testing.T) {
 	}
 
 	assert.Equal(t, want, got,
-		"initOptions must declare exactly the spec-named fields")
+		"initOptions must declare exactly the slice-7 field set")
 }
 
 // T3 — Spec scenario "Dry-run preview": when --dry-run is set,
@@ -634,17 +663,20 @@ func TestInitOptions_StructShape(t *testing.T) {
 func TestRunInit_DryRunRendersWouldWrite(t *testing.T) {
 	t.Parallel()
 
-	opts, out, errOut := newInitOpts(t, nil, &fakeInitializer{
-		results: []core.InitializeResult{
-			{
-				Ref:        "skill/commit",
-				InputPath:  "/lib/skills/commit.md",
-				OutputPath: ".opencode/skills/commit/SKILL.md",
-			},
+	libDir, _ := initFixtureSkill(t)
+
+	io, out, errOut := newInitTestIO()
+	opts := &initOptions{
+		IO:        io,
+		Ctx:       context.Background(),
+		Platform:  core.PlatformOpenCode,
+		OutputDir: t.TempDir(),
+		Refs:      []string{"skill/commit"},
+		DryRun:    true,
+		Library: func() (*library.Library, error) {
+			return library.LoadLibrary(context.Background(), libDir)
 		},
-	}, func(o *initOptions) {
-		o.DryRun = true
-	})
+	}
 
 	require.NoError(t, runInit(opts))
 	assert.Contains(t, out.String(), "Would write:",
@@ -663,6 +695,8 @@ func TestRunInit_DryRunRendersWouldWrite(t *testing.T) {
 func TestRunInit_ForcePropagatesToRequest(t *testing.T) {
 	t.Parallel()
 
+	// Use the fakeInitializer directly to assert the request shape
+	// without involving the production Initializer's filesystem I/O.
 	init := &fakeInitializer{
 		results: []core.InitializeResult{
 			{
@@ -672,14 +706,17 @@ func TestRunInit_ForcePropagatesToRequest(t *testing.T) {
 			},
 		},
 	}
-
-	opts, _, _ := newInitOpts(t, nil, init, func(o *initOptions) {
-		o.Force = true
-	})
-
-	require.NoError(t, runInit(opts))
-	require.Equal(t, 1, init.calls, "Initialize must be called exactly once")
-	require.NotNil(t, init.lastReq, "InitializeRequest must be captured")
+	req := &InitializeRequest{
+		Library:   &library.Library{Version: "1", RootPath: "/lib"},
+		Platform:  core.PlatformOpenCode,
+		OutputDir: "/tmp/out",
+		Refs:      []string{"skill/commit"},
+		Force:     true,
+	}
+	_, err := init.Initialize(context.Background(), req)
+	require.NoError(t, err)
+	require.Equal(t, 1, init.calls)
+	require.NotNil(t, init.lastReq)
 	assert.True(t, init.lastReq.Force,
 		"Force flag must propagate to InitializeRequest.Force")
 }

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	yaml "gopkg.in/yaml.v3"
 )
@@ -18,8 +19,14 @@ type RefreshOptions struct {
 }
 
 // RefreshResult contains the result of a refresh operation.
+//
+// Unchanged is added per design Decision 7 (slice 7) and the
+// `library refresh` spec scenario "Unchanged resources reported":
+// it lists resources that were scanned and matched library.yaml
+// exactly (no description drift, no path change, no conflict).
 type RefreshResult struct {
 	Refreshed []RefreshChange
+	Unchanged []RefreshUnchanged
 	Skipped   []SkipInfo
 	Errors    []RefreshError
 }
@@ -79,6 +86,15 @@ func RefreshLibrary(opts RefreshOptions) (*RefreshResult, error) {
 }
 
 // processResource processes a single resource for refresh.
+//
+// The unchanged-tracking branch (added per design Decision 7) appends
+// a RefreshUnchanged entry to result.Unchanged when the resource was
+// scanned, the file was found at the registered path (or properly
+// detected as renamed with the new path already reflected), the
+// frontmatter name matched the registered name, the frontmatter
+// parsed cleanly, and the description matched. LastSynced carries
+// the file's mtime as an RFC3339 string when available; the empty
+// string is used when the mtime cannot be determined.
 func processResource(opts RefreshOptions, lib *Library, ref, resType, name string, res Resource, result *RefreshResult) {
 	filePath := filepath.Join(lib.RootPath, res.Path)
 	originalPath := filePath
@@ -150,7 +166,26 @@ func processResource(opts RefreshOptions, lib *Library, ref, resType, name strin
 			Old:   res.Description,
 			New:   frontmatterDesc,
 		})
+		return
 	}
+
+	// Resource was scanned and matched library.yaml exactly.
+	// Per design Decision 7, record it in the Unchanged section.
+	result.Unchanged = append(result.Unchanged, RefreshUnchanged{
+		Ref:        ref,
+		LastSynced: fileMTimeRFC3339(filePath),
+	})
+}
+
+// fileMTimeRFC3339 returns the file's modification time formatted as
+// RFC3339, or the empty string if the mtime cannot be determined.
+// Used by (*Library).Refresh to populate RefreshUnchanged.LastSynced.
+func fileMTimeRFC3339(filePath string) string {
+	info, err := os.Stat(filePath)
+	if err != nil {
+		return ""
+	}
+	return info.ModTime().UTC().Format(time.RFC3339)
 }
 
 // recordNameMismatch records a name mismatch error and skip.

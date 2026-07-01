@@ -3,6 +3,7 @@ package library
 // Package library provides library management for canonical resources.
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -120,4 +121,156 @@ func ParseRef(ref string) (typ, name string, err error) {
 // FormatRef creates a resource reference from type and name.
 func FormatRef(typ, name string) string {
 	return fmt.Sprintf("%s/%s", typ, name)
+}
+
+// Refresh is the method form of the package-level RefreshLibrary
+// function. It mirrors the package-level function so *library.Library
+// can satisfy the cmd-side refresherLibrary interface without an
+// adapter shim, matching the slice-6 (*Library).CreatePreset precedent
+// at internal/library/creator.go:145.
+//
+// The method receiver is required because the in-memory library
+// state (lib.Resources) is mutated during refresh; subsequent
+// SaveLibrary persists the mutations to library.yaml. The method
+// checks ctx.Err() at entry to honor caller-supplied cancellation
+// before any I/O, and asserts that lib is non-nil with a
+// non-empty RootPath so the loader step inside RefreshLibrary
+// targets a real on-disk library.
+//
+// On success returns a *RefreshResult with the Refreshed,
+// Unchanged, Skipped, and Errors slices populated per design
+// Decision 7.
+func (lib *Library) Refresh(ctx context.Context, req *RefreshRequest) (*RefreshResult, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("refresh library: %w", err)
+	}
+	if lib == nil || lib.RootPath == "" {
+		return nil, gerrors.NewValidationError("library refresh", "rootPath", "",
+			"library is not loaded (RootPath is empty)")
+	}
+	return RefreshLibrary(RefreshOptions{
+		LibraryPath: lib.RootPath,
+		DryRun:      req.DryRun,
+		Force:       req.Force,
+	})
+}
+
+// RemoveResource is the method form of the package-level RemoveResource
+// function. It mirrors the package-level function so *library.Library
+// can satisfy the cmd-side removerLibrary interface without an
+// adapter shim, matching the slice-6 (*Library).CreatePreset precedent
+// at internal/library/creator.go:145.
+//
+// The method receiver carries the loaded library (and its RootPath).
+// ctx.Err() is checked at entry to honor caller-supplied cancellation
+// before any I/O; the receiver is asserted non-nil with a non-empty
+// RootPath so the loader step inside RemoveResource targets a real
+// on-disk library.
+func (lib *Library) RemoveResource(ctx context.Context, req *RemoveResourceRequest) error {
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("remove resource: %w", err)
+	}
+	if lib == nil || lib.RootPath == "" {
+		return gerrors.NewValidationError("library remove resource", "rootPath", "",
+			"library is not loaded (RootPath is empty)")
+	}
+	if _, err := RemoveResource(RemoveResourceOptions{
+		Ref:         req.Ref,
+		LibraryPath: lib.RootPath,
+	}); err != nil {
+		return fmt.Errorf("removing resource: %w", err)
+	}
+	return nil
+}
+
+// RemovePreset is the method form of the package-level RemovePreset
+// function. It mirrors the package-level function so *library.Library
+// can satisfy the cmd-side removerLibrary interface without an
+// adapter shim, matching the slice-6 (*Library).CreatePreset precedent
+// at internal/library/creator.go:145.
+//
+// The method receiver carries the loaded library (and its RootPath).
+// ctx.Err() is checked at entry to honor caller-supplied cancellation
+// before any I/O; the receiver is asserted non-nil with a non-empty
+// RootPath so the loader step inside RemovePreset targets a real
+// on-disk library.
+func (lib *Library) RemovePreset(ctx context.Context, req *RemovePresetRequest) error {
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("remove preset: %w", err)
+	}
+	if lib == nil || lib.RootPath == "" {
+		return gerrors.NewValidationError("library remove preset", "rootPath", "",
+			"library is not loaded (RootPath is empty)")
+	}
+	if _, err := RemovePreset(RemovePresetOptions{
+		Name:        req.Name,
+		LibraryPath: lib.RootPath,
+	}); err != nil {
+		return fmt.Errorf("removing preset: %w", err)
+	}
+	return nil
+}
+
+// Validate is the method form of the package-level ValidateLibrary
+// function. It mirrors the package-level function so *library.Library
+// can satisfy the cmd-side validatorLibrary interface without an
+// adapter shim, matching the slice-6 (*Library).CreatePreset precedent
+// at internal/library/creator.go:145.
+//
+// When req.Fix is true and the validation scan finds error-level
+// issues, Validate internally calls lib.Fix(ctx, &FixRequest{}) and
+// merges the resulting *FixResult into the returned *ValidationResult
+// (FixApplied = true, FixResult populated) so the cmd layer can
+// surface the fix report via --output json / --output table without a
+// second call. ctx.Err() is checked at entry to honor caller-supplied
+// cancellation before any I/O; the receiver is asserted non-nil with
+// a non-empty RootPath so the loader step inside ValidateLibrary
+// targets a real on-disk library.
+func (lib *Library) Validate(ctx context.Context, req *ValidateRequest) (*ValidationResult, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("validate library: %w", err)
+	}
+	if lib == nil || lib.RootPath == "" {
+		return nil, gerrors.NewValidationError("library validate", "rootPath", "",
+			"library is not loaded (RootPath is empty)")
+	}
+
+	result, err := ValidateLibrary(lib)
+	if err != nil {
+		return nil, fmt.Errorf("validating library: %w", err)
+	}
+
+	if req != nil && req.Fix && !result.Valid {
+		fixResult, fixErr := lib.Fix(ctx, &FixRequest{})
+		if fixErr != nil {
+			return nil, fmt.Errorf("fixing library: %w", fixErr)
+		}
+		result.FixApplied = true
+		result.FixResult = fixResult
+	}
+
+	return result, nil
+}
+
+// Fix is the method form of the package-level FixLibrary function. It
+// mirrors the package-level function so *library.Library can satisfy
+// the cmd-side validatorLibrary interface (via the embedded
+// (*Library).Validate -> (*Library).Fix chain) without an adapter
+// shim, matching the slice-6 (*Library).CreatePreset precedent at
+// internal/library/creator.go:145.
+//
+// FixRequest is currently empty; the method operates on the live
+// library carried by the *Library receiver. ctx.Err() is checked at
+// entry to honor caller-supplied cancellation before any I/O; the
+// receiver is asserted non-nil with a non-empty RootPath so
+// FixLibrary targets a real on-disk library.
+func (lib *Library) Fix(ctx context.Context, _ *FixRequest) (*FixResult, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("fix library: %w", err)
+	}
+	if lib == nil || lib.RootPath == "" {
+		return nil, gerrors.NewValidationError("library fix", "rootPath", "",
+			"library is not loaded (RootPath is empty)")
+	}
+	return FixLibrary(lib)
 }

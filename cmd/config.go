@@ -15,9 +15,10 @@ import (
 	gerrors "gitlab.com/amoconst/germinator/internal/core"
 )
 
-// scaffoldedConfig is the default config file content with explanatory comments.
-// All settings are commented out by default, requiring users to explicitly uncomment
-// and configure only the settings they want to override.
+// scaffoldedConfig is the default config file content with
+// explanatory comments. All settings are commented out by default,
+// requiring users to explicitly uncomment and configure only the
+// settings they want to override.
 const scaffoldedConfig = `# Germinator configuration
 # https://github.com/anomalyco/germinator
 #
@@ -51,8 +52,11 @@ const scaffoldedConfig = `# Germinator configuration
 # cache_ttl = "5s"
 `
 
-// NewConfigCommand creates the config command group with init and validate subcommands.
-func NewConfigCommand(_ *cmdutil.Factory, bridge *LegacyBridge) *cobra.Command {
+// NewConfigCommand creates the config command group with init and
+// validate subcommands. The Factory parameter is currently unused
+// but kept for consistency with the rest of the slice-7 command
+// constructor signatures.
+func NewConfigCommand(_ *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config",
 		Short: "Scaffold and validate germinator configuration files",
@@ -62,15 +66,15 @@ func NewConfigCommand(_ *cmdutil.Factory, bridge *LegacyBridge) *cobra.Command {
   germinator config validate   Validate an existing config file`,
 	}
 
-	cmd.AddCommand(NewConfigInitCommand(bridge))
-	cmd.AddCommand(NewConfigValidateCommand(bridge))
+	cmd.AddCommand(NewConfigInitCommand())
+	cmd.AddCommand(NewConfigValidateCommand())
 
 	return cmd
 }
 
-// NewConfigInitCommand creates the config init command for scaffolding a new config file.
-func NewConfigInitCommand(bridge *LegacyBridge) *cobra.Command {
-	cfg := legacyCfgFrom(bridge)
+// NewConfigInitCommand creates the config init command for
+// scaffolding a new config file.
+func NewConfigInitCommand() *cobra.Command {
 	var (
 		outputPath string
 		force      bool
@@ -95,9 +99,6 @@ Use --force to overwrite an existing config file.`,
   germinator config init --force`,
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
-			verbosity, _ := c.Flags().GetCount("verbose")
-			cfg.Verbosity = Verbosity(verbosity)
-
 			// Default to standard config path if not specified
 			if outputPath == "" {
 				defaultPath, err := config.GetConfigPath()
@@ -128,7 +129,6 @@ Use --force to overwrite an existing config file.`,
 					"failed to write config file", err)
 			}
 
-			VerbosePrint(cfg, "Created config file: %s", outputPath)
 			_, _ = fmt.Fprintf(c.OutOrStdout(), "Successfully created config file: %s\n", outputPath)
 			return nil
 		},
@@ -142,9 +142,9 @@ Use --force to overwrite an existing config file.`,
 	return cmd
 }
 
-// NewConfigValidateCommand creates the config validate command for validating an existing config file.
-func NewConfigValidateCommand(bridge *LegacyBridge) *cobra.Command {
-	cfg := legacyCfgFrom(bridge)
+// NewConfigValidateCommand creates the config validate command for
+// validating an existing config file.
+func NewConfigValidateCommand() *cobra.Command {
 	var outputPath string
 
 	cmd := &cobra.Command{
@@ -166,9 +166,6 @@ If no --output path is specified, the default config location is used:
   germinator config validate --output /path/to/config.toml`,
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
-			verbosity, _ := c.Flags().GetCount("verbose")
-			cfg.Verbosity = Verbosity(verbosity)
-
 			// Default to standard config path if not specified
 			if outputPath == "" {
 				defaultPath, err := config.GetConfigPath()

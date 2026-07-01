@@ -57,6 +57,21 @@ func LoadDocument(filepath, platform string) (interface{}, error) {
 	return doc, nil
 }
 
+// Parser is the concrete parser type. NewParser returns *Parser; the
+// (*Parser).LoadDocument method delegates to the package-level LoadDocument
+// function so callers can choose between functional and method-style usage.
+type Parser struct{}
+
+// NewParser creates a new Parser instance.
+func NewParser() *Parser {
+	return &Parser{}
+}
+
+// LoadDocument loads and parses a document from the given path.
+func (p *Parser) LoadDocument(path string, platform string) (interface{}, error) {
+	return LoadDocument(path, platform)
+}
+
 // DetectType detects the document type from the filename.
 func DetectType(filepath string) string {
 	base := filepath

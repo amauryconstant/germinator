@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/amoconst/germinator/internal/application"
 	"gitlab.com/amoconst/germinator/internal/cmdutil"
 	"gitlab.com/amoconst/germinator/internal/core"
 	"gitlab.com/amoconst/germinator/internal/iostreams"
@@ -115,12 +114,10 @@ func TestRunAdapt_InvalidPlatformValue(t *testing.T) {
 	assert.Equal(t, 0, fake.calls)
 }
 
-// runAdapt's contract: opts.Transformer must be non-nil. The production
-// wiring (NewCmdAdapt → adaptTransformer) always populates it; tests that
-// want to assert the nil case should construct via NewCmdAdapt with a
-// Factory whose lazy field is unset, which returns an error from
-// f.Transformer() rather than a nil function pointer. See
-// TestNewCmdAdapt_NilRunFFallsBackToProduction for that path.
+// runAdapt's contract: the production wiring (cmd.NewTransformer)
+// always populates a real Transformer. There is no per-call injection
+// seam in slice-7 — tests that want to assert the error path use a
+// fakeTransformer via runAdapt directly.
 
 func TestRunAdapt_TransformerErrorPropagates(t *testing.T) {
 	t.Parallel()
@@ -236,22 +233,24 @@ func TestNewCmdAdapt_RunFInjectionCapturesOpts(t *testing.T) {
 }
 
 func TestNewCmdAdapt_NilRunFFallsBackToProduction(t *testing.T) {
-	io, out, errOut := newAdaptTestIO()
+	io := iostreams.Test()
 	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
-	f.Transformer = cmdutil.OnceValuesFunc(func() (application.Transformer, error) {
-		return nil, errors.New("no transformer wired in this unit test")
-	})
 
+	// slice-7: NewCmdAdapt's production wiring constructs the
+	// Transformer lazily inside runAdapt (cmd.NewTransformer()). The
+	// nil-runF path therefore exercises the full runAdapt → parse →
+	// render → write pipeline. With a valid platform but a missing
+	// input file, parse fails and the error surfaces through
+	// cmdutil.ExitCodeFor → ExitCodeError (1).
 	cmd := NewCmdAdapt(f, nil)
 	cmd.SetArgs([]string{"/nonexistent.md", "/tmp/out.md", "--platform", "opencode"})
 	cmd.SetOut(&bytes.Buffer{})
 	cmd.SetErr(&bytes.Buffer{})
 
 	err := cmd.Execute()
-	require.Error(t, err, "missing platform-aware transformer must surface as an error")
-	assert.Contains(t, err.Error(), "resolving transformer")
-	assert.Empty(t, out.String())
-	assert.Empty(t, errOut.String())
+	require.Error(t, err, "missing input file must surface as an error")
+	assert.Empty(t, io.Out.(*bytes.Buffer).String(),
+		"stdout must remain empty on the error path")
 }
 
 func TestNewCmdAdapt_RequiresPlatformFlag(t *testing.T) {
@@ -266,15 +265,8 @@ func TestNewCmdAdapt_RequiresPlatformFlag(t *testing.T) {
 	require.Error(t, err, "missing required --platform flag must fail")
 }
 
-func TestAdaptTransformer_NilFactoryReturnsNil(t *testing.T) {
-	t.Parallel()
-
-	assert.Nil(t, adaptTransformer(nil),
-		"adaptTransformer(nil) must return nil so opts.Transformer is nil")
-
-	io := iostreams.Test()
-	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
-	f.Transformer = nil
-	assert.Nil(t, adaptTransformer(f),
-		"adaptTransformer with nil f.Transformer must return nil")
-}
+// slice-7 removed the Factory.Transformer lazy field and the
+// `adaptTransformer(f)` factory helper. The Transformer is now
+// constructed inside runAdapt via cmd.NewTransformer(); test
+// fakes are injected via runAdapt directly (see fakeTransformer
+// at the top of this file).

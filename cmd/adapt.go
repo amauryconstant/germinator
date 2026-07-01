@@ -7,7 +7,6 @@ import (
 	"github.com/carapace-sh/carapace"
 	"github.com/spf13/cobra"
 
-	"gitlab.com/amoconst/germinator/internal/application"
 	"gitlab.com/amoconst/germinator/internal/cmdutil"
 	"gitlab.com/amoconst/germinator/internal/core"
 	"gitlab.com/amoconst/germinator/internal/iostreams"
@@ -16,17 +15,25 @@ import (
 // Transformer is the local command-side contract for document
 // transformation. Defined in cmd/ per the target architecture
 // ("interfaces where consumed" — golang-cli-architecture skill
-// principle 8). Will move to internal/core/contracts.go in change-7
-// when internal/application/ is deleted.
+// principle 8).
 type Transformer interface {
 	Transform(ctx context.Context, req *TransformRequest) (*core.TransformResult, error)
 }
 
-// adaptOptions holds the runtime state for an `adapt` invocation.
-// IO, Ctx, and Transformer come from the Factory; the rest come
-// from parsed flags and positional args. Transformer is the local
-// command-side interface (defined above) which matches the
-// application.Transformer implementation at runtime.
+// TransformRequest carries the inputs for a document transformation.
+// Local to this package since the cross-package type alias was
+// removed when the legacy shell was deleted.
+type TransformRequest struct {
+	InputPath  string
+	OutputPath string
+	Platform   string
+}
+
+// adaptOptions holds the runtime state for an `adapt` invocation. IO
+// and Ctx come from the Factory; the rest come from parsed flags and
+// positional args. The Transformer lazy field is the per-call
+// injection seam for tests — production wires it to a closure that
+// invokes cmd.NewTransformer(); tests substitute a fake.
 type adaptOptions struct {
 	IO          *iostreams.IOStreams
 	Transformer func() (Transformer, error)
@@ -35,10 +42,6 @@ type adaptOptions struct {
 	OutputPath  string
 	Platform    string
 }
-
-// TransformRequest is the application-side request type. Imported
-// from internal/application/requests.go (still alive in this change).
-type TransformRequest = application.TransformRequest
 
 // NewCmdAdapt creates the `adapt` command via the canonical
 // NewCmdXxx(f, runF) pattern. runF is the test-injection seam;
@@ -60,12 +63,11 @@ Example:
 		Args: cobra.ExactArgs(2),
 		RunE: func(c *cobra.Command, args []string) error {
 			opts := &adaptOptions{
-				IO:          f.IOStreams,
-				Transformer: adaptTransformer(f),
-				Ctx:         c.Context(),
-				InputPath:   args[0],
-				OutputPath:  args[1],
-				Platform:    platform,
+				IO:         f.IOStreams,
+				Ctx:        c.Context(),
+				InputPath:  args[0],
+				OutputPath: args[1],
+				Platform:   platform,
 			}
 			if runF != nil {
 				return runF(opts)
@@ -84,38 +86,31 @@ Example:
 	return cmd
 }
 
-// adaptTransformer wraps the Factory's application.Transformer lazy
-// field behind the local Transformer interface. The wrapper does no
-// work beyond the type assertion; it exists so the adapt command
-// stays decoupled from the application package's concrete type.
-func adaptTransformer(f *cmdutil.Factory) func() (Transformer, error) {
-	if f == nil || f.Transformer == nil {
-		return nil
-	}
-	return func() (Transformer, error) {
-		t, err := f.Transformer()
-		if err != nil {
-			return nil, fmt.Errorf("resolving transformer: %w", err)
-		}
-		return t, nil
-	}
-}
-
 // runAdapt executes the adapt logic against the resolved options.
 // It is the production wiring for NewCmdAdapt's runF parameter.
+//
+// Transformer resolution: production wires opts.Transformer to a
+// closure that calls cmd.NewTransformer(); tests may inject a fake
+// via the same field. A nil opts.Transformer falls back to the
+// production constructor so callers that don't populate the field
+// still get correct behavior.
 func runAdapt(opts *adaptOptions) error {
 	if err := core.ValidatePlatform(opts.Platform); err != nil {
 		return fmt.Errorf("validating platform: %w", err)
 	}
 
-	transformer, err := opts.Transformer()
+	opts.IO.Verbosef("transforming %s → %s", opts.InputPath, opts.OutputPath)
+
+	resolve := opts.Transformer
+	if resolve == nil {
+		resolve = func() (Transformer, error) { return NewTransformer(), nil }
+	}
+	t, err := resolve()
 	if err != nil {
 		return fmt.Errorf("resolving transformer: %w", err)
 	}
 
-	opts.IO.Verbosef("transforming %s → %s", opts.InputPath, opts.OutputPath)
-
-	if _, err := transformer.Transform(opts.Ctx, &TransformRequest{
+	if _, err := t.Transform(opts.Ctx, &TransformRequest{
 		InputPath:  opts.InputPath,
 		OutputPath: opts.OutputPath,
 		Platform:   opts.Platform,
