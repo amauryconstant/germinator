@@ -453,3 +453,10 @@ The version command SHALL display version information for debugging and release 
 **Given** a user runs `germinator version --help`
 **Then** it SHALL display command help
 **And** it SHALL show description: "Show version of germinator"
+
+## Fulfilled
+
+**Change:** `migrate-library-rest` (slice 7 of 9)
+**Date:** 2026-07-01
+
+> The legacy `CommandConfig` was fully removed in this change. All commands have been migrated to `NewCmdXxx(f, runF)` + `runXxx(opts)` pattern.

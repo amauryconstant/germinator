@@ -171,3 +171,10 @@ Verbose output SHALL follow consistent formatting patterns.
 - **WHEN** a command emits a level-2 detail line
 - **THEN** the line SHALL be prefixed with 2 spaces
 - **AND** the line SHALL describe a specific operation
+
+## Fulfilled
+
+**Change:** `migrate-library-rest` (slice 7 of 9)
+**Date:** 2026-07-01
+
+> The legacy `VerbosePrint`/`VeryVerbosePrint` and the `Verbosity` type were fully removed in this change. Commands use `opts.IO.Verbosef(...)` directly.

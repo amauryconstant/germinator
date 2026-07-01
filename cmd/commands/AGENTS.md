@@ -20,6 +20,8 @@ Manage the canonical resource library containing skills, agents, commands, and m
 | `library init` | Scaffold a new library directory structure |
 | `library add` | Import a resource to the library |
 | `library refresh` | Sync metadata from resource files into library.yaml |
+| `library remove` | Remove a resource or preset (sub-commands: `resource <ref>`, `preset <name>`) |
+| `library validate` | Check library integrity (with optional `--fix`) |
 | `library resources` | List all resources in library (grouped by type) |
 | `library presets` | List all presets in library |
 | `library create preset` | Create a new preset |
@@ -58,7 +60,7 @@ Syncs metadata from registered resource files into `library.yaml`. Updates descr
 | `--library` | XDG default | Path to library directory |
 | `--dry-run` | false | Preview changes without modifying |
 | `--force` | false | Skip resources with conflicts |
-| `--json` | false | Output as JSON |
+| `--output` | `plain` | `plain` (default, per-section `Refreshed/Unchanged/Skipped/Errors` report), `json`, or `table` |
 
 ```bash
 # Sync metadata from files
@@ -71,14 +73,62 @@ germinator library refresh --dry-run
 germinator library refresh --force
 
 # JSON output for scripting
-germinator library refresh --json
+germinator library refresh --output json
+
+# Per-change table
+germinator library refresh --output table
 ```
 
 **What it does:**
 - Updates `description` from frontmatter when stale
 - Updates `path` when file renamed (only if frontmatter name matches entry key)
 - Skips missing files silently
-- Collects all errors and reports at end (exit code 1 if any errors)
+- Reports per-section results: `Refreshed`, `Unchanged`, `Skipped`, `Errors`
+- Exit code 1 if any errors occurred (mapped by `cmdutil.ExitCodeFor`)
+
+## Library Remove
+
+Removes a resource (deletes file + YAML entry) or a preset (YAML entry only). One Cobra parent command with two sub-commands dispatched on positional args.
+
+| Sub-command | Positional arg | Action |
+|-------------|----------------|--------|
+| `library remove resource <ref>` | `ref` (e.g., `skill/commit`) | Delete file + drop YAML entry; refuses if any preset references the resource |
+| `library remove preset <name>` | `name` (e.g., `git-workflow`) | Drop YAML entry only; resources stay registered |
+
+> The legacy positional `<ref>` argument is preserved (no `--type` / `--name` flag substitution).
+
+**Flags** (inherited from parent): `--library` (XDG default), `--force` (no-op for preset), `--output plain|json|table`. See `cmd/library_remove.go` for full type/error mapping.
+
+```bash
+# Remove a skill (and its file)
+germinator library remove resource skill/commit
+
+# JSON for scripts
+germinator library remove resource agent/reviewer --output json
+
+# Remove a preset
+germinator library remove preset git-workflow
+```
+
+## Library Validate
+
+Checks library integrity against four issue types: `missing-file` / `ghost-resource` / `orphan` / `malformed-frontmatter`. Use `--fix` to auto-clean `library.yaml` (removes missing entries, strips ghost preset refs).
+
+**Flags**: `--library` (XDG default), `--fix` (mutating; opt-in), `--output plain|json|table`. Without `--fix`, validate is read-only — `library.yaml` is never modified. Exit codes via `cmdutil.ExitCodeFor`: `0` clean/warnings-only, `1` load failure, `2` Cobra usage error. See `cmd/library_validate.go` for full output-shape details.
+
+```bash
+# Check integrity
+germinator library validate
+
+# JSON for CI scripts
+germinator library validate --output json
+
+# Auto-fix
+germinator library validate --fix
+
+# Machine-readable fix report
+germinator library validate --fix --output json
+```
 
 ## Library Path Discovery
 

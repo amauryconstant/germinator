@@ -102,3 +102,10 @@ The system MAY include the wrapped cause in the output for debugging.
 - **THEN** the struct SHALL expose the `Entity` and `Key` fields for programmatic inspection (via accessor methods or exported fields)
 
 > **Status:** `core.NotFoundError` and the `FormatError` dispatch branch are introduced in task group 4.0 of `migrate-library-readonly`. No other commands in the slice consume the type directly, but downstream slices (5: `init`, 6: `library add`/`library create`, 7: remaining library commands) may use it for additional not-found scenarios.
+
+## Fulfilled
+
+**Change:** `migrate-library-rest` (slice 7 of 9)
+**Date:** 2026-07-01
+
+> The legacy `ErrorFormatter` struct was fully removed in this change. All error formatting goes through `output.FormatError(io, err)`.

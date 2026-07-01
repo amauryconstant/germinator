@@ -42,3 +42,10 @@ Commands SHALL NOT use global variables for command definitions or flags.
 - **WHEN** the cmd package is imported
 - **THEN** no commands are automatically registered via init()
 - **AND** commands are only registered through NewRootCommand
+
+## Fulfilled
+
+**Change:** `migrate-library-rest` (slice 7 of 9)
+**Date:** 2026-07-01
+
+> The legacy `ServiceContainer` was fully removed in this change. The replacement `cmdutil.Factory` is the live contract.

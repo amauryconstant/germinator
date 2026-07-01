@@ -22,7 +22,9 @@ Library management for canonical resources (skills, agents, commands, memory).
 | `saver.go` | `SaveLibrary()`, `AddPreset()`, `PresetExists()` |
 | `remover.go` | `RemoveResource()`, `RemovePreset()` - remove resources/presets |
 | `validator.go` | `ValidateLibrary()` - checks library integrity (missing files, ghosts, orphans, malformed) |
+| `requests.go` | Request/result types for `(*Library) X` methods (`InitRequest`, `RefreshRequest`, `RemoveResourceRequest`, `RemovePresetRequest`, `ValidateRequest`, `FixRequest`, `RefreshUnchanged`, `FixResult`) |
 | `library_test.go` | Tests for Library struct and Exists |
+| `methods_test.go` | Table-driven tests for each `(*Library) X` method (success + each error path + ctx cancellation) |
 | `loader_test.go` | Tests for LoadLibrary |
 | `lister_test.go` | Tests for ListResources |
 | `resolver_test.go` | Tests for ResolveResource |
@@ -330,8 +332,14 @@ type RefreshOptions struct {
 
 type RefreshResult struct {
     Refreshed []RefreshChange
+    Unchanged []RefreshUnchanged   // slice 7 (design Decision 7): always populated
     Skipped   []RefreshSkipped
     Errors    []RefreshError
+}
+
+type RefreshUnchanged struct {
+    Ref        string
+    LastSynced string  // RFC3339 mtime, or "" when not determinable
 }
 
 type RefreshChange struct {
@@ -368,6 +376,23 @@ RefreshLibrary(opts RefreshOptions) (*RefreshResult, error)
 - **Collects all errors**: Does not fail on first error; reports all at end
 - **Exit code 1** if any errors occurred
 - **--force** skips conflicting resources instead of erroring
+
+## Methods on `*Library` (slice 7)
+
+Mutating operations live as methods on `*Library` so the cmd-side can declare a minimal interface per command (no `*LibraryService` wrapper). Mirrors slice-6 `(*Library).CreatePreset` precedent at `internal/library/creator.go:145`.
+
+```go
+func (lib *Library) Refresh(ctx context.Context, req *RefreshRequest) (*RefreshResult, error)
+func (lib *Library) RemoveResource(ctx context.Context, req *RemoveResourceRequest) error
+func (lib *Library) RemovePreset(ctx context.Context, req *RemovePresetRequest) error
+func (lib *Library) Validate(ctx context.Context, req *ValidateRequest) (*ValidationResult, error)
+func (lib *Library) Fix(ctx context.Context, _ *FixRequest) (*FixResult, error)
+
+// Init is a package function (no pre-existing *Library to receive a method)
+func Init(ctx context.Context, req *InitRequest) error
+```
+
+All methods assert `lib != nil && lib.RootPath != ""` at entry. See `methods_test.go` for table-driven coverage. The package-level functions (`RefreshLibrary`, `RemoveResource`, `RemovePreset`, `ValidateLibrary`, `FixLibrary`) preserve their existing public signatures and delegate internally to the method form.
 
 ## Orphan Discovery
 

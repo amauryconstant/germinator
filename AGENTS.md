@@ -124,13 +124,13 @@ This project follows the **golang-cli-architecture** pattern. Load these skills 
 | `germinator library remove`          | Remove resource or preset                    |
 | `germinator library validate`        | Check library integrity                      |
 
-**Global `--json` flag:** Most `germinator library` subcommands support `--json` for machine-readable output (inherited from parent command). Migrated commands use `--output plain|json|table` instead (currently `library add`; remaining commands migrate in slice 7).
+**Global `--output` flag:** Migrated `germinator library` subcommands (`init`, `add`, `create preset`, `refresh`, `remove`, `validate`) support `--output plain|json|table` via `cmdutil.AddOutputFlags`. Not-yet-migrated subcommands (`resources`, `presets`, `show`) still use the legacy inherited `--json` flag. The library add migration step removed the parent-level `--json`; migrating the remaining commands lands in subsequent slices. `json` is for scripts, `table` for humans, `plain` is the default.
 
 **Library init flags:**
 - `--path <path>` - Library location (default: `$XDG_DATA_HOME/germinator/library/` or `~/.local/share/germinator/library/`)
 - `--dry-run` - Preview changes without creating files
 - `--force` - Overwrite existing library
-- `--json` - Output as JSON (inherited from parent)
+- `--output <format>` - `plain` (default), `json`, or `table`
 
 **Examples:**
 ```bash
@@ -138,6 +138,7 @@ germinator library init                          # Create at default path
 germinator library init --path /tmp/my-library   # Custom location
 germinator library init --dry-run                # Preview only
 germinator library init --force                 # Overwrite existing
+germinator library init --output json            # Machine-readable
 ```
 
 **Library add flags:**
@@ -215,52 +216,57 @@ germinator library show preset/git-workflow --json        # Show preset as JSON
 
 **Library remove resource flags:**
 - `--library <path>` - Library path (uses `GERMINATOR_LIBRARY` env or default if omitted)
-- `--json` - Output as JSON (inherited from parent)
+- `--force` - Skip confirmation prompts and remove unconditionally
+- `--output <format>` - `plain` (default), `json`, or `table`
 
 **Library remove preset flags:**
 - `--library <path>` - Library path (uses `GERMINATOR_LIBRARY` env or default if omitted)
-- `--json` - Output as JSON (inherited from parent)
+- `--force` - No-op for preset removal (no physical file to force); accepted for parent-child flag symmetry
+- `--output <format>` - `plain` (default), `json`, or `table`
 
 **Examples:**
 ```bash
-germinator library remove resource skill/commit          # Remove a skill
-germinator library remove resource agent/reviewer --json  # Remove with JSON output
-germinator library remove preset git-workflow             # Remove a preset
+germinator library remove resource skill/commit                      # Remove a skill
+germinator library remove resource agent/reviewer --output json      # Remove with JSON output
+germinator library remove preset git-workflow                         # Remove a preset
+germinator library remove resource skill/test --force                # Skip confirmation
 ```
 
 **Library validate flags:**
 - `--library <path>` - Library path (uses `GERMINATOR_LIBRARY` env or default if omitted)
 - `--fix` - Auto-cleanup `library.yaml` (removes missing entries, strips ghost preset refs)
-- `--json` - Output as JSON (inherited from parent)
+- `--output <format>` - `plain` (default), `json`, or `table`
 
 **Examples:**
 ```bash
 germinator library validate                              # Check library integrity
-germinator library validate --json                        # JSON output for scripts
-germinator library validate --fix                        # Auto-fix issues
+germinator library validate --output json                 # JSON output for scripts
+germinator library validate --fix                         # Auto-fix issues
+germinator library validate --fix --output json           # Machine-readable fix report
+germinator library validate --fix --output table          # Action/ref table
 ```
-
-**Exit codes:** `0` clean, `5` validation errors, `1` unexpected errors
 
 **Library refresh flags:**
 - `--library <path>` - Library path (uses `GERMINATOR_LIBRARY` env or default if omitted)
 - `--dry-run` - Preview changes without modifying library
 - `--force` - Skip resources with conflicts (name mismatch)
-- `--json` - Output as JSON (inherited from parent)
+- `--output <format>` - `plain` (default), `json`, or `table`
 
 **Examples:**
 ```bash
 germinator library refresh                              # Sync metadata from files
 germinator library refresh --dry-run                    # Preview what would change
 germinator library refresh --force                       # Skip conflicts
-germinator library refresh --json                        # JSON output for scripts
+germinator library refresh --output json                 # JSON output for scripts
+germinator library refresh --output table                # Per-change table
 ```
 
 **What it does:**
 - Updates `description` from frontmatter when stale
 - Updates `path` when file renamed (if frontmatter name matches entry key)
 - Skips missing files silently (use `validate --fix` to remove entries)
-- Collects all errors and reports at end (exit code 1 if any errors)
+- Reports `Refreshed`, `Unchanged`, `Skipped`, `Errors` sections in plain output
+- Exit code 1 if any errors occurred
 
 ## Release
 

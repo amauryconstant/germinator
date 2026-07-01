@@ -140,3 +140,10 @@ Concrete service implementations in `internal/services/` SHALL implement the cor
 #### Scenario: Initializer implementation satisfies interface
 - **WHEN** `services.NewInitializer()` is called
 - **THEN** the returned value SHALL implement `application.Initializer`
+
+## Fulfilled
+
+**Change:** `migrate-library-rest` (slice 7 of 9)
+**Date:** 2026-07-01
+
+> The legacy `Transformer`, `Validator`, `Canonicalizer`, `Initializer` interfaces and their `*Request`/`*Result` types were fully removed in this change. The `internal/application/` package is deleted.

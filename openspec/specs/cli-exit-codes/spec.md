@@ -84,3 +84,10 @@ The warning SHALL be emitted at most once per process via `sync.Once` and SHALL 
 
 - **WHEN** the process exits with code `2` (`ExitCodeUsage`) under any TTY or env-var conditions
 - **THEN** no deprecation warning SHALL be emitted (the canary is gated on exit code `1` only)
+
+## Fulfilled
+
+**Change:** `migrate-library-rest` (slice 7 of 9)
+**Date:** 2026-07-01
+
+> The legacy `CategorizeError` and the `Category*` enum were fully removed in this change. The 7-code exit code scheme has been replaced with `cmdutil.ExitCodeFor` returning 0/1/2.

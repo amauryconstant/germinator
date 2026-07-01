@@ -178,7 +178,7 @@ The `test/mocks/` package is **deprecated**. New tests use `runF` injection with
 | `internal/infrastructure/adapters/opencode/` | `internal/opencode/` | **Done** (slice 1) |
 | `internal/infrastructure/` umbrella | (removed) | **Done** (slice 1) |
 | New: `internal/iostreams/`, `internal/output/`, `internal/cmdutil/` | (shell) | **Done as units** (slice 1); consumed in slice 2+ |
-| `internal/application/` | (removed) | **Pending** (slice 1 → slice 7) |
-| `internal/service/` | (removed) | **Pending** (slice 7) |
-| `cmd/{container,command_config,error_handler}.go` + `legacyBridge` | (removed) | **Pending** (slice 7) |
-| 7 → 3 exit codes | `cmdutil.ExitCodeFor` | **In progress** (slice 1 unit + tests; wiring in slice 2) |
+| `internal/application/` | (removed) | **Done** (slice 7) |
+| `internal/service/` | (removed) | **Done** (slice 7) |
+| `cmd/{container,command_config,error_handler}.go` + `legacyBridge` | (removed) | **Done** (slice 7) |
+| 7 → 3 exit codes | `cmdutil.ExitCodeFor` | **Done** (slice 7) |
