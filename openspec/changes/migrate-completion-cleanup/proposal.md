@@ -9,36 +9,37 @@ This is the **final change** in the migration sequence. It migrates the last two
 ### Migrate completion (carapace)
 
 - **MIGRATE** `cmd/completion.go` and `cmd/completions.go`:
-  - **MOVE** `cmd/completions.go` to `internal/completion/` package (or keep in `cmd/`); the cache lives on a `Factory.CompletionCache` field
-  - **ADD** `Factory.CompletionCache` field (a `*completion.Cache` instance) populated in `main.go` so tests can reset it
-  - **REPLACE** package-level `var cache` with the struct field; expose `Reset()` for tests
-  - **ADD** `Factory.InvalidateCache()` method called by all mutating library commands after a successful mutation
+  - **KEEP** `cmd/completions.go` in `cmd/` package (single consumer: `cmd/completion.go`; per golang-cli-architecture "extract when painful, not predicted"). Refactor to extract a `Cache` type within the same file
+  - **ADD** `Factory.CompletionCache *Cache` field (where `Cache` is defined in `cmd/completions.go`) populated in `main.go` so tests can reset it
+  - **REPLACE** package-level `var cache` with the `Factory.CompletionCache` field; expose `Reset()` and `Invalidate()` methods on the `Cache` type
   - **CONVERT** `actionResources`, `actionPresets`, `actionLibraryRefs`, `actionPlatforms` to take the Factory as input and use the Factory's library loader (with timeout) and the Factory's cache
   - **MIGRATE** `cmd/completion.go` to `NewCmdCompletion(f, runF) + runCompletion(opts)`:
-    - `completionOptions`: `IO *iostreams.IOStreams`, `Shell string`
+    - `completionOptions`: `IO *iostreams.IOStreams`, `Ctx context.Context`, `Shell string` (Ctx added for symmetry with `versionOptions` and the golang-context skill's "all I/O accepts ctx" rule)
     - No new behavior; preserves carapace integration
 
 ### Migrate `version`
 
 - **MIGRATE** `cmd/version.go`:
-  - Declare `versionOptions`: `IO *iostreams.IOStreams`
-  - Implement `NewCmdVersion(f *runF func(*versionOptions) error) *cobra.Command`
-  - Implement `runVersion(opts *versionOptions) error`: print version to `opts.IO.Out`
+  - Declare `versionOptions`: `IO *iostreams.IOStreams`, `Ctx context.Context`
+  - Implement `NewCmdVersion(f *cmdutil.Factory, runF func(*versionOptions) error) *cobra.Command`
+  - Implement `runVersion(opts *versionOptions) error`: write `germinator <Version> (<Commit>) <Date>\n` to `opts.IO.Out`, reading from the `internal/version` package (injected via `-ldflags` at build time). `Factory.AppVersion` is NOT the source — it remains a short-form string used elsewhere; the `version` subcommand is the authoritative detailed view.
+  - The output format contract is already specified by `cli-framework` ("Version Command shows full info") and `testing-e2e-testing` ("Version Command E2E Tests"); this change adds no new spec.
+  - Move `TestVersionCommand` from `cmd/cmd_test.go` into a dedicated `cmd/version_test.go` with table-driven coverage
 
 ### Delete `internal/models/`
 
-- **MOVE** `internal/models/constants.go` content to `internal/core/platform.go` (constants `PlatformClaudeCode`, `PlatformOpenCode`, document-type constants, permission-mode enums)
-- **UPDATE** depguard rule for `internal/core/**` to allow `platform.go` (still stdlib only)
+- **MOVE** the two string constants `PlatformClaudeCode` and `PlatformOpenCode` from `internal/models/constants.go` to `internal/core/platform.go` (the `PermissionPolicy` enum and `PlatformConfig` type already live in `internal/core/platform.go` from slice 1; nothing else needs to move)
 - **DELETE** `internal/models/` directory
+- **VERIFY** the depguard rule `.golangci.yml` (applies to `**/core/**`, stdlib only) still passes after the move — no rule change expected
+- **UPDATE** all consumers (see task 9.3.3) including `internal/parser/loader.go`, which defines the same constants independently
 
 ### Update documentation
 
 - **UPDATE** root `AGENTS.md` architecture diagram
 - **UPDATE** `cmd/AGENTS.md` with the canonical `adapt` example
 - **UPDATE** `internal/AGENTS.md` to reflect rename to `internal/core/` and new sibling packages
-- **ADD** `internal/{iostreams,output,cmdutil}/AGENTS.md`
-- **UPDATE** `cmd/library/AGENTS.md` (if it exists; create if not)
-- **UPDATE** `internal/library/AGENTS.md`, `internal/parser/AGENTS.md`, etc. for packages that moved
+- **VERIFY and UPDATE** `internal/{iostreams,output,cmdutil}/AGENTS.md` (these files already exist from earlier slices; the work here is review/polish, not creation)
+- **UPDATE** `internal/library/AGENTS.md`, `internal/parser/AGENTS.md`, etc. for packages that moved (note: `cmd/library/` does not exist — the project uses a flat `cmd/` layout with sibling files like `library.go`, `library_add.go`, etc.; per-subcommand docs under `cmd/` are not yet a project convention)
 
 ### Generate CHANGELOG
 
@@ -57,8 +58,7 @@ This is the **final change** in the migration sequence. It migrates the last two
 
 ### Modified
 
-- **`shell-completion`** (delta) — completion cache moves to `Factory.CompletionCache`; explicit `Factory.InvalidateCache()` is called by mutating commands
-- **`config-commands`** — `--output` → `--output-path` rename (BREAKING) is documented in the CHANGELOG
+- **`shell-completion`** (delta) — completion cache moves to `Factory.CompletionCache`; explicit `f.CompletionCache.Invalidate()` is called by mutating commands
 
 ## Out of scope (none — this is the final change)
 
@@ -67,14 +67,18 @@ This is the **final change** in the migration sequence. It migrates the last two
 ### Affected code
 
 - **Migrated (2 files):** `cmd/completion.go`, `cmd/version.go`
-- **Migrated (1 file):** `cmd/completions.go` → `internal/completion/completion.go` (or stays in `cmd/`)
-- **Modified (1 file):** `main.go` (add `Factory.CompletionCache` field, call `f.InvalidateCache()` from mutating commands)
-- **Modified (1 file):** `internal/core/platform.go` (constants moved from `internal/models/constants.go`)
+- **Refactored (1 file):** `cmd/completions.go` (kept in `cmd/`; extracts a `Cache` type with `Get`/`Set`/`Reset`/`Invalidate`)
+- **Added (1 file):** `cmd/version_test.go` (moves `TestVersionCommand` out of `cmd/cmd_test.go` into a dedicated file with table-driven coverage)
+- **Modified (1 file):** `main.go` (populate `Factory.CompletionCache` field; mutating commands call `f.CompletionCache.Invalidate()`)
+- **Modified (1 file):** `internal/core/platform.go` (the two `Platform*` constants move in from `internal/models/constants.go`)
+- **Modified (1 file):** `internal/parser/loader.go` (drop its duplicate `PlatformClaudeCode`/`PlatformOpenCode` definitions; import from `internal/core`)
+- **Modified (4 files):** `internal/config/config.go`, `internal/config/config_test.go`, `internal/config/manager_test.go`, `cmd/completions.go` (update `models.Platform*` references to `core.Platform*`)
 - **Deleted (1 directory):** `internal/models/`
 - **Modified (1 file):** `cmd/completion_test.go` (converted to new pattern)
-- **Modified (1 file):** `cmd/cmd_test.go` (version test converted)
-- **Modified (N files):** all `AGENTS.md` files
-- **Modified (1 file):** `CHANGELOG.md` (BREAKING entry)
+- **Modified (1 file):** `cmd/cmd_test.go` (`TestVersionCommand` moved out; remaining tests unchanged)
+- **Modified (N files):** all `AGENTS.md` files (review/polish existing files)
+- **Modified (1 file):** `cmd/testdata/lint_baseline.txt` (refreshed after the `var cache` removal and `internal/models/` deletion — see new task 9.4.9)
+- **Added (1 file):** `CHANGELOG.md` (BREAKING entry)
 - **Modified (multiple files):** `test/e2e/` exit codes and flag renames
 
 ### Affected systems
@@ -85,7 +89,7 @@ This is the **final change** in the migration sequence. It migrates the last two
 
 ## Risks
 
-- **Completion cache invalidation** — if `Factory.InvalidateCache()` is missed in any mutating command, stale completions persist until TTL. **Mitigation:** explicit test in task 9.1.5; the orchestrator's verification will catch this.
+- **Completion cache invalidation** — if `f.CompletionCache.Invalidate()` is missed in any mutating command, stale completions persist until TTL. **Mitigation:** explicit test in task 9.1.11; the orchestrator's verification will catch this.
 - **`internal/models/constants.go` may have external consumers** — the constants are used across the codebase. **Mitigation:** `rg "PlatformClaudeCode|PlatformOpenCode" .` finds every consumer; update imports in the same change.
 - **AGENTS.md updates are tedious** — many files to update. **Mitigation:** tasks 9.6.x are mechanical; review is per-file.
 - **E2E test sweep** — many test files to update. **Mitigation:** `rg "ShouldFailWithExit\\([3-6]\\)" test/e2e/` finds them all; bulk update with `sed` (or hand-edited if patterns vary).

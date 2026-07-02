@@ -4,7 +4,7 @@
 
 ### Requirement: Completion cache lives on Factory
 
-The completion cache SHALL be a `Factory.CompletionCache` field of type `*completion.Cache`, populated in `main.go`. Each Factory instance has its own cache; constructing a new Factory starts with a fresh cache.
+The completion cache SHALL be a `Factory.CompletionCache` field of type `*Cache` (defined in `cmd/completions.go`), populated in `main.go`. Each Factory instance has its own cache; constructing a new Factory starts with a fresh cache.
 
 #### Scenario: Cache is per-Factory
 
@@ -18,14 +18,14 @@ The completion cache SHALL be a `Factory.CompletionCache` field of type `*comple
 - **THEN** all cached entries SHALL be removed
 - **AND** the cache SHALL be reusable (subsequent Set/Get calls work as if newly constructed)
 
-### Requirement: Factory.InvalidateCache explicit invalidation
+### Requirement: Cache.Invalidate explicit invalidation
 
-The `Factory.InvalidateCache()` method SHALL clear the completion cache. All mutating library commands (`runAdd`, `runRemove`, `runCreate`, `runLibraryInit`, `runRefresh`, `runLibraryValidate`) SHALL call `f.InvalidateCache()` after a successful mutation.
+When a mutating library command completes successfully, the completion cache SHALL be invalidated so that subsequent completion calls reflect the new state. Mutating commands (`runAdd`, `runRemove`, `runCreate`, `runLibraryInit`, `runRefresh`, `runLibraryValidate`) SHALL call `f.CompletionCache.Invalidate()` before returning nil.
 
-#### Scenario: InvalidateCache after runAdd
+#### Scenario: Invalidate after runAdd
 
 - **WHEN** `runAdd(opts)` successfully adds a resource to the library
-- **THEN** the function SHALL call `f.InvalidateCache()` before returning nil
+- **THEN** the function SHALL call `f.CompletionCache.Invalidate()` before returning nil
 
 #### Scenario: Fresh resource appears in completion
 
