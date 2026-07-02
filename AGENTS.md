@@ -104,11 +104,11 @@ This project follows the **golang-cli-architecture** pattern. Load these skills 
 | `germinator config validate`   | Validate an existing config file             |
 
 **Config init flags:**
-- `--output <path>` - Output file path (default: `~/.config/germinator/config.toml`)
+- `--output-path <path>` - Output file path (default: `~/.config/germinator/config.toml`)
 - `--force` - Overwrite existing file
 
 **Config validate flags:**
-- `--output <path>` - Config file to validate (default: `~/.config/germinator/config.toml`)
+- `--output-path <path>` - Config file to validate (default: `~/.config/germinator/config.toml`)
 
 ## Library Commands
 
