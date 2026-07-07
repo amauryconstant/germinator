@@ -10,7 +10,7 @@ This is the final change in the migration sequence. After change-8 (`migrate-con
 
 - `cmd/completion.go`, `cmd/completions.go`, and `cmd/version.go` follow the new pattern.
 - The completion cache lives on `Factory.CompletionCache` (per-Factory, testable, with `Reset()` method).
-- `internal/models/` is deleted; its constants move to `internal/core/platform.go`.
+- `internal/models/` is deleted; its constants move to `internal/core/rules.go`.
 - All `AGENTS.md` files reflect the new architecture.
 - CHANGELOG entry documents the BREAKING changes from the entire migration.
 - E2E test sweep updates old exit codes and flag names.
@@ -27,15 +27,15 @@ This is the final change in the migration sequence. After change-8 (`migrate-con
 
 ### 1. Completion cache moves from package-level to Factory
 
-**Choice**: The package-level `var cache` in `cmd/completions.go` is replaced with a `Factory.CompletionCache` field of type `*Cache`, where `Cache` is a new type extracted within the same `cmd/completions.go` file (the file is kept in `cmd/` — see Decision 1b below). The cache is populated in `main.go` and exposes `Reset()` (for tests) and `Invalidate()` (for mutating commands) methods.
+**Choice**: The package-level `var cache` in `cmd/completions.go` is replaced with a `Factory.CompletionCache` field of type `*CompletionCache`, where `CompletionCache` is a new type defined in `internal/cmdutil/completion_cache.go` (see Decision 1b below for why it lives in `cmdutil/` and not in `cmd/`). The cache is populated in `main.go` and exposes `Reset()` (for tests) and `Invalidate()` (for mutating commands) methods.
 
-**Rationale**: package-level mutable state violates the `cli-factory` capability; per-Factory state makes tests trivially parallelizable (each test creates a new Factory with a fresh cache).
+**Rationale**: package-level mutable state violates the `cli-factory` capability; per-Factory state makes tests trivially parallelizable (each test creates a new Factory with a fresh cache). Hosting the type in `cmdutil/` next to `Factory` keeps the DI surface coherent: `Factory.CompletionCache` and `cmdutil.CompletionCache` are discoverable as one unit, and `cmdutil.NewCompletionCache()` is the documented construction seam used by both `main.go` and tests.
 
-### 1b. Completion code stays in `cmd/` (no `internal/completion/` package)
+### 1b. Cache type lives in `internal/cmdutil/` (not in `cmd/`)
 
-**Choice**: `cmd/completions.go` is not extracted into a new `internal/completion/` package. The `Cache` type and the four action functions (`actionResources`, `actionPresets`, `actionLibraryRefs`, `actionPlatforms`) remain in `cmd/completions.go`.
+**Choice**: The `CompletionCache` type is defined in `internal/cmdutil/completion_cache.go`, alongside `Factory`. The four action functions (`actionResources`, `actionPresets`, `actionLibraryRefs`, `actionPlatforms`) remain in `cmd/completions.go` and consume `Factory.CompletionCache` via the `*cmdutil.CompletionCache` field.
 
-**Rationale**: per golang-cli-architecture's "extract when painful, not when predicted" trigger, extraction to a new package requires either 5+ types sharing a concern or a second consumer. Here we have one Cache type + 4 action functions used by exactly one consumer (`cmd/completion.go`). Creating `internal/completion/` would add an import path without proportional benefit. If a second consumer ever emerges, extraction is a 5-minute refactor at that point.
+**Rationale**: the `CompletionCache` is shared state belonging to the Factory's DI surface — co-locating it with `Factory` (in `cmdutil/`) follows the same "shell package owns composition glue" pattern used for the Factory itself, lazy `OnceValuesFunc` helper, and `ExitCode` mapping. Putting it in `cmd/completions.go` would split the Factory's surface across packages. The action functions stay in `cmd/` because they bind Cobra/carapace types (`*cobra.Command`, `carapace.Action`) that are cmd-layer concerns.
 
 ### 2. `Cache.Invalidate()` is explicit, called by mutating commands
 
@@ -43,11 +43,11 @@ This is the final change in the migration sequence. After change-8 (`migrate-con
 
 **Rationale**: explicit invalidation makes the lifetime deterministic; the TTL (5 seconds, matching current behavior) catches any missed call. Putting the method on the `Cache` type (rather than `Factory.InvalidateCache()`) keeps `cmdutil.Factory` as a pure composition root — eager values + lazy `func() (T, error)` fields, no mutating methods — consistent with slices 1–8 and the `cli-factory` capability. If future caches are added (e.g., a schema cache), each cache type owns its own invalidation; Factory doesn't grow N `InvalidateX()` methods.
 
-### 3. `internal/models/constants.go` content moves to `internal/core/platform.go`
+### 3. `internal/models/constants.go` content moves to `internal/core/rules.go`
 
-**Choice**: The two string constants `PlatformClaudeCode = "claude-code"` and `PlatformOpenCode = "opencode"` move from `internal/models/constants.go` (7 lines total) to `internal/core/platform.go`. The `PermissionPolicy` enum and `PlatformConfig` type already live in `internal/core/platform.go` from slice 1; no other content needs to move. The depguard rule `.golangci.yml` already applies to `**/core/**` (allow stdlib + `samber/lo`), so no rule change is required.
+**Choice**: The two string constants `PlatformClaudeCode = "claude-code"` and `PlatformOpenCode = "opencode"` move from `internal/models/constants.go` (7 lines total) to `internal/core/rules.go` (alongside `ValidatePlatform`, the only consumer at definition time). The `PermissionPolicy` enum and `PlatformConfig` type live in `internal/core/platform.go` from slice 1; `internal/core/rules.go` already exists for the pure business-rule functions like `ValidatePlatform`, `ResolveOutputPath`, and `CanInstallResource`. The depguard rule `.golangci.yml` applies to `**/core/**` (allow stdlib + `samber/lo`), and `rules.go` lives under that path, so no rule change is required.
 
-**Rationale**: matches the project layout target; the two constants are stdlib `string` types, so depguard still applies unchanged. A separate `internal/parser/loader.go` defines the same two constants independently — that duplicate is removed in this change (loader imports from `internal/core`).
+**Rationale**: matches the project layout target; the two constants are stdlib `string` types, so depguard still applies unchanged. Co-locating the constants with `ValidatePlatform` keeps the platform-validation contract (`core.ValidatePlatform(s)` + the canonical identifiers) discoverable in one file. A separate `internal/parser/loader.go` previously defined the same two constants independently — that duplicate is removed in this change (loader imports from `internal/core`).
 
 ### 3b. Version source: `internal/version` package, not `Factory.AppVersion`
 

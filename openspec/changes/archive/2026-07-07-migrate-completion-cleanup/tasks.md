@@ -6,11 +6,11 @@ Each task ends with `mise run check` passing.
 
 ## 9.1 Migrate completion (carapace)
 
-- [x] 9.1.1 Refactor `cmd/completions.go` to extract a `Cache` type with `Get`, `Set`, `Reset`, `Invalidate` methods within the same file
-- [x] 9.1.2 Add `CompletionCache *Cache` field to `cmdutil.Factory` (Cache type defined in `cmd/completions.go`)
+- [x] 9.1.1 Hoist the `CompletionCache` type (with `Get`, `Set`, `Reset`, `Invalidate` methods) into a new file `internal/cmdutil/completion_cache.go`; the four action functions stay in `cmd/completions.go`
+- [x] 9.1.2 Add `CompletionCache *cmdutil.CompletionCache` field to `cmdutil.Factory` (type defined in `internal/cmdutil/completion_cache.go`, alongside `Factory`)
 - [x] 9.1.3 Populate `Factory.CompletionCache` in `main.go` (constructed once at startup)
 - [x] 9.1.4 Replace package-level `var cache` with the `Factory.CompletionCache` field
-- [x] 9.1.5 Add `Cache.Invalidate()` method on the `Cache` type defined in `cmd/completions.go`
+- [x] 9.1.5 Add `CompletionCache.Invalidate()` method on the `CompletionCache` type defined in `internal/cmdutil/completion_cache.go`
 - [x] 9.1.6 Convert `actionResources`, `actionPresets`, `actionLibraryRefs`, `actionPlatforms` to take the Factory as input; use `f.Library()` (cached via `sync.OnceValues`) and `context.WithTimeout(f.RootContext, 5*time.Second)` for the lookup; use `f.CompletionCache` for caching
 - [x] 9.1.7 Update `NewCmdCompletion(...)` (carapace integration) to wire the Factory into the action functions
 - [x] 9.1.8 Migrate `cmd/completion.go` to `NewCmdCompletion(f, runF) + runCompletion(opts)`:
@@ -37,9 +37,9 @@ The output format contract is already specified by `cli-framework` ("Version Com
 
 ## 9.3 Delete `internal/models/`
 
-`internal/models/constants.go` is 7 lines and contains ONLY the two string constants `PlatformClaudeCode = "claude-code"` and `PlatformOpenCode = "opencode"`. The `PermissionPolicy` enum and `PlatformConfig` type already live in `internal/core/platform.go` from slice 1; nothing else needs to move.
+`internal/models/constants.go` is 7 lines and contains ONLY the two string constants `PlatformClaudeCode = "claude-code"` and `PlatformOpenCode = "opencode"`. The `PermissionPolicy` enum and `PlatformConfig` type live in `internal/core/platform.go` from slice 1; `internal/core/rules.go` already exists for the pure business-rule functions like `ValidatePlatform`, `ResolveOutputPath`, and `CanInstallResource` — the constants go there, alongside their primary consumer `ValidatePlatform`. Nothing else needs to move.
 
-- [x] 9.3.1 Add the two constants `PlatformClaudeCode = "claude-code"` and `PlatformOpenCode = "opencode"` to `internal/core/platform.go` (alongside the existing `PermissionPolicy` enum and `PlatformConfig` type)
+- [x] 9.3.1 Add the two constants `PlatformClaudeCode = "claude-code"` and `PlatformOpenCode = "opencode"` to `internal/core/rules.go` (alongside `ValidatePlatform`, the consumer of these constants; the `PermissionPolicy` enum and `PlatformConfig` type remain in `internal/core/platform.go`)
 - [x] 9.3.2 Verify `.golangci.yml`'s depguard rule (applies to `**/core/**`, allow stdlib + `samber/lo`) still passes after the move — no rule change expected (replaces the old "update depguard" task; the rule already permits `platform.go`)
 - [x] 9.3.3 Run `rg "models\.Platform(ClaudeCode|OpenCode)" --type go` to find all consumers; update imports from `internal/models` to `internal/core`. Known consumers (verified):
   - `cmd/completions.go`
@@ -55,7 +55,7 @@ The output format contract is already specified by `cli-framework` ("Version Com
 Note: `internal/{iostreams,output,cmdutil}/AGENTS.md` already exist (created in slice 1). Tasks 9.4.4–9.4.6 are review/polish passes.
 
 - [x] 9.4.1 Update root `AGENTS.md` architecture diagram to reflect the new layout (Functional Core / Imperative Shell with `iostreams`, `output`, `cmdutil`, `core`, `library`, `config`, `claude-code`, `opencode`, `parser`, `renderer`)
-- [ ] 9.4.2 Update `cmd/AGENTS.md` with the canonical `adapt` example (full Options struct + NewCmdAdapt + runAdapt)
+- [x] 9.4.2 Update `cmd/AGENTS.md` with the canonical `adapt` example (full Options struct + NewCmdAdapt + runAdapt)
 - [x] 9.4.3 Update `internal/AGENTS.md` to reflect:
   - Rename to `internal/core/`
   - New sibling packages: `iostreams/`, `output/`, `cmdutil/`

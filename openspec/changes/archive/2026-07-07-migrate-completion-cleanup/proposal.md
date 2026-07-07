@@ -9,9 +9,9 @@ This is the **final change** in the migration sequence. It migrates the last two
 ### Migrate completion (carapace)
 
 - **MIGRATE** `cmd/completion.go` and `cmd/completions.go`:
-  - **KEEP** `cmd/completions.go` in `cmd/` package (single consumer: `cmd/completion.go`; per golang-cli-architecture "extract when painful, not predicted"). Refactor to extract a `Cache` type within the same file
-  - **ADD** `Factory.CompletionCache *Cache` field (where `Cache` is defined in `cmd/completions.go`) populated in `main.go` so tests can reset it
-  - **REPLACE** package-level `var cache` with the `Factory.CompletionCache` field; expose `Reset()` and `Invalidate()` methods on the `Cache` type
+  - **KEEP** `cmd/completions.go` in `cmd/` package (single consumer: `cmd/completion.go`; per golang-cli-architecture "extract when painful, not predicted"). The Cache TYPE itself is hoisted to `internal/cmdutil/completion_cache.go` so it sits next to `Factory` (see design Decision 1b)
+  - **ADD** `Factory.CompletionCache *cmdutil.CompletionCache` field populated in `main.go` so tests can reset it
+  - **REPLACE** package-level `var cache` with the `Factory.CompletionCache` field; expose `Reset()` and `Invalidate()` methods on the `CompletionCache` type
   - **CONVERT** `actionResources`, `actionPresets`, `actionLibraryRefs`, `actionPlatforms` to take the Factory as input and use the Factory's library loader (with timeout) and the Factory's cache
   - **MIGRATE** `cmd/completion.go` to `NewCmdCompletion(f, runF) + runCompletion(opts)`:
     - `completionOptions`: `IO *iostreams.IOStreams`, `Ctx context.Context`, `Shell string` (Ctx added for symmetry with `versionOptions` and the golang-context skill's "all I/O accepts ctx" rule)
@@ -28,7 +28,7 @@ This is the **final change** in the migration sequence. It migrates the last two
 
 ### Delete `internal/models/`
 
-- **MOVE** the two string constants `PlatformClaudeCode` and `PlatformOpenCode` from `internal/models/constants.go` to `internal/core/platform.go` (the `PermissionPolicy` enum and `PlatformConfig` type already live in `internal/core/platform.go` from slice 1; nothing else needs to move)
+- **MOVE** the two string constants `PlatformClaudeCode` and `PlatformOpenCode` from `internal/models/constants.go` to `internal/core/rules.go` (alongside `ValidatePlatform`, the consumer of these constants; the `PermissionPolicy` enum and `PlatformConfig` type live in `internal/core/platform.go` from slice 1; nothing else needs to move)
 - **DELETE** `internal/models/` directory
 - **VERIFY** the depguard rule `.golangci.yml` (applies to `**/core/**`, stdlib only) still passes after the move — no rule change expected
 - **UPDATE** all consumers (see task 9.3.3) including `internal/parser/loader.go`, which defines the same constants independently
@@ -67,10 +67,10 @@ This is the **final change** in the migration sequence. It migrates the last two
 ### Affected code
 
 - **Migrated (2 files):** `cmd/completion.go`, `cmd/version.go`
-- **Refactored (1 file):** `cmd/completions.go` (kept in `cmd/`; extracts a `Cache` type with `Get`/`Set`/`Reset`/`Invalidate`)
+- **Refactored (2 files):** `cmd/completions.go` (kept in `cmd/`; consumes `Factory.CompletionCache` via the new `*cmdutil.CompletionCache` field) and `internal/cmdutil/completion_cache.go` (new file, hosts the `CompletionCache` type with `Get`/`Set`/`Reset`/`Invalidate`)
 - **Added (1 file):** `cmd/version_test.go` (moves `TestVersionCommand` out of `cmd/cmd_test.go` into a dedicated file with table-driven coverage)
 - **Modified (1 file):** `main.go` (populate `Factory.CompletionCache` field; mutating commands call `f.CompletionCache.Invalidate()`)
-- **Modified (1 file):** `internal/core/platform.go` (the two `Platform*` constants move in from `internal/models/constants.go`)
+- **Modified (1 file):** `internal/core/rules.go` (the two `Platform*` constants move in from `internal/models/constants.go`)
 - **Modified (1 file):** `internal/parser/loader.go` (drop its duplicate `PlatformClaudeCode`/`PlatformOpenCode` definitions; import from `internal/core`)
 - **Modified (4 files):** `internal/config/config.go`, `internal/config/config_test.go`, `internal/config/manager_test.go`, `cmd/completions.go` (update `models.Platform*` references to `core.Platform*`)
 - **Deleted (1 directory):** `internal/models/`

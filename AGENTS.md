@@ -131,7 +131,7 @@ This project follows the **golang-cli-architecture** pattern. Load these skills 
 | `germinator library remove`          | Remove resource or preset                    |
 | `germinator library validate`        | Check library integrity                      |
 
-**Global `--output` flag:** Migrated `germinator library` subcommands (`init`, `add`, `create preset`, `refresh`, `remove`, `validate`) support `--output plain|json|table` via `cmdutil.AddOutputFlags`. Not-yet-migrated subcommands (`resources`, `presets`, `show`) still use the legacy inherited `--json` flag. The library add migration step removed the parent-level `--json`; migrating the remaining commands lands in subsequent slices. `json` is for scripts, `table` for humans, `plain` is the default.
+**Global `--output` flag:** All `germinator library` subcommands support `--output plain|json|table` via `cmdutil.AddOutputFlags`. The legacy `--json` flag was removed across the library command tree (slice 2 deleted the parent-level flag; slices 5–7 migrated the remaining subcommands). `json` is for scripts, `table` for humans, `plain` is the default.
 
 **Library init flags:**
 - `--path <path>` - Library location (default: `$XDG_DATA_HOME/germinator/library/` or `~/.local/share/germinator/library/`)
@@ -192,33 +192,33 @@ germinator library create preset old-preset --resources skill/commit --force
 
 **Library resources flags:**
 - `--library <path>` - Library path (uses `GERMINATOR_LIBRARY` env or default if omitted)
-- `--json` - Output as JSON (inherited from parent)
+- `--output <format>` - `plain` (default), `json`, or `table`
 
 **Examples:**
 ```bash
 germinator library resources                              # List all resources grouped by type
-germinator library resources --json                        # JSON output: {"resources": {...}}
+germinator library resources --output json                 # JSON output: {"resources": {...}}
 ```
 
 **Library presets flags:**
 - `--library <path>` - Library path (uses `GERMINATOR_LIBRARY` env or default if omitted)
-- `--json` - Output as JSON (inherited from parent)
+- `--output <format>` - `plain` (default), `json`, or `table`
 
 **Examples:**
 ```bash
 germinator library presets                               # List all presets
-germinator library presets --json                         # JSON output: {"presets": {...}}
+germinator library presets --output json                  # JSON output: {"presets": {...}}
 ```
 
 **Library show flags:**
 - `--library <path>` - Library path (uses `GERMINATOR_LIBRARY` env or default if omitted)
-- `--json` - Output as JSON (inherited from parent)
+- `--output <format>` - `plain` (default), `json`, or `table`
 
 **Examples:**
 ```bash
 germinator library show skill/commit                     # Show resource details
-germinator library show skill/commit --json               # JSON output
-germinator library show preset/git-workflow --json        # Show preset as JSON
+germinator library show skill/commit --output json        # JSON output
+germinator library show preset/git-workflow --output json # Show preset as JSON
 ```
 
 **Library remove resource flags:**
