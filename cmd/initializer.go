@@ -12,9 +12,9 @@ import (
 )
 
 // Initializer is the command-side contract for resource installation.
-// Defined in cmd/ per the target architecture ("interfaces where
-// consumed" — golang-cli-architecture principle 8). Mirrors the
-// slice-3 validator/canonicalizer pattern.
+// Defined in cmd/ per the target architecture (interfaces are
+// declared where consumed; see the golang-cli-architecture skill).
+// Mirrors the validator/canonicalizer pattern.
 type Initializer interface {
 	Initialize(ctx context.Context, req *InitializeRequest) ([]core.InitializeResult, error)
 }

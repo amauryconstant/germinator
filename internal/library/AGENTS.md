@@ -1,5 +1,6 @@
 **Location**: `internal/library/`
 **Parent**: See `/internal/AGENTS.md` for package overview
+**Skill reference**: `@.opencode/skills/golang-cli-architecture/references/01-architecture.md`
 
 ---
 
@@ -332,7 +333,7 @@ type RefreshOptions struct {
 
 type RefreshResult struct {
     Refreshed []RefreshChange
-    Unchanged []RefreshUnchanged   // slice 7 (design Decision 7): always populated
+    Unchanged []RefreshUnchanged   // always populated when present in the library
     Skipped   []RefreshSkipped
     Errors    []RefreshError
 }
@@ -377,7 +378,7 @@ RefreshLibrary(opts RefreshOptions) (*RefreshResult, error)
 - **Exit code 1** if any errors occurred
 - **--force** skips conflicting resources instead of erroring
 
-## Methods on `*Library` (slice 7)
+## Methods on `*Library`
 
 Mutating operations live as methods on `*Library` so the cmd-side can declare a minimal interface per command (no `*LibraryService` wrapper). Mirrors the `(*Library).CreatePreset` precedent at `internal/library/creator.go`.
 

@@ -2,10 +2,9 @@
 
 **Location**: `internal/`
 **Parent**: See `/AGENTS.md` for project overview
+**Skill reference**: `@.opencode/skills/golang-cli-architecture/references/01-architecture.md` (Functional Core / Imperative Shell, three concerns, Factory pattern)
 
 ---
-
-> The migration to `golang-cli-architecture` is **complete**. The legacy `application/`, `service/`, `models/`, and `infrastructure/` packages are deleted; the tree below is the final layout.
 
 ## Structure
 
@@ -78,22 +77,6 @@ Everything that does I/O lives here.
 - Each provides: `ParsePlatformDocument(path, docType) (*core.Document, error)` and `RenderDocument(doc, docType) (string, error)`
 - Platform-specific validation (e.g. OpenCode mode/temperature rules)
 - Returns core types; depends on `internal/core/`
-
-### Removed Packages
-
-The following legacy packages are deleted by the rewrite:
-
-| Old | Replaced by |
-|---|---|
-| `internal/application/` | Interfaces defined where consumed (in cmd files or in `internal/core/contracts.go`) |
-| `internal/service/` | Service implementations live in cmd files or as private helpers in platform adapter packages |
-| `internal/models/` | Two platform constants moved to `internal/core/platform.go` (slice 9) |
-| `internal/infrastructure/parsing/` | Merged into `internal/{claude-code,opencode}/` (parse functions) |
-| `internal/infrastructure/serialization/` | Merged into `internal/{claude-code,opencode}/` (render functions) |
-| `internal/infrastructure/adapters/{claude-code,opencode}/` | Renamed to `internal/{claude-code,opencode}/` |
-| `internal/infrastructure/config/` | Renamed to `internal/config/` |
-| `internal/infrastructure/library/` | Renamed to `internal/library/` |
-| `internal/domain/` | Renamed to `internal/core/` |
 
 ---
 
@@ -169,24 +152,3 @@ The `test/mocks/` package is **deprecated**. New tests use `runF` injection with
 
 - `<package>.go` — main implementation
 - `doc.go` — package documentation
-
----
-
-# Migration Status
-
-| Old package | New package | Status |
-|---|---|---|
-| `internal/domain/` | `internal/core/` | **Done** (slice 1; `type Domain = core` alias retained) |
-| `internal/infrastructure/parsing/` | `internal/parser/` | **Done** (slice 1; not yet merged into adapters — kept separate) |
-| `internal/infrastructure/serialization/` | `internal/renderer/` | **Done** (slice 1; not yet merged into adapters — kept separate) |
-| `internal/infrastructure/config/` | `internal/config/` | **Done** (slice 1) |
-| `internal/infrastructure/library/` | `internal/library/` | **Done** (slice 1) |
-| `internal/infrastructure/adapters/claude-code/` | `internal/claude-code/` | **Done** (slice 1) |
-| `internal/infrastructure/adapters/opencode/` | `internal/opencode/` | **Done** (slice 1) |
-| `internal/infrastructure/` umbrella | (removed) | **Done** (slice 1) |
-| New: `internal/iostreams/`, `internal/output/`, `internal/cmdutil/` | (shell) | **Done as units** (slice 1); consumed in slice 2+ |
-| `internal/application/` | (removed) | **Done** (slice 7) |
-| `internal/service/` | (removed) | **Done** (slice 7) |
-| `internal/models/` | `internal/core/platform.go` | **Done** (slice 9) |
-| `cmd/{container,command_config,error_handler}.go` + `legacyBridge` | (removed) | **Done** (slice 7) |
-| 7 → 3 exit codes | `cmdutil.ExitCodeFor` | **Done** (slice 7) |

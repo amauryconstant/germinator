@@ -2,6 +2,8 @@
 
 > **Source of truth** — This file is the authoritative layout for `openspec/specs/` in this repository. It is **compatible** with the generic layout described in the `osx-concepts` skill and `osx-concepts/references/artifact-formats.md`.
 
+> No `golang-cli-architecture` skill references apply here — this directory documents the OpenSpec artifact layout, not Go architecture.
+
 This guide explains how specs are organized and how to decide where new specs belong.
 
 ## Structure Overview
@@ -44,7 +46,7 @@ These are the active categories, with the criteria for what belongs in each. Use
 - Application-wide configuration loading and management
 - How components are composed and wired together
 
-**Code alignment:** `internal/application/`, `internal/config/`
+**Code alignment:** `internal/cmdutil/`, `internal/config/`
 
 ### `cli-`
 
@@ -124,7 +126,7 @@ These are the active categories, with the criteria for what belongs in each. Use
 - Model fields and their semantics
 - Serialization tags and format mappings
 
-**Code alignment:** `internal/models/`
+**Code alignment:** `internal/core/`
 
 ### `testing-`
 
@@ -151,7 +153,7 @@ These are the active categories, with the criteria for what belongs in each. Use
 - Permission and field transformations
 - Field mapping rules between platforms
 
-**Code alignment:** `internal/services/`
+**Code alignment:** `internal/{claude-code,opencode,parser,renderer,permission}/`
 
 ### `validation-`
 

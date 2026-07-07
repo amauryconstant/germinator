@@ -1,5 +1,6 @@
 **Location**: `internal/core/`
 **Parent**: See `/internal/AGENTS.md` for core patterns
+**Skill reference**: `@.opencode/skills/golang-cli-architecture/references/01-architecture.md`
 
 ---
 
@@ -144,7 +145,7 @@ if !result.IsOk() {
 | CanonicalizeResult | Canonicalization output |
 | InitializeResult | Per-resource installation result |
 
-**Used by**: Service interfaces in `internal/application/` (legacy; removed in slice-7).
+**Used by**: cmd-layer run functions and shell-package operations that need to surface domain-typed failures.
 
 ---
 
@@ -165,19 +166,3 @@ if !result.IsOk() {
 | `pipeline.go` | ValidationPipeline[T] |
 | `rules.go` | Pure business rules: `ValidatePlatform(s)`, `ResolveOutputPath(docType, name, platform)` |
 | `opencode/` | OpenCode validators (subdirectory) |
-
----
-
-# Migration History
-
-This package consolidates types from previous packages:
-
-| Previous | Current |
-|----------|---------|
-| `internal/models/canonical/` | Split into `core/*.go` |
-| `internal/errors/` | `core/errors.go` |
-| `internal/validation/` | `core/validation.go`, `result.go`, `opencode/` |
-| `internal/application/results.go` | `core/results.go` |
-| `internal/domain/` | `internal/core/` (slice 1) |
-
-**Exception**: `internal/application/requests.go` remains in application layer (depends on `library.Library`).

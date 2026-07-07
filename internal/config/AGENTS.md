@@ -1,5 +1,6 @@
 **Location**: `internal/config/`
 **Parent**: See [`/internal/AGENTS.md`](../AGENTS.md) for package overview
+**Skill reference**: `@.opencode/skills/golang-cli-architecture/references/03-input-config.md`
 
 ---
 
@@ -47,4 +48,4 @@ First existing file wins; none found → returns `""` and the caller keeps defau
 
 **Missing file ≠ error.** This is deliberate: a fresh install with no config file should silently use defaults. Parse failures and validation failures still return typed errors (`*core.FileError`, `*core.ParseError`, `*core.ConfigError`).
 
-**Dependencies.** `internal/core` (for `PlatformClaudeCode`/`PlatformOpenCode` constants and typed errors — moved here from `internal/models` in slice 9.3), `knadh/koanf/v2` + `koanf/parsers/toml/v2` + `koanf/providers/file`. The package does not depend on `internal/iostreams` or `internal/cmdutil` — it is a leaf shell package.
+**Dependencies.** `internal/core` (for `PlatformClaudeCode`/`PlatformOpenCode` constants and typed errors), `knadh/koanf/v2` + `koanf/parsers/toml/v2` + `koanf/providers/file`. The package does not depend on `internal/iostreams` or `internal/cmdutil` — it is a leaf shell package.

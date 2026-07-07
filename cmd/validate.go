@@ -17,7 +17,8 @@ import (
 
 // Validator is the local command-side contract for document
 // validation. Defined in cmd/ per the target architecture
-// ("interfaces where consumed" — golang-cli-architecture principle 8).
+// (interfaces are declared where consumed; see the
+// golang-cli-architecture skill).
 type Validator interface {
 	Validate(ctx context.Context, req *ValidateRequest) (*core.ValidateResult, error)
 }

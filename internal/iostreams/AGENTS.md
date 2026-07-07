@@ -1,5 +1,6 @@
 **Location**: `internal/iostreams/`
 **Parent**: See `/internal/AGENTS.md` for package overview
+**Skill reference**: `@.opencode/skills/golang-cli-architecture/references/09-logging.md`
 
 ---
 

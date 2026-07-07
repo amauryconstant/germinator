@@ -1,11 +1,12 @@
 **Location**: `cmd/`
 **Parent**: See `/AGENTS.md` for project overview
+**Skill references**: `@.opencode/skills/golang-cli-architecture/references/01-architecture.md`, `@.opencode/skills/golang-cli-architecture/references/08-completion.md`, `@.opencode/skills/golang-cli-architecture/references/13-versioning.md`
 
 ---
 
 # CLI Entry Points
 
-Cobra-based CLI built on the `NewCmdXxx(f *Factory, runF func(*XxxOptions) error) *cobra.Command` pattern (Functional Core / Imperative Shell). **Architectural patterns live here**; per-command flag tables and behavior live in [`cmd/commands/AGENTS.md`](commands/AGENTS.md) and worked migration examples in [`cmd/canonical-examples/AGENTS.md`](canonical-examples/AGENTS.md).
+Cobra-based CLI built on the `NewCmdXxx(f *Factory, runF func(*XxxOptions) error) *cobra.Command` pattern (Functional Core / Imperative Shell). **Architectural patterns live here**; per-command flag tables and behavior live in [`cmd/commands/AGENTS.md`](commands/AGENTS.md).
 
 ## Files
 
@@ -48,7 +49,7 @@ No `init()` functions or global command variables.
 
 # Canonical Command Pattern: `adapt`
 
-`cmd/adapt.go` is the canonical reference for the `NewCmdXxx(f, runF) + runXxx(opts)` pattern. Every migrated command follows the same shape; read this first, then [`cmd/canonical-examples/AGENTS.md`](canonical-examples/AGENTS.md) for slice-specific variants.
+`cmd/adapt.go` is the canonical reference for the `NewCmdXxx(f, runF) + runXxx(opts)` pattern. Every command follows the same shape.
 
 ## 1. Options struct
 
@@ -147,18 +148,6 @@ func runAdapt(opts *adaptOptions) error {
 }
 ```
 
-## Variants by slice
-
-| Slice | Pattern highlights |
-|-------|--------------------|
-| 2 (pilot) | `adapt` + `library resources`; bare `NewCmdXxx(f, runF)` shape, inline `Transformer` interface (above) |
-| 4 | `presets` + `show`; per-command options struct, parent passes `nil` for runF |
-| 5 | top-level `init`; partial-success aggregate (`*core.PartialSuccessError`), `--output-dir` rename, `Initializer` lazy field |
-| 6 | `library add` (3 modes + legacy) + `library create preset`; `*core.OperationError` per-resource, `core.CanInstallResource` pre-flight, `AddRequest`/`Orphan` renames, `--output` flag |
-| 9 | `completion` (carapace) + `version`; `Factory.CompletionCache` injection; `internal/version` for build-time version |
-
-Full worked examples: [`cmd/canonical-examples/AGENTS.md`](canonical-examples/AGENTS.md).
-
 ---
 
 # Required Flags
@@ -175,7 +164,7 @@ if err := core.ValidatePlatform(opts.Platform); err != nil {
 }
 ```
 
-Use `core.PlatformClaudeCode` / `core.PlatformOpenCode` constants (defined in `internal/core/rules.go` since slice 9.3, alongside `ValidatePlatform`) — the legacy `models.Platform*` constants are gone.
+Use `core.PlatformClaudeCode` / `core.PlatformOpenCode` constants (defined in `internal/core/rules.go` alongside `ValidatePlatform`).
 
 ## Supported Platforms
 
@@ -188,13 +177,11 @@ Use `core.PlatformClaudeCode` / `core.PlatformOpenCode` constants (defined in `i
 
 `-v` / `-vv` on the root command toggles `IOStreams.Verbose`. Commands call `opts.IO.Verbosef(format, args...)` (writes to `ErrOut`, auto-trailing newline, no-op when `Verbose == false`). Stdout stays clean for piping.
 
-The legacy `VerbosePrint` / `VeryVerbosePrint` helpers and the `Verbosity` type were removed in slice 7.
-
 ---
 
 # Exit Codes
 
-Three-value scheme (collapsed from the legacy 7-value scheme in slice 7):
+Three-value scheme:
 
 - `0` (Success) — command completed; also returned for `*core.PartialSuccessError` with `Succeeded > 0`
 - `1` (Error) — general errors (transform, file, unexpected)
@@ -232,7 +219,7 @@ core.NewTransformError(operation, platform, message, cause)
 core.NewFileError(path, operation, message, cause)
 core.NewConfigError(field, value, message).WithSuggestions([]string{...})
 core.NewNotFoundError(resource, identifier)
-core.NewOperationError(op, resource, cause)        // slice 6
+core.NewOperationError(op, resource, cause)
 core.NewInitializeError(ref, inputPath, outputPath, cause)
 core.NewPartialSuccessError(succeeded, failed, errors)
 ```
@@ -268,7 +255,7 @@ Table-driven tests with descriptive names. Each command has a dedicated `*_test.
 - `iostreams.Test()` — buffer-backed `IOStreams` so tests assert on `Out` / `ErrOut` contents.
 
 Test files of note:
-- `adapt_test.go`, `validate_test.go`, `version_test.go` — per-command tests (slice 2 / 9 references)
+- `adapt_test.go`, `validate_test.go`, `version_test.go` — per-command tests
 - `library_*_test.go` — library subcommand tests
 - `completions_test.go` — completion action unit tests (`Factory.CompletionCache`, timeout, actions)
 - `lint_test.go` — lint baseline enforcement (see [Lint Enforcement](#lint-enforcement))
@@ -279,7 +266,7 @@ Test files of note:
 
 # Foundation Units
 
-The shell units consumed by `cmd/` (slice 1+; fully wired since slice 7):
+The shell units consumed by `cmd/`:
 
 | Unit | Package | Purpose |
 |------|---------|---------|
@@ -316,7 +303,7 @@ The shell units consumed by `cmd/` (slice 1+; fully wired since slice 7):
 
 `cmd/lint_test.go` runs `mise run lint` (via `exec.Command`) **8 times**, unions the stable violations, and diffs against `cmd/testdata/lint_baseline.txt`. The test fails on any violation that is not in the baseline.
 
-**Adding a new intentional violation** (e.g., during a slice migration):
+**Adding a new intentional violation**:
 
 1. Make the change.
 2. Run `mise run lint > cmd/testdata/lint_baseline.txt 2>&1` to refresh the baseline.

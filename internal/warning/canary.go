@@ -1,9 +1,9 @@
 // Package warning provides user-facing warning helpers that emit to
 // stderr independent of verbosity and the debug Logger.
 //
-// The package exists to keep side effects out of pure helpers (per the
-// golang-cli-architecture principle: "exits and side effects are
-// imperative"). Pure logic stays in core/cmdutil; this package owns
+// The package exists to keep side effects out of pure helpers (per
+// the golang-cli-architecture skill: exits and side effects are
+// imperative). Pure logic stays in core/cmdutil; this package owns
 // the emission of one-shot warnings (currently the exit-code
 // deprecation canary emitted from main.go on exit code 1).
 package warning

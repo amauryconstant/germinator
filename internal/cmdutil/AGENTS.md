@@ -1,5 +1,6 @@
 **Location**: `internal/cmdutil/`
 **Parent**: See `/internal/AGENTS.md` for package overview
+**Skill references**: `@.opencode/skills/golang-cli-architecture/references/01-architecture.md`, `@.opencode/skills/golang-cli-architecture/references/08-completion.md`
 
 ---
 

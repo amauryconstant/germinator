@@ -1,5 +1,6 @@
 **Location**: `internal/claude-code/`
 **Parent**: See [`/internal/AGENTS.md`](../AGENTS.md) for package overview
+**Skill reference**: `@.opencode/skills/golang-cli-architecture/references/01-architecture.md`
 
 ---
 

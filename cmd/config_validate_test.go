@@ -237,8 +237,9 @@ func TestConfigValidateOptions_StructShape(t *testing.T) {
 // T10 — Spec scenario "No double-rendering of validation errors"
 // (Requirement: config validate renders errors at the boundary).
 //
-// The single-handling rule (golang-error-handling / golang-cli-architecture)
-// mandates that errors are EITHER rendered OR returned, never both.
+// The single-handling rule (see the golang-error-handling and
+// golang-cli-architecture skills) mandates that errors are EITHER
+// rendered OR returned, never both.
 // runConfigValidate must NOT write anything to opts.IO.ErrOut; main.go
 // renders the returned error exactly once via output.FormatError.
 //

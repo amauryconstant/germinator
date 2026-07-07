@@ -1,5 +1,6 @@
 **Location**: `internal/output/`
 **Parent**: See `/internal/AGENTS.md` for package overview
+**Skill references**: `@.opencode/skills/golang-cli-architecture/references/04-output.md`, `@.opencode/skills/golang-cli-architecture/references/05-errors.md`
 
 ---
 

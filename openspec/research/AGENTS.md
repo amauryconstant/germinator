@@ -2,6 +2,8 @@
 
 Platform capability reference for AI agents building the configuration adapter.
 
+> No `golang-cli-architecture` skill references apply here — this directory documents Claude Code / OpenCode platform behavior, not Go architecture.
+
 ---
 
 ## Purpose

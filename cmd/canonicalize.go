@@ -17,8 +17,8 @@ import (
 
 // Canonicalizer is the local command-side contract for document
 // canonicalization. Defined in cmd/ per the target architecture
-// ("interfaces where consumed" — golang-cli-architecture skill
-// principle 8).
+// (interfaces are declared where consumed; see the
+// golang-cli-architecture skill).
 type Canonicalizer interface {
 	Canonicalize(ctx context.Context, req *CanonicalizeRequest) (*core.CanonicalizeResult, error)
 }

@@ -1,5 +1,6 @@
 **Location**: `cmd/commands/`
 **Parent**: See `/cmd/AGENTS.md` for CLI architecture (DI, errors, exit codes, verbosity, lint enforcement)
+**Skill references**: `@.opencode/skills/golang-cli-architecture/references/02-command-ux.md`, `@.opencode/skills/golang-cli-architecture/references/04-output.md`
 
 ---
 
@@ -173,9 +174,7 @@ git-workflow - Git workflow tools
 ## Library Create Preset
 
 Create a new preset that references existing resources in the library.
-The `library create` Cobra group wrapper was collapsed to a leaf in
-slice 6 — `library create preset` is now a single command (no group
-indirection), registered directly under `library` in `cmd/library.go`.
+`library create preset` is a single command (no group indirection), registered directly under `library` in `cmd/library.go`.
 
 | Flag | Default | Description |
 |------|---------|-------------|
@@ -406,8 +405,6 @@ germinator config validate --output-path /path/to/config.toml
 ```
 
 **Returns:** Success (0), Error (1), Usage (2)
-
-> The legacy `--output` flag was renamed to `--output-path` in slice 8 (`migrate-config-commands`) to disambiguate from the `cli-output-formats` capability's `--output` format flag. The rename is BREAKING; scripts using `--output` will fail with exit 2.
 
 ---
 

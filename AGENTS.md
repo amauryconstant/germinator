@@ -74,11 +74,12 @@ The target architecture is **golang-cli-architecture** (Functional Core / Impera
 
 ## Reference Skills
 
-This project follows the **golang-cli-architecture** pattern. Load these skills when relevant:
+This project follows the **golang-cli-architecture** skill (`@.opencode/skills/golang-cli-architecture/SKILL.md`), which is the source of truth for layout, Factory, IOStreams, exit codes, and all architectural decisions. Per-package AGENTS.md files inline-link specific references via `@<path>`.
+
+Additional skills to load when relevant:
 
 | Skill | When to use |
 |-------|-------------|
-| `golang-cli-architecture` | Any architectural decision; the source of truth for layout, Factory, IOStreams, exit codes |
 | `golang-design-patterns` | Functional options, constructors, resource lifecycle, error flow |
 | `golang-error-handling` | Error wrapping with `%w`, errors.As/Is, custom error types, slog |
 | `golang-testing` | Table-driven tests, testify, parallel tests, fuzzing, coverage |
@@ -86,6 +87,8 @@ This project follows the **golang-cli-architecture** pattern. Load these skills 
 | `golang-context` | `ctx` propagation, cancellation, deadlines |
 | `golang-spf13-cobra` | Cobra API depth: command groups, `PersistentPreRunE`, `ValidArgsFunction` |
 | `golang-lint` | golangci-lint config, depguard (core isolation), nolint directives |
+
+Library selection rationale: `@.opencode/skills/golang-cli-architecture/references/14-libraries.md`
 
 ## Essential Commands
 
@@ -131,7 +134,7 @@ This project follows the **golang-cli-architecture** pattern. Load these skills 
 | `germinator library remove`          | Remove resource or preset                    |
 | `germinator library validate`        | Check library integrity                      |
 
-**Global `--output` flag:** All `germinator library` subcommands support `--output plain|json|table` via `cmdutil.AddOutputFlags`. The legacy `--json` flag was removed across the library command tree (slice 2 deleted the parent-level flag; slices 5–7 migrated the remaining subcommands). `json` is for scripts, `table` for humans, `plain` is the default.
+**Global `--output` flag:** All `germinator library` subcommands support `--output plain|json|table` via `cmdutil.AddOutputFlags`. `json` is for scripts, `table` for humans, `plain` is the default.
 
 **Library init flags:**
 - `--path <path>` - Library location (default: `$XDG_DATA_HOME/germinator/library/` or `~/.local/share/germinator/library/`)
@@ -385,13 +388,10 @@ graph TB
 
 ## Location-Specific Guides
 
-> Listed paths reflect the target architecture after the golang-cli-architecture rewrite. Per-package docs are created/updated as slices land — see the corresponding change proposal.
-
 | File                                                       | Purpose                                                      |
 | ---------------------------------------------------------- | ------------------------------------------------------------ |
 | [cmd/AGENTS.md](cmd/AGENTS.md)                             | CLI architecture: DI, error handling, exit codes, verbosity, lint enforcement |
 | [cmd/commands/AGENTS.md](cmd/commands/AGENTS.md)           | Per-command flag tables and behavior (Library, Init, Config, Completion) |
-| [cmd/canonical-examples/AGENTS.md](cmd/canonical-examples/AGENTS.md) | Canonical `NewCmdXxx(f, runF)` + `runXxx(opts)` migration examples (slices 2, 4, 5, 6) |
 | [internal/core/AGENTS.md](internal/core/AGENTS.md)         | Functional Core: types, validation, rules, errors (pure)     |
 | [internal/iostreams/AGENTS.md](internal/iostreams/AGENTS.md) | IOStreams abstraction, TTY detection, Styles, Verbosef     |
 | [internal/output/AGENTS.md](internal/output/AGENTS.md)     | Shared output: FormatError, Exporter, AddOutputFlags         |
@@ -400,7 +400,7 @@ graph TB
 | [internal/library/AGENTS.md](internal/library/AGENTS.md)   | Library system, resource management, preset grouping         |
 | [internal/claude-code/AGENTS.md](internal/claude-code/AGENTS.md) | Claude Code platform adapter                              |
 | [internal/opencode/AGENTS.md](internal/opencode/AGENTS.md) | OpenCode platform adapter                                    |
-| [internal/AGENTS.md](internal/AGENTS.md)                   | Internal package patterns (target layout)                    |
+| [internal/AGENTS.md](internal/AGENTS.md)                   | Internal package patterns                                    |
 | [config/AGENTS.md](config/AGENTS.md)                       | Template patterns, permission mappings                       |
 | [openspec/specs/AGENTS.md](openspec/specs/AGENTS.md)       | Spec layout (`<category>-<spec-name>/spec.md`)                |
 | [test/AGENTS.md](test/AGENTS.md)                           | Golden file testing, E2E testing, runF injection, fixture conventions |

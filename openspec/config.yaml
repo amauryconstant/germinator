@@ -7,12 +7,12 @@ context: |
 
   Architecture (current):
   - Three concerns per command: Parse (Cobra) → Execute (run fn) → Respond (output)
-  - One file per Cobra command containing: NewXxxCommand + RunE
-  - DI via cmd.ServiceContainer passed through the command tree in CommandConfig
-    (Transformer, Validator, Canonicalizer, Initializer)
-  - Verbosity handled by cmd.VerbosePrint / cmd.VeryVerbosePrint (level 0/1/2)
-  - Errors carry semantic meaning only; typed errors from internal/domain;
-    exit codes (0/1/2/3/4/5/6) mapped in cmd/error_handler.go
+  - One file per Cobra command containing: NewCmdXxx(f *cmdutil.Factory, runF) + runXxx(opts)
+  - DI via *cmdutil.Factory with lazy func() (T, error) fields (Config, Library)
+    cached via sync.OnceValues; cmd-side interfaces defined where consumed
+  - Verbosity handled by iostreams.IOStreams.Verbose / IOStreams.Verbosef (writes to ErrOut)
+  - Errors carry semantic meaning only; typed errors from internal/core;
+    exit codes (0/1/2) mapped by cmdutil.ExitCodeFor via errors.As dispatch
 
   Key Concepts:
   - PermissionPolicy enum (restrictive, balanced, permissive, analysis, unrestricted)
@@ -25,12 +25,12 @@ context: |
     (koanf/v2, koanf/providers/file, koanf/parsers/toml/v2),
     Carapace for shell completion (github.com/carapace-sh/carapace),
     Ginkgo v2 + Gomega + gexec for E2E,
-    testify for assertions
+    testify for assertions,
+    samber/lo (collection helpers; core-only),
+    github.com/charmbracelet/lipgloss (terminal styling in iostreams.Styles),
+    github.com/charmbracelet/huh (interactive prompts),
+    log/slog (structured debug logging gated on GERMINATOR_DEBUG)
   Tooling: mise, golangci-lint (with depguard), pre-commit
-
-  Target-only libraries (planned for migration, not yet in go.mod):
-    samber/lo (collection helpers), huh (prompts), lipgloss (terminal output),
-    log/slog (structured logging)
 
   Code conventions:
   - NO comments in code unless explicitly requested
@@ -41,31 +41,46 @@ context: |
   - runF injection in command constructor for testability
 
   Package layout (current):
-  - cmd/                          Cobra commands (one file per cmd)
-  - internal/application/         Interfaces between cmd and service layers
-                                  (interfaces.go, requests.go, results.go)
-  - internal/domain/              Domain types, validation, results, pipeline;
-                                  typed errors (errors.go, validation.go,
-                                  result.go, results.go, agent.go, command.go,
-                                  skill.go, memory.go, platform.go)
-  - internal/infrastructure/      Adapters, config, library, parsing,
-                                  serialization subpackages
-  - internal/infrastructure/adapters/   Platform adapters (claude-code/, opencode/)
-  - internal/infrastructure/config/     Config loading (koanf, XDG paths)
-  - internal/infrastructure/library/    Library I/O (loader, resolver, saver,
-                                        validator, refresher, batcher)
-  - internal/infrastructure/parsing/    Document loading and parsing
-  - internal/infrastructure/serialization/  Document serialization
-  - internal/models/              Domain-level constants (platform IDs, etc.)
-  - internal/service/             canonicalizer, transformer, initializer,
-                                  validator service implementations
-  - internal/version/             Version info (Version, Commit, Date)
-  - config/templates/             Template files for rendering
+  - cmd/                          Cobra commands (one file per cmd; flat layout)
+  - internal/core/                Functional Core: domain types, validation,
+                                  rules, typed errors; stdlib + samber/lo only
+                                  (agent.go, command.go, skill.go, memory.go,
+                                  platform.go, errors.go, validation.go,
+                                  result.go, results.go, pipeline.go, rules.go,
+                                  opencode/ subdirectory)
+  - internal/iostreams/           IOStreams abstraction (stdout/stderr/stdin,
+                                  TTY detection, Verbosef, lipgloss Styles)
+  - internal/output/              FormatError dispatch, Exporter interface
+                                  (JSON/Table), AddOutputFlags, FormatResourcesList
+  - internal/cmdutil/             *Factory (eager IOStreams + lazy Config/Library
+                                  function fields), ExitCodeFor, CompletionCache
+  - internal/config/              koanf-based config loading, XDG paths,
+                                  DefaultConfig, Validate, ExpandPaths
+  - internal/library/             Library I/O (loader, resolver, saver, validator,
+                                  refresher, batcher); methods on *Library and
+                                  package functions
+  - internal/claude-code/         Claude Code platform adapter
+                                  (ToCanonical, FromCanonical, permission mapping)
+  - internal/opencode/            OpenCode platform adapter
+                                  (ToCanonical, FromCanonical, permission mapping)
+  - internal/parser/              Platform-agnostic document parsing
+                                  (LoadDocument, DetectType, Canonical* types)
+  - internal/renderer/            Template-driven rendering
+                                  (RenderDocument, MarshalCanonical, Sprig funcs)
+  - internal/permission/          Permission-rule mapping
+                                  (PermissionPolicyMappings, ToPascalCase)
+  - internal/version/             Build-time version metadata
+                                  (Version, Commit, Date via ldflags)
+  - internal/warning/             Exit-code deprecation canary
+                                  (MaybeWarnLegacyExitCode)
+  - config/templates/             Go text/template files for rendering
   - test/                         Unit, golden, e2e tests and fixtures
                                   (see test/AGENTS.md)
 
-  Target architecture (golang-cli-architecture, mid-migration):
-  - See internal/AGENTS.md for the target tree and migration status
+  Architecture follows the `golang-cli-architecture` skill
+  (Functional Core / Imperative Shell):
+    see `@.opencode/skills/golang-cli-architecture/SKILL.md` and
+    `internal/AGENTS.md` for the full dependency rules
 
   Transformation Pipelines (current):
   Forward: Canonical YAML → parsing.LoadDocument → validation.Validate →

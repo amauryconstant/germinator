@@ -14,8 +14,8 @@ import (
 
 // Transformer is the local command-side contract for document
 // transformation. Defined in cmd/ per the target architecture
-// ("interfaces where consumed" — golang-cli-architecture skill
-// principle 8).
+// (interfaces are declared where consumed; see the
+// golang-cli-architecture skill).
 type Transformer interface {
 	Transform(ctx context.Context, req *TransformRequest) (*core.TransformResult, error)
 }

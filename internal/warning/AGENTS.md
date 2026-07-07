@@ -5,7 +5,7 @@
 
 # Warning Package
 
-User-facing warning emission that is independent of verbosity and the debug Logger. Currently hosts the exit-code deprecation canary (slice 2).
+User-facing warning emission that is independent of verbosity and the debug Logger. Hosts the exit-code deprecation canary.
 
 ## Files
 
