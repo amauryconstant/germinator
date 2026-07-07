@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -695,4 +696,69 @@ func TestRemoveLibrary_NilFactoryReturnsNil(t *testing.T) {
 
 	assert.Nil(t, removeLibrary(nil, ""),
 		"removeLibrary(nil) returns nil so opts.Library is unset for tests")
+}
+
+// T24 — Spec scenario "Invalidate after runRemove": a successful
+// resource removal MUST invalidate the completion cache so the next
+// shell completion does not surface the deleted resource. Mirrors
+// TestRunAdd_InvalidatesCompletionCache (cmd/library_add_test.go).
+func TestRunRemove_Resource_InvalidatesCompletionCache(t *testing.T) {
+	t.Parallel()
+
+	libDir := removeResourceFixture(t)
+
+	ios, _, _ := newRemoveTestIO()
+	cache := cmdutil.NewCompletionCache()
+
+	// Pre-populate the cache with a stale library snapshot so we can
+	// observe it being cleared by the post-mutation Invalidate call.
+	staleLib, err := library.LoadLibrary(context.Background(), libDir)
+	require.NoError(t, err)
+	cache.Set(libDir, staleLib, 5*time.Second)
+	require.NotNil(t, cache.Get(libDir), "precondition: cache must hold the stale entry")
+
+	opts := &removeOptions{
+		IO:              ios,
+		Ctx:             context.Background(),
+		Ref:             "skill/commit",
+		CompletionCache: cache,
+		Library: func() (*library.Library, error) {
+			return library.LoadLibrary(context.Background(), libDir)
+		},
+	}
+
+	require.NoError(t, runRemove(opts))
+	assert.Nil(t, cache.Get(libDir),
+		"cache entry MUST be cleared after a successful mutation")
+}
+
+// T25 — Preset removal also invalidates the completion cache so the
+// next completion does not surface the removed preset. Mirrors
+// TestRunAdd_InvalidatesCompletionCache.
+func TestRunRemove_Preset_InvalidatesCompletionCache(t *testing.T) {
+	t.Parallel()
+
+	libDir := removePresetFixture(t, []string{"skill/commit"})
+
+	ios, _, _ := newRemoveTestIO()
+	cache := cmdutil.NewCompletionCache()
+
+	staleLib, err := library.LoadLibrary(context.Background(), libDir)
+	require.NoError(t, err)
+	cache.Set(libDir, staleLib, 5*time.Second)
+	require.NotNil(t, cache.Get(libDir), "precondition: cache must hold the stale entry")
+
+	opts := &removeOptions{
+		IO:              ios,
+		Ctx:             context.Background(),
+		PresetName:      "wp",
+		CompletionCache: cache,
+		Library: func() (*library.Library, error) {
+			return library.LoadLibrary(context.Background(), libDir)
+		},
+	}
+
+	require.NoError(t, runRemove(opts))
+	assert.Nil(t, cache.Get(libDir),
+		"cache entry MUST be cleared after a successful mutation")
 }

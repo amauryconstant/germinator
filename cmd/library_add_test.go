@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -10,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/carapace-sh/carapace"
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -1161,4 +1164,72 @@ func TestRunAdd_DryRunDoesNotInvalidateCompletionCache(t *testing.T) {
 	require.NoError(t, runAdd(opts))
 	assert.NotNil(t, cache.Get(libDir),
 		"cache entry MUST survive a dry-run (no mutation occurred)")
+}
+
+// T31 — Spec scenario "Fresh resource appears in completion": after a
+// successful runAdd, the next completion lookup (actionResources) MUST
+// surface the new resource without waiting for the cache TTL. This is
+// the end-to-end form of T29 — instead of only asserting that the
+// cache entry was cleared, we drive the carapace Action callback and
+// inspect the rendered values.
+func TestRunAdd_FreshResourceAppearsInCompletion(t *testing.T) {
+	t.Parallel()
+
+	libDir := makeTestLibrary(t, map[string]map[string]library.Resource{})
+	srcDir := t.TempDir()
+	src := makeTestSkillFile(t, srcDir, "freshskill", "Fresh skill")
+
+	ios, _, _ := newAddTestIO()
+	cache := cmdutil.NewCompletionCache()
+
+	opts := &addOptions{
+		IO:              ios,
+		Ctx:             context.Background(),
+		Output:          "plain",
+		InputPaths:      []string{src},
+		Type:            "skill",
+		Name:            "freshskill",
+		CompletionCache: cache,
+		Library: func() (*library.Library, error) {
+			return library.LoadLibrary(context.Background(), libDir)
+		},
+	}
+	require.NoError(t, runAdd(opts))
+
+	// Build a minimal cobra command so actionResources can resolve the
+	// library path via resolveLibraryPath. The command does not need to
+	// be executed; actionResources only consults cmd.Flags() and
+	// cmd.Flag("library").Changed.
+	cmd := &cobra.Command{Use: "show"}
+	cmd.Flags().String("library", libDir, "library path")
+	cmd.Flag("library").Changed = true
+
+	f := &cmdutil.Factory{
+		RootContext:     context.Background(),
+		CompletionCache: cache,
+	}
+
+	values := addTestActionValues(t, actionResources(f, cmd).Invoke(carapace.Context{}))
+	assert.Contains(t, values, "skill/freshskill",
+		"actionResources MUST surface the freshly-added resource without waiting for the TTL")
+}
+
+// addTestActionValues mirrors actionValuesAsStrings in completions_test.go
+// but lives here so library_add_test.go stays self-contained.
+func addTestActionValues(t *testing.T, ia carapace.InvokedAction) []string {
+	t.Helper()
+	data, err := json.Marshal(ia)
+	require.NoError(t, err, "json.Marshal of InvokedAction must succeed")
+	var decoded struct {
+		Values []struct {
+			Value string `json:"value"`
+		} `json:"values"`
+	}
+	require.NoError(t, json.Unmarshal(data, &decoded),
+		"json.Unmarshal of InvokedAction must succeed")
+	out := make([]string, 0, len(decoded.Values))
+	for _, v := range decoded.Values {
+		out = append(out, v.Value)
+	}
+	return out
 }

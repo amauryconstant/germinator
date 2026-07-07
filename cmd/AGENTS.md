@@ -175,7 +175,7 @@ if err := core.ValidatePlatform(opts.Platform); err != nil {
 }
 ```
 
-Use `core.PlatformClaudeCode` / `core.PlatformOpenCode` constants (defined in `internal/core/platform.go` since slice 9.3) — the legacy `models.Platform*` constants are gone.
+Use `core.PlatformClaudeCode` / `core.PlatformOpenCode` constants (defined in `internal/core/rules.go` since slice 9.3, alongside `ValidatePlatform`) — the legacy `models.Platform*` constants are gone.
 
 ## Supported Platforms
 
