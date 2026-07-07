@@ -96,7 +96,7 @@ Example:
 	_ = cmd.MarkFlagRequired("type")
 
 	carapace.Gen(cmd).FlagCompletion(carapace.ActionMap{
-		"platform": actionPlatforms(),
+		"platform": actionPlatforms(f),
 		"type":     carapace.ActionValuesDescribed("agent", "command", "skill", "memory"),
 	})
 

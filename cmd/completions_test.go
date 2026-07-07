@@ -4,11 +4,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
+	"gitlab.com/amoconst/germinator/internal/cmdutil"
 	"gitlab.com/amoconst/germinator/internal/config"
 	"gitlab.com/amoconst/germinator/internal/library"
 )
 
 func TestGetCompletionTimeout(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		cfg      *config.Config
@@ -44,15 +49,16 @@ func TestGetCompletionTimeout(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got := getCompletionTimeout(tt.cfg)
-			if got != tt.expected {
-				t.Errorf("getCompletionTimeout() = %v, want %v", got, tt.expected)
-			}
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }
 
 func TestGetCacheTTL(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		cfg      *config.Config
@@ -88,20 +94,24 @@ func TestGetCacheTTL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got := getCacheTTL(tt.cfg)
-			if got != tt.expected {
-				t.Errorf("getCacheTTL() = %v, want %v", got, tt.expected)
-			}
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }
 
-func TestActionPlatforms(_ *testing.T) {
-	// Test that actionPlatforms returns a valid action
-	_ = actionPlatforms()
+func TestActionPlatforms(t *testing.T) {
+	t.Parallel()
+
+	f := &cmdutil.Factory{CompletionCache: cmdutil.NewCompletionCache()}
+	// Test that actionPlatforms returns a valid action given a Factory.
+	_ = actionPlatforms(f)
 }
 
 func TestResourceActionFromLibrary(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name string
 		lib  *library.Library
@@ -139,13 +149,16 @@ func TestResourceActionFromLibrary(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(_ *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			_ = resourceActionFromLibrary(tt.lib)
 		})
 	}
 }
 
 func TestPresetActionFromLibrary(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name string
 		lib  *library.Library
@@ -176,13 +189,16 @@ func TestPresetActionFromLibrary(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(_ *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			_ = presetActionFromLibrary(tt.lib)
 		})
 	}
 }
 
 func TestLibraryRefActionFromLibrary(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name string
 		lib  *library.Library
@@ -230,79 +246,9 @@ func TestLibraryRefActionFromLibrary(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(_ *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			_ = libraryRefActionFromLibrary(tt.lib)
 		})
-	}
-}
-
-func TestGetCachedLibrary(t *testing.T) {
-	// Initialize the cache
-	completionCache.entries = make(map[string]*cachedLibraryData)
-
-	lib := &library.Library{
-		Version: "1",
-	}
-
-	t.Run("cache miss returns nil", func(t *testing.T) {
-		got := getCachedLibrary("/nonexistent", 5*time.Second)
-		if got != nil {
-			t.Errorf("getCachedLibrary() = %v, want nil", got)
-		}
-	})
-
-	t.Run("cache hit returns library", func(t *testing.T) {
-		libPath := "/test/library"
-		setCachedLibrary(libPath, lib, 5*time.Second)
-
-		got := getCachedLibrary(libPath, 5*time.Second)
-		if got == nil {
-			t.Error("getCachedLibrary() returned nil, expected library")
-		}
-	})
-
-	t.Run("expired cache returns nil", func(t *testing.T) {
-		libPath := "/test/expired"
-		// Set with 0 TTL so it expires immediately
-		setCachedLibrary(libPath, lib, 0)
-
-		// Small sleep to ensure expiration
-		time.Sleep(1 * time.Millisecond)
-
-		got := getCachedLibrary(libPath, 5*time.Second)
-		if got != nil {
-			t.Errorf("getCachedLibrary() = %v, want nil (expired)", got)
-		}
-	})
-}
-
-func TestSetCachedLibrary(t *testing.T) {
-	// Initialize the cache
-	completionCache.entries = make(map[string]*cachedLibraryData)
-
-	lib := &library.Library{
-		Version: "1",
-	}
-
-	libPath := "/test/cache"
-	ttl := 5 * time.Second
-
-	setCachedLibrary(libPath, lib, ttl)
-
-	// Verify the library was cached
-	completionCache.mu.RLock()
-	entry, exists := completionCache.entries[libPath]
-	completionCache.mu.RUnlock()
-
-	if !exists {
-		t.Error("setCachedLibrary() did not cache the library")
-	}
-
-	if entry.data != lib {
-		t.Error("setCachedLibrary() cached wrong library")
-	}
-
-	if entry.expiresAt.Before(time.Now()) {
-		t.Error("setCachedLibrary() expiration time is in the past")
 	}
 }

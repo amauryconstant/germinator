@@ -25,6 +25,8 @@ func main() {
 	f := cmdutil.NewFactory(ctx, io, version.Version, "germinator")
 	defer f.Close()
 
+	f.CompletionCache = cmdutil.NewCompletionCache()
+
 	// The four service interfaces (Transformer/Validator/Canonicalizer/
 	// Initializer) were removed from the Factory in slice 7.5 — their
 	// concrete adapters are now constructed lazily inside the per-command

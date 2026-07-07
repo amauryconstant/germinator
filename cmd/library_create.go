@@ -26,12 +26,13 @@ import (
 // NOT expose --output (legacy did not have --json). The output is a
 // single success line to stdout when the preset is created.
 type createPresetOptions struct {
-	IO          *iostreams.IOStreams
-	Library     func() (*library.Library, error)
-	Ctx         context.Context
-	Resources   []string
-	Description string
-	Force       bool
+	IO              *iostreams.IOStreams
+	Library         func() (*library.Library, error)
+	Ctx             context.Context
+	Resources       []string
+	Description     string
+	Force           bool
+	CompletionCache *cmdutil.CompletionCache
 }
 
 // presetWriter is the cmd-side contract for preset creation. It is
@@ -110,12 +111,13 @@ Examples:
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			opts := &createPresetOptions{
-				IO:          f.IOStreams,
-				Library:     createPresetLibrary(f, derefString(libraryPath)),
-				Ctx:         c.Context(),
-				Resources:   resources,
-				Description: description,
-				Force:       force,
+				IO:              f.IOStreams,
+				Library:         createPresetLibrary(f, derefString(libraryPath)),
+				Ctx:             c.Context(),
+				Resources:       resources,
+				Description:     description,
+				Force:           force,
+				CompletionCache: f.CompletionCache,
 			}
 			if runF != nil {
 				return runF(opts)
@@ -208,6 +210,10 @@ func runCreatePreset(opts *createPresetOptions, presetName string) error {
 		Force:       opts.Force,
 	}); err != nil {
 		return fmt.Errorf("creating preset: %w", err)
+	}
+
+	if opts.CompletionCache != nil {
+		opts.CompletionCache.Invalidate()
 	}
 
 	_, _ = fmt.Fprintf(opts.IO.Out, "Created preset: %s\n", name)

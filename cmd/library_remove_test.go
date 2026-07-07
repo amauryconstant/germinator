@@ -547,13 +547,14 @@ func TestRemoveOptions_StructShape(t *testing.T) {
 
 	typ := reflect.TypeOf(removeOptions{})
 	want := map[string]bool{
-		"IO":         true,
-		"Library":    true,
-		"Ctx":        true,
-		"Ref":        true,
-		"PresetName": true,
-		"Force":      true,
-		"Output":     true,
+		"IO":              true,
+		"Library":         true,
+		"Ctx":             true,
+		"Ref":             true,
+		"PresetName":      true,
+		"Force":           true,
+		"Output":          true,
+		"CompletionCache": true,
 	}
 	got := make(map[string]bool, typ.NumField())
 	for i := 0; i < typ.NumField(); i++ {

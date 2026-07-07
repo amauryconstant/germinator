@@ -8,24 +8,17 @@ import (
 	"gitlab.com/amoconst/germinator/internal/core"
 )
 
-const (
-	// PlatformClaudeCode represents the Claude Code platform.
-	PlatformClaudeCode = "claude-code"
-	// PlatformOpenCode represents the OpenCode platform.
-	PlatformOpenCode = "opencode"
-)
-
 // validatePlatform checks if platform parameter is valid.
 func validatePlatform(platform string) []error {
 	var errs []error
 
 	if platform == "" {
-		errs = append(errs, core.NewConfigError("platform", "", "platform is required").WithSuggestions([]string{PlatformClaudeCode, PlatformOpenCode}))
+		errs = append(errs, core.NewConfigError("platform", "", "platform is required").WithSuggestions([]string{core.PlatformClaudeCode, core.PlatformOpenCode}))
 		return errs
 	}
 
-	if platform != PlatformClaudeCode && platform != PlatformOpenCode {
-		errs = append(errs, core.NewConfigError("platform", platform, "unknown platform").WithSuggestions([]string{PlatformClaudeCode, PlatformOpenCode}))
+	if platform != core.PlatformClaudeCode && platform != core.PlatformOpenCode {
+		errs = append(errs, core.NewConfigError("platform", platform, "unknown platform").WithSuggestions([]string{core.PlatformClaudeCode, core.PlatformOpenCode}))
 		return errs
 	}
 

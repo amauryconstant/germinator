@@ -30,6 +30,11 @@ type Factory struct {
 
 	Config  func() (*config.Config, error)
 	Library func() (*library.Library, error)
+
+	// CompletionCache memoizes library snapshots for shell completion
+	// lookups with a per-entry TTL. Populated in main.go; each Factory
+	// owns its own cache so tests create a fresh cache per Factory.
+	CompletionCache *CompletionCache
 }
 
 // NewFactory constructs a Factory with eager values populated. The

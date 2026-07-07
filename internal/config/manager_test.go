@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"gitlab.com/amoconst/germinator/internal/models"
+	"gitlab.com/amoconst/germinator/internal/core"
 )
 
 func TestNewConfigManager(t *testing.T) {
@@ -104,8 +104,8 @@ library = "/custom/library/path"
 	}
 
 	cfg := mgr.GetConfig()
-	if cfg.Platform != models.PlatformOpenCode {
-		t.Errorf("Platform = %q, want %q", cfg.Platform, models.PlatformOpenCode)
+	if cfg.Platform != core.PlatformOpenCode {
+		t.Errorf("Platform = %q, want %q", cfg.Platform, core.PlatformOpenCode)
 	}
 	if cfg.Library != "/custom/library/path" {
 		t.Errorf("Library = %q, want %q", cfg.Library, "/custom/library/path")
@@ -142,8 +142,8 @@ func TestConfigManagerLoad_XDGConfigHome(t *testing.T) {
 	}
 
 	cfg := mgr.GetConfig()
-	if cfg.Platform != models.PlatformClaudeCode {
-		t.Errorf("Platform = %q, want %q", cfg.Platform, models.PlatformClaudeCode)
+	if cfg.Platform != core.PlatformClaudeCode {
+		t.Errorf("Platform = %q, want %q", cfg.Platform, core.PlatformClaudeCode)
 	}
 }
 
@@ -307,8 +307,8 @@ func TestConfigManagerLoad_CurrentDirConfig(t *testing.T) {
 	}
 
 	cfg := mgr.GetConfig()
-	if cfg.Platform != models.PlatformClaudeCode {
-		t.Errorf("Platform = %q, want %q", cfg.Platform, models.PlatformClaudeCode)
+	if cfg.Platform != core.PlatformClaudeCode {
+		t.Errorf("Platform = %q, want %q", cfg.Platform, core.PlatformClaudeCode)
 	}
 }
 

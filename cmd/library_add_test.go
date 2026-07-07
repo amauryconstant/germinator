@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -380,19 +381,20 @@ func TestAddOptions_StructShape(t *testing.T) {
 
 	typ := reflect.TypeOf(addOptions{})
 	want := map[string]bool{
-		"IO":          true,
-		"Library":     true,
-		"Ctx":         true,
-		"InputPaths":  true,
-		"Name":        true,
-		"Description": true,
-		"Type":        true,
-		"Platform":    true,
-		"Discover":    true,
-		"Batch":       true,
-		"Force":       true,
-		"DryRun":      true,
-		"Output":      true,
+		"IO":              true,
+		"Library":         true,
+		"Ctx":             true,
+		"InputPaths":      true,
+		"Name":            true,
+		"Description":     true,
+		"Type":            true,
+		"Platform":        true,
+		"Discover":        true,
+		"Batch":           true,
+		"Force":           true,
+		"DryRun":          true,
+		"Output":          true,
+		"CompletionCache": true,
 	}
 	got := make(map[string]bool, typ.NumField())
 	for i := 0; i < typ.NumField(); i++ {
@@ -1081,4 +1083,82 @@ func TestRunAdd_NameConflictCauseIsErrNameConflict(t *testing.T) {
 	}
 	assert.True(t, saw,
 		"errors.Is must traverse *core.InitializeError → *core.OperationError → library.ErrNameConflict")
+}
+
+// T29 — Spec scenario "Invalidate after runAdd": a successful runAdd
+// that registers a resource MUST invalidate the completion cache so
+// the next shell completion reflects the new state without waiting
+// for the TTL. This test pre-populates the cache with a stale library
+// (lacking the newly-added resource) and asserts the entry is cleared
+// after runAdd returns. Verifying the full carapace invocation would
+// require a real shell environment; the cache-cleared assertion is
+// the authoritative signal here.
+func TestRunAdd_InvalidatesCompletionCache(t *testing.T) {
+	t.Parallel()
+
+	libDir := makeTestLibrary(t, map[string]map[string]library.Resource{})
+	srcDir := t.TempDir()
+	src := makeTestSkillFile(t, srcDir, "cachedskill", "Cached skill")
+
+	ios, _, _ := newAddTestIO()
+	cache := cmdutil.NewCompletionCache()
+
+	// Pre-populate the cache with a stale library snapshot so we can
+	// observe it being cleared by the post-mutation Invalidate call.
+	staleLib, err := library.LoadLibrary(context.Background(), libDir)
+	require.NoError(t, err)
+	cache.Set(libDir, staleLib, 5*time.Second)
+	require.NotNil(t, cache.Get(libDir), "precondition: cache must hold the stale entry")
+
+	opts := &addOptions{
+		IO:              ios,
+		Ctx:             context.Background(),
+		Output:          "plain",
+		InputPaths:      []string{src},
+		Type:            "skill",
+		Name:            "cachedskill",
+		CompletionCache: cache,
+		Library: func() (*library.Library, error) {
+			return library.LoadLibrary(context.Background(), libDir)
+		},
+	}
+
+	require.NoError(t, runAdd(opts))
+	assert.Nil(t, cache.Get(libDir),
+		"cache entry MUST be cleared after a successful mutation")
+}
+
+// T30 — Dry-run invocations MUST NOT invalidate the cache (no
+// mutation occurred).
+func TestRunAdd_DryRunDoesNotInvalidateCompletionCache(t *testing.T) {
+	t.Parallel()
+
+	libDir := makeTestLibrary(t, map[string]map[string]library.Resource{})
+	srcDir := t.TempDir()
+	src := makeTestSkillFile(t, srcDir, "dryrunskill", "Dry-run skill")
+
+	ios, _, _ := newAddTestIO()
+	cache := cmdutil.NewCompletionCache()
+
+	staleLib, err := library.LoadLibrary(context.Background(), libDir)
+	require.NoError(t, err)
+	cache.Set(libDir, staleLib, 5*time.Second)
+
+	opts := &addOptions{
+		IO:              ios,
+		Ctx:             context.Background(),
+		Output:          "plain",
+		InputPaths:      []string{src},
+		Type:            "skill",
+		Name:            "dryrunskill",
+		DryRun:          true,
+		CompletionCache: cache,
+		Library: func() (*library.Library, error) {
+			return library.LoadLibrary(context.Background(), libDir)
+		},
+	}
+
+	require.NoError(t, runAdd(opts))
+	assert.NotNil(t, cache.Get(libDir),
+		"cache entry MUST survive a dry-run (no mutation occurred)")
 }

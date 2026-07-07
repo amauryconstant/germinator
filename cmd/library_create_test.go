@@ -378,12 +378,13 @@ func TestCreatePresetOptions_StructShape(t *testing.T) {
 
 	typ := reflect.TypeOf(createPresetOptions{})
 	want := map[string]bool{
-		"IO":          true,
-		"Library":     true,
-		"Ctx":         true,
-		"Resources":   true,
-		"Description": true,
-		"Force":       true,
+		"IO":              true,
+		"Library":         true,
+		"Ctx":             true,
+		"Resources":       true,
+		"Description":     true,
+		"Force":           true,
+		"CompletionCache": true,
 	}
 	got := make(map[string]bool, typ.NumField())
 	for i := 0; i < typ.NumField(); i++ {

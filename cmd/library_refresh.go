@@ -21,12 +21,13 @@ import (
 // (LoadLibrary) per the slice-5/6 addOptions / createPresetOptions
 // pattern.
 type refreshOptions struct {
-	IO      *iostreams.IOStreams
-	Library func() (*library.Library, error)
-	Ctx     context.Context
-	DryRun  bool
-	Force   bool
-	Output  string
+	IO              *iostreams.IOStreams
+	Library         func() (*library.Library, error)
+	Ctx             context.Context
+	DryRun          bool
+	Force           bool
+	Output          string
+	CompletionCache *cmdutil.CompletionCache
 }
 
 // refresherLibrary is the cmd-side contract for refresh operations.
@@ -99,12 +100,13 @@ Examples:
   germinator library refresh --output table`,
 		RunE: func(c *cobra.Command, _ []string) error {
 			opts := &refreshOptions{
-				IO:      f.IOStreams,
-				Library: refreshLibrary(f, derefString(libraryPath)),
-				Ctx:     c.Context(),
-				DryRun:  dryRun,
-				Force:   force,
-				Output:  outputFormatRefresh,
+				IO:              f.IOStreams,
+				Library:         refreshLibrary(f, derefString(libraryPath)),
+				Ctx:             c.Context(),
+				DryRun:          dryRun,
+				Force:           force,
+				Output:          outputFormatRefresh,
+				CompletionCache: f.CompletionCache,
 			}
 
 			if runF != nil {
@@ -287,6 +289,10 @@ func runRefresh(opts *refreshOptions) error {
 	})
 	if err != nil {
 		return fmt.Errorf("refreshing library: %w", err)
+	}
+
+	if !opts.DryRun && opts.CompletionCache != nil {
+		opts.CompletionCache.Invalidate()
 	}
 
 	switch opts.Output {

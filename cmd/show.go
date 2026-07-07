@@ -97,7 +97,7 @@ Examples:
 
 	cmdutil.AddOutputFlags(cmd, &opts.Output)
 
-	carapace.Gen(cmd).PositionalCompletion(actionLibraryRefs(cmd))
+	carapace.Gen(cmd).PositionalCompletion(actionLibraryRefs(f, cmd))
 
 	return cmd
 }

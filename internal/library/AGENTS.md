@@ -379,7 +379,7 @@ RefreshLibrary(opts RefreshOptions) (*RefreshResult, error)
 
 ## Methods on `*Library` (slice 7)
 
-Mutating operations live as methods on `*Library` so the cmd-side can declare a minimal interface per command (no `*LibraryService` wrapper). Mirrors slice-6 `(*Library).CreatePreset` precedent at `internal/library/creator.go:145`.
+Mutating operations live as methods on `*Library` so the cmd-side can declare a minimal interface per command (no `*LibraryService` wrapper). Mirrors the `(*Library).CreatePreset` precedent at `internal/library/creator.go`.
 
 ```go
 func (lib *Library) Refresh(ctx context.Context, req *RefreshRequest) (*RefreshResult, error)

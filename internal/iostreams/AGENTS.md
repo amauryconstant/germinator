@@ -5,7 +5,7 @@
 
 # IOStreams Package
 
-Centralized terminal I/O boundary used by all commands. Constructed by `cmdutil.Factory` in slice-2+; not yet consumed by `cmd/` in slice 1.
+Centralized terminal I/O boundary used by all commands. Constructed by `cmdutil.Factory` (`System()` in production via `main.go`, `Test()` in tests) and threaded through every command's options struct as `IO *iostreams.IOStreams`.
 
 ## Files
 
@@ -18,8 +18,11 @@ Centralized terminal I/O boundary used by all commands. Constructed by `cmdutil.
 
 ## Key Surface
 
-- `System()` — real I/O, TTY detected from fd 0/1, debug logger gated on `GERMINATOR_DEBUG`
-- `Test()` — buffer-backed (`*bytes.Buffer`); `Out`/`ErrOut` assertable for test inspection
-- `IsStdoutTTY()` / `IsInteractive()` — TTY predicates
+- `System()` — real I/O, TTY detected from fd 0/1/2, debug logger gated on `GERMINATOR_DEBUG`
+- `Test()` — buffer-backed (`*bytes.Buffer`); `Out`/`ErrOut` assertable for test inspection; TTY overrides preset to `false`
+- `IsStdoutTTY()` / `IsStdinTTY()` / `IsStderrTTY()` — TTY predicates (stdout/stderr overridable for tests)
+- `IsInteractive()` — true only when both stdin AND stdout are TTYs
+- `SetStdoutTTY(v)` / `SetStderrTTY(v)` — override TTY detection (tests, exit-code canary)
 - `Verbosef(format, args...)` — writes to `ErrOut` when `Verbose == true`; adds trailing newline
+- `Warnf(format, args...)` — yellow-styled `Warning:` prefix to `ErrOut`, independent of `Verbose`
 - `Styles.Error/Success/Warning/Dim/Bold(s)` — no-op when `!isTTY` or `NO_COLOR` is set

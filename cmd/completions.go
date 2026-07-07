@@ -3,33 +3,16 @@ package cmd
 import (
 	"context"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/carapace-sh/carapace"
 	"github.com/spf13/cobra"
+
+	"gitlab.com/amoconst/germinator/internal/cmdutil"
 	"gitlab.com/amoconst/germinator/internal/config"
+	"gitlab.com/amoconst/germinator/internal/core"
 	"gitlab.com/amoconst/germinator/internal/library"
-	"gitlab.com/amoconst/germinator/internal/models"
 )
-
-// cachedLibraryData holds cached library data with an expiration time.
-type cachedLibraryData struct {
-	data      *library.Library
-	expiresAt time.Time
-}
-
-// completionCache is a package-level cache for library data during completions.
-// It uses a mutex for thread-safe access and supports TTL-based expiration.
-var completionCache struct {
-	mu      sync.RWMutex
-	entries map[string]*cachedLibraryData
-}
-
-// init initializes the cache map.
-func init() {
-	completionCache.entries = make(map[string]*cachedLibraryData)
-}
 
 // getCompletionTimeout parses the timeout from config, returning a default if invalid.
 func getCompletionTimeout(cfg *config.Config) time.Duration {
@@ -94,174 +77,76 @@ func expandTildeInPath(path string) string {
 }
 
 // actionPlatforms returns a static completion action for platform values.
-func actionPlatforms() carapace.Action {
+// The Factory parameter is reserved for future use; static values today.
+func actionPlatforms(_ *cmdutil.Factory) carapace.Action {
 	return carapace.ActionValuesDescribed(
-		models.PlatformClaudeCode, "Claude Code document format",
-		models.PlatformOpenCode, "OpenCode document format",
+		core.PlatformClaudeCode, "Claude Code document format",
+		core.PlatformOpenCode, "OpenCode document format",
 	)
 }
 
+// loadLibraryForCompletion returns the library for libPath, consulting
+// the Factory's CompletionCache first. On cache miss it loads the
+// library directly via library.LoadLibrary (bypassing f.Library, which
+// uses sync.OnceValues and would permanently cache the first error),
+// wrapping f.RootContext with a per-lookup timeout. The cache stores
+// the successful result with a TTL so subsequent completions within
+// the TTL are fast. Errors (including timeouts) return nil so the
+// caller surfaces an empty completion rather than an error.
+func loadLibraryForCompletion(f *cmdutil.Factory, libPath string) *library.Library {
+	if f.CompletionCache != nil {
+		if cached := f.CompletionCache.Get(libPath); cached != nil {
+			return cached
+		}
+	}
+
+	loadCtx, cancel := context.WithTimeout(f.RootContext, getCompletionTimeout(nil))
+	defer cancel()
+	lib, err := library.LoadLibrary(loadCtx, libPath)
+	if err != nil {
+		return nil
+	}
+
+	if f.CompletionCache != nil {
+		f.CompletionCache.Set(libPath, lib, getCacheTTL(nil))
+	}
+	return lib
+}
+
 // actionResources returns a dynamic completion action for library resources.
-// It loads the library with caching and timeout support.
-func actionResources(cmd *cobra.Command) carapace.Action {
+// It loads the library (with caching and timeout support) via the Factory.
+func actionResources(f *cmdutil.Factory, cmd *cobra.Command) carapace.Action {
 	return carapace.ActionCallback(func(_ carapace.Context) carapace.Action {
 		libPath := resolveLibraryPath(cmd, nil)
-		timeout := getCompletionTimeout(nil)
-		cacheTTL := getCacheTTL(nil)
-
-		// Check cache first
-		cached := getCachedLibrary(libPath, cacheTTL)
-		if cached != nil {
-			return resourceActionFromLibrary(cached)
-		}
-
-		// Load library with timeout
-		libCh := make(chan *library.Library, 1)
-		errCh := make(chan error, 1)
-
-		go func() {
-			// TODO(slice-7): thread cmd Context() instead of context.Background().
-			ctx, cancel := context.WithTimeout(context.Background(), timeout)
-			defer cancel()
-			lib, err := library.LoadLibrary(ctx, libPath)
-			if err != nil {
-				errCh <- err
-				return
-			}
-			libCh <- lib
-		}()
-
-		select {
-		case lib := <-libCh:
-			// Cache the result
-			setCachedLibrary(libPath, lib, cacheTTL)
+		if lib := loadLibraryForCompletion(f, libPath); lib != nil {
 			return resourceActionFromLibrary(lib)
-		case <-errCh:
-			// Silent failure - return empty completions
-			return carapace.ActionValues()
-		case <-time.After(timeout):
-			// Timeout - return empty completions
-			return carapace.ActionValues()
 		}
+		return carapace.ActionValues()
 	})
 }
 
 // actionPresets returns a dynamic completion action for library presets.
-// It loads the library with caching and timeout support.
-func actionPresets(cmd *cobra.Command) carapace.Action {
+// It loads the library (with caching and timeout support) via the Factory.
+func actionPresets(f *cmdutil.Factory, cmd *cobra.Command) carapace.Action {
 	return carapace.ActionCallback(func(_ carapace.Context) carapace.Action {
 		libPath := resolveLibraryPath(cmd, nil)
-		timeout := getCompletionTimeout(nil)
-		cacheTTL := getCacheTTL(nil)
-
-		// Check cache first
-		cached := getCachedLibrary(libPath, cacheTTL)
-		if cached != nil {
-			return presetActionFromLibrary(cached)
-		}
-
-		// Load library with timeout
-		libCh := make(chan *library.Library, 1)
-		errCh := make(chan error, 1)
-
-		go func() {
-			// TODO(slice-7): thread cmd Context() instead of context.Background().
-			ctx, cancel := context.WithTimeout(context.Background(), timeout)
-			defer cancel()
-			lib, err := library.LoadLibrary(ctx, libPath)
-			if err != nil {
-				errCh <- err
-				return
-			}
-			libCh <- lib
-		}()
-
-		select {
-		case lib := <-libCh:
-			// Cache the result
-			setCachedLibrary(libPath, lib, cacheTTL)
+		if lib := loadLibraryForCompletion(f, libPath); lib != nil {
 			return presetActionFromLibrary(lib)
-		case <-errCh:
-			// Silent failure - return empty completions
-			return carapace.ActionValues()
-		case <-time.After(timeout):
-			// Timeout - return empty completions
-			return carapace.ActionValues()
 		}
+		return carapace.ActionValues()
 	})
 }
 
 // actionLibraryRefs returns a dynamic completion action combining resources and presets.
-// It loads the library with caching and timeout support.
-func actionLibraryRefs(cmd *cobra.Command) carapace.Action {
+// It loads the library (with caching and timeout support) via the Factory.
+func actionLibraryRefs(f *cmdutil.Factory, cmd *cobra.Command) carapace.Action {
 	return carapace.ActionCallback(func(_ carapace.Context) carapace.Action {
 		libPath := resolveLibraryPath(cmd, nil)
-		timeout := getCompletionTimeout(nil)
-		cacheTTL := getCacheTTL(nil)
-
-		// Check cache first
-		cached := getCachedLibrary(libPath, cacheTTL)
-		if cached != nil {
-			return libraryRefActionFromLibrary(cached)
-		}
-
-		// Load library with timeout
-		libCh := make(chan *library.Library, 1)
-		errCh := make(chan error, 1)
-
-		go func() {
-			// TODO(slice-7): thread cmd Context() instead of context.Background().
-			ctx, cancel := context.WithTimeout(context.Background(), timeout)
-			defer cancel()
-			lib, err := library.LoadLibrary(ctx, libPath)
-			if err != nil {
-				errCh <- err
-				return
-			}
-			libCh <- lib
-		}()
-
-		select {
-		case lib := <-libCh:
-			// Cache the result
-			setCachedLibrary(libPath, lib, cacheTTL)
+		if lib := loadLibraryForCompletion(f, libPath); lib != nil {
 			return libraryRefActionFromLibrary(lib)
-		case <-errCh:
-			// Silent failure - return empty completions
-			return carapace.ActionValues()
-		case <-time.After(timeout):
-			// Timeout - return empty completions
-			return carapace.ActionValues()
 		}
+		return carapace.ActionValues()
 	})
-}
-
-// getCachedLibrary retrieves cached library data if it exists and hasn't expired.
-func getCachedLibrary(libPath string, _ time.Duration) *library.Library {
-	completionCache.mu.RLock()
-	defer completionCache.mu.RUnlock()
-
-	entry, exists := completionCache.entries[libPath]
-	if !exists {
-		return nil
-	}
-
-	if time.Now().After(entry.expiresAt) {
-		return nil
-	}
-
-	return entry.data
-}
-
-// setCachedLibrary stores library data in the cache with the given TTL.
-func setCachedLibrary(libPath string, lib *library.Library, ttl time.Duration) {
-	completionCache.mu.Lock()
-	defer completionCache.mu.Unlock()
-
-	completionCache.entries[libPath] = &cachedLibraryData{
-		data:      lib,
-		expiresAt: time.Now().Add(ttl),
-	}
 }
 
 // resourceActionFromLibrary creates a completion action from a library's resources.

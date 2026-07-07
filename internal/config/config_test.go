@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	gerrors "gitlab.com/amoconst/germinator/internal/core"
-	"gitlab.com/amoconst/germinator/internal/models"
 )
 
 func TestDefaultConfig(t *testing.T) {
@@ -73,12 +72,12 @@ func TestConfigValidate(t *testing.T) {
 		},
 		{
 			name:     "claude-code platform is valid",
-			platform: models.PlatformClaudeCode,
+			platform: gerrors.PlatformClaudeCode,
 			wantErr:  false,
 		},
 		{
 			name:     "opencode platform is valid",
-			platform: models.PlatformOpenCode,
+			platform: gerrors.PlatformOpenCode,
 			wantErr:  false,
 		},
 		{

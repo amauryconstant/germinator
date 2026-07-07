@@ -1,26 +1,20 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/carapace-sh/carapace"
 	"github.com/spf13/cobra"
 
 	"gitlab.com/amoconst/germinator/internal/cmdutil"
+	"gitlab.com/amoconst/germinator/internal/iostreams"
 )
 
 // completionShells contains all supported shell names.
 var completionShells = []string{
-	"bash",
-	"zsh",
-	"fish",
-	"powershell",
-	"elvish",
-	"nushell",
-	"oil",
-	"tcsh",
-	"xonsh",
-	"cmd-clink",
+	"bash", "zsh", "fish", "powershell", "elvish",
+	"nushell", "oil", "tcsh", "xonsh", "cmd-clink",
 }
 
 // getShellInstructions returns installation instructions for a given shell.
@@ -79,10 +73,20 @@ Also enable menu completion:
 	return ""
 }
 
-// NewCompletionCommand creates the completion command with shell
-// subcommands. This replaces Cobra's default completion with
-// Carapace's enhanced completion system.
-func NewCompletionCommand(_ *cmdutil.Factory) *cobra.Command {
+// completionOptions holds the runtime state for a `completion <shell>`
+// invocation. IO and Ctx come from the Factory; Shell is set by the
+// selected subcommand.
+type completionOptions struct {
+	IO    *iostreams.IOStreams
+	Ctx   context.Context
+	Shell string
+}
+
+// NewCmdCompletion creates the completion command tree with shell
+// subcommands, wired through the canonical NewCmdXxx(f, runF)
+// pattern. Carapace generates the actual completion scripts; this
+// command only dispatches to the per-shell snippet generator.
+func NewCmdCompletion(f *cmdutil.Factory, runF func(*completionOptions) error) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "completion",
 		Short: "Generate shell completion scripts",
@@ -105,21 +109,21 @@ Examples:
 
   # Generate fish completion
   germinator completion fish > ~/.config/fish/completions/germinator.fish`,
-		Run: func(c *cobra.Command, _ []string) {
-			_ = c.Help()
-		},
+		Run: func(c *cobra.Command, _ []string) { _ = c.Help() },
 	}
 
-	// Add subcommands for each shell
 	for _, shell := range completionShells {
-		cmd.AddCommand(newCompletionShellCommand(shell))
+		shell := shell // capture for closure
+		cmd.AddCommand(newCompletionShellCommand(f, runF, shell))
 	}
 
 	return cmd
 }
 
-// newCompletionShellCommand creates a completion subcommand for a specific shell.
-func newCompletionShellCommand(shell string) *cobra.Command {
+// newCompletionShellCommand creates a completion subcommand for a
+// specific shell. The Factory is passed through so the per-shell
+// command reads IO/Ctx from it.
+func newCompletionShellCommand(f *cmdutil.Factory, runF func(*completionOptions) error, shell string) *cobra.Command {
 	return &cobra.Command{
 		Use:   shell,
 		Short: fmt.Sprintf("Generate %s completion script", shell),
@@ -136,18 +140,30 @@ The completion includes:
 - Dynamic suggestions for 'library show' arguments
 - Static suggestions for --platform values`, shell, getShellInstructions(shell)),
 		Args: cobra.NoArgs,
-		Run: func(cmd *cobra.Command, _ []string) {
-			// Get the root command
-			root := cmd.Root()
-
-			// Generate snippet using carapace
-			snippet, err := carapace.Gen(root).Snippet(shell)
-			if err != nil {
-				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Error generating completion: %v\n", err)
-				return
+		RunE: func(c *cobra.Command, _ []string) error {
+			opts := &completionOptions{
+				IO:    f.IOStreams,
+				Ctx:   c.Context(),
+				Shell: shell,
 			}
-
-			_, _ = fmt.Fprint(cmd.OutOrStdout(), snippet)
+			if runF != nil {
+				return runF(opts)
+			}
+			return runCompletion(c, opts)
 		},
 	}
+}
+
+// runCompletion generates the carapace snippet for the requested shell
+// and writes it to opts.IO.Out. Errors from carapace are wrapped so
+// output.FormatError in main.go renders them once.
+func runCompletion(cmd *cobra.Command, opts *completionOptions) error {
+	snippet, err := carapace.Gen(cmd.Root()).Snippet(opts.Shell)
+	if err != nil {
+		return fmt.Errorf("generating %s completion snippet: %w", opts.Shell, err)
+	}
+	if _, err := fmt.Fprint(opts.IO.Out, snippet); err != nil {
+		return fmt.Errorf("writing completion snippet: %w", err)
+	}
+	return nil
 }

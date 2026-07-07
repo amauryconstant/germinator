@@ -30,13 +30,14 @@ import (
 // `Library` is a lazy function field so the Factory can cache the
 // heavy work (LoadLibrary) per the slice-5/6/7 pattern.
 type removeOptions struct {
-	IO         *iostreams.IOStreams
-	Library    func() (*library.Library, error)
-	Ctx        context.Context
-	Ref        string
-	PresetName string
-	Force      bool
-	Output     string
+	IO              *iostreams.IOStreams
+	Library         func() (*library.Library, error)
+	Ctx             context.Context
+	Ref             string
+	PresetName      string
+	Force           bool
+	Output          string
+	CompletionCache *cmdutil.CompletionCache
 }
 
 // removerLibrary is the cmd-side contract for removal operations. It
@@ -169,6 +170,7 @@ Examples:
 			opts.Ctx = c.Context()
 			opts.Ref = args[0]
 			opts.Library = removeLibrary(f, derefString(libraryPath))
+			opts.CompletionCache = f.CompletionCache
 			if runF != nil {
 				return runF(opts)
 			}
@@ -197,6 +199,7 @@ Examples:
 			opts.Ctx = c.Context()
 			opts.PresetName = args[0]
 			opts.Library = removeLibrary(f, derefString(libraryPath))
+			opts.CompletionCache = f.CompletionCache
 			if runF != nil {
 				return runF(opts)
 			}
@@ -292,6 +295,10 @@ func runRemoveResource(opts *removeOptions, lib *library.Library) error {
 		return fmt.Errorf("removing resource: %w", err)
 	}
 
+	if opts.CompletionCache != nil {
+		opts.CompletionCache.Invalidate()
+	}
+
 	payload := &library.RemoveResourceOutput{
 		Type:         "resource",
 		ResourceType: typ,
@@ -353,6 +360,10 @@ func runRemovePreset(opts *removeOptions, lib *library.Library) error {
 		Force: opts.Force,
 	}); err != nil {
 		return fmt.Errorf("removing preset: %w", err)
+	}
+
+	if opts.CompletionCache != nil {
+		opts.CompletionCache.Invalidate()
 	}
 
 	payload := &library.RemovePresetOutput{

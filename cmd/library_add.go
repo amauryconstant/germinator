@@ -33,19 +33,20 @@ import (
 //   - Mode 2 (--discover):     opts.Discover == true
 //   - Mode 3 (--discover --batch --force): continuity + ctx.Err() checks
 type addOptions struct {
-	IO          *iostreams.IOStreams
-	Library     func() (*library.Library, error)
-	Ctx         context.Context
-	InputPaths  []string
-	Name        string
-	Description string
-	Type        string
-	Platform    string
-	Discover    bool
-	Batch       bool
-	Force       bool
-	DryRun      bool
-	Output      string
+	IO              *iostreams.IOStreams
+	Library         func() (*library.Library, error)
+	Ctx             context.Context
+	InputPaths      []string
+	Name            string
+	Description     string
+	Type            string
+	Platform        string
+	Discover        bool
+	Batch           bool
+	Force           bool
+	DryRun          bool
+	Output          string
+	CompletionCache *cmdutil.CompletionCache
 }
 
 // resourceAdder is the cmd-side contract for resource-adding
@@ -177,19 +178,20 @@ Other examples:
 		},
 		RunE: func(c *cobra.Command, args []string) error {
 			opts := &addOptions{
-				IO:          f.IOStreams,
-				Library:     addLibrary(f, derefString(libraryPath)),
-				Ctx:         c.Context(),
-				InputPaths:  args,
-				Name:        name,
-				Description: description,
-				Type:        resType,
-				Platform:    platform,
-				Discover:    discover,
-				Batch:       batch,
-				Force:       force,
-				DryRun:      dryRun,
-				Output:      outputFormat,
+				IO:              f.IOStreams,
+				Library:         addLibrary(f, derefString(libraryPath)),
+				Ctx:             c.Context(),
+				InputPaths:      args,
+				Name:            name,
+				Description:     description,
+				Type:            resType,
+				Platform:        platform,
+				Discover:        discover,
+				Batch:           batch,
+				Force:           force,
+				DryRun:          dryRun,
+				Output:          outputFormat,
+				CompletionCache: f.CompletionCache,
 			}
 
 			if runF != nil {
@@ -351,6 +353,9 @@ func runAddExplicit(opts *addOptions) error {
 		}
 	}
 
+	if succeeded > 0 && !opts.DryRun && opts.CompletionCache != nil {
+		opts.CompletionCache.Invalidate()
+	}
 	return renderExplicitResult(opts, succeeded, initErrs)
 }
 
@@ -552,6 +557,9 @@ func runAddBatchFiles(opts *addOptions) error {
 		}
 	}
 
+	if succeeded > 0 && !opts.DryRun && opts.CompletionCache != nil {
+		opts.CompletionCache.Invalidate()
+	}
 	if len(initErrs) > 0 {
 		return core.NewPartialSuccessError(succeeded, len(initErrs), initErrs)
 	}
@@ -609,6 +617,9 @@ func runAddDiscover(opts *addOptions) error {
 	}
 
 	succeeded, initErrs := collectDiscoverFailures(opts, discResult, batchResult)
+	if succeeded > 0 && !opts.DryRun && opts.CompletionCache != nil {
+		opts.CompletionCache.Invalidate()
+	}
 	return renderDiscoverResult(opts, discResult, succeeded, initErrs)
 }
 

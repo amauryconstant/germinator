@@ -5,7 +5,7 @@
 
 ---
 
-> Describes the target architecture post-rewrite. Slice 1 (scaffold-cli-foundation) landed: `internal/domain/` → `internal/core/` rename, `internal/infrastructure/` flattened, and the three new shell packages (`iostreams/`, `output/`, `cmdutil/`) introduced as units. Remaining work: wire `main.go` to `Factory`, migrate the eight command groups, and delete the legacy `application/`/`service/`/legacyBridge files (slices 2–7).
+> The migration to `golang-cli-architecture` is **complete**. The legacy `application/`, `service/`, `models/`, and `infrastructure/` packages are deleted; the tree below is the final layout.
 
 ## Structure
 
@@ -15,12 +15,17 @@ The internal package tree is organized as a Functional Core surrounded by an Imp
 internal/
 ├── core/                ← Functional Core: pure logic, zero I/O
 ├── iostreams/           ← IOStreams abstraction (stdin/stdout/stderr, TTY, verbose)
-├── output/              ← Shared output (FormatError, Exporter+AddJSONFlags, TablePrinter, prompts)
-├── cmdutil/             ← Factory (lazy DI), ExitCode mapping, shared cmd helpers
+├── output/              ← Shared output (FormatError, Exporter, AddOutputFlags)
+├── cmdutil/             ← Factory (lazy DI), CompletionCache, ExitCode mapping, cmd helpers
 ├── config/              ← Config loading (koanf, XDG paths)
 ├── library/             ← Library I/O (loader, resolver, saver, validator, refresher)
-├── claude-code/         ← Claude Code platform adapter (parse + render)
-└── opencode/            ← OpenCode platform adapter (parse + render)
+├── parser/              ← Platform-agnostic document parsing (frontmatter + body)
+├── renderer/            ← Template-driven rendering to platform output
+├── claude-code/         ← Claude Code platform adapter
+├── opencode/            ← OpenCode platform adapter
+├── permission/          ← Permission-rule mapping for platform output
+├── version/             ← Build-time version metadata (ldflags injection point)
+└── warning/             ← Exit-code deprecation canary
 ```
 
 ### Functional Core (`internal/core/`)
@@ -48,13 +53,14 @@ Everything that does I/O lives here.
 
 #### `internal/output/`
 - `FormatError(io, err)` — dispatches on error type via `errors.As`, formats to stderr
-- `Exporter` interface + `AddJSONFlags(cmd, &opts.Exporter, fields)` — wires `--json` flag to commands
-- `TablePrinter` — multi-format table rendering
-- `promptConfirm(io, msg)` — huh-based interactive confirmation
+- `Exporter` interface + `JSONExporter` (2-space indent) + `TableExporter` (`tab:"HEADER"` struct tag)
+- `AddOutputFlags(cmd, *string)` — wires `--output` (`json`/`table`/`plain`) with shell completion
+- `FormatResourcesList(lib)` — stable plain rendering of `library resources`
 
 #### `internal/cmdutil/`
-- `Factory` struct: `IOStreams`, `AppVersion`, `Executable`, plus **lazy function fields** for dependencies (`Config func() (*config.Config, error)`, etc.) with `sync.Once` caching
-- `ExitCodeFor(err)` — maps errors to 0/1/2
+- `Factory` struct: `IOStreams`, `AppVersion`, `Executable`, `RootContext`, `CompletionCache`, plus **lazy function fields** for dependencies (`Config func() (*config.Config, error)`, `Library func() (*library.Library, error)`) with `sync.Once` caching
+- `ExitCodeFor(err)` — maps errors to 0/1/2 (no 3–6)
+- `CompletionCache` — per-Factory TTL cache for shell-completion library snapshots; `Invalidate()` called by mutating library commands
 
 #### `internal/config/`
 - `AppConfig` struct with `toml`/`koanf` tags
@@ -81,6 +87,7 @@ The following legacy packages are deleted by the rewrite:
 |---|---|
 | `internal/application/` | Interfaces defined where consumed (in cmd files or in `internal/core/contracts.go`) |
 | `internal/service/` | Service implementations live in cmd files or as private helpers in platform adapter packages |
+| `internal/models/` | Two platform constants moved to `internal/core/platform.go` (slice 9) |
 | `internal/infrastructure/parsing/` | Merged into `internal/{claude-code,opencode}/` (parse functions) |
 | `internal/infrastructure/serialization/` | Merged into `internal/{claude-code,opencode}/` (render functions) |
 | `internal/infrastructure/adapters/{claude-code,opencode}/` | Renamed to `internal/{claude-code,opencode}/` |
@@ -180,5 +187,6 @@ The `test/mocks/` package is **deprecated**. New tests use `runF` injection with
 | New: `internal/iostreams/`, `internal/output/`, `internal/cmdutil/` | (shell) | **Done as units** (slice 1); consumed in slice 2+ |
 | `internal/application/` | (removed) | **Done** (slice 7) |
 | `internal/service/` | (removed) | **Done** (slice 7) |
+| `internal/models/` | `internal/core/platform.go` | **Done** (slice 9) |
 | `cmd/{container,command_config,error_handler}.go` + `legacyBridge` | (removed) | **Done** (slice 7) |
 | 7 → 3 exit codes | `cmdutil.ExitCodeFor` | **Done** (slice 7) |

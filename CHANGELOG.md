@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Migration to the `golang-cli-architecture` pattern (Functional Core / Imperative Shell) across nine changes (`scaffold-cli-foundation` through `migrate-completion-cleanup`). Every command adopts the `NewCmdXxx(f *cmdutil.Factory, runF) + runXxx(opts)` shape with `IOStreams`-based I/O and lazy `Factory` dependency injection. See the Breaking section for upgrade guidance.
+
+### Added
+
+- Introduce `internal/iostreams/`, `internal/output/`, and `internal/cmdutil/` foundation packages: `IOStreams` terminal abstraction (TTY detection, lipgloss `Styles`, `Verbosef`, `GERMINATOR_DEBUG` logger), `Exporter` (`json`/`table`/`plain`) interface with `JSONExporter` and `TableExporter`, and the lazy `cmdutil.Factory` dependency-injection mechanism with `sync.OnceValues` caching (scaffold-cli-foundation)
+- Add `--output json|table|plain` flag on `library resources`, `library presets`, `library show`, `library add`, `library init`, `library refresh`, `library remove`, and `library validate` (wire-factory-and-pilots, migrate-library-readonly, migrate-library-add-create, migrate-library-rest)
+- Add typed domain errors `*core.NotFoundError` and `*core.OperationError`, plus the pure `core.CanInstallResource` rule for pre-flight ref validation (migrate-library-readonly, migrate-library-add-create)
+- Add `--force` flag on `library remove resource` and `library remove preset` (migrate-library-rest)
+- Add `(*library.Library).Refresh`, `RemoveResource`, `RemovePreset`, `Validate`, and `Fix` methods mirroring the `CreatePreset` precedent (migrate-library-rest)
+- Add exit-code deprecation canary: a one-time stderr warning emitted when legacy codes `3`–`6` are observed (gated on `EXIT_CODE_LEGACY` env var or stderr being a TTY) (wire-factory-and-pilots)
+
+### Changed
+
+- Migrate `adapt`, `validate`, `canonicalize`, `init`, every `library` subcommand, `config init`, `config validate`, `completion`, and `version` to the `NewCmdXxx(f, runF) + runXxx(opts)` pattern with `*cmdutil.Factory` dependency injection and `iostreams.IOStreams`-based I/O (scaffold-cli-foundation through migrate-completion-cleanup)
+- Rename `internal/domain/` → `internal/core/` and flatten `internal/infrastructure/{parsing,serialization,adapters,config,library}/` into top-level `internal/{parser,renderer,claude-code,opencode,config,library}/` (scaffold-cli-foundation)
+- Collapse the `library create` Cobra group wrapper; `library create preset` is now registered directly under `library` (migrate-library-add-create)
+- Unify `library show` not-found errors under `*core.NotFoundError` rendered as `Error: not found: <ref>` (was two distinct strings for resources vs. presets) (migrate-library-readonly)
+- Rewrite `main.go` as the single composition root constructing `IOStreams` + `Factory` with signal-aware root context; centralized error handling via `output.FormatError` + `os.Exit(int(cmdutil.ExitCodeFor(err)))` (wire-factory-and-pilots)
+
+### Removed
+
+- Remove `internal/application/`, `internal/service/`, `internal/models/`, and the empty `internal/infrastructure/` tree (scaffold-cli-foundation, migrate-library-rest, migrate-completion-cleanup)
+- Remove `ServiceContainer`, `CommandConfig`, `Verbosity`/`VerbosePrint`, `ErrorFormatter`, and `CategorizeError`/`Category*` enum (replaced by `cmdutil.Factory`, `IOStreams.Verbosef`, `output.FormatError`, `cmdutil.ExitCodeFor`) (wire-factory-and-pilots, migrate-library-rest)
+- Remove `cmd/container.go`, `cmd/command_config.go`, `cmd/error_handler.go`, `cmd/error_formatter.go`, `cmd/verbose.go`, and the temporary `cmd/legacy_bridge.go` shim (wire-factory-and-pilots, migrate-library-rest)
+- Remove duplicate `PlatformClaudeCode`/`PlatformOpenCode` definitions from `internal/parser/loader.go` (single source in `internal/core/platform.go`) (migrate-completion-cleanup)
+
+### Breaking
+
+- **Exit codes 3–6 collapsed to 1**: the error exit code is now `1` for all error types (was previously `3` Config, `4` Git, `5` Validation, `6` NotFound); usage errors remain `2`. The exit code is no longer semantic — check stderr for the typed error message. A one-time deprecation warning is emitted on stderr (gated on `EXIT_CODE_LEGACY` env var or stderr being a TTY) to flag the change to legacy consumers. (wire-factory-and-pilots, migrate-domain-commands, migrate-library-readonly, migrate-library-add-create, migrate-library-rest, migrate-config-commands)
+- **`--json` flag removed on library commands**: replaced by `--output json`. Affects every `library` subcommand. The legacy parent-inherited `--json` registration is fully removed — use `--output json` on all library commands. (wire-factory-and-pilots, migrate-library-readonly, migrate-library-add-create, migrate-library-rest)
+- **`--output`/`-o` flag renamed to `--output-dir` on the `init` command**: `germinator init --output <dir>` is now `germinator init --output-dir <dir>`. This disambiguates from the new `--output` format flag and aligns the flag name with its semantic (an output directory, not a format). (migrate-init-command)
+- **`--output` flag renamed to `--output-path` on config commands**: `config init --output <path>` is now `config init --output-path <path>`; same for `config validate`. This disambiguates from the new `--output` format flag introduced on library commands. (migrate-config-commands)
+- **Removed packages**: `internal/application/`, `internal/service/`, and `internal/models/` directories are deleted. Any Go code importing these breaks (germinator is a CLI application, not a library, so external importers are rare). (migrate-library-rest, migrate-completion-cleanup)
+
 ## [0.9.0] - 2026-03-31
 
 

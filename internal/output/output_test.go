@@ -14,6 +14,7 @@ import (
 
 	"gitlab.com/amoconst/germinator/internal/core"
 	"gitlab.com/amoconst/germinator/internal/iostreams"
+	"gitlab.com/amoconst/germinator/internal/library"
 )
 
 func TestFormatErrorDispatch(t *testing.T) {
@@ -307,4 +308,55 @@ func TestAddOutputFlagsDefault(t *testing.T) {
 func newTestCmd(use string) *cobra.Command {
 	cmd := &cobra.Command{Use: use}
 	return cmd
+}
+
+func TestFormatResourcesList_Empty(t *testing.T) {
+	t.Parallel()
+
+	lib := &library.Library{Resources: map[string]map[string]library.Resource{}}
+
+	got := FormatResourcesList(lib)
+	assert.Equal(t, "No resources found.\n", got,
+		"empty library must render the sentinel with a trailing newline")
+}
+
+func TestFormatResourcesList_GroupedWithDescriptions(t *testing.T) {
+	t.Parallel()
+
+	lib := &library.Library{
+		Resources: map[string]map[string]library.Resource{
+			string(library.ResourceTypeSkill): {
+				"commit": {Path: "skills/commit.yaml", Description: "Commit helper"},
+				"pr":     {Path: "skills/pr.yaml"},
+			},
+			string(library.ResourceTypeAgent): {
+				"reviewer": {Path: "agents/reviewer.md", Description: "Code reviewer"},
+			},
+		},
+	}
+
+	got := FormatResourcesList(lib)
+
+	assert.Contains(t, got, "Skills:\n", "skill group header is rendered")
+	assert.Contains(t, got, "Agents:\n", "agent group header is rendered")
+	assert.Contains(t, got, "  skill/commit - Commit helper\n",
+		"resource with description is rendered with the description")
+	assert.Contains(t, got, "  skill/pr\n",
+		"resource without description omits the dash")
+	assert.Contains(t, got, "  agent/reviewer - Code reviewer\n")
+
+	idxSkill := strings.Index(got, "Skills:")
+	idxAgent := strings.Index(got, "Agents:")
+	require.Greater(t, idxSkill, -1)
+	require.Greater(t, idxAgent, -1)
+	assert.Less(t, idxSkill, idxAgent,
+		"skills must be grouped before agents (canonical order)")
+}
+
+func TestFormatResourcesList_NilLibrarySafe(t *testing.T) {
+	t.Parallel()
+
+	got := FormatResourcesList(&library.Library{})
+	assert.Equal(t, "No resources found.\n", got,
+		"library with nil Resources map must render the empty sentinel")
 }

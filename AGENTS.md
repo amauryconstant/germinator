@@ -6,54 +6,61 @@ Configuration adapter transforming AI coding assistant documents between platfor
 
 ```mermaid
 graph LR
-    subgraph CLI[cmd/]
+    subgraph CLI[cmd/ — flat layout, one file per command]
         direction TB
         AD[adapt]
         VA[validate]
         CA[canonicalize]
         IN[init]
-        LIB[library/]
-        CFG[config/]
+        LIB[library_*]
+        CFG[config_*]
         VER[version]
-        COM[completion]
+        COM[completion*]
     end
 
-    subgraph SHELL[Imperative Shell]
+    subgraph SHELL[Imperative Shell — internal/]
         direction TB
+        CU[cmdutil/]
         IO[iostreams/]
         OUT[output/]
-        CU[cmdutil/]
         CONF[config/]
         LIBL[library/]
         CC[claude-code/]
         OC[opencode/]
+        PAR[parser/]
+        REN[renderer/]
+        VERP[version/]
     end
 
-    subgraph CORE[Functional Core]
-        direction TB
+    subgraph CORE[Functional Core — internal/]
         COR[core/<br/>types, validation,<br/>rules, errors]
     end
 
     AD --> CU
+    AD --> PAR
+    AD --> REN
     AD --> CC
     AD --> OC
     AD --> COR
-    AD --> IO
-    AD --> OUT
     VA --> CU
-    VA --> CC
-    VA --> OC
+    VA --> PAR
     VA --> COR
     CA --> CU
-    CA --> CC
-    CA --> OC
+    CA --> PAR
+    CA --> REN
     CA --> COR
     IN --> CU
-    IN --> CC
-    IN --> OC
+    IN --> PAR
+    IN --> REN
     IN --> COR
     LIB --> CU
     LIB --> LIBL
+    CFG --> CU
+    CFG --> CONF
+    VER --> CU
+    VER --> VERP
+    COM --> CU
+    COM --> LIBL
     LIBL --> COR
     CONF --> COR
     CC --> COR
@@ -63,7 +70,7 @@ graph LR
     COR -.->|no I/O| SHELL
 ```
 
-The target architecture is **golang-cli-architecture** (Functional Core / Imperative Shell). All I/O lives in shell packages (`iostreams/`, `output/`, `cmdutil/`, `config/`, `library/`, `claude-code/`, `opencode/`); `core/` is pure logic with stdlib + samber/lo only.
+The target architecture is **golang-cli-architecture** (Functional Core / Imperative Shell). All I/O lives in shell packages (`iostreams/`, `output/`, `cmdutil/`, `config/`, `library/`, `claude-code/`, `opencode/`, `parser/`, `renderer/`, `version/`); `core/` is pure logic with stdlib + samber/lo only. `cmd/` uses a **flat layout** — one `.go` file per command, with multi-word commands as sibling files (`library.go`, `library_add.go`, `config_init.go`), not subdirectories.
 
 ## Reference Skills
 
@@ -387,7 +394,7 @@ graph TB
 | [cmd/canonical-examples/AGENTS.md](cmd/canonical-examples/AGENTS.md) | Canonical `NewCmdXxx(f, runF)` + `runXxx(opts)` migration examples (slices 2, 4, 5, 6) |
 | [internal/core/AGENTS.md](internal/core/AGENTS.md)         | Functional Core: types, validation, rules, errors (pure)     |
 | [internal/iostreams/AGENTS.md](internal/iostreams/AGENTS.md) | IOStreams abstraction, TTY detection, Styles, Verbosef     |
-| [internal/output/AGENTS.md](internal/output/AGENTS.md)     | Shared output: FormatError, Exporter+AddJSONFlags, prompts   |
+| [internal/output/AGENTS.md](internal/output/AGENTS.md)     | Shared output: FormatError, Exporter, AddOutputFlags         |
 | [internal/cmdutil/AGENTS.md](internal/cmdutil/AGENTS.md)   | Factory (lazy fn fields), ExitCode mapping, cmd helpers     |
 | [internal/config/AGENTS.md](internal/config/AGENTS.md)     | Configuration loading, XDG paths, TOML parsing               |
 | [internal/library/AGENTS.md](internal/library/AGENTS.md)   | Library system, resource management, preset grouping         |

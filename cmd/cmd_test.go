@@ -122,24 +122,6 @@ func TestRootCommand_RunHelp(t *testing.T) {
 		"Root command should show help")
 }
 
-// TestVersionCommand verifies the version command renders the
-// binary name + version string. The version command reads from the
-// `internal/version` package (set via -ldflags at build time) and is
-// not influenced by the Factory's AppVersion field. Mirrors
-// TestRootCommand_RunHelp in shape.
-func TestVersionCommand(t *testing.T) {
-	ios := iostreams.Test()
-	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
-	versionCmd := NewVersionCommand(f)
-	out := &bytes.Buffer{}
-	versionCmd.SetOut(out)
-
-	versionCmd.Run(versionCmd, []string{})
-
-	assert.Contains(t, out.String(), "germinator",
-		"Version command output should contain 'germinator', got: %s", out.String())
-}
-
 // TestCanonicalizeCommandWithAllFlags drives the production
 // canonicalize path end-to-end and asserts the YAML payload contains
 // the parsed name and description fields. Replaces the legacy

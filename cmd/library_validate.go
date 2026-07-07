@@ -22,11 +22,12 @@ import (
 // cache the heavy work (LoadLibrary) per call, matching the slice-6
 // libraryPath pattern at cmd/library_create.go:149-159.
 type libraryValidateOptions struct {
-	IO      *iostreams.IOStreams
-	Library func() (*library.Library, error)
-	Ctx     context.Context
-	Fix     bool
-	Output  string
+	IO              *iostreams.IOStreams
+	Library         func() (*library.Library, error)
+	Ctx             context.Context
+	Fix             bool
+	Output          string
+	CompletionCache *cmdutil.CompletionCache
 }
 
 // validatorLibrary is the cmd-side contract for library validation.
@@ -98,11 +99,12 @@ Output formats (--output):
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
 			opts := &libraryValidateOptions{
-				IO:      f.IOStreams,
-				Library: validateLibrary(f, resolveLibraryFlag(c)),
-				Ctx:     c.Context(),
-				Fix:     fix,
-				Output:  outputFormat,
+				IO:              f.IOStreams,
+				Library:         validateLibrary(f, resolveLibraryFlag(c)),
+				Ctx:             c.Context(),
+				Fix:             fix,
+				Output:          outputFormat,
+				CompletionCache: f.CompletionCache,
 			}
 			if runF != nil {
 				return runF(opts)
@@ -175,6 +177,14 @@ func runLibraryValidate(opts *libraryValidateOptions) error {
 	if err != nil {
 		output.FormatError(opts.IO, err)
 		return fmt.Errorf("validating library: %w", err)
+	}
+
+	// Invalidate the completion cache only when --fix was used and the
+	// validator reports a non-nil FixResult (meaning the fix path ran
+	// and may have rewritten library.yaml). Plain validation is
+	// read-only and leaves the cache untouched.
+	if opts.Fix && result.FixResult != nil && opts.CompletionCache != nil {
+		opts.CompletionCache.Invalidate()
 	}
 
 	switch opts.Output {

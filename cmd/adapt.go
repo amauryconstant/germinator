@@ -80,7 +80,7 @@ Example:
 	_ = cmd.MarkFlagRequired("platform")
 
 	carapace.Gen(cmd).FlagCompletion(carapace.ActionMap{
-		"platform": actionPlatforms(),
+		"platform": actionPlatforms(f),
 	})
 
 	return cmd

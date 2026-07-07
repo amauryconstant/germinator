@@ -31,10 +31,10 @@ Germinator source format and adapts it for target platforms like Claude Code and
 	cmd.AddCommand(NewCmdValidate(f, nil))
 	cmd.AddCommand(NewCmdAdapt(f, nil))
 	cmd.AddCommand(NewCmdCanonicalize(f, nil))
-	cmd.AddCommand(NewVersionCommand(f))
+	cmd.AddCommand(NewCmdVersion(f, nil))
 	cmd.AddCommand(NewLibraryCommand(f, nil))
 	cmd.AddCommand(NewCmdInit(f, nil))
-	cmd.AddCommand(NewCompletionCommand(f))
+	cmd.AddCommand(NewCmdCompletion(f, nil))
 	cmd.AddCommand(NewConfigCommand(f))
 
 	// Initialize carapace for enhanced completions

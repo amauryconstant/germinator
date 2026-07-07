@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 
 	gerrors "gitlab.com/amoconst/germinator/internal/core"
-	"gitlab.com/amoconst/germinator/internal/models"
 )
 
 // Config holds the application configuration.
@@ -52,12 +51,12 @@ func (c *Config) Validate() error {
 		return nil
 	}
 
-	if c.Platform != models.PlatformClaudeCode && c.Platform != models.PlatformOpenCode {
+	if c.Platform != gerrors.PlatformClaudeCode && c.Platform != gerrors.PlatformOpenCode {
 		return gerrors.NewConfigError(
 			"platform",
 			c.Platform,
 			"unknown platform",
-		).WithSuggestions([]string{models.PlatformClaudeCode, models.PlatformOpenCode})
+		).WithSuggestions([]string{gerrors.PlatformClaudeCode, gerrors.PlatformOpenCode})
 	}
 
 	return nil

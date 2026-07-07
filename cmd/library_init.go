@@ -24,12 +24,13 @@ import (
 // dual-form pattern of CreatePreset / (*Library).CreatePreset at
 // internal/library/creator.go:127.
 type libraryInitOptions struct {
-	IO     *iostreams.IOStreams
-	Ctx    context.Context
-	Path   string
-	Force  bool
-	DryRun bool
-	Output string
+	IO              *iostreams.IOStreams
+	Ctx             context.Context
+	Path            string
+	Force           bool
+	DryRun          bool
+	Output          string
+	CompletionCache *cmdutil.CompletionCache
 }
 
 // initRow is the single-row table/JSON payload for `library init`
@@ -100,12 +101,13 @@ Examples:
   germinator library init --output json`,
 		RunE: func(c *cobra.Command, _ []string) error {
 			opts := &libraryInitOptions{
-				IO:     f.IOStreams,
-				Ctx:    c.Context(),
-				Path:   path,
-				Force:  force,
-				DryRun: dryRun,
-				Output: initOutputFormat,
+				IO:              f.IOStreams,
+				Ctx:             c.Context(),
+				Path:            path,
+				Force:           force,
+				DryRun:          dryRun,
+				Output:          initOutputFormat,
+				CompletionCache: f.CompletionCache,
 			}
 			if runF != nil {
 				return runF(opts)
@@ -162,6 +164,10 @@ func runLibraryInit(opts *libraryInitOptions) error {
 		DryRun: opts.DryRun,
 	}); err != nil {
 		return fmt.Errorf("creating library: %w", err)
+	}
+
+	if !opts.DryRun && opts.CompletionCache != nil {
+		opts.CompletionCache.Invalidate()
 	}
 
 	row := initRow{Path: path, DryRun: opts.DryRun, Created: !opts.DryRun}

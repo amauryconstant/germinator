@@ -5,32 +5,30 @@
 
 # CLI Entry Points
 
-Cobra-based CLI with platform-specific validation, typed errors, and verbosity control. **Architectural patterns live here**; per-command flag tables and behavior live in [`cmd/commands/AGENTS.md`](commands/AGENTS.md).
+Cobra-based CLI built on the `NewCmdXxx(f *Factory, runF func(*XxxOptions) error) *cobra.Command` pattern (Functional Core / Imperative Shell). **Architectural patterns live here**; per-command flag tables and behavior live in [`cmd/commands/AGENTS.md`](commands/AGENTS.md) and worked migration examples in [`cmd/canonical-examples/AGENTS.md`](canonical-examples/AGENTS.md).
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `main.go` | Composition root - wires ServiceContainer and executes CLI |
-| `container.go` | ServiceContainer for dependency injection (legacy; slice 7) |
+| `main.go` | Composition root — constructs `*cmdutil.Factory`, registers commands, deferred exit-code handler |
 | `root.go` | Root command with subcommand registration |
-| `adapt.go` | Transform document to target platform format |
+| `adapt.go` | `adapt <input> <output> --platform ...` — canonical `NewCmdAdapt` example (see below) |
 | `validate.go` | Validate document against platform rules |
 | `canonicalize.go` | Convert platform document to canonical format |
-| `version.go` | Display version, commit, build date |
-| `library.go` | Library management commands (init, resources, presets, show) |
+| `version.go` | Display version, commit, build date (reads `internal/version`) |
+| `library.go` | Library parent command + `library create` routing shim |
 | `library_init.go` | Library init subcommand (scaffolding new libraries) |
 | `library_add.go` | Library add subcommand (import resources, discover orphans) |
-| `library_create.go` | Library create subcommand (create presets) |
+| `library_create.go` | `library create preset` subcommand |
 | `library_refresh.go` | Library refresh subcommand (sync metadata from files) |
-| `init.go` | Install resources from library to project |
+| `library_remove.go` | Library remove subcommand (resource / preset) |
+| `library_validate.go` | Library validate subcommand (integrity check + `--fix`) |
+| `resources.go` / `presets.go` / `show.go` | Read-only library subcommands |
+| `init.go` | Install resources from library to project (top-level `init`) |
 | `completion.go` | Shell completion command (carapace-based, multi-shell) |
-| `completions.go` | Dynamic completion actions with caching |
-| `library_formatters.go` | Library command output formatting |
-| `error_handler.go` | Error categorization and exit code handling (legacy; slice 7) |
-| `error_formatter.go` | Typed error formatting with contextual hints (legacy; slice 7) |
-| `verbose.go` | Verbosity levels and output helpers (legacy; slice 7) |
-| `config.go` | Config command group (init, validate) and CommandConfig struct |
+| `completions.go` | Dynamic completion actions with `Factory.CompletionCache` |
+| `config.go` | Config command group (`init`, `validate`) |
 | `lint_test.go` | Lint baseline enforcement test (see [Lint Enforcement](#lint-enforcement)) |
 | `testdata/lint_baseline.txt` | Captured `mise run lint` output; the baseline against which `lint_test.go` diffs |
 
@@ -38,118 +36,146 @@ Cobra-based CLI with platform-specific validation, typed errors, and verbosity c
 
 # Dependency Injection
 
-## ServiceContainer (legacy; slice 7)
+Composition flows through `*cmdutil.Factory` (`internal/cmdutil/factory.go`). `main.go` constructs a single `*Factory` and passes it to every `NewCmdXxx` constructor. The Factory exposes:
 
-Services passed through command tree via `ServiceContainer`:
+- `IOStreams` (`*iostreams.IOStreams`) — terminal I/O, `Verbosef`, TTY detection
+- `RootContext` (`context.Context`) — propagated to every `RunE`
+- Lazy function fields (`Config`, `Library`, `Executable`, `CompletionCache`, ...) backed by `sync.OnceValues`
+
+No `init()` functions or global command variables.
+
+---
+
+# Canonical Command Pattern: `adapt`
+
+`cmd/adapt.go` is the canonical reference for the `NewCmdXxx(f, runF) + runXxx(opts)` pattern. Every migrated command follows the same shape; read this first, then [`cmd/canonical-examples/AGENTS.md`](canonical-examples/AGENTS.md) for slice-specific variants.
+
+## 1. Options struct
+
+Holds resolved runtime state — Factory-derived values, parsed flags, and positional args. Lazy per-call injection seams (here `Transformer`) live here so tests can substitute a fake.
+
 ```go
-type ServiceContainer struct {
-    Transformer   application.Transformer
-    Validator     application.Validator
-    Canonicalizer application.Canonicalizer
-    Initializer   application.Initializer
+type adaptOptions struct {
+    IO          *iostreams.IOStreams
+    Transformer func() (Transformer, error) // nil → production constructor
+    Ctx         context.Context
+    InputPath   string
+    OutputPath  string
+    Platform    string
+}
+```
+
+## 2. Local contract (interfaces where consumed)
+
+Command-side interfaces live in `cmd/`, next to the consumer — not in `internal/core/`. This keeps `core/` pure and lets each command narrow the surface to what it actually needs.
+
+```go
+type Transformer interface {
+    Transform(ctx context.Context, req *TransformRequest) (*core.TransformResult, error)
 }
 
-services := cmd.NewServiceContainer()
-```
-
-> **Slice 1 (done):** `cmdutil.Factory` introduced as a unit (see [Foundation Units](#foundation-units-slice-1)). `main.go` is not yet rewired; `ServiceContainer` is still the live DI mechanism. **Slice 2** rewires `main.go` to construct a `*cmdutil.Factory`; **slice 7** deletes `container.go` and `NewServiceContainer()`.
-
-## Composition Root
-
-`main.go` wires all dependencies:
-```go
-services := cmd.NewServiceContainer()
-cfg := &cmd.CommandConfig{
-    Services:       services,
-    ErrorFormatter: cmd.NewErrorFormatter(),
-    Verbosity:      0,
+type TransformRequest struct {
+    InputPath  string
+    OutputPath string
+    Platform   string
 }
-rootCmd := cmd.NewRootCommand(cfg)
 ```
 
-## Calling Services
+## 3. Constructor: `NewCmdAdapt(f, runF) *cobra.Command`
 
-Commands access services through interfaces:
+- `f *cmdutil.Factory` — composition root; supplies `IOStreams`, `RootContext`, completion cache.
+- `runF func(*adaptOptions) error` — test-injection seam. Production passes `nil` (the constructor falls back to `runAdapt`); tests pass a stub.
+- Builds the `*cobra.Command`, wires flags + carapace completion, and constructs `*adaptOptions` inside `RunE`.
+
 ```go
-result, err := cfg.Services.Transformer.Transform(ctx, &application.TransformRequest{
-    InputPath:  args[0],
-    OutputPath: args[1],
-    Platform:   platform,
-})
-```
-
-## Constructor Pattern
-
-Commands use `NewXCommand(cfg *CommandConfig)` constructors with RunE pattern:
-```go
-func NewValidateCommand(cfg *CommandConfig) *cobra.Command {
-    cmd := &cobra.Command{...}
-    cmd.RunE = func(c *cobra.Command, args []string) error {
-        verbosity, _ := c.Flags().GetCount("verbose")
-        cfg.Verbosity = Verbosity(verbosity)
-        // Use cfg.Services, cfg.ErrorFormatter
-        // Return errors (bubble up to main.go for centralized handling)
-        return nil
+func NewCmdAdapt(f *cmdutil.Factory, runF func(*adaptOptions) error) *cobra.Command {
+    var platform string
+    cmd := &cobra.Command{
+        Use:   "adapt <input> <output>",
+        Args:  cobra.ExactArgs(2),
+        RunE: func(c *cobra.Command, args []string) error {
+            opts := &adaptOptions{
+                IO:         f.IOStreams,
+                Ctx:        c.Context(),
+                InputPath:  args[0],
+                OutputPath: args[1],
+                Platform:   platform,
+            }
+            if runF != nil {
+                return runF(opts)
+            }
+            return runAdapt(opts)
+        },
     }
+    cmd.Flags().StringVar(&platform, "platform", "", "Target platform (required: claude-code, opencode)")
+    _ = cmd.MarkFlagRequired("platform")
+    carapace.Gen(cmd).FlagCompletion(carapace.ActionMap{
+        "platform": actionPlatforms(f),
+    })
     return cmd
 }
 ```
 
-No `init()` functions or global command variables.
+## 4. `runAdapt(opts)` — production body
 
-> **Slice 2 transition:** constructor signature changes to `NewCmdXxx(f *Factory, runF func(*XxxOptions) error)`. `runF` is the test-injection seam; production wires it to `runXxx`, tests substitute a stub.
+Pure function over `*adaptOptions`. Validates input (`core.ValidatePlatform`), resolves the lazy dependency with a nil-safe fallback, calls the contract, writes success to `opts.IO.Out`, and wraps every failure path with `fmt.Errorf("...: %w", err)` so `output.FormatError` + `cmdutil.ExitCodeFor` can dispatch by type.
 
-## Canonical examples (per slice)
-
-Worked examples of the `NewCmdXxx(f, runF)` + `runXxx(opts)` pattern
-are organized by migration slice. Each entry captures the pattern
-variants introduced in that slice and the differences from earlier
-slices. Start with the earliest slice containing a pattern you need.
-
-See [`cmd/canonical-examples/AGENTS.md`](canonical-examples/AGENTS.md)
-for the full set:
-
-| Slice | Pattern highlights |
-|-------|--------------------|
-| 2 (pilot) | `adapt` + `library resources`; bare `NewCmdXxx(f, runF)` shape, inline `Transformer` interface |
-| 4 | `presets` + `show`; per-command options struct, parent passes `nil` for runF |
-| 5 | top-level `init`; partial-success aggregate, `--output-dir` rename, `Initializer` lazy field |
-| 6 | `library add` (3 modes + legacy) + `library create preset`; `*core.OperationError` per-resource, `core.CanInstallResource` pre-flight, `AddRequest`/`Orphan` renames, `--output` flag |
-
----
-
-# CommandConfig (legacy; slice 7)
-
-Holds configuration and services for command execution:
 ```go
-type CommandConfig struct {
-    Services       *ServiceContainer
-    ErrorFormatter *ErrorFormatter
-    Verbosity      Verbosity
+func runAdapt(opts *adaptOptions) error {
+    if err := core.ValidatePlatform(opts.Platform); err != nil {
+        return fmt.Errorf("validating platform: %w", err)
+    }
+    opts.IO.Verbosef("transforming %s → %s", opts.InputPath, opts.OutputPath)
+
+    resolve := opts.Transformer
+    if resolve == nil {
+        resolve = func() (Transformer, error) { return NewTransformer(), nil }
+    }
+    t, err := resolve()
+    if err != nil {
+        return fmt.Errorf("resolving transformer: %w", err)
+    }
+    if _, err := t.Transform(opts.Ctx, &TransformRequest{
+        InputPath:  opts.InputPath,
+        OutputPath: opts.OutputPath,
+        Platform:   opts.Platform,
+    }); err != nil {
+        return fmt.Errorf("transforming document: %w", err)
+    }
+    _, _ = fmt.Fprintf(opts.IO.Out, "wrote %s\n", opts.OutputPath)
+    return nil
 }
 ```
 
-> Replaced by `*cmdutil.Factory` in slice 2; `CommandConfig` struct is deleted in slice 7.
+## Variants by slice
+
+| Slice | Pattern highlights |
+|-------|--------------------|
+| 2 (pilot) | `adapt` + `library resources`; bare `NewCmdXxx(f, runF)` shape, inline `Transformer` interface (above) |
+| 4 | `presets` + `show`; per-command options struct, parent passes `nil` for runF |
+| 5 | top-level `init`; partial-success aggregate (`*core.PartialSuccessError`), `--output-dir` rename, `Initializer` lazy field |
+| 6 | `library add` (3 modes + legacy) + `library create preset`; `*core.OperationError` per-resource, `core.CanInstallResource` pre-flight, `AddRequest`/`Orphan` renames, `--output` flag |
+| 9 | `completion` (carapace) + `version`; `Factory.CompletionCache` injection; `internal/version` for build-time version |
+
+Full worked examples: [`cmd/canonical-examples/AGENTS.md`](canonical-examples/AGENTS.md).
 
 ---
 
 # Required Flags
 
-Both `adapt` and `validate` require `--platform` flag:
+Both `adapt` and `validate` require `--platform`:
 ```go
 _ = cmd.MarkFlagRequired("platform")
 ```
 
-Validation uses typed ConfigError:
+Runtime validation uses `core.ValidatePlatform` (returns `*core.ValidationError` for unknown platforms):
 ```go
-if platform == "" {
-    HandleError(cfg, gerrors.NewConfigError("platform", "",
-        []string{models.PlatformClaudeCode, models.PlatformOpenCode},
-        "--platform flag is required"))
+if err := core.ValidatePlatform(opts.Platform); err != nil {
+    return fmt.Errorf("validating platform: %w", err)
 }
 ```
 
-> Use `core.PlatformClaudeCode` / `core.PlatformOpenCode` constants (slice 1+) instead of `models.Platform*`. The `core.ValidatePlatform(s)` helper (slice 1) replaces the inline `[]string{...}` checks for new code.
+Use `core.PlatformClaudeCode` / `core.PlatformOpenCode` constants (defined in `internal/core/platform.go` since slice 9.3) — the legacy `models.Platform*` constants are gone.
 
 ## Supported Platforms
 
@@ -158,82 +184,44 @@ if platform == "" {
 
 ---
 
-# Verbosity Flag (legacy helpers; slice 7)
+# Verbosity
 
-Persistent `-v`/`-vv` flag on root command for all subcommands:
-```go
-rootCmd.PersistentFlags().CountP("verbose", "v", "Increase verbosity (use -v or -vv)")
-```
+`-v` / `-vv` on the root command toggles `IOStreams.Verbose`. Commands call `opts.IO.Verbosef(format, args...)` (writes to `ErrOut`, auto-trailing newline, no-op when `Verbose == false`). Stdout stays clean for piping.
 
-Levels:
-- Level 0 (default): No verbose output
-- Level 1 (`-v`): Basic progress info
-- Level 2 (`-vv`): Detailed operation info
-
-Usage:
-```go
-VerbosePrint(cfg, "Processing file: %s", filePath)      // Level 1+
-VeryVerbosePrint(cfg, "Parsing YAML structure...")      // Level 2+
-```
-
-Output goes to stderr (stdout stays clean for piping).
-
-> **Slice 1 introduced `iostreams.IOStreams.Verbosef` (slice 1 unit).** Slice 2+ commands use `opts.IO.Verbosef(format, args...)` directly. `VerbosePrint`/`VeryVerbosePrint` and the `Verbosity` type are removed in slice 7.
+The legacy `VerbosePrint` / `VeryVerbosePrint` helpers and the `Verbosity` type were removed in slice 7.
 
 ---
 
-# Exit Codes (transitioning to 0/1/2)
+# Exit Codes
 
-Current exit codes (still in use; `CategorizeError` is the live mapping):
-- `0` (Success) - Command completed successfully
-- `1` (Error) - General errors (transform, file, unexpected)
-- `2` (Usage) - Cobra argument/validation errors (invalid flags, missing args)
-- `3` (Config) - Configuration/parsing errors (malformed YAML, config errors)
-- `4` (Git) - Git-related errors
-- `5` (Validation) - Document validation errors
-- `6` (NotFound) - File/resource not found errors
+Three-value scheme (collapsed from the legacy 7-value scheme in slice 7):
 
-Error categorization via `CategorizeError()` using `errors.As` for type detection.
+- `0` (Success) — command completed; also returned for `*core.PartialSuccessError` with `Succeeded > 0`
+- `1` (Error) — general errors (transform, file, unexpected)
+- `2` (Usage) — Cobra argument/validation errors (invalid flags, missing args) detected via `cmdutil.cobraUsagePrefixes`
 
-> **Slice 1 introduced `cmdutil.ExitCodeFor(err)` returning 0/1/2.** The seven-code scheme collapses to three (`ExitCodeSuccess=0`, `ExitCodeError=1`, `ExitCodeUsage=2`) when `main.go` is rewired in slice 2. `CategorizeError` and the `Category*` enum are deleted in slice 7.
+Mapping: `cmdutil.ExitCodeFor(err)` inspects the error chain with `errors.As` and returns the code. `main.go` calls it from a deferred handler — never call `os.Exit` directly (enforced by `forbidigo`).
 
 ---
 
 # Error Handling
 
-## Centralized Error Handling
+## Flow
 
-Errors bubble up to main.go via RunE pattern:
+Errors return from `RunE` → bubble up to `main.go` → `cmdutil.ExitCodeFor(err)` resolves the exit code → a deferred handler calls `output.FormatError(io, err)` (writes the formatted message to `ErrOut` via `errors.As` dispatch on `*core.*Error`) → `os.Exit(code)`.
+
 ```go
-// main.go
-cmd.SetGlobalCommandConfig(cfg)
-if err := rootCmd.Execute(); err != nil {
-    exitCode := cmd.HandleCLIError(rootCmd, err)
-    os.Exit(int(exitCode))
+// inside a runXxx body
+if err := core.ValidatePlatform(opts.Platform); err != nil {
+    return fmt.Errorf("validating platform: %w", err)
 }
 ```
 
-```go
-func HandleCLIError(c *cobra.Command, err error) ExitCode {
-    // Formats and outputs error, returns exit code
-    // Uses global CommandConfig set during command construction
-}
-```
-
-> **Slice 1 introduced `output.FormatError(io, err)`** (slice 1 unit). Slice 2+ replaces `ErrorFormatter` with `output.FormatError` calls in command `runXxx` bodies. `HandleCLIError` is removed in slice 7.
-
-## Error Formatter (legacy; slice 7)
-
-Type-specific formatting with contextual hints:
-- ParseError → "Parse error: <message> File: <path>"
-- ValidationError → "Validation error: <message>" + "Hint:" lines
-- TransformError → "Transform error (<operation> for <platform>): <message>"
-- FileError → "File error (<operation>): <message> Path: <path>"
-- ConfigError → "Config error: <message>" + "Available: <options>"
+Every error path wraps with `%w` so the typed `*core.*Error` stays inspectable through the chain.
 
 ## Typed Errors
 
-Import from `internal/core/` (renamed from `internal/domain/` in slice 1):
+Import from `internal/core/`:
 ```go
 import "gitlab.com/amoconst/germinator/internal/core"
 
@@ -242,10 +230,14 @@ core.NewParseError(path, message, cause)
 core.NewValidationError(message, field, suggestions)
 core.NewTransformError(operation, platform, message, cause)
 core.NewFileError(path, operation, message, cause)
-core.NewConfigError(field, value, available, message)
-core.NewInitializeError(ref, inputPath, outputPath, cause)  // slice 1; consumer in slice 5
-core.NewPartialSuccessError(succeeded, failed, errors)     // slice 1; consumer in slice 5
+core.NewConfigError(field, value, message).WithSuggestions([]string{...})
+core.NewNotFoundError(resource, identifier)
+core.NewOperationError(op, resource, cause)        // slice 6
+core.NewInitializeError(ref, inputPath, outputPath, cause)
+core.NewPartialSuccessError(succeeded, failed, errors)
 ```
+
+`output.FormatError` renders each type with a contextual prefix (`Error: not found: <ref>`, `Error: <op> failed: <msg>`, etc.).
 
 ---
 
@@ -259,35 +251,35 @@ core.NewPartialSuccessError(succeeded, failed, errors)     // slice 1; consumer 
 # Version Output Format
 
 ```go
-fmt.Printf("germinator %s (%s) %s\n", version.Version, version.Commit, version.Date)
+fmt.Fprintf(opts.IO.Out, "germinator %s (%s) %s\n", version.Version, version.Commit, version.Date)
 ```
 
 Example: `germinator v0.3.20 (abc123def) 2026-02-04`
+
+`internal/version` is the source of truth (populated via `-ldflags` at build time). `Factory.AppVersion` is a separate short-form string used elsewhere and is **not** read by `runVersion` (see `cmd/version.go`).
 
 ---
 
 # Testing
 
-`cmd_test.go` contains integration tests for CLI workflows.
-Test both platforms when testing platform-specific commands.
+Table-driven tests with descriptive names. Each command has a dedicated `*_test.go`. Two test seams:
 
-Test files:
-- `verbose_test.go` - Verbosity type and helper function tests
-- `error_formatter_test.go` - Error formatting tests
-- `library_test.go` - Library and init command tests
-- `completions_test.go` - Completion action unit tests (cache, timeout, actions)
-- `validate_test.go` - Validate command integration tests
-- `library_init_test.go` - Library init tests
-- `library_create_test.go` - Library create tests
-- `lint_test.go` - Lint baseline enforcement (see [Lint Enforcement](#lint-enforcement))
+- `runF` injection — tests pass a stub `runF func(*XxxOptions) error` to skip the real body and assert the constructor wired flags / options correctly.
+- `iostreams.Test()` — buffer-backed `IOStreams` so tests assert on `Out` / `ErrOut` contents.
 
-> For new command tests, prefer `runF` injection with `iostreams.Test()` buffers over the deprecated `test/mocks/` package. Slice 2+ commands receive `runF` as a constructor parameter; tests substitute a stub.
+Test files of note:
+- `adapt_test.go`, `validate_test.go`, `version_test.go` — per-command tests (slice 2 / 9 references)
+- `library_*_test.go` — library subcommand tests
+- `completions_test.go` — completion action unit tests (`Factory.CompletionCache`, timeout, actions)
+- `lint_test.go` — lint baseline enforcement (see [Lint Enforcement](#lint-enforcement))
+
+> The `test/mocks/` package is **deprecated**. New tests use `runF` injection with `iostreams.Test()` buffers.
 
 ---
 
-# Foundation Units (slice 1)
+# Foundation Units
 
-The following units exist as of slice 1; **`main.go` is not yet wired to them** (that happens in slice 2). They are testable, fully covered, and safe to consume from new code.
+The shell units consumed by `cmd/` (slice 1+; fully wired since slice 7):
 
 | Unit | Package | Purpose |
 |------|---------|---------|
@@ -300,7 +292,7 @@ The following units exist as of slice 1; **`main.go` is not yet wired to them** 
 | `cmdutil.ExitCodeFor` | `internal/cmdutil/exit.go` | Maps `error` → 0/1/2 (0 if `*core.PartialSuccessError{Succeeded>0}`) |
 | `cmdutil.AddOutputFlags` | `internal/cmdutil/output_flags.go` | Re-export of `output.AddOutputFlags` so cmd files import only `cmdutil` |
 | `core.ValidatePlatform` | `internal/core/rules.go` | Returns `*core.ValidationError` for unknown platform strings |
-| `core.ResolveOutputPath` | `internal/core/rules.go` | `(docType, name, platform) → path` (e.g., `agents/reviewer.claude-code.md`); consumer in slice 5 |
+| `core.ResolveOutputPath` | `internal/core/rules.go` | `(docType, name, platform) → path` (e.g., `agents/reviewer.claude-code.md`) |
 
 **`GERMINATOR_DEBUG=1`** enables a debug-level `slog.Logger` on `IOStreams.Logger` (writes to `ErrOut`). Unset = no-op handler.
 
