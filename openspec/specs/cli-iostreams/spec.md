@@ -26,7 +26,7 @@ The `iostreams` package SHALL provide two constructors.
 
 - **WHEN** `iostreams.System()` is called from `main.go`
 - **THEN** it SHALL return an `IOStreams` with `In = os.Stdin`, `Out = os.Stdout`, `ErrOut = os.Stderr`
-- **AND** it SHALL perform TTY detection on `Out` (and `In`) using a terminal-capability library
+- **AND** it SHALL perform TTY detection on `In`, `Out`, and `ErrOut` (currently via `golang.org/x/term`; any equivalent terminal-detection mechanism is acceptable)
 - **AND** it SHALL set `Styles` to a TTY-aware or non-TTY-aware `Styles` based on TTY detection and `NO_COLOR`
 
 #### Scenario: Test() for unit tests

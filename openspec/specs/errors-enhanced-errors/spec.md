@@ -6,7 +6,7 @@ Apply the immutable builder pattern (private fields, getters, WithSuggestions(),
 
 ### Requirement: ParseError with private fields and getters
 
-The system SHALL provide an enhanced `ParseError` in `internal/errors/types.go` with private fields and getter methods.
+The system SHALL provide an enhanced `ParseError` in `internal/core/errors.go` with private fields and getter methods.
 
 #### Scenario: ParseError has private fields
 
@@ -58,7 +58,7 @@ The system SHALL provide a `WithContext(context string) *ParseError` method that
 
 ### Requirement: TransformError with private fields and getters
 
-The system SHALL provide an enhanced `TransformError` in `internal/errors/types.go` with private fields and getter methods.
+The system SHALL provide an enhanced `TransformError` in `internal/core/errors.go` with private fields and getter methods.
 
 #### Scenario: TransformError has private fields
 
@@ -104,7 +104,7 @@ The system SHALL provide a `WithContext(context string) *TransformError` method.
 
 ### Requirement: FileError with private fields and getters
 
-The system SHALL provide an enhanced `FileError` in `internal/errors/types.go` with private fields and getter methods.
+The system SHALL provide an enhanced `FileError` in `internal/core/errors.go` with private fields and getter methods.
 
 #### Scenario: FileError has private fields
 
@@ -150,7 +150,7 @@ The system SHALL provide a `WithContext(context string) *FileError` method.
 
 ### Requirement: ConfigError with private fields and getters
 
-The system SHALL provide an enhanced `ConfigError` in `internal/errors/types.go` with private fields and getter methods.
+The system SHALL provide an enhanced `ConfigError` in `internal/core/errors.go` with private fields and getter methods.
 
 #### Scenario: ConfigError has private fields
 

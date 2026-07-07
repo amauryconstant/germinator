@@ -1,8 +1,10 @@
-# output-formats Specification
+# cli-output-formats Specification
 
 ## Purpose
 
-Define the `--output json|table|plain` flag and the `Exporter` interface shared by all read-only commands. This capability establishes the foundation (`cmdutil.AddOutputFlags`, the `Exporter` interface, and `JSONExporter`/`TableExporter`); per-command adoption and replacement of legacy `--json` flags is sequenced across the command migration changes.
+Define the `--output json|table|plain` flag and the `Exporter` interface shared by all read-only commands. This capability establishes the foundation (`cmdutil.AddOutputFlags`, the `Exporter` interface, and `JSONExporter`/`TableExporter`).
+
+> **Note:** The `--output` flag was introduced alongside the broader `--output json|table|plain` design. Prior to this, several commands exposed a one-off `--json` flag; that flag was removed in favor of the unified `--output` flag described here. Historical references to the `--json` flag are intentionally not preserved in this spec — see CHANGELOG.md for the removal history.
 
 ## Requirements
 
@@ -30,6 +32,8 @@ The `output.Exporter` interface SHALL define a single `Write` method.
 
 - **WHEN** a type implements `Exporter`
 - **THEN** it SHALL expose `Write(io *iostreams.IOStreams, data any) error`
+
+> **Divergence from the `golang-cli-architecture` skill:** The skill recommends a `Write(w io.Writer, data any) error` signature for portable, single-purpose formatters. Germinator intentionally uses `*iostreams.IOStreams` because every exporter needs access to TTY detection (adaptive output) and `Styles` (color). Tests inject buffers via `iostreams.Test()`. Switching to `io.Writer` would force every consumer to thread the IOStreams separately with no functional gain.
 
 ### Requirement: JSONExporter
 
@@ -83,6 +87,8 @@ Each command SHALL call `cmdutil.AddOutputFlags` if and only if it produces stru
 **Commands that SHALL call `cmdutil.AddOutputFlags`**: any read-only command whose primary result is a structured data structure (validation result, list of resources, list of presets, per-resource action result). Examples include commands that emit validation results, per-resource install/add/remove results, resource or preset lists, resource/preset detail views, and per-resource sync results.
 
 **Commands that SHALL NOT call `cmdutil.AddOutputFlags`**: any command whose primary result is a file, script, or short one-line text written to stdout. Examples include commands that write platform files, write canonical files, write one-line version strings, write shell completion scripts, write config files, or write library scaffolding.
+
+> **Out of scope:** NDJSON / JSON-Lines streaming. All current read-only commands produce JSON arrays (or single objects); no exporter implements NDJSON. Adding NDJSON would require defining the array-vs-streaming boundary per command; deferred until a streaming use case arises.
 
 #### Scenario: adapt has no --output flag
 

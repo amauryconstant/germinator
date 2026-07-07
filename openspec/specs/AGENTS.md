@@ -16,7 +16,7 @@ openspec/specs/
 └── ...
 ```
 
-Specs live one folder deep: `openspec/specs/<spec-name>/spec.md`. The spec name is prefixed with a **category** (e.g., `cli-`, `library-`, `transformation-`) to group related specs and keep the namespace organised. There are currently 55 specs across 10 categories.
+Specs live one folder deep: `openspec/specs/<spec-name>/spec.md`. The spec name is prefixed with a **category** (e.g., `cli-`, `library-`, `transformation-`) to group related specs and keep the namespace organised. There are currently 65 specs across 10 categories.
 
 ## Naming Conventions
 
@@ -45,6 +45,7 @@ These are the active categories, with the criteria for what belongs in each. Use
 - Service contracts (interfaces between layers)
 - Application-wide configuration loading and management
 - How components are composed and wired together
+- Three-concern separation (Parse / Execute / Respond)
 
 **Code alignment:** `internal/cmdutil/`, `internal/config/`
 
@@ -64,7 +65,7 @@ These are the active categories, with the criteria for what belongs in each. Use
 
 ### `core-`
 
-**Purpose:** Document I/O primitives.
+**Purpose:** Document I/O primitives and the purity policy for the Functional Core.
 
 **What belongs here:**
 
@@ -72,6 +73,7 @@ These are the active categories, with the criteria for what belongs in each. Use
 - Parsing document formats (YAML, TOML, etc.)
 - Serializing documents back to files
 - Low-level document operations
+- The purity rule: `core/` may not import `os`, `net`, `exec` (depguard-enforced)
 
 **Code alignment:** `internal/core/`
 
@@ -170,53 +172,63 @@ These are the active categories, with the criteria for what belongs in each. Use
 
 ## Spec Catalog
 
-The 55 current specs, grouped by category.
+The 64 current specs, grouped by category.
 
-### `application-` (5)
+### `application-` (4)
 
-- `application-configuration` — Application configuration loading
-- `application-dependency-injection` — Dependency injection wiring
+- `application-configuration` — Application configuration loading (XDG + koanf)
+- `application-dependency-injection` — Dependency injection via Factory
 - `application-discover-orphans-batch` — Orphan discovery batch mode
-- `application-infrastructure-structure` — Infrastructure package organization
-- `application-service-contracts` — Service interface contracts
+- `application-three-concerns` — Three-concern separation (Parse / Execute / Respond)
 
-### `cli-` (7)
+### `cli-` (17)
 
+- `cli-cli-factory` — `cmdutil.Factory` with lazy Config + Library
+- `cli-color-policy` — `--color=always|never|auto` + NO_COLOR
+- `cli-command-options-pattern` — Per-command `*XxxOptions` + `runF` injection
 - `cli-config-commands` — `germinator config init` / `config validate`
+- `cli-destructive-operations` — `confirmOrFlag` helper for destructive ops
 - `cli-error-formatting` — Typed error formatting with hints
-- `cli-exit-codes` — Semantic exit code conventions
+- `cli-exit-codes` — Semantic exit code conventions (0/1/2)
+- `cli-flag-deprecation` — `MarkDeprecated` + removal cadence
 - `cli-framework` — Cobra-based CLI framework setup
 - `cli-init-command` — `germinator init` resource installation
+- `cli-interactive-prompts` — Flags-first / huh fallback / TTY-gated
+- `cli-iostreams` — `IOStreams` abstraction, TTY detection, Styles
+- `cli-output-formats` — `--output json|table|plain` + `Exporter` interface
+- `cli-self-update` — Opt-in update checking (consent + daily TTL)
 - `cli-shell-completion` — Carapace shell completion
+- `cli-stdin-composability` — `-` filename + no-hang-on-empty-stdin
 - `cli-verbose-output` — Verbosity levels and output helpers
 
-### `core-` (2)
+### `core-` (3)
 
 - `core-document-loading` — Document loading from files
+- `core-purity-policy` — `core/` may not import `os`/`net`/`exec` (depguard-enforced)
 - `core-yaml-parsing` — YAML parsing primitives
 
-### `errors-` (3)
+### `errors-` (4)
 
-- `errors-enhanced-errors` — Enhanced error types
+- `errors-enhanced-errors` — Enhanced error types (private fields + builders)
 - `errors-enhanced-validation-errors` — Enhanced validation errors
-- `errors-typed-errors` — Typed error definitions
+- `errors-operation-error` — `OperationError` (per-operation failures)
+- `errors-typed-errors` — Typed error definitions (all 9 error types)
 
-### `infrastructure-` (8)
+### `infrastructure-` (6)
 
 - `infrastructure-ci-image` — CI image build
 - `infrastructure-ci-workflow` — CI workflow definitions
 - `infrastructure-code-quality` — Linters and formatters
-- `infrastructure-interfaces` — Infrastructure interfaces
 - `infrastructure-mise-task-runner` — mise task definitions
-- `infrastructure-project-layout` — Project layout conventions
 - `infrastructure-release-management` — Release process
 - `infrastructure-validation-scripts` — Validation scripts
 
-### `library-` (13)
+### `library-` (14)
 
 - `library-library-batch-add` — Batch resource import
 - `library-library-json-output` — JSON output for library commands
 - `library-library-orphan-discovery` — Orphan file discovery
+- `library-library-persistence` — Atomic writes + file locking + permissions
 - `library-library-preset-creation` — Preset creation
 - `library-library-refresh` — Library refresh (metadata sync)
 - `library-library-remove-preset` — Preset removal
@@ -228,17 +240,16 @@ The 55 current specs, grouped by category.
 - `library-partial-initialization` — Partial initialization behavior
 - `library-resource-installation` — Resource installation behavior
 
-### `models-` (3)
+### `models-` (2)
 
 - `models-canonical-source-format` — Canonical source format definition
 - `models-domain-models` — Domain model types
-- `models-domain-structure` — Domain package structure
 
 ### `testing-` (3)
 
 - `testing-e2e-canonicalize-tests` — E2E canonicalization tests
 - `testing-e2e-testing` — E2E testing setup
-- `testing-mock-infrastructure` — Mock infrastructure for tests
+- `testing-iostreams-injection` — `iostreams.Test()` pattern + runF injection
 
 ### `transformation-` (6)
 

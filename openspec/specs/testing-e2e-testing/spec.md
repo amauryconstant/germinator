@@ -9,12 +9,12 @@ End-to-end testing infrastructure using Ginkgo v2, Gomega, and gexec to validate
 ### Requirement: E2E Test Suite Setup
 
 The E2E test suite SHALL be configured with Ginkgo v2, Gomega, and gexec using the `//go:build e2e` build tag.
-
 #### Scenario: Suite initializes successfully
+
 - **WHEN** the E2E test suite runs
-- **THEN** the germinator-e2e binary SHALL be built to `bin/germinator-e2e`
+- **THEN** the germinator test binary SHALL be built to a per-suite temp directory via `gexec.Build` (e.g., `$TMPDIR/ginkgo-germinator-<random>/germinator`)
 - **AND** the binary SHALL be available for all test cases
-- **AND** the binary SHALL be cleaned up after all tests complete
+- **AND** the binary SHALL be cleaned up after all tests complete (gexec owns the lifecycle)
 
 #### Scenario: Build tag excludes E2E tests from default test run
 - **WHEN** `go test ./...` is executed
@@ -295,16 +295,28 @@ The library command SHALL be tested for all expected behaviors.
 - **AND** library SHALL be loaded from environment path
 
 ---
-
 ### Requirement: Mise Tasks for E2E Testing
 
 Mise tasks SHALL be provided for running E2E tests.
 
 #### Scenario: test:e2e task runs E2E tests
+
 - **WHEN** `mise run test:e2e` is executed
 - **THEN** all E2E tests SHALL run with verbose output
 
 #### Scenario: test:full task runs all tests
+
 - **WHEN** `mise run test:full` is executed
 - **THEN** unit tests SHALL run first
 - **AND** E2E tests SHALL run after unit tests pass
+
+### Requirement: Coverage-instrumented E2E binary
+
+The E2E binary SHALL be built with `-cover` instrumentation (Go 1.20+) so coverage data can be extracted from subprocess runs.
+
+#### Scenario: E2E binary is cover-instrumented
+
+- **WHEN** `gexec.Build` constructs the E2E binary
+- **THEN** the build command SHALL include `-cover`
+- **AND** the produced binary SHALL write coverage profiles when `GOCOVERDIR` is set
+- **AND** tests may aggregate per-package coverage from the subprocess runs

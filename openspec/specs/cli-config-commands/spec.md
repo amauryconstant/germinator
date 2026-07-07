@@ -4,11 +4,13 @@
 
 CLI commands for scaffolding and validating Germinator configuration files.
 
+> **Note on flag naming:** The `--output-path` flag is the canonical, deliberate choice for the config commands' "where to write/read the config file" parameter. It was selected to disambiguate from the `cli-output-formats` capability's `--output` format flag (`plain|table|json`). The legacy `--output` flag (which performed the same role before the format flag was introduced) was removed without a deprecation window; users must use `--output-path` directly.
+
 ## Requirements
 
 ### Requirement: Config init scaffolds a new config file
 
-The `germinator config init` command SHALL create a new config file with explanatory comments for each field. The legacy `--output` flag is renamed to `--output-path` to disambiguate from the `cli-output-formats` capability's `--output` format flag.
+The `germinator config init` command SHALL create a new config file with explanatory comments for each field. The `--output-path` flag specifies the destination file path.
 
 #### Scenario: Init creates config at default location
 
@@ -62,7 +64,7 @@ The scaffolded config file SHALL contain entries for all configurable fields wit
 
 - **WHEN** config file is scaffolded
 - **THEN** file contains `# library` field with comment explaining it accepts a path
-- **AND** default value `~/.local/share/germinator/library` is set (uses `XDG_DATA_HOME` if set)
+- **AND** default value `~/.local/share/germinator/library/` is set (uses `$XDG_DATA_HOME/germinator/library/` if `XDG_DATA_HOME` is set)
 
 #### Scenario: Config contains platform field
 
@@ -109,7 +111,7 @@ The `germinator config validate` command SHALL validate an existing config file.
 
 ### Requirement: Config validate uses specified output path
 
-The `--output-path` flag SHALL specify which config file to validate. The legacy `--output` flag SHALL return a usage error.
+The `--output-path` flag SHALL specify which config file to validate. The `--output` flag is not registered; passing it SHALL return a Cobra usage error (exit 2).
 
 #### Scenario: Validate uses default path
 

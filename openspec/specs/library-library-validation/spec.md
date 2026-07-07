@@ -192,7 +192,7 @@ The `library validate` command SHALL adopt the `NewCmdLibraryValidate(f *cmdutil
 
 #### Scenario: libraryValidateOptions struct
 
-- **GIVEN** the `library validate` command has been migrated
+- **GIVEN** the `library validate` command follows the command-options-pattern
 - **WHEN** `cmd/library_validate.go` is inspected
 - **THEN** it SHALL declare `libraryValidateOptions` struct with fields: `IO *iostreams.IOStreams`, `Library func() (*library.Library, error)`, `Ctx context.Context`, `Fix bool`, `Output string`
 
@@ -201,7 +201,7 @@ The `library validate` command SHALL adopt the `NewCmdLibraryValidate(f *cmdutil
 - **GIVEN** `cmd/library_validate.go` declares its `validatorLibrary` interface
 - **WHEN** the interface is inspected
 - **THEN** it SHALL declare a `Validate(ctx context.Context, req *ValidateRequest) (*ValidateResult, error)` method
-- **AND** the interface SHALL be satisfied directly by `*library.Library` (the `Validate` method is added to `*Library` in change-7)
+- **AND** the interface SHALL be satisfied directly by `*library.Library` (which exposes a `Validate` method)
 - **AND** `var _ validatorLibrary = (*library.Library)(nil)` SHALL be a compile-time check at the bottom of `cmd/library_validate.go`
 - **AND** `ValidateRequest` SHALL be a type defined in `internal/library/requests.go` with a `Fix bool` field
 - **AND** when `req.Fix` is true, the `(*Library).Validate` method SHALL internally call `(*Library).Fix(ctx, &FixRequest{})`; the fix report (`RemovedEntries`, `StrippedRefs`) SHALL be merged into the JSON payload when `--output json` is combined with `--fix`

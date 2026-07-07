@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The Operation Error capability defines `core.OperationError`, a typed error for per-operation failures that flow through `*core.PartialSuccessError` aggregations and through `output.FormatError`. It is the foundation unit used by per-resource library operations (e.g., `library add` mode 2 batch processing, `library add --discover --batch`) to surface a uniform `<op>: <resource>` message plus the wrapped underlying cause.
+The Operation Error capability defines `core.OperationError`, a typed error for per-operation failures that flow through `*core.PartialSuccessError` aggregations and through `output.FormatError`. It is the foundation unit used by per-resource library operations (e.g., the batch-discovery path of `library add --discover --batch`, where each orphan discovery failure is wrapped in an `OperationError`) to surface a uniform `<op>: <resource>` message plus the wrapped underlying cause.
 
 ## Requirements
 
@@ -62,7 +62,7 @@ The `core` package SHALL provide `*core.OperationError{Op, Resource string; Caus
 
 ### Requirement: cmdutil.ExitCodeFor maps OperationError
 
-`cmdutil.ExitCodeFor(err)` SHALL map `*core.OperationError` to `ExitCodeError` (1) via the existing default-error case in `internal/cmdutil/exit.go:71`.
+`cmdutil.ExitCodeFor(err)` SHALL map `*core.OperationError` to `ExitCodeError` (1) via the default-error case in `internal/cmdutil/exit.go:82` (the final `return ExitCodeError` after all `errors.As` branches miss).
 
 #### Scenario: ExitCodeFor returns 1 for OperationError
 

@@ -3,6 +3,15 @@
 ## Purpose
 
 Define a Carapace-based shell completion system providing dynamic suggestions for library resources, presets, and platforms across multiple shells.
+
+> **Carapace decision rationale:** The completion engine is [carapace-sh/carapace](https://github.com/carapace-sh/carapace) rather than Cobra's built-in completion because germinator needs:
+>
+> 1. **Multi-shell support beyond bash/zsh/fish** — elvish, nushell, oil, xonsh, cmd-clink, tcsh, powershell (Cobra built-in covers only 4 shells).
+> 2. **`ActionMultiParts` for `--resources skill/commit,skill/merge-request`** — completing each comma-separated part independently within a single flag value. Cobra's built-in completion cannot do this.
+> 3. **Per-Factory `CompletionCache`** integration with `context.WithTimeout` for sub-second completion lookups.
+>
+> Carapace also bridges cleanly to Cobra's command tree (`carapace.Gen(cmd)`), so existing Cobra wiring stays untouched.
+
 ## Requirements
 ### Requirement: Completion Command
 
@@ -236,7 +245,7 @@ Completions SHALL fail silently without error messages when library loading fail
 
 ### Requirement: Completion Cache
 
-The CLI SHALL cache library data to improve shell-completion performance, with the cache living on `Factory.CompletionCache` (a `*cmdutil.CompletionCache` field defined in `internal/cmdutil/completion_cache.go`). Each Factory instance has its own cache; constructing a new Factory starts with a fresh cache. The cache SHALL have a TTL (5 seconds, matching the legacy behavior) as a safety net for any missed explicit invalidation.
+The CLI SHALL cache library data to improve shell-completion performance, with the cache living on `Factory.CompletionCache` (a `*cmdutil.CompletionCache` field defined in `internal/cmdutil/completion_cache.go`). Each Factory instance has its own cache; constructing a new Factory starts with a fresh cache. The cache SHALL have a TTL (5 seconds default, configurable via `completion.cache_ttl` in the config file) as a safety net for any missed explicit invalidation.
 
 #### Scenario: Cache hit returns cached data
 
@@ -293,18 +302,18 @@ When a mutating library command completes successfully, the completion cache SHA
 
 ### Requirement: Completion actions take Factory as input
 
-The completion action functions (`actionResources`, `actionPresets`, `actionLibraryRefs`, `actionPlatforms`) SHALL be implemented as `func(*cmdutil.Factory, *cobra.Command) carapace.Action` (the Factory and the Cobra command). They SHALL wrap `f.RootContext` with `context.WithTimeout(f.RootContext, 5*time.Second)` for each lookup, consult `f.CompletionCache.Get(libPath)` first, and on cache miss load the library directly via `library.LoadLibrary(loadCtx, libPath)` rather than `f.Library()`. The bypass of `f.Library()` is intentional: `f.Library` is `sync.OnceValues`-cached and would permanently pin the first error; completion lookups must always reflect current state.
+The completion action functions (`actionResources`, `actionPresets`, `actionLibraryRefs`, `actionPlatforms`) SHALL be implemented as `func(*cmdutil.Factory, *cobra.Command) carapace.Action` (the Factory and the Cobra command). They SHALL wrap `f.RootContext` with `context.WithTimeout(f.RootContext, getCompletionTimeout(nil))` for each lookup, consult `f.CompletionCache.Get(libPath)` first, and on cache miss load the library directly via `library.LoadLibrary(loadCtx, libPath)` rather than `f.Library()`. The bypass of `f.Library()` is intentional: `f.Library` is `sync.OnceValues`-cached and would permanently pin the first error; completion lookups must always reflect current state. The default timeout (`cmd/completions.go:20`) is `500ms`; configurable via `completion.timeout` in the config file.
 
 #### Scenario: actionResources loads library with timeout and bypasses f.Library
 
 - **WHEN** `actionResources(f, cmd)` returns an Action that runs
 - **THEN** the Action SHALL consult `f.CompletionCache.Get(libPath)` first; on hit it returns the cached library
 - **AND** on cache miss it SHALL call `library.LoadLibrary(loadCtx, libPath)` directly (NOT `f.Library()`)
-- **AND** it SHALL use `context.WithTimeout(f.RootContext, 5*time.Second)` as `loadCtx`
+- **AND** it SHALL use `context.WithTimeout(f.RootContext, getCompletionTimeout(nil))` (default `500ms`, configurable via `completion.timeout`) as `loadCtx`
 
 #### Scenario: Timeout returns empty completion
 
-- **WHEN** the library load times out (5 seconds)
+- **WHEN** the library load times out (default `500ms`, or whatever `completion.timeout` resolves to)
 - **THEN** `actionResources` SHALL return an empty completion (no error)
 
 > **Status:** the completion cache moves to `Factory.CompletionCache` in change-9 (`migrate-completion-cleanup`). This is the final change; after this archives, the migration is complete.

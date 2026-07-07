@@ -29,7 +29,8 @@ The `cmdutil.ExitCodeFor(err error) ExitCode` function SHALL map an error to an 
 
 - `nil` → `ExitCodeSuccess` (0)
 - `*pflag.NotExistError`, `*pflag.ValueRequiredError`, `*pflag.InvalidValueError`, `*pflag.InvalidSyntaxError` (typed errors that exist in pflag v1.0.10) → `ExitCodeUsage` (2)
-- Cobra usage errors not wrapped by pflag (detected via `strings.HasPrefix` on the error message against known prefixes such as `"unknown flag"`, `"flag needs an argument"`, `"invalid argument"`, `"bad flag syntax"`) → `ExitCodeUsage` (2)
+- `*core.NotFoundError` → `ExitCodeUsage` (2) (the lookup miss is treated as user input that did not resolve, not an operational error)
+- Cobra usage errors not wrapped by pflag (detected via `strings.Contains` on the error message against any of the 12 known substrings: `"unknown flag"`, `"flag needs an argument"`, `"invalid argument"`, `"bad flag syntax"`, `"no such flag"`, `"invalid syntax"`, `"unknown shorthand flag"`, `"required flag"`, `"requires at least"`, `"requires exactly"`, `"accepts at most"`, `"requires at most"`) → `ExitCodeUsage` (2)
 - `*core.PartialSuccessError` with `Succeeded > 0` → `ExitCodeSuccess` (0)
 - `*core.PartialSuccessError` with `Succeeded == 0` → `ExitCodeError` (1)
 - All other errors → `ExitCodeError` (1)
@@ -89,5 +90,3 @@ The warning SHALL be emitted at most once per process via `sync.Once` and SHALL 
 
 **Change:** `migrate-library-rest` (slice 7 of 9)
 **Date:** 2026-07-01
-
-> The legacy `CategorizeError` and the `Category*` enum were fully removed in this change. The 7-code exit code scheme has been replaced with `cmdutil.ExitCodeFor` returning 0/1/2.

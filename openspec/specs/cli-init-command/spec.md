@@ -32,10 +32,11 @@ The `init` command SHALL adopt the `NewCmdInit(f *cmdutil.Factory, runF func(*in
 - **WHEN** `germinator init --help` is invoked
 - **THEN** the help output SHALL list the flags: `--platform`, `--output-dir`, `--library`, `--resources`, `--preset`, `--dry-run`, `--force`
 - **AND** the constructor signature SHALL be `NewCmdInit(f *cmdutil.Factory, runF func(*initOptions) error) *cobra.Command`
-
 #### Scenario: initOptions struct
+
 - **WHEN** `cmd/init.go` is inspected
-- **THEN** it SHALL declare `initOptions` struct with fields: `IO *iostreams.IOStreams`, `Library func() (*library.Library, error)`, `Initializer func() (application.Initializer, error)`, `Ctx context.Context`, `LibraryPath string`, `Platform string`, `OutputDir string`, `Refs []string`, `Preset string`, `DryRun bool`, `Force bool`
+- **THEN** it SHALL declare `initOptions` struct with fields: `IO *iostreams.IOStreams`, `Library func() (*library.Library, error)`, `Ctx context.Context`, `LibraryPath string`, `Platform string`, `OutputDir string`, `Refs []string`, `Preset string`, `DryRun bool`, `Force bool`
+- **AND** `runInit` SHALL obtain the initializer via the direct constructor `NewInitializer()` from `cmd/initializer.go` (no per-command lazy field; the initializer is an internal adapter that needs no test seam because it has no injectable dependency)
 
 ### Requirement: Validate required flags
 
@@ -64,15 +65,15 @@ The `init` command SHALL accept a custom library path via `--library`, populated
 - **GIVEN** a library at `/custom/library`
 - **WHEN** `germinator init --platform opencode --resources skill/commit --library /custom/library` is run
 - **THEN** resources are loaded from the custom library
+### Requirement: --output-dir flag
 
-### Requirement: --output-dir flag (breaking rename)
-
-The flag for the output directory SHALL be `--output-dir` (replacing the legacy `--output`/`-o` short form). This is a breaking change relative to the legacy `cmd/init.go`.
+The flag for the output directory SHALL be `--output-dir`. There is no short form. The default value is `"."` (the current working directory); when omitted the CLI writes files relative to the invocation directory.
 
 #### Scenario: Custom output directory
+
 - **GIVEN** output directory `/target/project`
 - **WHEN** `germinator init --platform opencode --resources skill/commit --output-dir /target/project` is run
-- **THEN** resources are installed to `/target/project/.opencode/skills/commit/SKILL.md`
+- **THEN** resources are installed under `/target/project/...`
 
 ### Requirement: Validate platform value
 
@@ -91,15 +92,34 @@ The `init` command SHALL support `--dry-run` to preview changes without writing 
 - **GIVEN** dry-run mode
 - **WHEN** `germinator init --platform opencode --resources skill/commit --dry-run` is run
 - **THEN** output shows what would be written without creating files
-
 ### Requirement: Support --force overwrite
 
-The `init` command SHALL support `--force` to overwrite existing files.
+The `init` command SHALL support `--force` to overwrite existing files. The destructive-operation resolution order SHALL be:
+
+1. `--force` flag set → overwrite without prompting, exit 0 on success
+2. stdin is a TTY (`IOStreams.IsInteractive()` returns true) → print a confirmation prompt; abort if the user declines
+3. stdin is not a TTY (pipe, CI, redirect) AND `--force` not set → return `*core.NewFileError(...)` indicating the file exists and `--force` is required (non-interactive, no prompt)
 
 #### Scenario: Force overwrite
+
 - **GIVEN** existing output files
 - **WHEN** `germinator init --platform opencode --resources skill/commit --force` is run
-- **THEN** existing files are overwritten
+- **THEN** existing files are overwritten without prompting
+
+#### Scenario: Non-interactive overwrite without --force fails
+
+- **GIVEN** existing output files
+- **AND** stdin is not a TTY (e.g., piped from another command)
+- **WHEN** `germinator init --platform opencode --resources skill/commit` is run without `--force`
+- **THEN** the command SHALL return a `*core.FileError` explaining the file exists and `--force` is required (no prompt in non-interactive context)
+
+#### Scenario: Interactive overwrite without --force prompts
+
+- **GIVEN** existing output files
+- **AND** stdin AND stdout are both TTYs
+- **WHEN** `germinator init --platform opencode --resources skill/commit` is run without `--force`
+- **THEN** the command SHALL print a confirmation prompt before overwriting
+- **AND** on user confirmation, the existing files SHALL be overwritten
 
 ### Requirement: Partial-success exit code semantics
 
@@ -150,15 +170,15 @@ When `--preset <name>` references a preset that does not exist, the command SHAL
 - **WHEN** `germinator init --platform opencode --preset ghost` is run
 - **THEN** `runInit` SHALL return `*core.NotFoundError{Entity: "preset", Key: "ghost"}`
 - **AND** `cmdutil.ExitCodeFor(err)` SHALL return `ExitCodeUsage` (2)
+### Requirement: Initializer resolved via direct constructor
 
-### Requirement: Initializer wired through Factory
+The `Initializer` adapter SHALL be obtained in `runInit` via the direct constructor `NewInitializer()` from `cmd/initializer.go`. The adapter has no injectable dependencies (its only inputs are passed via `*InitializeRequest`), so it does not need a Factory lazy field or a per-command `initOptions` field.
 
-The `cmdutil.Factory` SHALL expose a lazy `Initializer func() (application.Initializer, error)` field so `runInit` can resolve it without import cycles.
+#### Scenario: NewInitializer has no test seam
 
-#### Scenario: Factory exposes Initializer
 - **WHEN** `cmd/init.go` is inspected
-- **THEN** `initOptions.Initializer` SHALL be populated from `f.Initializer` in the RunE hook
-- **AND** the field SHALL be lazily evaluated (called only when `runInit` invokes it)
+- **THEN** `initOptions` SHALL NOT contain an `Initializer` field
+- **AND** `runInit` SHALL call `NewInitializer().Initialize(ctx, req)` directly on the request constructed from validated flags
 
 ### Requirement: Format success output
 

@@ -8,7 +8,7 @@ Provide multi-level verbosity control for CLI commands. Verbose output is emitte
 
 ### Requirement: Verbose output via IOStreams.Verbosef
 
-Verbose output SHALL be emitted via `opts.IO.Verbosef(format, args...)` on `iostreams.IOStreams` (introduced in `cli-iostreams`). The legacy `Verbosity` type and `cmd.VerbosePrint` / `cmd.VeryVerbosePrint` helpers SHALL be removed (see `cli-iostreams` for the new mechanism).
+Verbose output SHALL be emitted via `opts.IO.Verbosef(format, args...)` on `iostreams.IOStreams` (see `cli-iostreams` for the full mechanism). Commands call `opts.IO.Verbosef(...)` directly; no separate verbosity helpers exist in `cmd/`.
 
 #### Scenario: Verbosef writes to ErrOut when verbose
 
@@ -70,7 +70,7 @@ The root command SHALL have a persistent verbose flag available to all subcomman
 
 ### Requirement: Verbose Output Destination
 
-Verbose output SHALL go to stderr, keeping stdout clean.
+Verbose output SHALL go to stderr, keeping stdout clean for pipeable data (per the Unix contract; see `golang-cli-architecture/references/04-output.md`). The stdout-clean contract is mandatory: commands that emit structured data (`--output json|table`) MUST NOT contaminate stdout with verbose progress messages.
 
 #### Scenario: Verbose output to stderr
 
@@ -78,6 +78,13 @@ Verbose output SHALL go to stderr, keeping stdout clean.
 - **WHEN** `opts.IO.Verbosef(...)` is called
 - **THEN** the formatted message SHALL be written to `opts.IO.ErrOut`
 - **AND** `opts.IO.Out` SHALL contain only normal command output
+
+#### Scenario: Verbose output does not contaminate JSON
+
+- **GIVEN** a command run with `-v` and `--output json`
+- **WHEN** the command emits both verbose progress and structured data
+- **THEN** `opts.IO.Out` SHALL contain only the structured JSON payload (parseable by `jq`)
+- **AND** the verbose progress SHALL be on `opts.IO.ErrOut`
 
 ### Requirement: Validate Command Verbose Output
 
@@ -177,4 +184,4 @@ Verbose output SHALL follow consistent formatting patterns.
 **Change:** `migrate-library-rest` (slice 7 of 9)
 **Date:** 2026-07-01
 
-> The legacy `VerbosePrint`/`VeryVerbosePrint` and the `Verbosity` type were fully removed in this change. Commands use `opts.IO.Verbosef(...)` directly.
+> Commands use `opts.IO.Verbosef(...)` directly on the IOStreams struct (see `cli-iostreams`).

@@ -2,157 +2,224 @@
 
 ## Purpose
 
-Define domain-specific error types with structured fields for parse, validation, transform, file, and config errors in germinator.
+Define domain-specific error types with structured fields for parse, validation, transform, file, config, not-found, operation, and partial-success conditions in germinator. All error types live in `internal/core/errors.go` and follow an immutable builder pattern: private fields, accessor methods, fluent `WithSuggestions`/`WithContext` builders.
 
 ## Requirements
 
-### Requirement: Parse Error Type
+### Requirement: ParseError type
 
-The system SHALL provide a ParseError type for document parsing failures.
+The system SHALL provide a `ParseError` type for document parsing failures with private fields and accessor methods.
 
-#### Scenario: ParseError with invalid YAML
+#### Scenario: ParseError has private fields
 
-- **WHEN** YAML parsing fails for a document
-- **THEN** ParseError SHALL contain the file path
-- **AND** ParseError SHALL contain a descriptive message
-- **AND** ParseError SHALL wrap the underlying cause
-- **AND** ParseError.Error() SHALL return a formatted string
+- **WHEN** `ParseError` is examined
+- **THEN** it SHALL have private fields: `path`, `message`, `cause`, `suggestions`, `context`
+- **AND** these fields SHALL NOT be directly accessible from outside `internal/core`
 
-#### Scenario: ParseError with unrecognized document type
+#### Scenario: ParseError getters return field values
 
-- **WHEN** document type cannot be detected from filename
-- **THEN** ParseError SHALL contain the file path
-- **AND** ParseError message SHALL list expected patterns
-- **AND** ParseError.Unwrap() SHALL return nil
+- **WHEN** `NewParseError("agent.md", "missing delimiter", cause)` is called
+- **THEN** `err.Path()` SHALL return `"agent.md"`
+- **AND** `err.Message()` SHALL return `"missing delimiter"`
+- **AND** `err.Cause()` SHALL return the cause error (may be nil)
+- **AND** `err.Suggestions()` SHALL return a copy of the suggestions slice (empty slice when unset)
+- **AND** `err.Context()` SHALL return an empty string when unset
 
----
+#### Scenario: ParseError Unwrap exposes cause
 
-### Requirement: Validation Error Type
+- **WHEN** `errors.Unwrap(err)` is called on a `ParseError` with a non-nil cause
+- **THEN** it SHALL return the cause error
 
-The system SHALL provide a ValidationError type for document validation failures.
+### Requirement: ValidationError type
 
-#### Scenario: ValidationError with field errors
+The system SHALL provide a `ValidationError` type for document validation failures with private fields, four-argument constructor, and getter methods.
 
-- **WHEN** document validation fails
-- **THEN** ValidationError SHALL contain a descriptive message
-- **AND** ValidationError SHALL contain optional field name
-- **AND** ValidationError SHALL support suggestions list
-- **AND** ValidationError.Error() SHALL return formatted message
+#### Scenario: ValidationError has private fields
 
-#### Scenario: ValidationError with suggestions
+- **WHEN** `ValidationError` is examined
+- **THEN** it SHALL have private fields: `request`, `field`, `value`, `message`, `suggestions`, `context`
 
-- **WHEN** ValidationError has suggestions
-- **THEN** Suggestions() SHALL return list of hint strings
-- **AND** each suggestion SHALL be actionable guidance
+#### Scenario: NewValidationError constructor takes four parameters
 
----
+- **WHEN** `NewValidationError(request, field, value, message string)` is called
+- **THEN** it SHALL return a `*ValidationError` with `request`, `field`, `value`, and `message` populated
+- **AND** suggestions SHALL be empty
+- **AND** context SHALL be empty
+- **AND** the old three-parameter signature `NewValidationError(message, field, suggestions)` SHALL NOT exist
 
-### Requirement: Transform Error Type
+#### Scenario: ValidationError getters return field values
 
-The system SHALL provide a TransformError type for transformation pipeline failures.
+- **WHEN** `err := NewValidationError("Agent", "name", "invalid", "name is required")` is called
+- **THEN** `err.Request()` SHALL return `"Agent"`
+- **AND** `err.Field()` SHALL return `"name"`
+- **AND** `err.Value()` SHALL return `"invalid"`
+- **AND** `err.Message()` SHALL return `"name is required"`
+- **AND** `err.Suggestions()` SHALL return an empty slice
+- **AND** `err.Context()` SHALL return an empty string
 
-#### Scenario: TransformError with template failure
+#### Scenario: ValidationError Error format includes request and field
 
-- **WHEN** template rendering fails
-- **THEN** TransformError SHALL contain the template name
-- **AND** TransformError SHALL contain a descriptive message
-- **AND** TransformError SHALL wrap the underlying cause
+- **WHEN** `err.Error()` is called on a `ValidationError` with request `"Agent"` and field `"name"`
+- **THEN** the rendered string SHALL contain `validation failed for Agent.name`
+- **AND** the rendered string SHALL contain the message
 
-#### Scenario: TransformError with platform conversion failure
+### Requirement: TransformError type
 
-- **WHEN** platform-specific conversion fails
-- **THEN** TransformError SHALL contain the platform name
-- **AND** TransformError SHALL contain the operation that failed
+The system SHALL provide a `TransformError` type for transformation pipeline failures with private fields and accessor methods.
 
----
+#### Scenario: TransformError has private fields
 
-### Requirement: File Error Type
+- **WHEN** `TransformError` is examined
+- **THEN** it SHALL have private fields: `operation`, `platform`, `message`, `cause`, `suggestions`, `context`
 
-The system SHALL provide a FileError type for file I/O failures.
+#### Scenario: NewTransformError constructor takes four parameters
 
-#### Scenario: FileError with read failure
+- **WHEN** `NewTransformError(operation, platform, message string, cause error)` is called
+- **THEN** it SHALL return a `*TransformError` with all four parameters populated
 
-- **WHEN** file read fails
-- **THEN** FileError SHALL contain the file path
-- **AND** FileError SHALL contain the operation ("read")
-- **AND** FileError SHALL wrap the underlying cause
+### Requirement: FileError type
 
-#### Scenario: FileError with write failure
+The system SHALL provide a `FileError` type for file I/O failures with private fields and accessor methods.
 
-- **WHEN** file write fails
-- **THEN** FileError SHALL contain the file path
-- **AND** FileError SHALL contain the operation ("write")
-- **AND** FileError SHALL wrap the underlying cause
+#### Scenario: FileError has private fields
+
+- **WHEN** `FileError` is examined
+- **THEN** it SHALL have private fields: `path`, `operation`, `message`, `cause`, `suggestions`, `context`
+
+#### Scenario: NewFileError constructor takes four parameters
+
+- **WHEN** `NewFileError(path, operation, message string, cause error)` is called
+- **THEN** it SHALL return a `*FileError` with path, operation, message, and cause populated
 
 #### Scenario: FileError IsNotFound helper
 
-- **WHEN** FileError represents a file not found condition
-- **THEN** IsNotFound() SHALL return true
-- **AND** detection SHALL check for "not found" or "does not exist" in message
+- **WHEN** `IsNotFound()` is called on a `FileError` whose message or wrapped cause contains `"not found"`, `"does not exist"`, or `"no such file"` (case-insensitive)
+- **THEN** it SHALL return `true`
+- **AND** otherwise it SHALL return `false`
 
----
+### Requirement: ConfigError type
 
-### Requirement: Config Error Type
+The system SHALL provide a `ConfigError` type for configuration and CLI errors. The constructor takes three parameters; valid options are added via the `WithSuggestions` builder.
 
-The system SHALL provide a ConfigError type for configuration and CLI errors.
+#### Scenario: ConfigError has private fields
 
-#### Scenario: ConfigError with invalid platform
+- **WHEN** `ConfigError` is examined
+- **THEN** it SHALL have private fields: `field`, `value`, `message`, `suggestions`, `context`
+- **AND** the field SHALL be named `suggestions` (replacing the legacy `available` field)
 
-- **WHEN** an invalid platform is specified
-- **THEN** ConfigError SHALL contain the invalid value
-- **AND** ConfigError SHALL contain available options
-- **AND** ConfigError message SHALL list valid platforms
+#### Scenario: NewConfigError constructor takes three parameters
 
-#### Scenario: ConfigError with missing required flag
+- **WHEN** `NewConfigError(field, value, message string)` is called
+- **THEN** it SHALL return a `*ConfigError` with `field`, `value`, and `message` populated
+- **AND** suggestions SHALL be empty
+- **AND** the old four-parameter signature `NewConfigError(field, value, available, message)` SHALL NOT exist
 
-- **WHEN** a required flag is missing
-- **THEN** ConfigError SHALL contain the flag name
-- **AND** ConfigError SHALL be categorized as usage error
+#### Scenario: Available options added via WithSuggestions
 
----
+- **WHEN** a config error needs to show valid options
+- **THEN** the code SHALL call `NewConfigError(field, value, message).WithSuggestions([]string{...})`
+- **AND** the constructor SHALL NOT accept an `available` parameter
 
-### Requirement: Error Wrapping Support
+### Requirement: NotFoundError type
 
-All error types SHALL support Go's error wrapping conventions.
+The system SHALL provide a `NotFoundError` type for missing-entity lookups (library refs, presets). It carries `Entity` and `Key` as exported fields and maps to exit code 2 (usage) via `cmdutil.ExitCodeFor`.
 
-#### Scenario: errors.As for typed errors
+#### Scenario: NewNotFoundError constructor
 
-- **WHEN** checking error type with errors.As
-- **THEN** typed errors SHALL be correctly matched
-- **AND** the target pointer SHALL receive the error value
+- **WHEN** `NewNotFoundError(entity, key string)` is called
+- **THEN** it SHALL return a `*NotFoundError{Entity: entity, Key: key}`
 
-#### Scenario: errors.Is for error comparison
+#### Scenario: NotFoundError Error format
 
-- **WHEN** wrapped errors are compared with errors.Is
-- **THEN** comparison SHALL work through the wrap chain
+- **WHEN** `err.Error()` is called on a `*NotFoundError{Key: "ghost"}`
+- **THEN** it SHALL return the string `"not found: ghost"`
 
----
+#### Scenario: NotFoundError maps to ExitCodeUsage
 
-### Requirement: Error Constructor Functions
+- **WHEN** `cmdutil.ExitCodeFor(err)` is called with `*core.NotFoundError`
+- **THEN** it SHALL return `ExitCodeUsage` (2)
 
-The system SHALL provide constructor functions for each error type.
+### Requirement: OperationError type
 
-#### Scenario: NewParseError constructor
+The system SHALL provide an `OperationError` type for per-operation failures (library orphan discovery, file operations) that wraps an optional cause and exposes `Op`, `Resource`, and `Cause` as exported fields.
 
-- **WHEN** NewParseError(path, message, cause) is called
-- **THEN** it SHALL return a ParseError with all fields populated
+#### Scenario: NewOperationError constructor
 
-#### Scenario: NewValidationError constructor
+- **WHEN** `NewOperationError(op, resource string, cause error)` is called
+- **THEN** it SHALL return a `*OperationError{Op: op, Resource: resource, Cause: cause}`
 
-- **WHEN** NewValidationError(message, field, suggestions) is called
-- **THEN** it SHALL return a ValidationError with all fields populated
+#### Scenario: OperationError Unwrap exposes cause
 
-#### Scenario: NewTransformError constructor
+- **WHEN** `errors.Unwrap(err)` is called on an `OperationError` with a non-nil cause
+- **THEN** it SHALL return the cause error
 
-- **WHEN** NewTransformError(operation, platform, message, cause) is called
-- **THEN** it SHALL return a TransformError with all fields populated
+### Requirement: InitializeError type
 
-#### Scenario: NewFileError constructor
+The system SHALL provide an `InitializeError` type for per-resource installation failures with private fields, builder methods, and accessor methods.
 
-- **WHEN** NewFileError(path, operation, message, cause) is called
-- **THEN** it SHALL return a FileError with all fields populated
+#### Scenario: InitializeError has private fields
 
-#### Scenario: NewConfigError constructor
+- **WHEN** `InitializeError` is examined
+- **THEN** it SHALL have private fields: `ref`, `inputPath`, `outputPath`, `cause`, `suggestions`, `context`
 
-- **WHEN** NewConfigError(field, value, available, message) is called
-- **THEN** it SHALL return a ConfigError with all fields populated
+#### Scenario: NewInitializeError constructor
+
+- **WHEN** `NewInitializeError(ref, inputPath, outputPath string, cause error)` is called
+- **THEN** it SHALL return a `*InitializeError` with all four parameters populated
+
+### Requirement: PartialSuccessError type
+
+The system SHALL provide a `PartialSuccessError` type for aggregated batch outcomes where some operations succeed and others fail.
+
+#### Scenario: NewPartialSuccessError constructor
+
+- **WHEN** `NewPartialSuccessError(succeeded, failed int, errs []InitializeError)` is called
+- **THEN** it SHALL return a `*PartialSuccessError` with `succeeded`, `failed`, and `errors` populated
+- **AND** the aggregate `Error()` format SHALL be `"partial success: N succeeded, M failed"`
+
+#### Scenario: PartialSuccessError exit-code semantics
+
+- **WHEN** `cmdutil.ExitCodeFor(err)` is called with `*PartialSuccessError{Succeeded: 3, Failed: 1}`
+- **THEN** it SHALL return `ExitCodeSuccess` (0)
+- **WHEN** `cmdutil.ExitCodeFor(err)` is called with `*PartialSuccessError{Succeeded: 0, Failed: N}`
+- **THEN** it SHALL return `ExitCodeError` (1)
+
+### Requirement: Immutable builder pattern
+
+All error types' `WithSuggestions` and `WithContext` methods SHALL be immutable builders that return new instances without modifying the original.
+
+#### Scenario: WithSuggestions returns new instance
+
+- **WHEN** `err2 := err1.WithSuggestions([]string{"hint"})` is called
+- **THEN** `err2` SHALL be a new error instance with suggestions populated
+- **AND** `err1` SHALL remain unchanged (its suggestions remain empty)
+
+#### Scenario: WithSuggestions chains with WithContext
+
+- **WHEN** `NewParseError(p, m, c).WithSuggestions(s).WithContext("ctx")` is called
+- **THEN** the chain SHALL return a new error with both suggestions and context set
+- **AND** all builders SHALL be chainable
+
+### Requirement: Suggestions getter returns a copy
+
+All error types' `Suggestions()` getter SHALL return a copy of the underlying slice, not the original, so external mutation cannot corrupt the error state.
+
+#### Scenario: Suggestions copy is independent
+
+- **WHEN** `s := err.Suggestions()` is called and the caller mutates `s[0]`
+- **THEN** the original error's suggestions SHALL remain unchanged
+
+### Requirement: Error wrapping support
+
+All error types SHALL support Go's error-wrapping conventions via `Unwrap()` and shall be detectable through `errors.As` and `errors.Is`.
+
+#### Scenario: errors.As matches typed errors
+
+- **WHEN** `errors.As(err, &target)` is called with `var target *core.ParseError`
+- **THEN** it SHALL return `true` when `err` is or wraps a `*core.ParseError`
+- **AND** `target` SHALL receive the unwrapped `*core.ParseError` value
+
+#### Scenario: errors.Is traverses wrap chain
+
+- **WHEN** a typed error wraps a sentinel via `fmt.Errorf("...: %w", sentinel)` and `errors.Is(err, sentinel)` is called
+- **THEN** it SHALL return `true`

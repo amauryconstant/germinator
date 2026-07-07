@@ -8,7 +8,7 @@ Provide typed-error formatting with a single centralized `output.FormatError` en
 
 ### Requirement: Errors formatted via output.FormatError
 
-Error formatting SHALL be centralized in `output.FormatError(io *iostreams.IOStreams, err error)` (introduced in `output-formats`). The legacy `cmd.ErrorFormatter` struct and `cmd.NewErrorFormatter(...)` constructor SHALL be removed (see `output-formats` for the rendering contract).
+Error formatting SHALL be centralized in `output.FormatError(io *iostreams.IOStreams, err error)` (see `cli-output-formats` for the rendering contract).
 
 #### Scenario: FormatError writes to ErrOut
 
@@ -58,12 +58,12 @@ The system SHALL format multiple validation errors clearly.
 
 ### Requirement: Error cause chain
 
-The system MAY include the wrapped cause in the output for debugging.
+The system SHALL include the wrapped cause in the output for debugging, indented on a separate line.
 
 #### Scenario: Include cause for debugging
 
 - **WHEN** a typed error wraps an underlying error via `fmt.Errorf("...: %w", inner)`
-- **THEN** `FormatError` MAY append a clearly separated cause line
+- **THEN** `FormatError` SHALL append a clearly separated cause line
 - **AND** the cause SHALL be indented to distinguish it from the primary message
 
 ### Requirement: FormatError dispatches on core.NotFoundError
@@ -82,10 +82,10 @@ The system MAY include the wrapped cause in the output for debugging.
 - **WHEN** `errors.As(err, &target)` is called with `var target *core.NotFoundError`
 - **THEN** the call SHALL return `true` for any error (or wrapped error) of type `*core.NotFoundError`
 
-#### Scenario: NotFoundError maps to ExitCodeError
+#### Scenario: NotFoundError maps to ExitCodeUsage
 
 - **WHEN** `cmdutil.ExitCodeFor(err)` is called with `*core.NotFoundError`
-- **THEN** it SHALL return `cmdutil.ExitCodeError` (1) via the default-error case at `internal/cmdutil/exit.go:71`
+- **THEN** it SHALL return `cmdutil.ExitCodeUsage` (2) via the `errors.As(err, &notFound)` branch at `internal/cmdutil/exit.go:73-75`
 
 ### Requirement: core.NotFoundError type and constructor
 
@@ -107,5 +107,3 @@ The system MAY include the wrapped cause in the output for debugging.
 
 **Change:** `migrate-library-rest` (slice 7 of 9)
 **Date:** 2026-07-01
-
-> The legacy `ErrorFormatter` struct was fully removed in this change. All error formatting goes through `output.FormatError(io, err)`.

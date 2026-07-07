@@ -74,7 +74,8 @@ The system SHALL discover the library path via flag, environment, or default.
 #### Scenario: Discover library path from default
 - **GIVEN** no `--library` flag and no `GERMINATOR_LIBRARY` env
 - **WHEN** FindLibrary is called
-- **THEN** `~/.config/germinator/library/` is returned
+- **THEN** `~/.local/share/germinator/library/` is returned
+- **AND** when `XDG_DATA_HOME` is set the default SHALL be `$XDG_DATA_HOME/germinator/library/`
 
 ### Requirement: List library contents
 
@@ -98,12 +99,62 @@ The system SHALL parse resource references in `type/name` format.
 - **GIVEN** a reference string `skill/commit`
 - **WHEN** ParseRef is called
 - **THEN** type `skill` and name `commit` are returned
-
 ### Requirement: Support all resource types
 
 The system SHALL support skill, agent, command, and memory resource types.
 
 #### Scenario: Support all resource types
+
 - **GIVEN** a library with resources of types skill, agent, command, and memory
 - **WHEN** resources are indexed and resolved
 - **THEN** all four types are handled correctly
+
+### Requirement: Atomic library writes
+
+The system SHALL write library metadata (`library.yaml`) atomically via the write-temp-then-rename pattern: write to `library.yaml.tmp`, fsync, then `os.Rename` to the final path. A crash mid-write leaves the previous `library.yaml` intact.
+
+#### Scenario: Successful atomic write
+
+- **GIVEN** a library loaded into memory with mutations
+- **WHEN** `Save()` is called
+- **THEN** the new content SHALL be written to `library.yaml.tmp` first
+- **AND** on successful close, the temp file SHALL be renamed to `library.yaml`
+- **AND** the final `library.yaml` SHALL contain the new content (observable via subsequent `LoadLibrary`)
+
+#### Scenario: Crash mid-write preserves prior library
+
+- **GIVEN** the temp-file write is interrupted (process killed before rename)
+- **WHEN** `LoadLibrary` is called on the library directory
+- **THEN** the prior `library.yaml` SHALL be returned intact
+- **AND** no half-written data SHALL be visible
+
+### Requirement: Library file permissions
+
+When the system creates a new library directory or `library.yaml`, the permissions SHALL be:
+
+- Library directory: `0750` (rwxr-x--- — owner full, group read+execute, others none)
+- `library.yaml`: `0640` (rw-r----- — owner read+write, group read, others none)
+- Resource subdirectories (skills/, agents/, commands/, memory/): `0750`
+
+#### Scenario: Library directory permissions
+
+- **WHEN** `Library.Init` creates the library root directory
+- **THEN** the directory permissions SHALL be `0750`
+
+#### Scenario: library.yaml permissions
+
+- **WHEN** `Library.Init` writes the initial `library.yaml`
+- **THEN** the file permissions SHALL be `0640`
+
+### Requirement: Single-writer contract
+
+The library SHALL be designed for single-writer usage (one user, one process at a time on a given library directory). Concurrent writes from multiple processes SHALL NOT be supported without external coordination (e.g., `flock`).
+
+#### Scenario: Concurrent library modifications are last-writer-wins
+
+- **GIVEN** two `germinator` processes modify the same library directory simultaneously
+- **WHEN** both processes call `Save()` in overlapping windows
+- **THEN** the final `library.yaml` SHALL reflect whichever `Save()` renamed last (no merging, no conflict detection)
+- **AND** no corruption SHALL occur thanks to the atomic rename (each save is a complete snapshot)
+
+> **Note:** For multi-writer scenarios (parallel CI, shared library on a network filesystem), use `github.com/gofrs/flock` to wrap library mutations in an advisory lock. The single-writer contract is the default; locking is opt-in for advanced use cases.

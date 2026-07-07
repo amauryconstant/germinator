@@ -1,7 +1,7 @@
 # release-management Specification
-
 ## Purpose
-TBD - created by archiving change implement-release-management. Update Purpose after archive.
+
+Define the release process: GoReleaser configuration for cross-platform builds, Homebrew tap publishing, Docker image publishing, SBOM generation, and signing. The release is triggered by pushing a semver tag (`vX.Y.Z`) and is executed via GitHub Actions against the `.goreleaser.yml` configuration.
 ## Requirements
 ### Requirement: GoReleaser Configuration
 

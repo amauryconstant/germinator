@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Define Cobra CLI framework with validate, adapt, canonicalize, init, library, config, and version commands for document transformation. All commands obtain dependencies through `*cmdutil.Factory` (see `cli-factory` and `command-options-pattern`).
+Define Cobra CLI framework with validate, adapt, canonicalize, init, library, config, completion, and version commands for document transformation. All commands obtain dependencies through `*cmdutil.Factory` (see `cli-cli-factory` and `cli-command-options-pattern`).
 
 ## Requirements
 
@@ -53,9 +53,9 @@ The project SHALL have a root command named "germinator" with basic functionalit
 
 ---
 
-### Requirement: Commands take Factory, not CommandConfig
+### Requirement: Commands take Factory
 
-Each command's constructor SHALL take `*cmdutil.Factory` as its first parameter (after the optional `runF` for test injection). No command SHALL take `*CommandConfig`. The `CommandConfig` type and `cmd/command_config.go` SHALL be removed.
+Each command's constructor SHALL take `*cmdutil.Factory` as its first parameter (after the optional `runF` for test injection). No command SHALL take `*CommandConfig`. State flows through per-command `*XxxOptions` structs.
 
 #### Scenario: NewCmdXxx signature
 
@@ -63,16 +63,16 @@ Each command's constructor SHALL take `*cmdutil.Factory` as its first parameter 
 - **THEN** it SHALL match `NewCmdXxx(f *cmdutil.Factory, runF func(*XxxOptions) error) *cobra.Command`
 - **AND** it SHALL NOT have any parameter of type `*CommandConfig`
 
-### Requirement: No global CommandConfig
+### Requirement: No global command state
 
-The `cmd.SetGlobalCommandConfig(*CommandConfig)` function and any package-level `CommandConfig` variable SHALL be **removed**. All command state SHALL flow through `opts`.
+The `cmd` package SHALL NOT maintain any package-level mutable state for command configuration. All command state SHALL flow through per-command `*XxxOptions` structs populated in each command's `RunE` hook from `*cmdutil.Factory`.
 
 #### Scenario: No global command config
 
-- **WHEN** the codebase is inspected
-- **THEN** there SHALL be no `var globalConfig *CommandConfig` or similar
-- **AND** there SHALL be no `SetGlobalCommandConfig` function
-- **AND** no command SHALL call `cmd.GetCommandConfig()` or similar getter
+- **WHEN** the `cmd` package is inspected
+- **THEN** there SHALL be no package-level variable of type `*CommandConfig` or similar mutable state
+- **AND** there SHALL be no `SetGlobalCommandConfig` function or equivalent
+- **AND** no command SHALL call `cmd.GetCommandConfig()` or any global getter
 
 ---
 
@@ -310,7 +310,7 @@ The CLI SHALL provide a canonicalize command that converts platform documents to
 
 The `validate` and `canonicalize` commands SHALL take `*cmdutil.Factory` (per the `cli-cli-factory` capability) and follow the `cli-command-options-pattern` shape: `NewCmdValidate(f, runF)` + `validateOptions` + `runValidate`; `NewCmdCanonicalize(f, runF)` + `canonicalizeOptions` + `runCanonicalize`.
 
-> **Note:** this requirement defines the command **signature shape**; behavioral requirements remain in the existing "Validate Command" / "Canonicalize Command" requirements in `openspec/specs/cli-framework/spec.md` lines 153-204 and 288-306.
+> **Note:** this requirement defines the command **signature shape**; behavioral requirements remain in the "Validate Command" / "Canonicalize Command" requirements of this spec.
 
 #### Scenario: validate command signature
 
@@ -325,7 +325,7 @@ The `validate` and `canonicalize` commands SHALL take `*cmdutil.Factory` (per th
 - **THEN** the constructor SHALL be `NewCmdCanonicalize(f *cmdutil.Factory, runF func(*canonicalizeOptions) error) *cobra.Command`
 - **AND** `canonicalizeOptions` SHALL declare `IO *iostreams.IOStreams`, `Canonicalizer func() (Canonicalizer, error)`, `Ctx context.Context`, `InputPath string`, `OutputPath string`, `Platform string`, `DocType string`
 
-> **Status:** the migration is implemented in change-3 (`migrate-domain-commands`). The internal `internal/service/validator.go` and `internal/service/canonicalizer.go` are deleted; their logic moves into the per-command files as private helpers.
+> **Note:** The validate/canonicalize behavior is implemented entirely within the per-command files (`cmd/validate.go`, `cmd/canonicalize.go`) as private helpers. There is no separate `internal/service/validator.go` or `internal/service/canonicalizer.go`.
 
 ---
 
@@ -454,9 +454,27 @@ The version command SHALL display version information for debugging and release 
 **Then** it SHALL display command help
 **And** it SHALL show description: "Show version of germinator"
 
+#### Scenario: Version with --output json
+
+- **GIVEN** germinator is built with version metadata
+- **WHEN** a user runs `germinator version --output json`
+- **THEN** the command SHALL emit a single JSON object on stdout with keys `version`, `commit`, `date`, and `go`
+- **AND** `stdout` SHALL contain exactly one JSON object (no trailing newline required)
+- **AND** `stderr` SHALL be empty
+- **AND** the process SHALL exit with code 0
+
+### Requirement: Version emits runtime.GoVersion
+
+The version command SHALL include the Go runtime version (via `runtime.Version()`) in its output. This field aids bug reports by recording the exact Go toolchain that produced the binary.
+
+#### Scenario: Version output includes Go runtime version
+
+- **GIVEN** germinator is built with any Go toolchain
+- **WHEN** a user runs `germinator version` (any output format)
+- **THEN** the rendered output SHALL contain the Go runtime version string (e.g., `go1.25.5`)
+- **AND** for `--output json`, the `go` key SHALL be populated from `runtime.Version()`
+
 ## Fulfilled
 
 **Change:** `migrate-library-rest` (slice 7 of 9)
 **Date:** 2026-07-01
-
-> The legacy `CommandConfig` was fully removed in this change. All commands have been migrated to `NewCmdXxx(f, runF)` + `runXxx(opts)` pattern.

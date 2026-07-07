@@ -181,14 +181,14 @@ When `library show <ref>` is invoked with a ref that doesn't resolve (neither as
 - **THEN** the command SHALL return `*core.NotFoundError` with `Key == "nonexistent-ref"`
 - **AND** `output.FormatError` SHALL render it as `Error: not found: nonexistent-ref\n` to **stderr** (`opts.IO.ErrOut`)
 - **AND** `stdout` SHALL be empty (no data leakage on error paths)
-- **AND** `cmdutil.ExitCodeFor` SHALL map it to `ExitCodeError` (1) via the default-error case in `internal/cmdutil/exit.go:71`
+- **AND** `cmdutil.ExitCodeFor` SHALL map it to `ExitCodeUsage` (2) via the `errors.As(err, &notFound)` branch in `internal/cmdutil/exit.go:73-75`
 
 #### Scenario: Empty ref is a not-found error
 
 - **WHEN** `germinator library show ""` is invoked
 - **THEN** the command SHALL return `*core.NotFoundError` with `Key == ""`
 - **AND** `output.FormatError` SHALL render it as `Error: not found: \n` to stderr
-- **AND** the process SHALL exit with code 1
+- **AND** the process SHALL exit with code 2
 
 ### Requirement: Stream discipline for library presets and library show
 

@@ -6,7 +6,7 @@ Replace the existing ValidationError with an enhanced version that supports immu
 
 ### Requirement: ValidationError with private fields
 
-The system SHALL provide an enhanced `ValidationError` in `internal/errors/types.go` with private fields.
+The system SHALL provide an enhanced `ValidationError` in `internal/core/errors.go` with private fields.
 
 #### Scenario: ValidationError has private fields
 

@@ -8,7 +8,7 @@ This capability defines the dependency injection pattern for wiring services and
 
 ### Requirement: ServiceContainer replaced by Factory
 
-The `cmd.ServiceContainer` struct and `cmd.NewServiceContainer()` constructor SHALL NOT be used for new code; commands SHALL obtain dependencies through the `cmdutil.Factory` introduced in `cli-factory`. The `ServiceContainer` type and `cmd/container.go` SHALL be removed (see `cli-factory` for the replacement contract).
+Commands SHALL obtain dependencies through the `cmdutil.Factory` (see `cli-cli-factory` for the full contract). The `cmd` package exposes no `ServiceContainer` or analogous eager DI mechanism.
 
 #### Scenario: No command imports ServiceContainer
 
@@ -47,5 +47,3 @@ Commands SHALL NOT use global variables for command definitions or flags.
 
 **Change:** `migrate-library-rest` (slice 7 of 9)
 **Date:** 2026-07-01
-
-> The legacy `ServiceContainer` was fully removed in this change. The replacement `cmdutil.Factory` is the live contract.
