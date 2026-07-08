@@ -74,21 +74,88 @@ The target architecture is **golang-cli-architecture** (Functional Core / Impera
 
 ## Reference Skills
 
-This project follows the **golang-cli-architecture** skill (`@.opencode/skills/golang-cli-architecture/SKILL.md`), which is the source of truth for layout, Factory, IOStreams, exit codes, and all architectural decisions. Per-package AGENTS.md files inline-link specific references via `@<path>`.
-
-Additional skills to load when relevant:
-
-| Skill | When to use |
-|-------|-------------|
-| `golang-design-patterns` | Functional options, constructors, resource lifecycle, error flow |
-| `golang-error-handling` | Error wrapping with `%w`, errors.As/Is, custom error types, slog |
-| `golang-testing` | Table-driven tests, testify, parallel tests, fuzzing, coverage |
-| `golang-project-layout` | Package organization, `internal/` conventions, package boundaries |
-| `golang-context` | `ctx` propagation, cancellation, deadlines |
-| `golang-spf13-cobra` | Cobra API depth: command groups, `PersistentPreRunE`, `ValidArgsFunction` |
-| `golang-lint` | golangci-lint config, depguard (core isolation), nolint directives |
+This project follows the **`golang-cli-architecture`** skill as its primary reference. It is the **only** Go skill always-loaded at session start. All other Go skills are loaded **on demand** based on task intent. Per-package AGENTS.md files (see [Location-Specific Guides](#location-specific-guides)) inline-link specific `golang-cli-architecture/references/*.md` files via `@<path>` and remain authoritative for their domain.
 
 Library selection rationale: `@.opencode/skills/golang-cli-architecture/references/14-libraries.md`
+
+### Primary skill — always loaded
+
+Load **`golang-cli-architecture`** (`@.opencode/skills/golang-cli-architecture/SKILL.md`)
+at the start of **every** Go task. It is the source of truth for:
+
+- Project layout (`cmd/` flat, `internal/core/` Functional Core, `internal/<x>/` Imperative Shell)
+- Factory pattern with lazy function fields (replaces DI containers)
+- IOStreams abstraction, exit code mapping, error formatting
+- CLI testing pyramid (Core unit → Command via `runF` → Integration → E2E)
+- Three-concern model (Parse / Execute / Respond)
+
+> **Token budget.** Always-loaded skills add their description tokens to every
+> session (~100 tokens per skill). `golang-cli-architecture` is the only Go skill
+> with mandatory session-startup load.
+
+### Intent-based skill loading
+
+For each Go task, load the **primary** skill plus any **secondary** skill(s) the
+intent requires. `golang-cli-architecture` is **always** a secondary (it is the
+always-loaded primary above). Do not load all skills — pick by intent.
+
+| Intent                                         | Primary                          | Also load                                                                                       |
+|------------------------------------------------|----------------------------------|-------------------------------------------------------------------------------------------------|
+| Add/restruct a CLI command, scaffold a command | `golang-cli-architecture`        | `golang-spf13-cobra`, `golang-naming`, `golang-code-style`                                      |
+| Add a Functional Core type, validator, or rule | `golang-design-patterns`        | `golang-cli-architecture`, `golang-structs-interfaces`, `golang-samber-lo`                      |
+| Add Factory wiring / lazy fn fields            | `golang-design-patterns`        | `golang-cli-architecture`                                                                       |
+| Implement error wrapping, errors.Is/As, slog   | `golang-error-handling`          | `golang-cli-architecture`, `golang-safety` (nil-heavy code)                                     |
+| Add a Cobra command group, ValidArgsFunction, completion | `golang-spf13-cobra`    | `golang-cli-architecture`                                                                       |
+| Use samber/lo helpers in `core/`               | `golang-samber-lo`               | `golang-cli-architecture`, `golang-data-structures`                                             |
+| Write unit tests with testify                  | `golang-stretchr-testify`        | `golang-cli-architecture`, `golang-testing`                                                     |
+| Write integration or E2E test                  | `golang-cli-architecture`        | `golang-testing`, `golang-stretchr-testify`                                                     |
+| Configure / tune golangci-lint                 | `golang-lint`                    | `golang-cli-architecture`, `golang-code-style`                                                  |
+| Debug a panic, deadlock, or unexpected behavior | `golang-troubleshooting`        | `golang-cli-architecture`, `golang-safety`                                                      |
+| Refactor across packages                       | `golang-design-patterns`        | `golang-cli-architecture`, `golang-naming`, `golang-code-style`                                 |
+| Modernize for a new Go version                 | `golang-modernize`               | `golang-cli-architecture`, `golang-lint`                                                        |
+| Write godoc for an `internal/` package         | `golang-documentation`           | `golang-cli-architecture`, `golang-naming`                                                      |
+| Review formatting, style, naming               | `golang-code-style`              | `golang-cli-architecture`, `golang-naming`, `golang-lint`                                       |
+| Propagate ctx / add cancellation               | `golang-context`                 | `golang-cli-architecture`                                                                       |
+| Choose a new library                           | `golang-cli-architecture` (read `references/14-libraries.md`) | —                                                              |
+| Look up an unfamiliar package                  | `golang-pkg-go-dev`              | `golang-cli-architecture`                                                                       |
+| Navigate / refactor locally with gopls         | `golang-gopls`                   | `golang-cli-architecture`                                                                       |
+
+> **Note on `golang-testing`:** it is partially superseded by
+> `golang-cli-architecture` for the CLI testing pyramid
+> (Core → Command via `runF` → Integration → E2E). It is kept for
+> table-driven patterns, fuzzing, goleak, and coverage idioms.
+>
+> **Note on configuration:** germinator uses **`koanf`**, not `viper`.
+> `golang-spf13-viper` is intentionally not listed. Library rationale:
+> `@.opencode/skills/golang-cli-architecture/references/14-libraries.md`.
+
+### Skill catalog (secondary)
+
+| Category        | Skills                                                                                                                       |
+|-----------------|------------------------------------------------------------------------------------------------------------------------------|
+| Code Quality    | `golang-code-style`, `golang-naming`, `golang-documentation`, `golang-lint`, `golang-safety`                                 |
+| Architecture    | `golang-design-patterns`, `golang-structs-interfaces`, `golang-context`                                                      |
+| Errors          | `golang-error-handling`                                                                                                      |
+| Testing         | `golang-testing`, `golang-stretchr-testify`                                                                                  |
+| Libraries       | `golang-spf13-cobra`, `golang-samber-lo`                                                                                     |
+| Tools           | `golang-troubleshooting`, `golang-modernize`, `golang-gopls`, `golang-pkg-go-dev`                                             |
+
+### Supersession — DO NOT load these `samber/cc-skills-golang` skills
+
+The following samber skills are explicitly overridden by local skills or by
+project decisions and should NOT be loaded for germinator work:
+
+- `samber/cc-skills-golang@golang-cli` → superseded by `golang-cli-architecture`
+- `samber/cc-skills-golang@golang-dependency-injection` → Factory pattern replaces DI containers
+- `samber/cc-skills-golang@golang-project-layout` → CLI-specific Tier 1/2/3 layouts
+- `samber/cc-skills-golang@golang-concurrency` → sequential-first for CLIs
+- `samber/cc-skills-golang@golang-spf13-viper` → we use **koanf**, not viper
+
+Domain-mismatched skills (also not loaded): `golang-database`, `golang-graphql`,
+`golang-grpc`, `golang-swagger`, `golang-observability`, `golang-benchmark`,
+`golang-performance`, all DI container skills (`golang-google-wire`,
+`golang-uber-dig`, `golang-uber-fx`, `golang-samber-do`), and all other
+`samber/*` skills not listed in the catalog above.
 
 ## Essential Commands
 
