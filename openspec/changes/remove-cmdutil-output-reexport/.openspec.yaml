@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-07-08
+goal: Align cmd imports with the actual output surface consumed by command
+  files; remove the half-applied re-export at internal/cmdutil/output_flags.go.
