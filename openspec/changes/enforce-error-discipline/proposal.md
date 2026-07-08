@@ -6,7 +6,7 @@ This change enforces the error-handling contract end-to-end. It is a **productio
 
 ## What Changes
 
-- **MODIFY** `internal/cmdutil/exit.go:73` — map `NotFoundError` to `ExitCodeError` (1) instead of `ExitCodeUsage` (2). Update `internal/cmdutil/exit_test.go:58` to match.
+- **BREAKING**: **MODIFY** `internal/cmdutil/exit.go:73` — map `NotFoundError` to `ExitCodeError` (1) instead of `ExitCodeUsage` (2). Update `internal/cmdutil/exit_test.go:58` to match. Scripts that special-case `exit 2` for not-found scenarios will see exit 1 instead; this is a semantic correction (a lookup miss is a runtime state, not a user-input validation error) and the CHANGELOG entry MUST call it out under a `### BREAKING` heading.
 - **MODIFY** `internal/cmdutil/exit.go:24` — replace brittle Cobra string-prefix matching with `errors.As` dispatch against `*cobra.FlagError` / `*flag.Error` (or document the limitation explicitly if typed errors are not available).
 - **DELETE** 6 inline `output.FormatError(opts.IO, err)` calls in `cmd/library_remove.go:170,178`, `cmd/library_add.go:343,537,681,694`, `cmd/init.go:205/209`. Rely on `main.go`'s central `output.FormatError` handler.
 - **MODIFY** `internal/library/remover.go:83` — replace `gerrors.NewFileError("access", "resource not found", nil)` with `gerrors.NewNotFoundError("library ref", opts.Ref)`.

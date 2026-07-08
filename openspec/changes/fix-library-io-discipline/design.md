@@ -72,8 +72,16 @@ func CreateLibrary(opts CreateOptions, stdout io.Writer) error
 
 **Rationale**: A typical library has 4-8 resource subdirectories; an 8-worker cap handles the common case without goroutine sprawl. For libraries with thousands of nested directories, the cap bounds memory usage while still parallelizing.
 
+**Why errgroup over sequential-first (skill threshold justification)**: The `golang-cli-architecture` skill prescribes sequential-first for CLIs (`SKILL.md:892-893`) with two errgroup decision triggers: "Sequential I/O >500ms with independent calls → errgroup" and "N>10 items processed with independent I/O each → errgroup with SetLimit(n)". For the typical 4-8 subdirectory case, sequential would satisfy both thresholds (N<10, I/O latency <500ms). The choice to use errgroup uniformly is justified by the **outlier case**: a 10k+ subdirectory library's sequential scan exceeds the 500ms threshold (per-directory I/O + YAML parse × 10k = measurable latency). Branching on dir count would add complexity without real benefit. Cap=8 bounds memory on the outlier case while staying negligible for the typical case.
+
+**Why cap=8 and not `SetLimit(N)`**: The skill's recommendation is `SetLimit(n)` where n is the workload size. Cap=8 is a fixed upper bound because:
+- 8 workers process 10k items at ~1250 items/worker — still I/O-bound (each worker is mostly waiting on `os.ReadDir` + `yaml.Unmarshal`).
+- 8 is the documented maximum for outliers; for the typical case (4-8 dirs), the cap has no effect.
+- Making it configurable adds API surface (a Factory field or function param) for one internal function — rejected.
+
 **Alternatives considered**:
 
+- *Sequential for typical, errgroup for outliers (branching on dir count)*: rejected; conditional logic adds complexity; the errgroup overhead is negligible at N<10.
 - *No cap (unlimited goroutines)*: rejected; risk of OOM on libraries with 10,000+ directories.
 - *Configurable cap via Factory*: rejected; over-engineered for a single internal function.
 

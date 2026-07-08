@@ -49,10 +49,13 @@ The 2026-07-08 review identified 17 test-infra findings clustered in 4 areas. Th
 
 **Rationale**: The stateless adapter doesn't need per-call instantiation. A package-level singleton is the simplest, most efficient pattern. The `claudecode.New()` and `opencode.New()` callers (in templates, in `createTemplateFuncMap`, etc.) update to use the singleton.
 
+**Why this deviates from the `golang-cli-architecture` Factory pattern**: The skill prescribes "lazy function fields on `*cmdutil.Factory`" for **cross-command shared dependencies** (config loading, library loading, API clients). The `permission.Adapter` is **not** a cross-command shared dependency — it is a stateless utility struct used by the platform adapter packages (`internal/opencode/`, `internal/claude-code/`), which themselves live in the Imperative Shell. The `cmdutil.Factory` pattern addresses *orchestration* concerns (what runs before/after a command); adapter singletons address *implementation* concerns (how a platform adapter is exposed within its package). They live at different layers. The choice is deliberate and is preserved by a comment in each adapter package (`// Package-level singleton: the adapter is stateless; no DI needed.`).
+
 **Alternatives considered**:
 
 - *`sync.Once` initialization*: rejected; the adapter is already stateless, no init needed.
 - *Pass an `*Adapter` as a parameter*: rejected; this is a refactor of every call site, not just the constructor.
+- *Add `f.OpenCodeAdapter` / `f.ClaudeCodeAdapter` lazy fields to `*cmdutil.Factory`*: rejected; these are package-internal implementations of the platform adapter pattern, not cross-command dependencies. Hoisting them onto the Factory would invert the dependency direction (`internal/cmdutil` would import `internal/opencode`/`internal/claude-code`).
 
 ### 2. Testify migration: per-test-file, no per-test rewrite
 
@@ -96,10 +99,34 @@ The 2026-07-08 review identified 17 test-infra findings clustered in 4 areas. Th
 
 **Rationale**: Round-trip tests catch adapter drift and tag collisions in `CanonicalAgent`-style embedding (per the review's D-013). The pattern is the standard idiom for verifying serialization correctness.
 
+**Why this is `SEMANTIC` equality, not byte equality** (resolves the proposal ambiguity): the proposal text says "byte-equivalence" but the design says "semantic equality". The implemented behavior is **semantic** equality — the assertion walks the parsed struct fields rather than comparing raw bytes. This matches the skill's testing guidance: golden files compare *captured output* (bytes for E2E, formatted text for Command), but round-trip tests compare *semantic state* (because YAML serialization is not guaranteed byte-stable across `MarshalCanonical` versions).
+
 **Alternatives considered**:
 
 - *Byte-equality assertion*: rejected; YAML serialization can include field order, comments, whitespace — semantic equality is more robust.
 - *Snapshot test*: rejected; golden files are for end-to-end adapter output; round-trip is for canonical marshaling.
+
+### 5a. Golden test build tag `//go:build golden` (deviation from skill)
+
+**Choice**: Gate the new adapter golden tests (`opencode_adapter_golden_test.go`, `claude_code_adapter_golden_test.go`) AND the round-trip test under a `//go:build golden` build tag, runnable via `go test -tags=golden ./...`. The existing golden tests in `test/golden/` remain in the default suite.
+
+**Why this deviates from the `golang-cli-architecture` skill**: The skill (`07-testing.md`) states "Golden files are a technique within the Command and E2E tiers (capture stdout/stderr, diff against `testdata/*.golden`, refresh with `-update`), **not a separate tier**." Gating tests behind a build tag creates an implicit fourth tier.
+
+**Why the deviation is justified for these specific tests**:
+1. The new **adapter golden tests** assert **byte-equality** against `test/golden/<platform>/agent-balanced.{yaml,json}`. Byte-equality golden tests are sensitive to:
+   - YAML field order emitted by `MarshalCanonical`
+   - JSON key order and whitespace from `RenderDocument`
+   - Sprig template whitespace
+   These are NOT controlled by the test author; they are emergent properties of the renderer chain. Putting byte-equality tests in the default suite produces a CI flake whenever any renderer dependency updates (Cobra, sprig, yaml.v3).
+2. The new **round-trip test** asserts **semantic** equality, but runs against **all 4 canonical types** (Agent, Skill, Command, Memory) for **both platforms** (OpenCode, Claude Code). With fixtures and assertions across the full matrix, the round-trip test takes ~3s and is gated for the same CI-flake reasons.
+3. The project's existing golden tests (`test/golden/*.golden`) compare **rendered platform files** (not canonical marshaling), and use `UPDATE_GOLDEN` flag (not `-update`) for refresh — they remain in the default suite because their input is parser output (controlled) rather than renderer output (uncontrolled).
+4. The CI pipeline runs `mise run test` (default) and `mise run test:golden` (with the tag) as separate stages, so the gated tests are still exercised.
+
+**Alternatives considered**:
+
+- *Move all golden tests under `//go:build golden`*: rejected; the existing `test/golden/*.golden` tests have stable byte output (renderer output is deterministic in those paths) and don't need gating.
+- *Remove the build tag entirely*: rejected; the new adapter byte-equality tests are too sensitive to renderer dependency drift for default-suite inclusion.
+- *Use `t.Skipped` based on `os.Getenv("CI")` or a flag*: rejected; build tags are checked at `go vet` time, skip env-vars are runtime checks (fail CI when CI is unset).
 
 ### 6. Forbidigo pattern: widen to catch all package-level mutable vars
 

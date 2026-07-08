@@ -46,7 +46,7 @@ This change is a **production-test refactor** with spec deltas. The hotfix D-001
 
 - **NEW** `internal/opencode/opencode_adapter_golden_test.go` (build tag `golden`) — fixture-parse → adapter-render → fixture-golden-compare for at least one agent with `permissionPolicy=balanced`.
 - **NEW** `internal/claude-code/claude_code_adapter_golden_test.go` (build tag `golden`) — same pattern for Claude Code.
-- **MODIFY** `internal/renderer/serializer_test.go` — add `TestParseRenderRoundTrip` that reads a fixture, parses it through `parser.ParsePlatformDocument`, re-emits via `MarshalCanonical`, and asserts byte-equivalence of the canonical form.
+- **MODIFY** `internal/renderer/serializer_test.go` — add `TestParseRenderRoundTrip` that reads a fixture, parses it through `parser.ParsePlatformDocument`, re-emits via `MarshalCanonical`, and asserts **semantic** equality of the canonical form (key fields: `Name`, `Description`, `Mode`, `Temperature`, `Steps`, `Hidden`, `Disabled`, `Tools`, `PermissionPolicy`). NOT byte-equality — see design Decision 5 for the rationale (YAML serialization is not byte-stable across renderer dependency versions).
 - **MODIFY** `cmd/canonicalize_golden_test.go:26` — compute fixture path via `runtime.Caller(0)` instead of the CWD-relative `../test/fixtures/canonical`.
 
 ### Phase 5 — Test parallelization
