@@ -1,0 +1,7 @@
+schema: spec-driven
+created: 2026-07-08
+goal: "Align cmd/ with the Functional Core / Imperative Shell model: cmd/
+  declares interfaces and wires them via runF; production adapters live in
+  per-concern shell packages (internal/validate/, internal/canonicalize/,
+  internal/transform/, internal/install/) and on methods of
+  internal/library.Library."
