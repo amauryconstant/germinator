@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-07-08
+goal: Make the koanf config pipeline the actual runtime config source; close the
+  Factory.Config unassigned gap; restore the four-tier precedence contract.
