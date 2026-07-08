@@ -134,7 +134,7 @@ always-loaded primary above). Do not load all skills — pick by intent.
 | Category        | Skills                                                                                                                       |
 |-----------------|------------------------------------------------------------------------------------------------------------------------------|
 | Code Quality    | `golang-code-style`, `golang-naming`, `golang-documentation`, `golang-lint`, `golang-safety`                                 |
-| Architecture    | `golang-design-patterns`, `golang-structs-interfaces`, `golang-context`                                                      |
+| Architecture    | `golang-design-patterns`, `golang-structs-interfaces`, `golang-context`, `golang-data-structures`                           |
 | Errors          | `golang-error-handling`                                                                                                      |
 | Testing         | `golang-testing`, `golang-stretchr-testify`                                                                                  |
 | Libraries       | `golang-spf13-cobra`, `golang-samber-lo`                                                                                     |
