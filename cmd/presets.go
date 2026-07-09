@@ -156,17 +156,3 @@ func formatPresetsList(lib *library.Library) string {
 
 	return sb.String()
 }
-
-// PresetsJSONOutput represents the JSON output for library presets.
-// Retained for backwards-compatible JSON shape consumed by external
-// tooling.
-type PresetsJSONOutput struct {
-	Presets []PresetInfoJSON `json:"presets"`
-}
-
-// PresetInfoJSON represents a single preset entry in JSON output.
-type PresetInfoJSON struct {
-	Name        string   `json:"name"`
-	Description string   `json:"description,omitempty"`
-	Resources   []string `json:"resources"`
-}

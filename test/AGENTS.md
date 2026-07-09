@@ -71,7 +71,7 @@ go test -tags=integration ./internal/core -v
 
 ### Integration Test Structure
 
-Located in `internal/parser/integration_test.go`:
+Located in `internal/parser/integration_test.go` and `internal/cmdutil/integration_test.go`:
 
 - Tests end-to-end document loading pipeline: `LoadDocument → Validate → RenderDocument`
 - Uses fixtures from `test/fixtures/` for representative document types
@@ -79,7 +79,7 @@ Located in `internal/parser/integration_test.go`:
 
 ### Adding Integration Tests
 
-1. Create test functions in `internal/parser/integration_test.go` with `//go:build integration` tag
+1. Create test functions in `internal/parser/integration_test.go` or `internal/cmdutil/integration_test.go` with `//go:build integration` tag
 2. Use fixtures from `test/fixtures/` for test data
 3. Test complete pipelines, not individual functions
 4. Keep integration tests focused on critical workflows

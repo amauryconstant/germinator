@@ -41,7 +41,7 @@ func MaybeWarnLegacyExitCode(io *iostreams.IOStreams) {
 		return
 	}
 	canaryOnce.Do(func() {
-		io.Warnf("exit code 5 was renamed to 1 in slice 2; consult CHANGELOG for the migration timeline")
+		io.Warnf("exit code 5 was renamed to 1; see CHANGELOG.md for the migration timeline")
 	})
 }
 

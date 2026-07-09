@@ -68,7 +68,7 @@ Priority: explicit path > `GERMINATOR_LIBRARY` env > `$XDG_DATA_HOME/germinator/
 DefaultLibraryPath() string
 
 // Find library with priority resolution
-FindLibrary(explicitPath string) (string, error)
+FindLibrary(flagPath, envPath string) string
 ```
 
 ## Loading
@@ -334,7 +334,7 @@ type RefreshOptions struct {
 type RefreshResult struct {
     Refreshed []RefreshChange
     Unchanged []RefreshUnchanged   // always populated when present in the library
-    Skipped   []RefreshSkipped
+    Skipped   []SkipInfo
     Errors    []RefreshError
 }
 
@@ -350,14 +350,15 @@ type RefreshChange struct {
     New   string
 }
 
-type RefreshSkipped struct {
+type SkipInfo struct {
     Ref    string
     Reason string // "missing_file"
 }
 
 type RefreshError struct {
-    Ref    string
-    Reason string // "name_mismatch", "malformed_frontmatter"
+    Ref   string
+    Field string
+    Type  string
 }
 
 // RefreshLibrary syncs metadata from registered resource files into library.yaml

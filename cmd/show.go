@@ -221,18 +221,3 @@ func formatPresetDetails(name string, preset library.Preset) string {
 	}
 	return sb.String()
 }
-
-// ShowResourceJSONOutput represents the JSON output for a single
-// resource. Retained for backwards-compatible JSON shape.
-type ShowResourceJSONOutput struct {
-	Ref         string `json:"ref"`
-	Path        string `json:"path"`
-	Description string `json:"description,omitempty"`
-}
-
-// ShowPresetJSONOutput represents the JSON output for a single preset.
-type ShowPresetJSONOutput struct {
-	Name        string   `json:"name"`
-	Description string   `json:"description,omitempty"`
-	Resources   []string `json:"resources"`
-}
