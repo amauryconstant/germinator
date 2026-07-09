@@ -10,20 +10,20 @@ AGENTS.md files throughout the project MUST accurately reflect the code they doc
 
 #### Scenario: Function signature table cells match code
 
-- **WHEN** an AGENTS.md file lists a function signature in a table cell (e.g., `internal/library/AGENTS.md:71` lists `FindLibrary(explicitPath string) (string, error)`)
+- **WHEN** an AGENTS.md file lists a function signature in a table cell (e.g., `internal/library/AGENTS.md:71` lists `FindLibrary(flagPath, envPath string) string`)
 - **THEN** the actual function signature in the code MUST match the table cell
 - **AND** a code change that alters the signature SHALL update the table cell in the same commit
 
 #### Scenario: Struct shape table cells match code
 
-- **WHEN** an AGENTS.md file lists a struct definition in a table cell (e.g., `internal/library/AGENTS.md:353,358` list `RefreshSkipped` and `RefreshError`)
+- **WHEN** an AGENTS.md file lists a struct definition in a table cell (e.g., `internal/library/AGENTS.md:353,358` list `SkipInfo` and `RefreshError`)
 - **THEN** the actual struct definition in the code MUST match the table cell
 - **AND** a code change that adds, removes, or renames a struct field SHALL update the table cell in the same commit
 
 #### Scenario: FormatError dispatch set is complete in AGENTS.md
 
 - **WHEN** `internal/output/AGENTS.md:15` documents the set of error types handled by `output.FormatError`
-- **THEN** the documented set MUST include every error type present in the `switch err.(type)` block at `internal/output/errors.go:21-50`
+- **THEN** the documented set MUST include every error type present in the `switch { case errors.As(...) }` block at `internal/output/errors.go:21-50`
 - **AND** adding a new `case` to the switch SHALL update the AGENTS.md set in the same commit
 
 #### Scenario: Integration-test file list matches reality
@@ -35,7 +35,7 @@ AGENTS.md files throughout the project MUST accurately reflect the code they doc
 
 #### Scenario: User-visible strings reference discoverable docs
 
-- **WHEN** the codebase emits a user-visible string that references project documentation (e.g., the canary at `internal/warning/canary.go:44` mentions "slice 2" or "CHANGELOG")
+- **WHEN** the codebase emits a user-visible string that references project documentation (e.g., the canary at `internal/warning/canary.go:44` post-change mentions "CHANGELOG"; the pre-change text references "slice 2", which is the inaccuracy this requirement fixes)
 - **THEN** the referenced document MUST exist at the named location
 - **AND** the string MUST be navigable from the user's perspective (a CHANGELOG entry, an openspec change archive, or a release note)
 

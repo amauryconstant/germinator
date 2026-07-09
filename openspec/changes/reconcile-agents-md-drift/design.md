@@ -1,18 +1,18 @@
 ## Context
 
-The 2026-07-08 code review identified 8 AGENTS.md drift entries that misrepresent the code. These are scattered across 4 AGENTS.md files plus one canary constant and one missing build tag. The drift is concentrated in three areas:
+The 2026-07-08 code review identified 8 drift entries (6 in AGENTS.md, 1 canary-string inaccuracy, 1 missing build tag) that misrepresent the code. These are scattered across 4 AGENTS.md files plus one canary constant and one missing build tag. The drift is concentrated in three areas:
 
-1. **Signature drift in tables**: `cmd/AGENTS.md:278` and `internal/library/AGENTS.md:71,353,358` list outdated function/struct shapes. The first was changed in slice 7 (per `openspec/changes/archive/2026-07-01-migrate-library-rest`); the latter three changed during subsequent library work without AGENTS.md updates.
-2. **Dispatch-set drift**: `internal/output/AGENTS.md:15` lists a partial `FormatError` dispatch set. New error types (`InitializeError`, `NotFoundError`, `OperationError`) were added without AGENTS.md updates.
+1. **Signature drift in tables**: `cmd/AGENTS.md:278` and `internal/library/AGENTS.md:71,353,358` list outdated function/struct shapes. The first was changed during the 2026-07-01 `migrate-library-rest` change (`openspec/changes/archive/2026-07-01-migrate-library-rest`); the latter three changed during subsequent library work without AGENTS.md updates.
+2. **Dispatch-set drift**: `internal/output/AGENTS.md:15` lists a partial `FormatError` dispatch set. New error types `NotFoundError` and `OperationError` were added to the `FormatError` switch (`internal/output/errors.go:31-50`) without AGENTS.md updates. (`InitializeError` exists in `internal/core` but is intentionally not a top-level dispatch case — it is a nested type inside `PartialSuccessError`.)
 3. **Cross-doc inconsistency**: `test/AGENTS.md` lists one integration-test file but `internal/cmdutil/integration_test.go` also exists, and the latter is missing the `//go:build integration` tag that the doc promises.
 
 Additionally, four JSON output types in `cmd/presets.go` and `cmd/show.go` are dead code from earlier slices — no callers (per `rg` verification). They are folded into this change because they share the same code-hygiene theme.
 
-The canary string at `internal/warning/canary.go:44` references "slice 2" — a project-internal migration marker that does not appear in `CHANGELOG.md` (verified by `rg "slice [0-9]" CHANGELOG.md` returning zero matches). Users who see the canary cannot navigate from it to the relevant changelog entry.
+The canary string at `internal/warning/canary.go:44` references "slice 2" — a project-internal migration marker that does not appear in `CHANGELOG.md` (verified by `rg 'slice [0-9]' CHANGELOG.md` returning zero matches). Users who see the canary cannot navigate from it to the relevant changelog entry.
 
 ### Constraints
 
-1. **No spec deltas**: per the proposal, this is a documentation/dead-code change; no spec-level behavior changes.
+1. **Adds one new spec**: this change introduces one new infrastructure spec, `infrastructure-documentation-accuracy` (see `specs/infrastructure-documentation-accuracy/spec.md`). The three existing library/cli specs (`cli-factory`, `library-library-refresh`, `library-library-validation`) are not modified.
 2. **Build tag semantics**: the project convention is that `*_integration_test.go` files use `//go:build integration` and are excluded from `go test ./...` (per `test/AGENTS.md`). `internal/parser/integration_test.go:1` already follows this; the cmdutil file does not.
 3. **Canary is user-visible**: changing the string in `internal/warning/canary.go:44` is observable on stderr. The change must preserve the user-meaningful portion.
 4. **No CLI behavior change**: every other edit is documentation or dead-code removal; no user-facing change.
@@ -73,7 +73,7 @@ The canary string at `internal/warning/canary.go:44` references "slice 2" — a 
 
 **Choice**: Delete `PresetsJSONOutput` (cmd/presets.go:160), `PresetInfoJSON` (cmd/presets.go:163), `ShowResourceJSONOutput` (cmd/show.go:225), `ShowPresetJSONOutput` (cmd/show.go:228). Verified zero non-test callers via `rg` before deletion.
 
-**Rationale**: The types were added for the `germinator library presets` and `germinator library show` JSON output paths. Subsequent refactors (slice 4-6) replaced the per-type JSON projections with the generic `output.NewJSONExporter` (`internal/output/exporter.go:21`). The old types are dead.
+**Rationale**: The types were added for the `germinator library presets` and `germinator library show` JSON output paths. Subsequent refactors replaced the per-type JSON projections with the generic `output.NewJSONExporter` (`internal/output/exporter.go:21`). The old types are dead.
 
 **Alternatives considered**:
 
@@ -82,10 +82,10 @@ The canary string at `internal/warning/canary.go:44` references "slice 2" — a 
 
 ## Risks / Trade-offs
 
-- **Build tag migration hides test failures**: adding `//go:build integration` to `internal/cmdutil/integration_test.go` removes it from `go test ./...`. **Mitigation**: task `4.6.1` runs `mise run test:integration` after the change to confirm the file still runs; task `4.6.2` runs `mise run test` to confirm the file is skipped from the default target. CI must invoke both targets.
-- **Deprecation ripple**: deleting the 4 JSON types may surface a hidden caller in a downstream branch. **Mitigation**: task `4.9.1` runs `rg "PresetsJSONOutput|PresetInfoJSON|ShowResourceJSONOutput|ShowPresetJSONOutput"` before deletion; zero matches expected outside the declarations.
+- **Build tag migration hides test failures**: adding `//go:build integration` to `internal/cmdutil/integration_test.go` removes it from `go test ./...`. **Mitigation**: task 7.3 runs `mise run test:integration` after the change to confirm the file still runs; task 7.2 runs `mise run test` to confirm the file is skipped from the default target. CI must invoke both targets.
+- **Deprecation ripple**: deleting the 4 JSON types may surface a hidden caller in a downstream branch. **Mitigation**: task 6.1 runs `rg -e 'PresetsJSONOutput' -e 'PresetInfoJSON' -e 'ShowResourceJSONOutput' -e 'ShowPresetJSONOutput' ./cmd ./internal ./test` before deletion; zero matches expected outside the declarations.
 - **CHANGELOG cross-reference accuracy**: the canary text changes from "slice 2" to "CHANGELOG.md" navigation. **Mitigation**: the test at `internal/warning/canary_test.go` must be updated to match the new string; the assertion is on the substring `"exit code 5 was renamed to 1"` which is preserved.
-- **AGENTS.md edit drift in future**: the same drift pattern (signature change without doc update) will recur unless the contributing process is improved. **Mitigation**: not in scope; a follow-up infra change can add a CI check that verifies AGENTS.md claims against code. Flagged as a follow-up in `tasks.md`.
+- **AGENTS.md edit drift in future**: the same drift pattern (signature change without doc update) will recur unless the contributing process is improved. **Mitigation**: not in scope for this change; a follow-up infra change can add a CI check that verifies AGENTS.md claims against code.
 
 ## Migration Plan
 
