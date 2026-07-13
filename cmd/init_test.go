@@ -587,7 +587,7 @@ func TestInitLibrary_HonorsExplicitPath(t *testing.T) {
 
 	io := iostreams.Test()
 	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
-	loader := initLibrary(f.RootContext, tmp)
+	loader := initLibrary(f, tmp)
 	require.NotNil(t, loader, "initLibrary must return a non-nil loader")
 
 	_, err := loader()

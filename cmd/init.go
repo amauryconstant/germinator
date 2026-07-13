@@ -92,7 +92,7 @@ Examples:
 		RunE: func(c *cobra.Command, _ []string) error {
 			opts := &initOptions{
 				IO:          f.IOStreams,
-				Library:     initLibrary(f.RootContext, libraryPath),
+				Library:     initLibrary(f, libraryPath),
 				Ctx:         c.Context(),
 				LibraryPath: libraryPath,
 				Platform:    platform,
@@ -134,10 +134,22 @@ Examples:
 // command). Uses the Factory's RootContext (signal-aware context
 // owned by the composition root) instead of context.Background() so
 // the forbidigo pattern check stays green.
-func initLibrary(ctx context.Context, explicitPath string) func() (*library.Library, error) {
+//
+// cfgPath is sourced inside the closure via the explicit nil-safe
+// pattern (per task 4.4): if f.Config is wired (production main.go
+// path) and returns a non-nil *Config, cfg.Library feeds the
+// config-tier of the FindLibrary precedence chain. If f.Config is
+// nil or returns nil/err, the config tier falls through silently.
+func initLibrary(f *cmdutil.Factory, explicitPath string) func() (*library.Library, error) {
 	return func() (*library.Library, error) {
-		resolved := library.FindLibrary(explicitPath, os.Getenv("GERMINATOR_LIBRARY"), "")
-		return library.LoadLibrary(ctx, resolved)
+		var cfgPath string
+		if f.Config != nil {
+			if cfg, cfgErr := f.Config(); cfgErr == nil && cfg != nil {
+				cfgPath = cfg.Library
+			}
+		}
+		resolved := library.FindLibrary(explicitPath, os.Getenv("GERMINATOR_LIBRARY"), cfgPath)
+		return library.LoadLibrary(f.RootContext, resolved)
 	}
 }
 

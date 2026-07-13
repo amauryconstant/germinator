@@ -223,13 +223,25 @@ Examples:
 // The Library field in removeOptions is typed as the canonical
 // `func() (*library.Library, error)` per the task spec; the resolved
 // path is captured in the closure per call.
+//
+// cfgPath is sourced inside the closure via the explicit nil-safe
+// pattern (per task 4.4): if f.Config is wired (production main.go
+// path) and returns a non-nil *Config, cfg.Library feeds the
+// config-tier of the FindLibrary precedence chain. If f.Config is
+// nil or returns nil/err, the config tier falls through silently.
 func removeLibrary(f *cmdutil.Factory, explicitPath string) func() (*library.Library, error) {
 	if f == nil {
 		return nil
 	}
 	return func() (*library.Library, error) {
 		envPath := os.Getenv("GERMINATOR_LIBRARY")
-		resolved := library.FindLibrary(explicitPath, envPath, "")
+		var cfgPath string
+		if f.Config != nil {
+			if cfg, cfgErr := f.Config(); cfgErr == nil && cfg != nil {
+				cfgPath = cfg.Library
+			}
+		}
+		resolved := library.FindLibrary(explicitPath, envPath, cfgPath)
 		return library.LoadLibrary(f.RootContext, resolved)
 	}
 }

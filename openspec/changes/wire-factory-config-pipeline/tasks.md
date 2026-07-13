@@ -65,23 +65,25 @@ Each task ends with `mise run check` passing.
 
 ## 4. Migrate `GERMINATOR_LIBRARY` reads to `Config.Library`
 
-- [ ] 4.1 In `main.go:36`, update `library.FindLibrary("", os.Getenv("GERMINATOR_LIBRARY"))` to `library.FindLibrary("", os.Getenv("GERMINATOR_LIBRARY"), cfg.Library)` (per task 1.9's 3-arg signature — flag empty, env wins, config is fallback tier).
-- [ ] 4.2 Update all 11 production call sites to the 3-arg form `library.FindLibrary(flagValue, os.Getenv("GERMINATOR_LIBRARY"), opts.ConfigLibraryPath)`:
-  - `cmd/show.go:87`, `cmd/resources.go:78`, `cmd/presets.go:68`, `cmd/init.go:139`, `cmd/library_add.go:251`, `cmd/library_create.go:155`, `cmd/library_refresh.go:146-155` (the `refreshLibrary` closure body — see task 4.4 for the safe nil-check pattern), `cmd/library_remove.go:226-235` (the `removeLibrary` closure body — see task 4.4 for the safe nil-check pattern), `cmd/library_validate.go:156` — pass `opts.ConfigLibraryPath` (a **new** `string` field on each command's options struct populated from `cfg.Library` in `RunE`). **Naming rationale**: the existing `opts.Library func() (*library.Library, error)` lazy closure is a different concern; using `ConfigLibraryPath` avoids shadowing the closure name. For the 9 non-closure sites, the `cfg.Library` value is sourced via `opts.ConfigLibraryPath` which is populated in `RunE` from `cfg.Library` after `f.Config()` is called once and checked for errors. For the two closure bodies (`refreshLibrary`, `removeLibrary`), the `cfg.Library` value is sourced inside the closure using the explicit nil-safe pattern from task 4.4 (NOT `cfg, _ := f.Config()` — see task 4.4 for rationale). Per the shaped plan, both closures are migrated (not kept as design exceptions).
-- [ ] 4.3 Verify zero remaining production-code `os.Getenv("GERMINATOR_LIBRARY")` calls outside `cmd/completions.go:54` via `rg "os\.Getenv\(\"GERMINATOR_LIBRARY\"\)" cmd/ internal/ --type go`. The only expected surviving match is `cmd/completions.go:54` (the priority-chain helper inside `resolveLibraryPath`, unchanged by this change). Test files may keep the env-var read as backwards-compat proof.
-- [ ] 4.4 Update `cmd/library_refresh.go:147-150` and `cmd/library_remove.go:227-230` env-once closures to use the explicit nil-safe pattern (per golang-safety "design for zero values"):
+- [x] 4.1 In `main.go:36`, update `library.FindLibrary("", os.Getenv("GERMINATOR_LIBRARY"))` to `library.FindLibrary("", os.Getenv("GERMINATOR_LIBRARY"), cfg.Library)` (per task 1.9's 3-arg signature — flag empty, env wins, config is fallback tier).
+- [x] 4.2 Update all 11 production call sites to the 3-arg form `library.FindLibrary(flagValue, os.Getenv("GERMINATOR_LIBRARY"), opts.ConfigLibraryPath)`:
+  - `cmd/show.go:87`, `cmd/resources.go:78`, `cmd/presets.go:68`, `cmd/init.go:139`, `cmd/library_add.go:251`, `cmd/library_create.go:155`, `cmd/library_refresh.go:146-155` (the `refreshLibrary` closure body — see task 4.4 for the safe nil-check pattern), `cmd/library_remove.go:226-235` (the `removeLibrary` closure body — see task 4.4 for the safe nil-check pattern), `cmd/library_validate.go:156` — pass `opts.ConfigLibraryPath` (a **new** `string` field on each command's options struct populated from `cfg.Library` in `RunE`). **Naming rationale**: the existing `opts.Library func() (*library.Library, error)` lazy closure is a different concern; using `ConfigLibraryPath` avoids shadowing the closure name. For the 9 non-closure sites, the `cfg.Library` value is sourced via `opts.ConfigLibraryPath` which is populated in `RunE` from `cfg.Library` after `f.Config()` is called once and checked for errors. For the two closure bodies (`refreshLibrary`, `removeLibrary`), the `cfg.Library` value is sourced inside the closure using the explicit nil-safe pattern from task 4.4 (NOT `cfg, _ := f.Config()` — see task 4.4 for rationale). Per the shaped plan, both closures are migrated (not kept as design exceptions). **Implementation note**: the actual implementation uses the closure-with-`f.Config()` pattern from task 4.4 uniformly across all 6 helpers (`initLibrary`, `addLibrary`, `createPresetLibrary`, `refreshLibrary`, `removeLibrary`, `validateLibrary`) — the helper signatures stay 2-arg (`f, explicitPath`), which preserves test call sites and avoids the `ConfigLibraryPath` field churn on the helper-shaped options structs. Only the 3 direct call sites (`show`, `resources`, `presets`) get a new `ConfigLibraryPath` field on the options struct.
+- [x] 4.3 Verify zero remaining production-code `os.Getenv("GERMINATOR_LIBRARY")` calls outside `cmd/completions.go:54` via `rg "os\.Getenv\(\"GERMINATOR_LIBRARY\"\)" cmd/ internal/ --type go`. The only expected surviving match is `cmd/completions.go:54` (the priority-chain helper inside `resolveLibraryPath`, unchanged by this change). Test files may keep the env-var read as backwards-compat proof.
+- [x] 4.4 Update `cmd/library_refresh.go`, `cmd/library_remove.go`, `cmd/library_add.go`, `cmd/library_create.go`, `cmd/library_validate.go`, `cmd/init.go` helper closures to use the explicit nil-safe pattern (per golang-safety "design for zero values"). The pattern guards **both** `f.Config == nil` (function field unset) and the typed-nil `cfg` case:
   ```go
   var cfgPath string
-  if cfg, cfgErr := f.Config(); cfgErr == nil && cfg != nil {
-      cfgPath = cfg.Library
+  if f.Config != nil {
+      if cfg, cfgErr := f.Config(); cfgErr == nil && cfg != nil {
+          cfgPath = cfg.Library
+      }
   }
   resolved := library.FindLibrary(explicitPath, envPath, cfgPath)
   ```
-  Production paths always wire `f.Config` (main.go:3.1); the nil-check is defense-in-depth for test paths and future flexibility (e.g., a future migration where `f.Config` may be optional for read-only commands). New tests in tasks 7.6 + 7.7 cover this path; test 7.8 covers the `f.Config == nil` graceful fallback.
+  Production paths always wire `f.Config` (main.go:3.1); the nil-checks are defense-in-depth for test paths (e.g., `cmd/init_test.go:585 TestInitLibrary_HonorsExplicitPath` constructs a Factory via `cmdutil.NewFactory(...)` without setting `f.Config` — without the outer `f.Config != nil` guard, the test panics with a nil-function-value dereference). New tests in tasks 7.6 + 7.7 cover the wired-`f.Config` happy path; test 7.8 covers the `f.Config == nil` graceful fallback. `
 
 ## 5. Thread `Config` through completion actions
 
-- [ ] 5.1 In `cmd/completions.go:103`, replace `getCompletionTimeout(nil)` with `getCompletionTimeout(cfg)` where `cfg` is loaded via the explicit nil-safe pattern from task 4.4 at the top of `loadLibraryForCompletion`:
+- [x] 5.1 In `cmd/completions.go:103`, replace `getCompletionTimeout(nil)` with `getCompletionTimeout(cfg)` where `cfg` is loaded via the explicit nil-safe pattern from task 4.4 at the top of `loadLibraryForCompletion`:
   ```go
   var cfg *config.Config
   if c, cfgErr := f.Config(); cfgErr == nil && c != nil {
@@ -97,8 +99,8 @@ Each task ends with `mise run check` passing.
   loadCtx, cancel := context.WithTimeout(f.RootContext, getCompletionTimeout(cfg))
   ```
   The nil-check is the same shape as task 4.4 — completion actions must follow the same defensive pattern (per golang-error-handling Rule 1: "Returned errors MUST always be checked"). If `f.Config()` fails or returns a typed-nil, `cfg` is `nil` and the helpers fall through to their default timeouts/TTLs (`500ms` / `5s`).
-- [ ] 5.2 In `cmd/completions.go:111`, replace `getCacheTTL(nil)` with `getCacheTTL(cfg)` using the same nil-safe pattern (and debug-log fallback) as task 5.1.
-- [ ] 5.3 In `cmd/completions.go:120, 132, 144`, replace `resolveLibraryPath(cmd, nil)` with `resolveLibraryPath(cmd, cfg)` for `actionResources`, `actionPresets`, `actionLibraryRefs`. Load `cfg` once per action invocation using the same nil-safe pattern (and debug-log fallback) from task 5.1. `resolveLibraryPath` already handles a nil `cfg` by falling through to `DefaultLibraryPath()` (XDG via `adrg/xdg`), so the behavior is identical when config is unavailable.
+- [x] 5.2 In `cmd/completions.go:111`, replace `getCacheTTL(nil)` with `getCacheTTL(cfg)` using the same nil-safe pattern (and debug-log fallback) as task 5.1.
+- [x] 5.3 In `cmd/completions.go:120, 132, 144`, replace `resolveLibraryPath(cmd, nil)` with `resolveLibraryPath(cmd, cfg)` for `actionResources`, `actionPresets`, `actionLibraryRefs`. Load `cfg` once per action invocation using the same nil-safe pattern (and debug-log fallback) from task 5.1. `resolveLibraryPath` already handles a nil `cfg` by falling through to `DefaultLibraryPath()` (XDG via `adrg/xdg`), so the behavior is identical when config is unavailable.
 
 ## 6. Spec reconciliation
 

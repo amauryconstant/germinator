@@ -149,12 +149,24 @@ func resolveLibraryFlag(c *cobra.Command) string {
 // The Library field in libraryValidateOptions is typed as the
 // canonical `func() (*library.Library, error)` per the task spec;
 // the resolved path is captured in the closure.
+//
+// cfgPath is sourced inside the closure via the explicit nil-safe
+// pattern (per task 4.4): if f.Config is wired (production main.go
+// path) and returns a non-nil *Config, cfg.Library feeds the
+// config-tier of the FindLibrary precedence chain. If f.Config is
+// nil or returns nil/err, the config tier falls through silently.
 func validateLibrary(f *cmdutil.Factory, explicitPath string) func() (*library.Library, error) {
 	if f == nil {
 		return nil
 	}
-	resolved := library.FindLibrary(explicitPath, os.Getenv("GERMINATOR_LIBRARY"), "")
 	return func() (*library.Library, error) {
+		var cfgPath string
+		if f.Config != nil {
+			if cfg, cfgErr := f.Config(); cfgErr == nil && cfg != nil {
+				cfgPath = cfg.Library
+			}
+		}
+		resolved := library.FindLibrary(explicitPath, os.Getenv("GERMINATOR_LIBRARY"), cfgPath)
 		return library.LoadLibrary(f.RootContext, resolved)
 	}
 }

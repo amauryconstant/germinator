@@ -93,6 +93,14 @@ func actionPlatforms(_ *cmdutil.Factory) carapace.Action {
 // the successful result with a TTL so subsequent completions within
 // the TTL are fast. Errors (including timeouts) return nil so the
 // caller surfaces an empty completion rather than an error.
+//
+// cfg is loaded via the explicit nil-safe pattern (per task 5.1): if
+// f.Config is wired (production main.go path) and returns a non-nil
+// *Config, cfg is consulted for the timeout / TTL knobs. If f.Config
+// is nil or returns nil/err, the helpers fall back to their defaults
+// (`500ms` / `5s`). Per golang-error-handling Rule 7, a non-nil
+// cfgErr is logged at debug level so failure is observable in
+// --verbose runs.
 func loadLibraryForCompletion(f *cmdutil.Factory, libPath string) *library.Library {
 	if f.CompletionCache != nil {
 		if cached := f.CompletionCache.Get(libPath); cached != nil {
@@ -100,7 +108,16 @@ func loadLibraryForCompletion(f *cmdutil.Factory, libPath string) *library.Libra
 		}
 	}
 
-	loadCtx, cancel := context.WithTimeout(f.RootContext, getCompletionTimeout(nil))
+	var cfg *config.Config
+	if f.Config != nil {
+		if c, cfgErr := f.Config(); cfgErr == nil && c != nil {
+			cfg = c
+		} else if cfgErr != nil && f.IOStreams != nil && f.IOStreams.Logger != nil {
+			f.IOStreams.Logger.Debug("config load failed; using defaults", "error", cfgErr)
+		}
+	}
+
+	loadCtx, cancel := context.WithTimeout(f.RootContext, getCompletionTimeout(cfg))
 	defer cancel()
 	lib, err := library.LoadLibrary(loadCtx, libPath)
 	if err != nil {
@@ -108,7 +125,7 @@ func loadLibraryForCompletion(f *cmdutil.Factory, libPath string) *library.Libra
 	}
 
 	if f.CompletionCache != nil {
-		f.CompletionCache.Set(libPath, lib, getCacheTTL(nil))
+		f.CompletionCache.Set(libPath, lib, getCacheTTL(cfg))
 	}
 	return lib
 }
@@ -117,7 +134,15 @@ func loadLibraryForCompletion(f *cmdutil.Factory, libPath string) *library.Libra
 // It loads the library (with caching and timeout support) via the Factory.
 func actionResources(f *cmdutil.Factory, cmd *cobra.Command) carapace.Action {
 	return carapace.ActionCallback(func(_ carapace.Context) carapace.Action {
-		libPath := resolveLibraryPath(cmd, nil)
+		var cfg *config.Config
+		if f.Config != nil {
+			if c, cfgErr := f.Config(); cfgErr == nil && c != nil {
+				cfg = c
+			} else if cfgErr != nil && f.IOStreams != nil && f.IOStreams.Logger != nil {
+				f.IOStreams.Logger.Debug("config load failed; using defaults", "error", cfgErr)
+			}
+		}
+		libPath := resolveLibraryPath(cmd, cfg)
 		if lib := loadLibraryForCompletion(f, libPath); lib != nil {
 			return resourceActionFromLibrary(lib)
 		}
@@ -129,7 +154,15 @@ func actionResources(f *cmdutil.Factory, cmd *cobra.Command) carapace.Action {
 // It loads the library (with caching and timeout support) via the Factory.
 func actionPresets(f *cmdutil.Factory, cmd *cobra.Command) carapace.Action {
 	return carapace.ActionCallback(func(_ carapace.Context) carapace.Action {
-		libPath := resolveLibraryPath(cmd, nil)
+		var cfg *config.Config
+		if f.Config != nil {
+			if c, cfgErr := f.Config(); cfgErr == nil && c != nil {
+				cfg = c
+			} else if cfgErr != nil && f.IOStreams != nil && f.IOStreams.Logger != nil {
+				f.IOStreams.Logger.Debug("config load failed; using defaults", "error", cfgErr)
+			}
+		}
+		libPath := resolveLibraryPath(cmd, cfg)
 		if lib := loadLibraryForCompletion(f, libPath); lib != nil {
 			return presetActionFromLibrary(lib)
 		}
@@ -141,7 +174,15 @@ func actionPresets(f *cmdutil.Factory, cmd *cobra.Command) carapace.Action {
 // It loads the library (with caching and timeout support) via the Factory.
 func actionLibraryRefs(f *cmdutil.Factory, cmd *cobra.Command) carapace.Action {
 	return carapace.ActionCallback(func(_ carapace.Context) carapace.Action {
-		libPath := resolveLibraryPath(cmd, nil)
+		var cfg *config.Config
+		if f.Config != nil {
+			if c, cfgErr := f.Config(); cfgErr == nil && c != nil {
+				cfg = c
+			} else if cfgErr != nil && f.IOStreams != nil && f.IOStreams.Logger != nil {
+				f.IOStreams.Logger.Debug("config load failed; using defaults", "error", cfgErr)
+			}
+		}
+		libPath := resolveLibraryPath(cmd, cfg)
 		if lib := loadLibraryForCompletion(f, libPath); lib != nil {
 			return libraryRefActionFromLibrary(lib)
 		}

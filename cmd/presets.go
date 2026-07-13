@@ -17,10 +17,11 @@ import (
 // presetsOptions holds the runtime state for a `library presets`
 // invocation.
 type presetsOptions struct {
-	IO      *iostreams.IOStreams
-	Library func() (*library.Library, error)
-	Ctx     context.Context
-	Output  string
+	IO                *iostreams.IOStreams
+	Library           func() (*library.Library, error)
+	Ctx               context.Context
+	ConfigLibraryPath string
+	Output            string
 }
 
 // presetsRow is the table-exporter representation of a single preset.
@@ -65,7 +66,12 @@ Example:
 			if libraryPath != nil {
 				lp = *libraryPath
 			}
-			resolved := library.FindLibrary(lp, os.Getenv("GERMINATOR_LIBRARY"), "")
+			if f.Config != nil {
+				if cfg, cfgErr := f.Config(); cfgErr == nil && cfg != nil {
+					opts.ConfigLibraryPath = cfg.Library
+				}
+			}
+			resolved := library.FindLibrary(lp, os.Getenv("GERMINATOR_LIBRARY"), opts.ConfigLibraryPath)
 			opts.Library = func() (*library.Library, error) {
 				return library.LoadLibrary(opts.Ctx, resolved)
 			}

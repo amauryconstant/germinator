@@ -23,11 +23,12 @@ const presetPrefix = "preset/"
 // showOptions holds the runtime state for a `library show <ref>`
 // invocation.
 type showOptions struct {
-	IO      *iostreams.IOStreams
-	Library func() (*library.Library, error)
-	Ctx     context.Context
-	Ref     string
-	Output  string
+	IO                *iostreams.IOStreams
+	Library           func() (*library.Library, error)
+	Ctx               context.Context
+	ConfigLibraryPath string
+	Ref               string
+	Output            string
 }
 
 // showResourceRow is the table-exporter representation of a single
@@ -84,7 +85,12 @@ Examples:
 			if libraryPath != nil {
 				lp = *libraryPath
 			}
-			resolved := library.FindLibrary(lp, os.Getenv("GERMINATOR_LIBRARY"), "")
+			if f.Config != nil {
+				if cfg, cfgErr := f.Config(); cfgErr == nil && cfg != nil {
+					opts.ConfigLibraryPath = cfg.Library
+				}
+			}
+			resolved := library.FindLibrary(lp, os.Getenv("GERMINATOR_LIBRARY"), opts.ConfigLibraryPath)
 			opts.Library = func() (*library.Library, error) {
 				return library.LoadLibrary(opts.Ctx, resolved)
 			}
