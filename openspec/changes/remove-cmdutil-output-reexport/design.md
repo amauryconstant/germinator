@@ -36,7 +36,7 @@ Every cmd file that uses the re-export **already imports `internal/output`** for
 Furthermore, `cmd/library_remove.go:142-150` cannot use either `cmdutil.AddOutputFlags` or `output.AddOutputFlags` because library sub-commands need `PersistentFlags()` (inherited by descendants) rather than `Flags()` (the `output.AddOutputFlags` implementation uses `cmd.Flags()`). The author re-implemented the wiring inline. This is the strongest evidence the re-export's premise no longer holds: a sibling command couldn't use it.
 
 Constraints:
-- **No spec deltas:** this change has no spec-level impact. Existing `cli-output-formats` and `cli-shell-completion` specs describe user-facing behavior that is unchanged.
+- **Spec deltas:** `cli-output-formats` is updated with 2 MODIFIED requirements (rehome `cmdutil.AddOutputFlags` → `output.AddOutputFlags` in `AddOutputFlags helper` and `AddOutputFlags is opt-in per command`) and 1 ADDED requirement (`PersistentFlags wiring for parent commands`). `cli-shell-completion` is untouched. User-facing CLI behavior (flag registration, output formats, exit codes) is unchanged; the changes are contract-level reference updates.
 - **Lint baseline test:** `cmd/lint_test.go` runs `mise run lint` and diffs against `cmd/testdata/lint_baseline.txt`. Any shift in lint output requires a baseline refresh.
 - **No public API break:** `internal/cmdutil.AddOutputFlags` is an internal re-export with zero external consumers.
 
@@ -53,7 +53,7 @@ Constraints:
 
 - Refactoring `internal/output.AddOutputFlags` itself (e.g., to accept a flag-set selector). Out of scope; `cmd/library_remove.go` keeps its inline wiring with an updated comment.
 - Removing `internal/output` re-exports in general. The other 5 symbols (`FormatError`, etc.) have single-package owners and need no consolidation.
-- Touching the `cli-output-formats` or `cli-shell-completion` specs. No requirement changes.
+- Touching the `cli-shell-completion` spec (unrelated to this change). Touching `internal/output.AddOutputFlags` semantics (e.g., accepting a flag-set selector); the limitation is documented as an ADDED requirement, not solved in this change.
 
 ## Decisions
 
@@ -85,18 +85,21 @@ Constraints:
 **Alternatives considered**:
 - *Leave the comment unchanged*: rejected; it would reference a non-existent `cmdutil.AddOutputFlags` and confuse future readers.
 
-### 4. No spec changes
+### 4. Document the rehome + PersistentFlags contract in the spec
 
-**Choice**: Leave `cli-output-formats/spec.md` and `cli-shell-completion/spec.md` unchanged. No delta files.
+**Choice**: Update `cli-output-formats/spec.md` with one MODIFIED requirement (`AddOutputFlags helper`, body rehome) and one ADDED requirement (`PersistentFlags wiring for parent commands`). Also produce a second MODIFIED block for the `AddOutputFlags is opt-in per command` requirement, which references `cmdutil.AddOutputFlags` in three places.
 
-**Rationale**: The change is internal refactoring. The user-facing behavior — `germinator library resources --output json` works as before — is unchanged. Specs describe behavior, not implementation; this is an implementation detail.
+**Rationale**: The rehome is a contract-level reference change — the requirement SHELL clauses that name `cmdutil.AddOutputFlags` become incorrect after the deletion. Without a delta, the merged spec would describe a function that no longer exists. The `PersistentFlags` limitation is currently undocumented and would surprise future contributors; codifying it as an ADDED requirement makes the contract explicit and prevents re-introduction of the re-export (a contributor "fixing" `library_remove.go`'s inline wiring by extracting a helper that abstracts over `Flags()` vs `PersistentFlags()` would re-couple the two and lose this guarantee). The base spec's capability purpose statement (outside any requirement) is updated manually during sync because OpenSpec deltas cover requirements only.
 
 **Alternatives considered**:
-- *Add a spec note about the import path*: rejected; OpenSpec specs describe WHAT the system does, not HOW the code is organized.
+- *Leave spec unchanged*: rejected; the requirement bodies reference a deleted symbol, producing an internally incoherent spec post-archive.
+- *Delete the delta entirely and let the spec stay stale*: rejected; the merged spec would name `cmdutil.AddOutputFlags` while the code defines only `output.AddOutputFlags`.
+- *Document the PersistentFlags limitation as a comment in `output.AddOutputFlags` only, no spec entry*: rejected; code comments do not survive refactors and don't gate behavior at the spec level.
 
 ## Risks / Trade-offs
 
 - **Missed call site**: a future contributor adds `cmdutil.AddOutputFlags` in a new file. **Mitigation**: the function is deleted, so the build fails immediately (`undefined: cmdutil.AddOutputFlags`). The error message names the canonical replacement (`output.AddOutputFlags`).
-- **Lint baseline drift**: the comment update in `cmd/library_remove.go` may shift lint output. **Mitigation**: task `1.4` runs `mise run lint` after the swap and refreshes `cmd/testdata/lint_baseline.txt` if output shifts (per `cmd/AGENTS.md` "Lint Baseline Test" procedure).
-- **Test breakage from import swap**: `cmd/show_test.go` and `cmd/resources_test.go` import `output.FormatResourcesList`; the swap doesn't touch those imports, but verify `mise run test` passes post-change. **Mitigation**: task `1.5` runs the full test suite.
-- **Two import paths remain temporarily**: between the swap and the lint baseline refresh, a developer could commit a half-applied change. **Mitigation**: tasks `1.2-1.3` are atomic — each call site is updated in one commit with no intermediate state merged.
+- **Lint baseline drift**: the comment update in `cmd/library_remove.go` may shift lint output. **Mitigation**: task `5.3` runs `mise run lint` after the swap and refreshes `cmd/testdata/lint_baseline.txt` if output shifts (per `cmd/AGENTS.md` "Lint Baseline Test" procedure).
+- **Test breakage from import swap**: `cmd/show_test.go` and `cmd/resources_test.go` import `output.FormatResourcesList`; the swap doesn't touch those imports, but verify `mise run test` passes post-change. **Mitigation**: task `5.4` runs the full test suite.
+- **Two import paths remain temporarily**: between the swap and the lint baseline refresh, a developer could commit a half-applied change. **Mitigation**: each call-site swap (tasks `1.1`-`1.7`) is a single atomic edit — no call site should be merged in a state that imports the deleted `cmdutil.AddOutputFlags` while other call sites still use it.
+- **Task ordering constraint**: all `1.*` call-site swaps MUST land before `3.1` (deletion of `internal/cmdutil/output_flags.go`). Reverting in reverse order — deleting the re-export first, then swapping call sites — produces a broken build at every intermediate commit. The task ordering in `tasks.md` enforces this; do not reorder sections during implementation.
