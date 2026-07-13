@@ -24,7 +24,8 @@ The `Config` value type SHALL carry the following user-tunable fields:
 - **WHEN** `(*Config).Validate()` is called on a `Config` with all fields populated
 - **THEN** it SHALL return `nil` for valid values
 - **AND** return `*core.ConfigError` for invalid `PlatformDefault` (must be `claude-code` or `opencode` if non-empty)
-- **AND** return `*core.ConfigError` for invalid `Completion.Timeout` / `Completion.CacheTTL` (must parse via `time.ParseDuration`)
+- **AND** return `*core.ConfigError` for invalid `Completion.Timeout` / `Completion.CacheTTL` (must parse via `time.ParseDuration`); empty values are valid and the completion helpers fall back to their defaults for nil cfg or empty strings
+- **AND** when multiple fields are invalid, return all errors via `errors.Join` so users see every problem at once (collect-all semantics)
 - **AND** `Library` SHALL always be valid (an empty `Library` is the canonical "use XDG default" signal; non-empty values are user-provided paths with no further validation at this layer)
 
 ## MODIFIED Requirements
@@ -74,6 +75,7 @@ All environment variables SHALL use the `GERMINATOR_` prefix, underscore word se
 - **GIVEN** the environment variable `GERMINATOR_DEBUG=1` is set
 - **WHEN** `germinator library resources` is run
 - **THEN** `IOStreams.Logger` SHALL be a debug-level structured handler writing to `ErrOut`
+- **AND** `runResources` SHALL emit a debug log line (e.g., `"listing library resources"`) to `ErrOut`
 - **AND** debug log lines SHALL appear on `ErrOut` interleaved with normal verbose output
 
 #### Scenario: GERMINATOR_LIBRARY overrides config

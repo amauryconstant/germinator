@@ -111,6 +111,9 @@ Examples:
 // runShow executes the show command: parses the ref, resolves the
 // resource or preset, and renders the result in the requested format.
 func runShow(opts *showOptions) error {
+	if opts.IO != nil && opts.IO.Logger != nil {
+		opts.IO.Logger.Debug("showing library entry", "ref", opts.Ref)
+	}
 	lib, err := opts.Library()
 	if err != nil {
 		return fmt.Errorf("loading library: %w", err)

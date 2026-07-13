@@ -2,8 +2,11 @@
 package config
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	gerrors "gitlab.com/amoconst/germinator/internal/core"
 )
@@ -76,23 +79,58 @@ func DefaultConfig() *Config {
 }
 
 // Validate checks that the configuration is valid.
-// Returns *core.ConfigError if PlatformDefault is non-empty and
-// not one of the supported platforms. Debug is always valid (bool);
-// Library is always valid (empty falls through to XDG default at
-// resolution time).
+//
+// Returns nil when all fields are valid. Otherwise returns every problem
+// joined into a single error via errors.Join so users see all issues at
+// once (collect-all semantics). The joined chain is inspectable through
+// repeated errors.As on the typed error categories:
+//   - *core.ConfigError for unknown PlatformDefault
+//   - *core.ConfigError for unparseable Completion.Timeout
+//   - *core.ConfigError for unparseable Completion.CacheTTL
+//
+// Empty Completion durations are valid (the helper layer falls back to
+// defaults). Debug is always valid (bool); Library is always valid (empty
+// falls through to XDG default at resolution time).
 func (c *Config) Validate() error {
-	if c.PlatformDefault == "" {
-		return nil
-	}
+	var errs []error
 
-	if c.PlatformDefault != gerrors.PlatformClaudeCode && c.PlatformDefault != gerrors.PlatformOpenCode {
-		return gerrors.NewConfigError(
+	if c.PlatformDefault != "" &&
+		c.PlatformDefault != gerrors.PlatformClaudeCode &&
+		c.PlatformDefault != gerrors.PlatformOpenCode {
+		errs = append(errs, gerrors.NewConfigError(
 			"platform",
 			c.PlatformDefault,
 			"unknown platform",
-		).WithSuggestions([]string{gerrors.PlatformClaudeCode, gerrors.PlatformOpenCode})
+		).WithSuggestions([]string{gerrors.PlatformClaudeCode, gerrors.PlatformOpenCode}))
 	}
 
+	if err := validateDuration("completion.timeout", c.Completion.Timeout); err != nil {
+		errs = append(errs, err)
+	}
+	if err := validateDuration("completion.cache_ttl", c.Completion.CacheTTL); err != nil {
+		errs = append(errs, err)
+	}
+
+	if len(errs) > 0 {
+		return errors.Join(errs...)
+	}
+	return nil
+}
+
+// validateDuration returns a *core.ConfigError when raw is non-empty and not
+// parseable by time.ParseDuration. An empty raw is valid (the helper layer
+// applies the default).
+func validateDuration(field, raw string) error {
+	if raw == "" {
+		return nil
+	}
+	if _, err := time.ParseDuration(raw); err != nil {
+		return gerrors.NewConfigError(
+			field,
+			raw,
+			fmt.Sprintf("invalid duration: %v", err),
+		).WithSuggestions([]string{"use a Go duration literal like \"500ms\", \"5s\", \"1m\""})
+	}
 	return nil
 }
 

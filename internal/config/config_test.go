@@ -64,10 +64,12 @@ func TestCompletionConfigDefaults(t *testing.T) {
 
 func TestConfigValidate(t *testing.T) {
 	tests := []struct {
-		name        string
-		platform    string
-		wantErr     bool
-		errContains string
+		name             string
+		platform         string
+		completion       CompletionConfig
+		wantErr          bool
+		errContains      string
+		errFieldContains string
 	}{
 		{
 			name:     "empty platform is valid",
@@ -91,16 +93,60 @@ func TestConfigValidate(t *testing.T) {
 			errContains: "unknown platform",
 		},
 		{
-			name:        "random platform returns error",
+			name:        "random platform returns error with suggestion",
 			platform:    "foobar",
 			wantErr:     true,
 			errContains: "💡",
+		},
+		{
+			name:       "empty timeout is valid (helpers fall back)",
+			platform:   "",
+			completion: CompletionConfig{Timeout: "", CacheTTL: ""},
+			wantErr:    false,
+		},
+		{
+			name:       "valid timeout is accepted",
+			platform:   "",
+			completion: CompletionConfig{Timeout: "2s", CacheTTL: ""},
+			wantErr:    false,
+		},
+		{
+			name:       "valid cache_ttl is accepted",
+			platform:   "",
+			completion: CompletionConfig{Timeout: "", CacheTTL: "10s"},
+			wantErr:    false,
+		},
+		{
+			name:             "invalid timeout returns ConfigError",
+			platform:         "",
+			completion:       CompletionConfig{Timeout: "junk", CacheTTL: ""},
+			wantErr:          true,
+			errContains:      "invalid duration",
+			errFieldContains: "completion.timeout",
+		},
+		{
+			name:             "invalid cache_ttl returns ConfigError",
+			platform:         "",
+			completion:       CompletionConfig{Timeout: "", CacheTTL: "forever"},
+			wantErr:          true,
+			errContains:      "invalid duration",
+			errFieldContains: "completion.cache_ttl",
+		},
+		{
+			name:        "both invalid durations joined into one error",
+			platform:    "",
+			completion:  CompletionConfig{Timeout: "bad1", CacheTTL: "bad2"},
+			wantErr:     true,
+			errContains: "completion.timeout",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg := &Config{PlatformDefault: tt.platform}
+			cfg := &Config{
+				PlatformDefault: tt.platform,
+				Completion:      tt.completion,
+			}
 			err := cfg.Validate()
 
 			if tt.wantErr {
@@ -116,6 +162,9 @@ func TestConfigValidate(t *testing.T) {
 				if tt.errContains != "" && !containsString(err.Error(), tt.errContains) {
 					t.Errorf("Config.Validate() error = %q, want to contain %q", err.Error(), tt.errContains)
 				}
+				if tt.errFieldContains != "" && !containsString(err.Error(), tt.errFieldContains) {
+					t.Errorf("Config.Validate() error = %q, want to contain %q", err.Error(), tt.errFieldContains)
+				}
 			} else {
 				if err != nil {
 					t.Fatalf("Config.Validate() unexpected error: %v", err)
@@ -123,6 +172,74 @@ func TestConfigValidate(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestConfigValidate_CollectsAllErrors verifies that Validate uses
+// errors.Join semantics so users see every problem at once, not just
+// the first failure. Pins the collect-all behavior mandated by the
+// application-configuration spec.
+func TestConfigValidate_CollectsAllErrors(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Config{
+		PlatformDefault: "invalid-platform",
+		Completion: CompletionConfig{
+			Timeout:  "bad-timeout",
+			CacheTTL: "bad-ttl",
+		},
+	}
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("Validate() expected error, got nil")
+	}
+
+	// errors.Join walks the chain via repeated errors.As; each ConfigError
+	// in the chain reports its own Field(). Verify every expected field
+	// is represented by some error in the chain.
+	wantFields := map[string]bool{
+		"platform":             false,
+		"completion.timeout":   false,
+		"completion.cache_ttl": false,
+	}
+	for _, e := range unwrapConfigErrors(err) {
+		if _, ok := wantFields[e.Field()]; ok {
+			wantFields[e.Field()] = true
+		}
+	}
+	for field, seen := range wantFields {
+		if !seen {
+			t.Errorf("Validate() error chain missing ConfigError for field %q (chain: %v)", field, err)
+		}
+	}
+}
+
+// unwrapConfigErrors walks an errors.Join chain and collects every
+// *ConfigError so a test can assert collect-all semantics.
+func unwrapConfigErrors(err error) []*gerrors.ConfigError {
+	var collected []*gerrors.ConfigError
+	type unwrapper interface{ Unwrap() error }
+	type joiner interface{ Unwrap() []error }
+
+	for err != nil {
+		if j, ok := err.(joiner); ok {
+			for _, sub := range j.Unwrap() {
+				if u, ok := sub.(*gerrors.ConfigError); ok {
+					collected = append(collected, u)
+				} else if u, ok := sub.(unwrapper); ok {
+					_ = u
+				}
+			}
+		}
+		if cfgErr, ok := err.(*gerrors.ConfigError); ok {
+			collected = append(collected, cfgErr)
+		}
+		u, ok := err.(unwrapper)
+		if !ok {
+			break
+		}
+		err = u.Unwrap()
+	}
+	return collected
 }
 
 func TestExpandTilde(t *testing.T) {

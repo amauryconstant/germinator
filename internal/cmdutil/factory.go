@@ -65,6 +65,52 @@ func (f *Factory) Close() {
 	}
 }
 
+// configLoadForTest is a package-level seam for BuildFactory tests.
+// Tests override it to inject a stub config loader; production code
+// MUST NOT modify it. The variable is one mutable package-level
+// binding, the documented cost of the test-injection seam.
+var configLoadForTest func() (*config.Config, error) = config.Load
+
+// BuildFactory wires the lazy Factory dependencies (Config, Library,
+// CompletionCache) in a single testable function. It returns a
+// fully-wired Factory plus any error from the first config load. main.go
+// remains the only place that translates errors to exit codes via
+// cmdutil.ExitCodeFor + os.Exit.
+//
+// Side effect: activates debug logging on io via IOStreams.SetDebug
+// when cfg.Debug is true (the env-driven GERMINATOR_DEBUG flows through
+// koanf → cfg.Debug → SetDebug, single source of truth).
+func BuildFactory(ctx context.Context, io *iostreams.IOStreams, appVersion, executable string) (*Factory, error) {
+	f := NewFactory(ctx, io, appVersion, executable)
+	f.CompletionCache = NewCompletionCache()
+
+	// Config is wired through OnceValuesFunc so subsequent calls from
+	// completion actions return the same *Config pointer without
+	// re-reading disk (per cli-cli-factory/spec.md).
+	f.Config = OnceValuesFunc(configLoadForTest)
+
+	// Eager single load: surface config errors here so BuildFactory
+	// can return them. Subsequent f.Config() calls return the cached
+	// pointer without re-running Load.
+	cfg, err := f.Config()
+	if err != nil {
+		return f, err
+	}
+
+	// Activate debug logging based on the loaded config.
+	io.SetDebug(cfg.Debug)
+
+	// Library is wired here so the priority chain (flag > env > cfg >
+	// XDG default) is enforced at construction time. The closure
+	// captures the cached cfg pointer; later calls reuse it.
+	f.Library = OnceValuesFunc(func() (*library.Library, error) {
+		path := library.FindLibrary("", os.Getenv("GERMINATOR_LIBRARY"), cfg.Library)
+		return library.LoadLibrary(f.RootContext, path)
+	})
+
+	return f, nil
+}
+
 // OnceValuesFunc is a generic helper that returns a function which
 // invokes fn exactly once and caches the result. Subsequent calls
 // return the cached value and error.

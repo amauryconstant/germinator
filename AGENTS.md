@@ -162,7 +162,7 @@ Domain-mismatched skills (also not loaded): `golang-database`, `golang-graphql`,
 | Command                | Purpose                                    |
 | ---------------------- | ------------------------------------------ |
 | mise run build         | Build CLI to bin/germinator                |
-| mise run check         | All validation (lint, format, test, build) |
+| mise run verify         | All validation (lint, format, test, build) |
 | mise run lint          | Run golangci-lint                          |
 | mise run lint:fix      | Auto-fix linting issues                    |
 | mise run format        | Format Go code                             |

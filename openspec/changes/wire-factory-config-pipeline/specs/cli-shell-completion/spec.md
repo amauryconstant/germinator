@@ -55,7 +55,7 @@ Completions SHALL resolve the library path using a priority chain.
 
 ### Requirement: Completion Configuration
 
-The CLI SHALL support configurable timeout and caching for completions.
+The CLI SHALL support configurable timeout and caching for completions. The timeout/TTL values are observable: the wrapped `context.Context.Deadline()` reflects the configured timeout, and the cache entry's stored `expiresAt` reflects `now + configured_TTL`.
 
 **Change**: NO scenario text change. The two "Configurable" scenarios (lines 168-170, 178-182) become test-passing after this change — `cmd/completions.go:103, 111` previously passed `nil` to the helpers; after this change they pass `f.Config()`.
 
@@ -70,15 +70,18 @@ The CLI SHALL support configurable timeout and caching for completions.
 - **GIVEN** config file specifies `completion.timeout = "1s"`
 - **WHEN** a completion action loads the library
 - **THEN** it SHALL timeout after 1 second
+- **AND** the wrapped `context.Context.Deadline()` SHALL be `now + 1s` (observable)
 
 #### Scenario: Default cache TTL
 
 - **GIVEN** no completion config is specified
 - **WHEN** library data is cached for completions
 - **THEN** the cache SHALL expire after 5 seconds
+- **AND** `CompletionCache.WithClock(time.Now)` (test-only) exposes the expiry boundary deterministically
 
 #### Scenario: Configurable cache TTL
 
 - **GIVEN** config file specifies `completion.cache_ttl = "10s"`
 - **WHEN** library data is cached for completions
 - **THEN** the cache SHALL expire after 10 seconds
+- **AND** the cache entry SHALL still be valid at `now + 9.999s` and SHALL be evicted at `now + 10.001s`

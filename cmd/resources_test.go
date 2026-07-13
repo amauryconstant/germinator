@@ -299,3 +299,56 @@ func TestNewCmdResources_HonorsOutputFlagValue(t *testing.T) {
 		})
 	}
 }
+
+// TestRunResources_DebugLogEmittedWhenEnabled pins the spec scenario
+// "GERMINATOR_DEBUG enables debug logging" from the
+// application-configuration delta: when cfg.Debug drives
+// IOStreams.SetDebug(true), runResources MUST emit a debug log line
+// to ErrOut. The ErrOut buffer is the debug channel (verbose goes
+// through IOStreams.Verbosef, debug through Logger.Debug; both write
+// to ErrOut).
+func TestRunResources_DebugLogEmittedWhenEnabled(t *testing.T) {
+	t.Parallel()
+
+	lib := loadFixtureLibrary(t)
+	io, _, errOut := newResourcesTestIO()
+	io.SetDebug(true)
+
+	opts := &libraryResourcesOptions{
+		IO:     io,
+		Output: "",
+		Library: func() (*library.Library, error) {
+			return lib, nil
+		},
+		Ctx: context.Background(),
+	}
+
+	require.NoError(t, runResources(opts))
+	assert.Contains(t, errOut.String(), "listing library resources",
+		"debug logger MUST emit a structured line to ErrOut when SetDebug(true)")
+}
+
+// TestRunResources_DebugLogSilentWhenDisabled verifies the negative:
+// with debug disabled (default iostreams.Test()), ErrOut stays empty
+// after runResources. Pins the "logger uses noop when debug unset"
+// contract.
+func TestRunResources_DebugLogSilentWhenDisabled(t *testing.T) {
+	t.Parallel()
+
+	lib := loadFixtureLibrary(t)
+	io, _, errOut := newResourcesTestIO()
+	// iostreams.Test() returns a discard Logger by default.
+
+	opts := &libraryResourcesOptions{
+		IO:     io,
+		Output: "",
+		Library: func() (*library.Library, error) {
+			return lib, nil
+		},
+		Ctx: context.Background(),
+	}
+
+	require.NoError(t, runResources(opts))
+	assert.Empty(t, errOut.String(),
+		"with debug disabled, runResources MUST NOT emit to ErrOut")
+}

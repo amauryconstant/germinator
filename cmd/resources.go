@@ -102,6 +102,9 @@ Example:
 // in slice-7 7.4.7) so the read-only formatter can be reused across
 // packages without dragging in the cmd-package surface.
 func runResources(opts *libraryResourcesOptions) error {
+	if opts.IO != nil && opts.IO.Logger != nil {
+		opts.IO.Logger.Debug("listing library resources")
+	}
 	lib, err := opts.Library()
 	if err != nil {
 		return fmt.Errorf("loading library: %w", err)

@@ -62,3 +62,35 @@ The `internal/config` package SHALL export a top-level `Load()` function (at `in
 - **WHEN** `f.Config()` is called twice in one command invocation
 - **THEN** the `OnceValuesFunc` wrapper SHALL invoke the inner `config.Load()` exactly once
 - **AND** both calls SHALL return the same `*Config` pointer
+
+### Requirement: Composition root builds Factory
+
+The CLI SHALL wire `Factory.Config` via `cmdutil.BuildFactory(ctx, io, appVersion, executable)` which:
+
+1. Calls `config.Load()` exactly once across all `f.Config()` invocations within a process
+2. Activates debug logging via `IOStreams.SetDebug(cfg.Debug)` when `cfg.Debug == true`
+3. Returns a non-nil `*Factory` plus any error from the first config load
+4. Wires `f.Library` with the priority chain `flag > env > cfg > XDG default` via `library.FindLibrary`
+5. Populates `f.CompletionCache` so completion actions have a working cache immediately
+
+`main.go` remains the only place that calls `os.Exit`; `BuildFactory` returns errors that `main.go` maps to exit codes via `cmdutil.ExitCodeFor`.
+
+**Change**: NEW requirement extracted from `main.go`'s inline wiring to make composition-root behavior testable without `main_test.go`.
+
+#### Scenario: Debug activation flows through Config
+
+- **GIVEN** `config.toml` sets `debug = true` (or `GERMINATOR_DEBUG=1`)
+- **WHEN** `cmdutil.BuildFactory` runs
+- **THEN** `IOStreams.Logger` SHALL be a debug-level handler writing to `ErrOut`
+
+#### Scenario: Config load errors propagate from BuildFactory
+
+- **WHEN** `config.Load()` returns a non-nil error
+- **THEN** `BuildFactory` SHALL return that error unchanged so `main.go` can map it to an exit code via `cmdutil.ExitCodeFor`
+- **AND** `BuildFactory` SHALL return a non-nil `*Factory` even when config load errors (so the caller can defer `f.Close()`)
+
+#### Scenario: Factory exposes only documented lazy fields
+
+- **WHEN** the `cmdutil.Factory` struct is inspected via reflection
+- **THEN** it SHALL expose exactly `Config` and `Library` as exported `func() (T, error)` fields
+- **AND** adding `Transformer`, `Validator`, `Canonicalizer`, or `Initializer` lazy fields SHALL fail the contract test (`TestFactory_OnlyConfigAndLibraryAreLazyFields`)
