@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Define per-command structured output for `germinator library` subcommands via a string `--output` flag accepting `plain`, `json`, or `table`. Each library sub-command opts in independently via `cmdutil.AddOutputFlags`. The parent-inherited `--json` flag mechanism is removed; consumers should use the per-command flag (e.g., `germinator library resources --output json`).
+Define per-command structured output for `germinator library` subcommands via a string `--output` flag accepting `plain`, `json`, or `table`. Each library sub-command opts in independently via `output.AddOutputFlags`. The parent-inherited `--json` flag mechanism is removed; consumers should use the per-command flag (e.g., `germinator library resources --output json`).
 
 > **Stream contract:** All `--output` formats (plain, json, table) write primary data to **stdout** (`opts.IO.Out`). Verbose progress writes to **stderr** (`opts.IO.ErrOut` via `opts.IO.Verbosef`). Errors write to **stderr** via `output.FormatError`. Never mix diagnostic output into stdout — this preserves `germinator library resources --output json | jq '.'`.
 
@@ -50,7 +50,9 @@ All JSON output SHALL use `output.NewJSONExporter().Write(opts.IO, data)` for fo
 
 ### Requirement: library presets supports --output flag
 
-The `library presets` command SHALL expose a `--output json|table|plain` flag via `cmdutil.AddOutputFlags`.
+The `library presets` command SHALL expose a `--output json|table|plain` flag via `output.AddOutputFlags`.
+
+**Change**: rehome the function reference from `cmdutil.AddOutputFlags` to `output.AddOutputFlags`. The previous `cmdutil.AddOutputFlags` re-export (at `internal/cmdutil/output_flags.go`) was deleted in change `remove-cmdutil-output-reexport` because the re-export covered only 1 of 7 `output` symbols consumed by cmd files; every cmd file already imports `internal/output` for the other symbols, so the re-export provided no convenience.
 
 #### Scenario: Default plain output
 
@@ -85,7 +87,9 @@ The `library presets` command SHALL expose a `--output json|table|plain` flag vi
 
 ### Requirement: library add supports --output flag
 
-The `library add` command SHALL expose a `--output json|table|plain` flag via `cmdutil.AddOutputFlags`. The legacy `--json` flag registration (if any) is replaced by `--output`.
+The `library add` command SHALL expose a `--output json|table|plain` flag via `output.AddOutputFlags`. The legacy `--json` flag registration (if any) is replaced by `--output`.
+
+**Change**: rehome the function reference from `cmdutil.AddOutputFlags` to `output.AddOutputFlags`. The previous `cmdutil.AddOutputFlags` re-export (at `internal/cmdutil/output_flags.go`) was deleted in change `remove-cmdutil-output-reexport` because the re-export covered only 1 of 7 `output` symbols consumed by cmd files; every cmd file already imports `internal/output` for the other symbols, so the re-export provided no convenience.
 
 #### Scenario: Default plain output
 
@@ -139,7 +143,9 @@ The `library create preset` command SHALL be registered directly under the `libr
 
 ### Requirement: library show supports --output flag
 
-The `library show` command SHALL expose a `--output json|table|plain` flag via `cmdutil.AddOutputFlags`.
+The `library show` command SHALL expose a `--output json|table|plain` flag via `output.AddOutputFlags`.
+
+**Change**: rehome the function reference from `cmdutil.AddOutputFlags` to `output.AddOutputFlags`. The previous `cmdutil.AddOutputFlags` re-export (at `internal/cmdutil/output_flags.go`) was deleted in change `remove-cmdutil-output-reexport` because the re-export covered only 1 of 7 `output` symbols consumed by cmd files; every cmd file already imports `internal/output` for the other symbols, so the re-export provided no convenience.
 
 #### Scenario: Default plain output for a resource ref
 

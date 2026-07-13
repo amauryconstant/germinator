@@ -208,7 +208,9 @@ The `library validate` command SHALL adopt the `NewCmdLibraryValidate(f *cmdutil
 
 ### Requirement: library validate supports --output flag
 
-The `library validate` command SHALL expose a `--output json|table|plain` flag via `cmdutil.AddOutputFlags`.
+The `library validate` command SHALL expose a `--output json|table|plain` flag via `output.AddOutputFlags`.
+
+**Change**: rehome the function reference from `cmdutil.AddOutputFlags` to `output.AddOutputFlags`. The previous `cmdutil.AddOutputFlags` re-export (at `internal/cmdutil/output_flags.go`) was deleted in change `remove-cmdutil-output-reexport` because the re-export covered only 1 of 7 `output` symbols consumed by cmd files; every cmd file already imports `internal/output` for the other symbols, so the re-export provided no convenience.
 
 #### Scenario: Default plain output
 
