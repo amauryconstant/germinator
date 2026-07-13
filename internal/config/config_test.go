@@ -11,12 +11,16 @@ import (
 func TestDefaultConfig(t *testing.T) {
 	cfg := DefaultConfig()
 
-	if cfg.Library != "~/.config/germinator/library" {
-		t.Errorf("DefaultConfig().Library = %q, want %q", cfg.Library, "~/.config/germinator/library")
+	if cfg.Library != "" {
+		t.Errorf("DefaultConfig().Library = %q, want %q", cfg.Library, "")
 	}
 
-	if cfg.Platform != "" {
-		t.Errorf("DefaultConfig().Platform = %q, want empty string", cfg.Platform)
+	if cfg.PlatformDefault != "" {
+		t.Errorf("DefaultConfig().PlatformDefault = %q, want empty string", cfg.PlatformDefault)
+	}
+
+	if cfg.Debug != false {
+		t.Errorf("DefaultConfig().Debug = %v, want false", cfg.Debug)
 	}
 
 	// Test completion config defaults
@@ -96,7 +100,7 @@ func TestConfigValidate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg := &Config{Platform: tt.platform}
+			cfg := &Config{PlatformDefault: tt.platform}
 			err := cfg.Validate()
 
 			if tt.wantErr {
@@ -183,8 +187,8 @@ func TestConfigExpandPaths(t *testing.T) {
 	home := getHomeDir(t)
 
 	cfg := &Config{
-		Library:  "~/my-library",
-		Platform: "opencode",
+		Library:         "~/my-library",
+		PlatformDefault: "opencode",
 	}
 
 	if err := cfg.ExpandPaths(); err != nil {

@@ -153,7 +153,7 @@ func validateLibrary(f *cmdutil.Factory, explicitPath string) func() (*library.L
 	if f == nil {
 		return nil
 	}
-	resolved := library.FindLibrary(explicitPath, os.Getenv("GERMINATOR_LIBRARY"))
+	resolved := library.FindLibrary(explicitPath, os.Getenv("GERMINATOR_LIBRARY"), "")
 	return func() (*library.Library, error) {
 		return library.LoadLibrary(f.RootContext, resolved)
 	}

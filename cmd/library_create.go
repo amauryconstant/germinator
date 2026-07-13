@@ -152,7 +152,7 @@ func createPresetLibrary(f *cmdutil.Factory, explicitPath string) func() (*libra
 	if f == nil {
 		return nil
 	}
-	resolved := library.FindLibrary(explicitPath, os.Getenv("GERMINATOR_LIBRARY"))
+	resolved := library.FindLibrary(explicitPath, os.Getenv("GERMINATOR_LIBRARY"), "")
 	return func() (*library.Library, error) {
 		// TODO(slice-7): replace f.RootContext with the runF ctx
 		// once the Factory pattern supports per-call contexts.

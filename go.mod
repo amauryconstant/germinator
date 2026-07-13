@@ -4,9 +4,11 @@ go 1.25.5
 
 require (
 	github.com/Masterminds/sprig/v3 v3.3.0
+	github.com/adrg/xdg v0.5.3
 	github.com/carapace-sh/carapace v1.11.1
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/knadh/koanf/parsers/toml/v2 v2.2.0
+	github.com/knadh/koanf/providers/env v1.1.0
 	github.com/knadh/koanf/providers/file v1.2.1
 	github.com/knadh/koanf/v2 v2.3.2
 	github.com/muesli/termenv v0.16.0

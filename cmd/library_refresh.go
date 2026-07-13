@@ -149,7 +149,7 @@ func refreshLibrary(f *cmdutil.Factory, explicitPath string) func() (*library.Li
 	}
 	return func() (*library.Library, error) {
 		envPath := os.Getenv("GERMINATOR_LIBRARY")
-		resolved := library.FindLibrary(explicitPath, envPath)
+		resolved := library.FindLibrary(explicitPath, envPath, "")
 		return library.LoadLibrary(f.RootContext, resolved)
 	}
 }

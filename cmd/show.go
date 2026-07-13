@@ -84,7 +84,7 @@ Examples:
 			if libraryPath != nil {
 				lp = *libraryPath
 			}
-			resolved := library.FindLibrary(lp, os.Getenv("GERMINATOR_LIBRARY"))
+			resolved := library.FindLibrary(lp, os.Getenv("GERMINATOR_LIBRARY"), "")
 			opts.Library = func() (*library.Library, error) {
 				return library.LoadLibrary(opts.Ctx, resolved)
 			}

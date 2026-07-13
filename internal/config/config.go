@@ -9,13 +9,38 @@ import (
 )
 
 // Config holds the application configuration.
+//
+// Env-var mapping (via the koanf env provider at `Manager.Load()`):
+//   - `Config.Library` ← `GERMINATOR_LIBRARY`
+//   - `Config.PlatformDefault` (koanf tag `platform`) ←
+//     `GERMINATOR_PLATFORM` (NOT `GERMINATOR_PLATFORM_DEFAULT`; the
+//     prefix is stripped and the remaining key is lowercased)
+//   - `Config.Debug` ← `GERMINATOR_DEBUG`
+//   - `Config.Completion.Timeout` ← `GERMINATOR_COMPLETION.TIMEOUT`
+//   - `Config.Completion.CacheTTL` ← `GERMINATOR_COMPLETION.CACHE_TTL`
+//
+// Bool truthiness rule for env-derived bool fields (`Config.Debug`):
+// koanf parses via `strconv.ParseBool` semantics — `1` / `t` / `T` /
+// `true` / `TRUE` / `True` resolve to `true`; all other non-empty
+// strings resolve to `false`; unset defaults to the struct default.
 type Config struct {
-	// Library is the path to the library directory.
+	// Library is the path to the library directory. When empty (the
+	// `DefaultConfig()` seed), library-path resolution falls through
+	// to `DefaultLibraryPath()` (XDG-resolved via
+	// `adrg/xdg.DataFile("germinator/library")`).
 	Library string `koanf:"library"`
 
-	// Platform is the default platform for transformations.
-	// Empty string means platform must be specified via flag.
-	Platform string `koanf:"platform"`
+	// PlatformDefault is the default target platform
+	// (`claude-code` or `opencode`) for commands that opt in via a
+	// follow-up change. Empty means platform must be specified via
+	// flag (the historical default). The koanf tag remains `platform`
+	// so existing config files continue to bind the same key.
+	PlatformDefault string `koanf:"platform"`
+
+	// Debug enables debug-level structured logging when true. Driven
+	// by `GERMINATOR_DEBUG` (env) or `debug = true` (config file) per
+	// the bool truthiness rule documented on the package.
+	Debug bool `koanf:"debug"`
 
 	// Completion holds the shell completion configuration.
 	Completion CompletionConfig `koanf:"completion"`
@@ -33,10 +58,16 @@ type CompletionConfig struct {
 }
 
 // DefaultConfig returns a Config with sensible defaults.
+//
+// `Library: ""` is the canonical "no config-file override" signal —
+// when the value is empty at resolution time, library-path
+// resolution falls through to `library.DefaultLibraryPath()` (XDG
+// via `adrg/xdg.DataFile`).
 func DefaultConfig() *Config {
 	return &Config{
-		Library:  "~/.config/germinator/library",
-		Platform: "",
+		Library:         "",
+		PlatformDefault: "",
+		Debug:           false,
 		Completion: CompletionConfig{
 			Timeout:  "500ms",
 			CacheTTL: "5s",
@@ -45,16 +76,19 @@ func DefaultConfig() *Config {
 }
 
 // Validate checks that the configuration is valid.
-// Returns an error if the platform value is invalid.
+// Returns *core.ConfigError if PlatformDefault is non-empty and
+// not one of the supported platforms. Debug is always valid (bool);
+// Library is always valid (empty falls through to XDG default at
+// resolution time).
 func (c *Config) Validate() error {
-	if c.Platform == "" {
+	if c.PlatformDefault == "" {
 		return nil
 	}
 
-	if c.Platform != gerrors.PlatformClaudeCode && c.Platform != gerrors.PlatformOpenCode {
+	if c.PlatformDefault != gerrors.PlatformClaudeCode && c.PlatformDefault != gerrors.PlatformOpenCode {
 		return gerrors.NewConfigError(
 			"platform",
-			c.Platform,
+			c.PlatformDefault,
 			"unknown platform",
 		).WithSuggestions([]string{gerrors.PlatformClaudeCode, gerrors.PlatformOpenCode})
 	}

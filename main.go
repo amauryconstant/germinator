@@ -33,7 +33,7 @@ func main() {
 	// run functions (cmd.NewTransformer, cmd.NewValidator, etc.), so
 	// main.go has nothing to wire.
 	f.Library = cmdutil.OnceValuesFunc(func() (*library.Library, error) {
-		path := library.FindLibrary("", os.Getenv("GERMINATOR_LIBRARY"))
+		path := library.FindLibrary("", os.Getenv("GERMINATOR_LIBRARY"), "")
 		return library.LoadLibrary(f.RootContext, path)
 	})
 

@@ -229,7 +229,7 @@ func removeLibrary(f *cmdutil.Factory, explicitPath string) func() (*library.Lib
 	}
 	return func() (*library.Library, error) {
 		envPath := os.Getenv("GERMINATOR_LIBRARY")
-		resolved := library.FindLibrary(explicitPath, envPath)
+		resolved := library.FindLibrary(explicitPath, envPath, "")
 		return library.LoadLibrary(f.RootContext, resolved)
 	}
 }

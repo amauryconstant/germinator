@@ -136,7 +136,7 @@ Examples:
 // the forbidigo pattern check stays green.
 func initLibrary(ctx context.Context, explicitPath string) func() (*library.Library, error) {
 	return func() (*library.Library, error) {
-		resolved := library.FindLibrary(explicitPath, os.Getenv("GERMINATOR_LIBRARY"))
+		resolved := library.FindLibrary(explicitPath, os.Getenv("GERMINATOR_LIBRARY"), "")
 		return library.LoadLibrary(ctx, resolved)
 	}
 }

@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/adrg/xdg"
 )
 
 func TestFindLibrary(t *testing.T) {
@@ -11,31 +13,42 @@ func TestFindLibrary(t *testing.T) {
 		name     string
 		flagPath string
 		envPath  string
+		cfgPath  string
 		wantPath string
 	}{
 		{
 			name:     "flag takes priority",
 			flagPath: "/flag/path",
 			envPath:  "/env/path",
+			cfgPath:  "/cfg/path",
 			wantPath: "/flag/path",
 		},
 		{
 			name:     "env when no flag",
 			flagPath: "",
 			envPath:  "/env/path",
+			cfgPath:  "/cfg/path",
 			wantPath: "/env/path",
 		},
 		{
-			name:     "default when no flag or env",
+			name:     "cfg when no flag or env",
 			flagPath: "",
 			envPath:  "",
+			cfgPath:  "/cfg/path",
+			wantPath: "/cfg/path",
+		},
+		{
+			name:     "default when no flag, env, or cfg",
+			flagPath: "",
+			envPath:  "",
+			cfgPath:  "",
 			wantPath: DefaultLibraryPath(),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := FindLibrary(tt.flagPath, tt.envPath)
+			got := FindLibrary(tt.flagPath, tt.envPath, tt.cfgPath)
 			if got != tt.wantPath {
 				t.Errorf("FindLibrary() = %v, want %v", got, tt.wantPath)
 			}
@@ -99,5 +112,147 @@ func TestYAMLExists(t *testing.T) {
 	// Test with library.yaml
 	if !YAMLExists(tmpDir) {
 		t.Error("YAMLExists() should return true when library.yaml exists")
+	}
+}
+
+// TestResolveLibrary_FlagOverEnvOverCfgOverDefault covers the full
+// 4-tier precedence mandated by application-configuration/spec.md:122.
+func TestResolveLibrary_FlagOverEnvOverCfgOverDefault(t *testing.T) {
+	tests := []struct {
+		name     string
+		flagPath string
+		envPath  string
+		cfgPath  string
+		wantPath string
+	}{
+		{
+			name:     "flag wins over env",
+			flagPath: "/flag/path",
+			envPath:  "/env/path",
+			cfgPath:  "/cfg/path",
+			wantPath: "/flag/path",
+		},
+		{
+			name:     "env wins over cfg",
+			flagPath: "",
+			envPath:  "/env/path",
+			cfgPath:  "/cfg/path",
+			wantPath: "/env/path",
+		},
+		{
+			name:     "cfg wins over default",
+			flagPath: "",
+			envPath:  "",
+			cfgPath:  "/cfg/path",
+			wantPath: "/cfg/path",
+		},
+		{
+			name:     "flag beats cfg",
+			flagPath: "/flag/path",
+			envPath:  "",
+			cfgPath:  "/cfg/path",
+			wantPath: "/flag/path",
+		},
+		{
+			name:     "env beats cfg",
+			flagPath: "",
+			envPath:  "/env/path",
+			cfgPath:  "",
+			wantPath: "/env/path",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := FindLibrary(tt.flagPath, tt.envPath, tt.cfgPath)
+			if got != tt.wantPath {
+				t.Errorf("FindLibrary() = %v, want %v", got, tt.wantPath)
+			}
+		})
+	}
+}
+
+// TestResolveLibrary_AllEmpty_ReturnsXDGDefault verifies that the
+// final tier of precedence falls through to DefaultLibraryPath().
+func TestResolveLibrary_AllEmpty_ReturnsXDGDefault(t *testing.T) {
+	got := FindLibrary("", "", "")
+	want := DefaultLibraryPath()
+	if got != want {
+		t.Errorf("FindLibrary(\"\",\"\",\"\" ) = %v, want %v", got, want)
+	}
+}
+
+// TestDefaultLibraryPath_AdoptsXDG verifies the XDG-backed data path
+// is computed from XDG_DATA_HOME.
+func TestDefaultLibraryPath_AdoptsXDG(t *testing.T) {
+	xdgDataHome := "/xdg/lib"
+	t.Setenv("XDG_DATA_HOME", xdgDataHome)
+	t.Setenv("HOME", "/nonexistent")
+
+	got := DefaultLibraryPath()
+	want := filepath.Join(xdgDataHome, "germinator", "library")
+	if got != want {
+		t.Errorf("DefaultLibraryPath() = %q, want %q", got, want)
+	}
+}
+
+// TestDefaultLibraryPath_PrefersXDGOverCWDWhenXDGExists verifies that
+// when both XDG and CWD paths exist, XDG wins.
+func TestDefaultLibraryPath_PrefersXDGOverCWDWhenXDGExists(t *testing.T) {
+	tmpDir := t.TempDir()
+	xdgHome := filepath.Join(tmpDir, "xdg-data")
+	xdgLib := filepath.Join(xdgHome, "germinator", "library")
+	if err := os.MkdirAll(xdgLib, 0755); err != nil {
+		t.Fatalf("MkdirAll failed: %v", err)
+	}
+
+	origWd, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("Chdir failed: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(origWd) })
+
+	t.Setenv("XDG_DATA_HOME", xdgHome)
+	t.Setenv("HOME", "/nonexistent")
+
+	got := DefaultLibraryPath()
+	if got != xdgLib {
+		t.Errorf("DefaultLibraryPath() = %q, want %q (XDG path should win)", got, xdgLib)
+	}
+}
+
+// TestDefaultLibraryPath_FallsBackToCWDWhenXDGDoesNotExist verifies
+// the project-local override behavior.
+func TestDefaultLibraryPath_FallsBackToCWDWhenXDGDoesNotExist(t *testing.T) {
+	tmpDir := t.TempDir()
+	xdgHome := filepath.Join(tmpDir, "xdg-data")
+	cwdLib := filepath.Join(tmpDir, "germinator", "library")
+	if err := os.MkdirAll(cwdLib, 0755); err != nil {
+		t.Fatalf("MkdirAll failed: %v", err)
+	}
+
+	origWd, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("Chdir failed: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(origWd) })
+
+	t.Setenv("XDG_DATA_HOME", xdgHome)
+	t.Setenv("HOME", "/nonexistent")
+
+	got := DefaultLibraryPath()
+	if got != cwdLib {
+		t.Errorf("DefaultLibraryPath() = %q, want %q (CWD path should win when XDG does not exist)", got, cwdLib)
+	}
+}
+
+// TestXdgReload verifies that calling Reload picks up env mutations.
+func TestXdgReload(t *testing.T) {
+	t.Setenv("XDG_DATA_HOME", "/custom/data")
+	t.Setenv("HOME", "/nonexistent")
+
+	xdg.Reload()
+	if xdg.DataHome != "/custom/data" {
+		t.Errorf("xdg.DataHome = %q, want %q (xdg.Reload should pick up env)", xdg.DataHome, "/custom/data")
 	}
 }
