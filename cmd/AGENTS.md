@@ -280,7 +280,7 @@ The shell units consumed by `cmd/`:
 | `core.ValidatePlatform` | `internal/core/rules.go` | Returns `*core.ValidationError` for unknown platform strings |
 | `core.ResolveOutputPath` | `internal/core/rules.go` | `(docType, name, platform) → path` (e.g., `agents/reviewer.claude-code.md`) |
 
-**`GERMINATOR_DEBUG=1`** enables a debug-level `slog.Logger` on `IOStreams.Logger` (writes to `ErrOut`). Unset = no-op handler.
+**Debug logging** is activated via `IOStreams.SetDebug(bool)`, driven by `cfg.Debug` from `main.go` after `config.Load()` succeeds. `GERMINATOR_DEBUG` env → koanf env provider (`internal/config/manager.go::Load()`) → `cfg.Debug` → `IOStreams.SetDebug(cfg.Debug)`. Default (unset or false) = no-op handler. The env is **not** read directly by `iostreams.System()`; `main.go`'s fail-fast `BuildFactory` is the single source of truth.
 
 ---
 

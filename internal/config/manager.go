@@ -132,12 +132,13 @@ func (m *koanfConfigManager) GetConfig() *Config {
 // The returned path may not exist — a missing config file is not an
 // error at the caller level (`Load()` falls through to defaults).
 //
-// Does NOT call `xdg.Reload()`: the underlying `adrg/xdg.Reload` is
-// not thread-safe (writes to package-level caches) and this function
-// is on the hot path of every config load. `adrg/xdg` caches base
-// directories at package init time; process env vars are static in
-// production. Tests that mutate XDG env vars MUST call `xdg.Reload()`
-// themselves after `t.Setenv` (see manager_xdg_test.go).
+// Calls `xdgReload()` (mutex-protected) before each lookup so parallel
+// tests that mutate XDG env vars via `t.Setenv` see updated base
+// directories. The hot path is cheap: `xdg.Reload` writes package-level
+// caches and returns immediately. Tests that mutate XDG env vars pair
+// `t.Setenv` with a fresh `resolveConfigPath` call — no explicit
+// `Reload` needed because `xdgReload` handles it under `xdgReloadMu`.
+// See manager_xdg_test.go.
 func resolveConfigPath() string {
 	xdgReload()
 	if path, err := xdg.ConfigFile("germinator/config.toml"); err == nil && path != "" {

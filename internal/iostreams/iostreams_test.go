@@ -156,7 +156,7 @@ func TestTestLoggerIsNoop(t *testing.T) {
 	assert.False(t, io2.Logger.Enabled(context.TODO(), slog.LevelDebug))
 }
 
-func TestSetDebug(t *testing.T) {
+func TestIOStreams_SetDebug(t *testing.T) {
 	t.Parallel()
 
 	t.Run("disabled by default", func(t *testing.T) {

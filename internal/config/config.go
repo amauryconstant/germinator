@@ -4,11 +4,10 @@ package config
 import (
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"time"
 
 	gerrors "gitlab.com/amoconst/germinator/internal/core"
+	"gitlab.com/amoconst/germinator/internal/paths"
 )
 
 // Config holds the application configuration.
@@ -136,28 +135,15 @@ func validateDuration(field, raw string) error {
 
 // ExpandPaths expands the tilde (~) in paths to the user's home directory.
 // This should be called after loading the config.
+//
+// Tilde expansion is delegated to internal/paths.ExpandHome so this
+// package and cmd/completions share a single canonical implementation;
+// behavior is otherwise unchanged.
 func (c *Config) ExpandPaths() error {
-	expanded, err := expandTilde(c.Library)
+	expanded, err := paths.ExpandHome(c.Library)
 	if err != nil {
-		return err
+		return gerrors.NewConfigError("path", c.Library, err.Error())
 	}
 	c.Library = expanded
 	return nil
-}
-
-// expandTilde expands a leading ~ in a path to the user's home directory.
-func expandTilde(path string) (string, error) {
-	if path == "" {
-		return "", nil
-	}
-
-	if len(path) >= 2 && path[:2] == "~/" {
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			return "", gerrors.NewConfigError("path", path, "cannot determine home directory")
-		}
-		return filepath.Join(homeDir, path[2:]), nil
-	}
-
-	return path, nil
 }

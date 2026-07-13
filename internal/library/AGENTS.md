@@ -61,15 +61,23 @@ type Resources struct {
 
 ## Library Discovery
 
-Priority: explicit path > `GERMINATOR_LIBRARY` env > `$XDG_DATA_HOME/germinator/library/` or `~/.local/share/germinator/library/`
+Priority: explicit path > `GERMINATOR_LIBRARY` env > config file (`Config.Library`) > `$XDG_DATA_HOME/germinator/library/` or `~/.local/share/germinator/library/`
 
 ```go
-// Get default library path
+// Get default library path (XDG via adrg/xdg, with CWD fallback)
 DefaultLibraryPath() string
 
-// Find library with priority resolution
-FindLibrary(flagPath, envPath string) string
+// Find library with 4-tier priority resolution (flag > env > cfg > default)
+FindLibrary(flagPath, envPath, cfgPath string) string
 ```
+
+The 3-arg `FindLibrary` encodes the spec-mandated precedence directly:
+1. `flagPath` — `--library` flag (highest)
+2. `envPath` — `GERMINATOR_LIBRARY` env var
+3. `cfgPath` — `Config.Library` (config-file override)
+4. `DefaultLibraryPath()` — XDG via `adrg/xdg.DataHome`, falling back to `./germinator/library/` for project-local libraries
+
+`DefaultLibraryPath()` reads `xdg.DataHome` directly (not `xdg.DataFile`) to avoid creating the directory on disk; mutex-protected via `xdgReload()` so parallel tests see updated values after `t.Setenv`.
 
 ## Loading
 

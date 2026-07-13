@@ -725,7 +725,7 @@ func TestRemoveLibrary_HonorsConfigLibrary(t *testing.T) {
 // T23c — removeLibrary closure survives f.Config == nil without panicking.
 // Sequential (NOT t.Parallel) because t.Setenv is incompatible with
 // parallel subtests per golang-testing Rule 4.
-func TestRemoveLibrary_NilConfigFallsThrough(t *testing.T) {
+func TestRemoveLibrary_FConfigIsNilFallsBack(t *testing.T) {
 	f := &cmdutil.Factory{
 		RootContext:     context.Background(),
 		CompletionCache: cmdutil.NewCompletionCache(),

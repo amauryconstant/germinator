@@ -12,6 +12,7 @@ import (
 	"gitlab.com/amoconst/germinator/internal/config"
 	"gitlab.com/amoconst/germinator/internal/core"
 	"gitlab.com/amoconst/germinator/internal/library"
+	"gitlab.com/amoconst/germinator/internal/paths"
 )
 
 // getCompletionTimeout parses the timeout from config, returning a default if invalid.
@@ -47,33 +48,34 @@ func getCacheTTL(cfg *config.Config) time.Duration {
 func resolveLibraryPath(cmd *cobra.Command, cfg *config.Config) string {
 	// First, check if --library flag was provided
 	if flag := cmd.Flag("library"); flag != nil && flag.Changed {
-		return expandTildeInPath(flag.Value.String())
+		return expandTildeForCompletion(flag.Value.String())
 	}
 
 	// Second, check environment variable
 	if envPath := os.Getenv("GERMINATOR_LIBRARY"); envPath != "" {
-		return expandTildeInPath(envPath)
+		return expandTildeForCompletion(envPath)
 	}
 
 	// Third, check config file (if available)
 	if cfg != nil && cfg.Library != "" {
-		return expandTildeInPath(cfg.Library)
+		return expandTildeForCompletion(cfg.Library)
 	}
 
 	// Finally, use default
 	return library.DefaultLibraryPath()
 }
 
-// expandTildeInPath expands ~ in a path to the user's home directory.
-func expandTildeInPath(path string) string {
-	if len(path) >= 2 && path[:2] == "~/" {
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			return path
-		}
-		return homeDir + path[1:]
+// expandTildeForCompletion wraps paths.ExpandHome with the legacy
+// silent-fallback behavior preserved from the pre-amendment
+// expandTildeInPath helper: when os.UserHomeDir fails on a tilde-
+// prefixed path, the original input is returned unchanged rather
+// than surfacing an error to the completion caller.
+func expandTildeForCompletion(path string) string {
+	expanded, err := paths.ExpandHome(path)
+	if err != nil {
+		return path
 	}
-	return path
+	return expanded
 }
 
 // actionPlatforms returns a static completion action for platform values.

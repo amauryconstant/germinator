@@ -735,14 +735,12 @@ func TestLoad_TypedErrorChainDispatchedByFormatError(t *testing.T) {
 				// Use the loadFn seam to inject a manager that returns a
 				// FileError directly, since chmod-based unreadability is
 				// unreliable on Windows / when running as root.
-				prev := loadFn
-				t.Cleanup(func() { loadFn = prev })
-				loadFn = func() Manager {
+				t.Cleanup(swapLoadFn(func() Manager {
 					return &stubManager{
 						cfg: DefaultConfig(),
 						err: core.NewFileError("test/path", "reading", "permission denied", nil),
 					}
-				}
+				}))
 				_, err := Load()
 				return err
 			},

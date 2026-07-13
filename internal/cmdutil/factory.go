@@ -66,10 +66,38 @@ func (f *Factory) Close() {
 }
 
 // configLoadForTest is a package-level seam for BuildFactory tests.
-// Tests override it to inject a stub config loader; production code
-// MUST NOT modify it. The variable is one mutable package-level
-// binding, the documented cost of the test-injection seam.
-var configLoadForTest func() (*config.Config, error) = config.Load
+// Tests override it via swapConfigLoadForTest to inject a stub config
+// loader; production code MUST NOT modify it. The variable is one
+// mutable package-level binding, the documented cost of the
+// test-injection seam. The mutex guards against concurrent test
+// mutations if a future parallel test attempts to swap it.
+var (
+	configLoadForTestMu sync.RWMutex
+	configLoadForTest   func() (*config.Config, error) = config.Load
+)
+
+// getConfigLoadForTest returns the currently registered config loader
+// under read lock. Used by BuildFactory on the hot path.
+func getConfigLoadForTest() func() (*config.Config, error) {
+	configLoadForTestMu.RLock()
+	defer configLoadForTestMu.RUnlock()
+	return configLoadForTest
+}
+
+// swapConfigLoadForTest replaces the package-level config loader and
+// returns a restore function suitable for t.Cleanup. Use in tests only;
+// production code MUST NOT call this.
+func swapConfigLoadForTest(fn func() (*config.Config, error)) func() {
+	configLoadForTestMu.Lock()
+	defer configLoadForTestMu.Unlock()
+	prev := configLoadForTest
+	configLoadForTest = fn
+	return func() {
+		configLoadForTestMu.Lock()
+		defer configLoadForTestMu.Unlock()
+		configLoadForTest = prev
+	}
+}
 
 // BuildFactory wires the lazy Factory dependencies (Config, Library,
 // CompletionCache) in a single testable function. It returns a
@@ -87,7 +115,7 @@ func BuildFactory(ctx context.Context, io *iostreams.IOStreams, appVersion, exec
 	// Config is wired through OnceValuesFunc so subsequent calls from
 	// completion actions return the same *Config pointer without
 	// re-reading disk (per cli-cli-factory/spec.md).
-	f.Config = OnceValuesFunc(configLoadForTest)
+	f.Config = OnceValuesFunc(getConfigLoadForTest())
 
 	// Eager single load: surface config errors here so BuildFactory
 	// can return them. Subsequent f.Config() calls return the cached

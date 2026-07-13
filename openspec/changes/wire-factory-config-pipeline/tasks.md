@@ -131,3 +131,45 @@ Each task ends with `mise run check` passing.
 - [x] 8.7 Manually test the migration: edit `~/.config/germinator/config.toml` with `[completion] timeout = "2s" cache_ttl = "10s"`, run `germinator library resources`, confirm completion latency matches the configured timeout.
 
 **Parallelization note**: Tests in section 2 are sequential (env mutations); tests in section 7 may use `t.Parallel()` per-subtest where the test is read-only and doesn't mutate shared state (per golang-testing Rule 4).
+
+## 9. Post-implementation amendments (verification follow-up)
+
+The implementation was reviewed via `osc-verify-change` after section 8 completed. Phase A (`osc-sync-specs`) was deferred; this section documents the code/doc amendments applied during the build.
+
+- [x] 9.1 Fix `resolveConfigPath` docstring (`internal/config/manager.go:124-140`) — the original comment claimed the function does NOT call `xdg.Reload()`, but the implementation does (via the mutex-protected `xdgReload()` helper). Rewrote the comment to accurately describe the implementation.
+- [x] 9.2 Add `sync.RWMutex` to `loadFn` (`internal/config/load.go`) — introduced `getLoadFn()` and `swapLoadFn(fn) func()` helpers; `Load()` now reads under RLock. Tests use `t.Cleanup(swapLoadFn(...))` for safe mutation + restore.
+- [x] 9.3 Add `sync.RWMutex` to `configLoadForTest` (`internal/cmdutil/factory.go`) — same pattern: `getConfigLoadForTest()` and `swapConfigLoadForTest(fn) func()`. `BuildFactory` now uses the mutex-protected reader. All 8 wiring tests in `factory_wiring_test.go` migrated to `swapConfigLoadForTest`.
+- [x] 9.4 Create `internal/paths` package — new `paths.ExpandHome(path string) (string, error)` consolidates tilde expansion. Coverage 87.5%.
+- [x] 9.5 Migrate `internal/config/config.go::ExpandPaths` to call `paths.ExpandHome` — the local `expandTilde` helper was removed. The error from `paths.ExpandHome` is wrapped as a `*core.ConfigError` (matching the original behavior). The duplicate `TestExpandTilde` in `config_test.go` was replaced with a `t.Skip` pointer to the canonical coverage in `internal/paths/expand_test.go`.
+- [x] 9.6 Migrate `cmd/completions.go::resolveLibraryPath` to call `paths.ExpandHome` — the local `expandTildeInPath` was removed. A tiny `expandTildeForCompletion` wrapper preserves the legacy silent-fallback behavior (returns original path on `os.UserHomeDir` failure). `cmd/completions_test.go::TestResolveLibraryPath_TildeExpansion` updated to call the new helper.
+- [x] 9.7 Refresh AGENTS.md doc drifts (4 files):
+  - `internal/AGENTS.md` — replaced `AppConfig struct with toml/koanf tags` with the current `Config` struct description (Library, PlatformDefault, Debug, Completion; koanf env provider; Library="" as the canonical "no override" signal).
+  - `internal/config/AGENTS.md` — rewrote the Public Surface section with the new Config field table, env-var mapping, Load() wrapper contract, and updated path resolution description.
+  - `internal/library/AGENTS.md` — updated FindLibrary signature to 3-arg; documented the 4-tier precedence (flag > env > cfg > default).
+  - `cmd/AGENTS.md` — replaced the `GERMINATOR_DEBUG=1 enables...` line with the canonical SetDebug(cfg.Debug) activation flow via koanf env provider.
+- [x] 9.8 Rename `TestSetDebug` → `TestIOStreams_SetDebug` (`internal/iostreams/iostreams_test.go:159`).
+- [x] 9.9 Rename `TestRefreshLibrary_NilConfigFallsThrough` → `TestRefreshLibrary_FConfigIsNilFallsBack` (`cmd/library_refresh_test.go:153`).
+- [x] 9.10 Rename `TestRemoveLibrary_NilConfigFallsThrough` → `TestRemoveLibrary_FConfigIsNilFallsBack` (`cmd/library_remove_test.go:728`).
+- [x] 9.11 Add `TestResolveLibraryPath_PrefersCfgOverEnv` (`cmd/completions_test.go`) — two-subtest case covering both precedence directions: env wins when set; cfg consulted when env unset.
+- [x] 9.12 Migrate `TestLoadLibraryForCompletion_HonorsConfigTimeout` and `_HonorsCacheTTL` to `synctest.Test` (Go 1.25+) — synthetic time replaces the pre-cancelled-context + `CompletionCache.WithClock` fake clock approach. The Timeout test uses a cancelled parent context (which propagates to the wrapped loadCtx); the CacheTTL test uses `time.Sleep(10s + 1ms)` + `synctest.Wait()` to deterministically evict the cache entry. Imports `testing/synctest`.
+- [x] 9.13 Re-run `mise run lint && mise run test -- -race && mise run test:coverage && openspec validate wire-factory-config-pipeline --strict` — all green.
+
+### Coverage results after amendments
+
+| Package | Before | After | Threshold |
+|---------|--------|-------|-----------|
+| `internal/config` | 85.5% | **87.5%** | ≥ 70% |
+| `internal/iostreams` | 93.1% | 93.1% | ≥ 70% |
+| `internal/library` | 80.4% | 80.4% | ≥ 70% |
+| `internal/cmdutil` | 98.4% | **98.6%** | ≥ 70% |
+| `internal/paths` (new) | n/a | **87.5%** | ≥ 70% |
+| `cmd` | 83.3% | **83.5%** | (lint baseline) |
+
+### Phase A (deferred)
+
+Spec deltas for `cli-cli-factory`, `cli-shell-completion`, and `application-configuration` remain unsynced. To complete the archive path:
+
+```bash
+openspec sync-specs wire-factory-config-pipeline
+openspec validate wire-factory-config-pipeline --strict  # re-validate after sync
+```

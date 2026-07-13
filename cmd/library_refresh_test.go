@@ -150,7 +150,7 @@ func TestRefreshLibrary_HonorsConfigLibrary(t *testing.T) {
 // to env-only resolution. Sequential (NOT t.Parallel) because
 // t.Setenv is incompatible with parallel subtests per golang-testing
 // Rule 4.
-func TestRefreshLibrary_NilConfigFallsThrough(t *testing.T) {
+func TestRefreshLibrary_FConfigIsNilFallsBack(t *testing.T) {
 	f := &cmdutil.Factory{
 		RootContext:     context.Background(),
 		CompletionCache: cmdutil.NewCompletionCache(),

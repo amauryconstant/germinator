@@ -243,61 +243,7 @@ func unwrapConfigErrors(err error) []*gerrors.ConfigError {
 }
 
 func TestExpandTilde(t *testing.T) {
-	home := getHomeDir(t)
-
-	tests := []struct {
-		name    string
-		path    string
-		want    string
-		wantErr bool
-	}{
-		{
-			name: "empty path",
-			path: "",
-			want: "",
-		},
-		{
-			name: "tilde expansion",
-			path: "~/some/path",
-			want: home + "/some/path",
-		},
-		{
-			name: "absolute path unchanged",
-			path: "/absolute/path",
-			want: "/absolute/path",
-		},
-		{
-			name: "relative path unchanged",
-			path: "relative/path",
-			want: "relative/path",
-		},
-		{
-			name: "lone tilde unchanged",
-			path: "~",
-			want: "~",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := expandTilde(tt.path)
-
-			if tt.wantErr {
-				if err == nil {
-					t.Fatalf("expandTilde() expected error, got nil")
-				}
-				return
-			}
-
-			if err != nil {
-				t.Fatalf("expandTilde() unexpected error: %v", err)
-			}
-
-			if got != tt.want {
-				t.Errorf("expandTilde(%q) = %q, want %q", tt.path, got, tt.want)
-			}
-		})
-	}
+	t.Skip("expandTilde was promoted to internal/paths.ExpandHome; coverage lives in internal/paths/expand_test.go")
 }
 
 func TestConfigExpandPaths(t *testing.T) {

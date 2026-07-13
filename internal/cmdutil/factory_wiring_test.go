@@ -21,14 +21,12 @@ import (
 // Pins the cli-cli-factory/spec.md "Config is a lazy function" scenario.
 func TestBuildFactory_ConfigIsLazy(t *testing.T) {
 	ios := iostreams.Test()
-	prev := configLoadForTest
-	t.Cleanup(func() { configLoadForTest = prev })
 
 	var calls atomic.Int32
-	configLoadForTest = func() (*config.Config, error) {
+	t.Cleanup(swapConfigLoadForTest(func() (*config.Config, error) {
 		calls.Add(1)
 		return config.DefaultConfig(), nil
-	}
+	}))
 
 	f, err := BuildFactory(context.Background(), ios, "v0.0.0", "germinator")
 	require.NoError(t, err)
@@ -51,14 +49,12 @@ func TestBuildFactory_ConfigIsLazy(t *testing.T) {
 // inner loader runs exactly once.
 func TestBuildFactory_ConfigCachedAcrossCallsConcurrent(t *testing.T) {
 	ios := iostreams.Test()
-	prev := configLoadForTest
-	t.Cleanup(func() { configLoadForTest = prev })
 
 	var calls atomic.Int32
-	configLoadForTest = func() (*config.Config, error) {
+	t.Cleanup(swapConfigLoadForTest(func() (*config.Config, error) {
 		calls.Add(1)
 		return config.DefaultConfig(), nil
-	}
+	}))
 
 	f, err := BuildFactory(context.Background(), ios, "v0.0.0", "germinator")
 	require.NoError(t, err)
@@ -83,14 +79,11 @@ func TestBuildFactory_ConfigCachedAcrossCallsConcurrent(t *testing.T) {
 // Pins the spec scenario "Debug activation flows through Config".
 func TestBuildFactory_DebugEnablesLogger(t *testing.T) {
 	ios := iostreams.Test()
-	prev := configLoadForTest
-	t.Cleanup(func() { configLoadForTest = prev })
-
-	configLoadForTest = func() (*config.Config, error) {
+	t.Cleanup(swapConfigLoadForTest(func() (*config.Config, error) {
 		cfg := config.DefaultConfig()
 		cfg.Debug = true
 		return cfg, nil
-	}
+	}))
 
 	f, err := BuildFactory(context.Background(), ios, "v0.0.0", "germinator")
 	require.NoError(t, err)
@@ -106,12 +99,9 @@ func TestBuildFactory_DebugEnablesLogger(t *testing.T) {
 // emission). Pins the "logger uses noop when debug unset" subtest.
 func TestBuildFactory_DebugDisabledByDefault(t *testing.T) {
 	ios := iostreams.Test()
-	prev := configLoadForTest
-	t.Cleanup(func() { configLoadForTest = prev })
-
-	configLoadForTest = func() (*config.Config, error) {
+	t.Cleanup(swapConfigLoadForTest(func() (*config.Config, error) {
 		return config.DefaultConfig(), nil
-	}
+	}))
 
 	f, err := BuildFactory(context.Background(), ios, "v0.0.0", "germinator")
 	require.NoError(t, err)
@@ -128,13 +118,10 @@ func TestBuildFactory_DebugDisabledByDefault(t *testing.T) {
 // spec scenario "Config load errors propagate from BuildFactory".
 func TestBuildFactory_ConfigLoadErrorSurfaces(t *testing.T) {
 	ios := iostreams.Test()
-	prev := configLoadForTest
-	t.Cleanup(func() { configLoadForTest = prev })
-
 	wantErr := core.NewConfigError("platform", "invalid", "unknown platform")
-	configLoadForTest = func() (*config.Config, error) {
+	t.Cleanup(swapConfigLoadForTest(func() (*config.Config, error) {
 		return config.DefaultConfig(), wantErr
-	}
+	}))
 
 	f, err := BuildFactory(context.Background(), ios, "v0.0.0", "germinator")
 	require.Error(t, err)
@@ -152,14 +139,11 @@ func TestBuildFactory_ConfigLoadErrorSurfaces(t *testing.T) {
 // chain via library.FindLibrary. Pins task 4.4's closure migration.
 func TestBuildFactory_LibraryIsLazy(t *testing.T) {
 	ios := iostreams.Test()
-	prev := configLoadForTest
-	t.Cleanup(func() { configLoadForTest = prev })
-
-	configLoadForTest = func() (*config.Config, error) {
+	t.Cleanup(swapConfigLoadForTest(func() (*config.Config, error) {
 		cfg := config.DefaultConfig()
 		cfg.Library = "/from/cfg/path"
 		return cfg, nil
-	}
+	}))
 
 	t.Setenv("GERMINATOR_LIBRARY", "")
 	f, err := BuildFactory(context.Background(), ios, "v0.0.0", "germinator")
@@ -186,12 +170,9 @@ func TestBuildFactory_LibraryIsLazy(t *testing.T) {
 // have a working cache immediately.
 func TestBuildFactory_CompletionCacheAssigned(t *testing.T) {
 	ios := iostreams.Test()
-	prev := configLoadForTest
-	t.Cleanup(func() { configLoadForTest = prev })
-
-	configLoadForTest = func() (*config.Config, error) {
+	t.Cleanup(swapConfigLoadForTest(func() (*config.Config, error) {
 		return config.DefaultConfig(), nil
-	}
+	}))
 
 	f, err := BuildFactory(context.Background(), ios, "v0.0.0", "germinator")
 	require.NoError(t, err)
@@ -206,12 +187,10 @@ func TestBuildFactory_CompletionCacheAssigned(t *testing.T) {
 // and no XDG path (a fresh install with zero configuration).
 func TestBuildFactory_NoEnvStillBuilds(t *testing.T) {
 	ios := iostreams.Test()
-	prev := configLoadForTest
-	t.Cleanup(func() { configLoadForTest = prev })
 
 	// Restore production loader — defaults apply when env and file
 	// are absent.
-	configLoadForTest = config.Load
+	t.Cleanup(swapConfigLoadForTest(config.Load))
 
 	tmpDir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", "")

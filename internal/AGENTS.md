@@ -62,9 +62,11 @@ Everything that does I/O lives here.
 - `CompletionCache` — per-Factory TTL cache for shell-completion library snapshots; `Invalidate()` called by mutating library commands
 
 #### `internal/config/`
-- `AppConfig` struct with `toml`/`koanf` tags
-- `Load()`, `DefaultConfig()`, XDG path resolution
-- Missing file falls back to defaults (not an error); validation uses `ValidateAll()` collect mode
+- `Config` struct with `koanf` tags (`Library`, `PlatformDefault`, `Debug`, `Completion`)
+- `Load()` top-level wrapper, `DefaultConfig()`, XDG path resolution via `adrg/xdg`
+- Koanf env provider merges `GERMINATOR_*` env vars (defaults → file → env)
+- `Library: ""` is the canonical "no config-file override" signal; falls through to `library.DefaultLibraryPath()`
+- Missing file falls back to defaults (not an error); validation uses `errors.Join` collect mode
 
 #### `internal/library/`
 - `Library` struct with `Resources`, `Presets`
