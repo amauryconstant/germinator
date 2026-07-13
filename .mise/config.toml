@@ -18,10 +18,7 @@ outputs = ["bin/germinator"]
 
 [tasks."build:local"]
 description = "Build and install germinator locally for testing"
-run = [
- {task="build"},
- "cp bin/germinator $HOME/.local/bin"
-]
+run = [{ task = "build" }, "cp bin/germinator $HOME/.local/bin"]
 
 [tasks."build:clean"]
 description = "Clean build artifacts"
@@ -45,6 +42,14 @@ run = "gofmt -w ."
 
 [tasks.test]
 description = "Run all tests (unit + golden + integration + e2e)"
+run = [
+    { task = "test:unit" },
+    { task = "test:race" },
+    { task = "test:golden" },
+    { task = "test:integration" },
+    { task = "test:e2e" },
+    { task = "test:e2e:race" },
+]
 depends = ["test:unit", "test:golden", "test:integration", "test:e2e"]
 
 [tasks."test:unit"]
@@ -62,6 +67,14 @@ run = "go test -tags=integration ./..."
 [tasks."test:e2e"]
 description = "Run E2E tests (full CLI workflow)"
 run = "go test -tags=e2e ./test/e2e/..."
+
+[tasks."test:race"]
+description = "Run unit tests with race detector (catches data races on shared state)"
+run = "go test -race ./internal/..."
+
+[tasks."test:e2e:race"]
+description = "Run E2E tests with race detector"
+run = "go test -tags=e2e ./test/e2e/... -race -timeout=120s"
 
 [tasks."test:coverage"]
 description = "Run all tests with coverage"
@@ -94,7 +107,7 @@ run = "go test -tags=e2e ./test/e2e/... -cover -coverprofile=coverage_e2e.out"
 description = "Test GoReleaser release flow (build only, no publish)"
 run = "goreleaser release --skip=publish --clean"
 
-[tasks.check]
+[tasks.verify]
 description = "Run all validation checks"
 depends = ["lint", "format", "test", "build"]
 

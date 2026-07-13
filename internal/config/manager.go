@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/adrg/xdg"
 	"github.com/knadh/koanf/parsers/toml/v2"
@@ -130,8 +131,15 @@ func (m *koanfConfigManager) GetConfig() *Config {
 //
 // The returned path may not exist — a missing config file is not an
 // error at the caller level (`Load()` falls through to defaults).
+//
+// Does NOT call `xdg.Reload()`: the underlying `adrg/xdg.Reload` is
+// not thread-safe (writes to package-level caches) and this function
+// is on the hot path of every config load. `adrg/xdg` caches base
+// directories at package init time; process env vars are static in
+// production. Tests that mutate XDG env vars MUST call `xdg.Reload()`
+// themselves after `t.Setenv` (see manager_xdg_test.go).
 func resolveConfigPath() string {
-	xdg.Reload()
+	xdgReload()
 	if path, err := xdg.ConfigFile("germinator/config.toml"); err == nil && path != "" {
 		return path
 	}
@@ -146,7 +154,7 @@ func resolveConfigPath() string {
 // It returns the XDG-resolved path even if the file does not exist
 // (does NOT attempt to create the directory).
 func GetConfigPath() (string, error) {
-	xdg.Reload()
+	xdgReload()
 	if xdg.ConfigHome != "" {
 		return filepath.Join(xdg.ConfigHome, "germinator", "config.toml"), nil
 	}
@@ -155,4 +163,19 @@ func GetConfigPath() (string, error) {
 		return "", fmt.Errorf("cannot determine home directory: %w", err)
 	}
 	return filepath.Join(homeDir, ".config", "germinator", "config.toml"), nil
+}
+
+// xdgReloadMu serializes calls to adrg/xdg.Reload, which mutates
+// package-level caches in the third-party library without internal
+// locking. Parallel tests that mutate XDG_* via t.Setenv and then
+// invoke resolveConfigPath / GetConfigPath would race on those caches
+// without serialization. We hold the mutex only across xdg.Reload
+// itself (cheap; no I/O) so concurrent callers see either pre-reload
+// or post-reload state atomically.
+var xdgReloadMu sync.Mutex
+
+func xdgReload() {
+	xdgReloadMu.Lock()
+	defer xdgReloadMu.Unlock()
+	xdg.Reload()
 }

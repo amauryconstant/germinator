@@ -288,3 +288,20 @@ func TestWarnf(t *testing.T) {
 		assert.Equal(t, "Warning: values: x = 42\n", out.String())
 	})
 }
+
+// TestSystem_NoLongerReadsEnvDebug verifies that iostreams.System() no
+// longer inspects GERMINATOR_DEBUG at construction time. After Phase 2
+// of the wire-factory-config-pipeline change, debug activation is
+// driven by cfg.Debug via IOStreams.SetDebug — System() must return a
+// discard Logger regardless of the env var, and SetDebug(true) is the
+// only path that enables debug output. Sequential (NOT t.Parallel)
+// because t.Setenv is incompatible with parallel subtests per
+// golang-testing Rule 4.
+func TestSystem_NoLongerReadsEnvDebug(t *testing.T) {
+	t.Setenv("GERMINATOR_DEBUG", "1")
+
+	io2 := System()
+	require.NotNil(t, io2.Logger)
+	assert.False(t, io2.Logger.Enabled(context.TODO(), slog.LevelDebug),
+		"System() MUST return a discard Logger even when GERMINATOR_DEBUG=1 is set; debug activation flows through SetDebug(cfg.Debug)")
+}

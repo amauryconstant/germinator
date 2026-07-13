@@ -3,7 +3,11 @@
 package e2e_test
 
 import (
+	"os"
+	"path/filepath"
+
 	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	"gitlab.com/amoconst/germinator/test/e2e/fixtures"
 	"gitlab.com/amoconst/germinator/test/e2e/helpers"
@@ -84,6 +88,27 @@ var _ = Describe("Library Command", func() {
 	Describe("using GERMINATOR_LIBRARY environment variable", func() {
 		It("should use the library path from environment", func() {
 			session := cli.RunWithEnv(map[string]string{"GERMINATOR_LIBRARY": fixtures.LibraryDir()}, "library", "resources")
+			cli.ShouldSucceed(session)
+			cli.ShouldOutput(session, "skill/commit")
+		})
+	})
+
+	// Task 7.3 E2E: Config.Library precedence. Writes a config file at
+	// $XDG_CONFIG_HOME/germinator/config.toml with `library = "..."` and
+	// asserts the resolved library matches the config-file value when
+	// neither flag nor env var is set.
+	Describe("using config file library setting", func() {
+		It("should resolve library from XDG config when no flag or env is set", func() {
+			xdgConfigHome := GinkgoT().TempDir()
+			configDir := filepath.Join(xdgConfigHome, "germinator")
+			Expect(os.MkdirAll(configDir, 0o750)).To(Succeed())
+			configPath := filepath.Join(configDir, "config.toml")
+			Expect(os.WriteFile(configPath, []byte(`library = "`+fixtures.LibraryDir()+`"`+"\n"), 0o600)).To(Succeed())
+
+			session := cli.RunWithEnv(
+				map[string]string{"XDG_CONFIG_HOME": xdgConfigHome},
+				"library", "resources",
+			)
 			cli.ShouldSucceed(session)
 			cli.ShouldOutput(session, "skill/commit")
 		})

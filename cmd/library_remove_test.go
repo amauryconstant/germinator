@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/amoconst/germinator/internal/cmdutil"
+	"gitlab.com/amoconst/germinator/internal/config"
 	"gitlab.com/amoconst/germinator/internal/core"
 	"gitlab.com/amoconst/germinator/internal/iostreams"
 	"gitlab.com/amoconst/germinator/internal/library"
@@ -696,6 +697,49 @@ func TestRemoveLibrary_NilFactoryReturnsNil(t *testing.T) {
 
 	assert.Nil(t, removeLibrary(nil, ""),
 		"removeLibrary(nil) returns nil so opts.Library is unset for tests")
+}
+
+// T23b — removeLibrary closure honors cfg.Library when f.Config is wired.
+// Pins task 4.4's nil-safe closure pattern. Sequential (NOT t.Parallel)
+// because t.Setenv is incompatible with parallel subtests per
+// golang-testing Rule 4.
+func TestRemoveLibrary_HonorsConfigLibrary(t *testing.T) {
+	cfg := &config.Config{Library: "/from/cfg/path"}
+
+	f := &cmdutil.Factory{
+		RootContext:     context.Background(),
+		CompletionCache: cmdutil.NewCompletionCache(),
+	}
+	f.Config = func() (*config.Config, error) { return cfg, nil }
+	t.Setenv("GERMINATOR_LIBRARY", "")
+
+	loader := removeLibrary(f, "")
+	require.NotNil(t, loader)
+
+	_, err := loader()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "/from/cfg/path",
+		"resolved library path MUST reflect cfg.Library when flag and env are unset")
+}
+
+// T23c — removeLibrary closure survives f.Config == nil without panicking.
+// Sequential (NOT t.Parallel) because t.Setenv is incompatible with
+// parallel subtests per golang-testing Rule 4.
+func TestRemoveLibrary_NilConfigFallsThrough(t *testing.T) {
+	f := &cmdutil.Factory{
+		RootContext:     context.Background(),
+		CompletionCache: cmdutil.NewCompletionCache(),
+		// f.Config intentionally left nil.
+	}
+	t.Setenv("GERMINATOR_LIBRARY", "/from/env/path")
+
+	loader := removeLibrary(f, "")
+	require.NotNil(t, loader, "loader must be non-nil even when f.Config is nil")
+
+	_, err := loader()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "/from/env/path",
+		"resolved path MUST fall through to env when f.Config is nil")
 }
 
 // T24 — Spec scenario "Invalidate after runRemove": a successful

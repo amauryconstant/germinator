@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/amoconst/germinator/internal/cmdutil"
+	"gitlab.com/amoconst/germinator/internal/config"
 	"gitlab.com/amoconst/germinator/internal/iostreams"
 	"gitlab.com/amoconst/germinator/internal/library"
 )
@@ -110,6 +111,60 @@ func TestRefreshLibrary_NilFactoryReturnsNil(t *testing.T) {
 
 	assert.Nil(t, refreshLibrary(nil, ""),
 		"refreshLibrary(nil, ...) returns nil so opts.Library is unset")
+}
+
+// T2b — refreshLibrary closure honors cfg.Library when f.Config is wired.
+// Pins task 4.4's nil-safe closure pattern: the cfgPath inside the
+// closure must come from f.Config().Library, falling through silently
+// when f.Config is unset. Sequential (NOT t.Parallel) because
+// t.Setenv is incompatible with parallel subtests per golang-testing
+// Rule 4.
+func TestRefreshLibrary_HonorsConfigLibrary(t *testing.T) {
+	cfg := &config.Config{Library: "/from/cfg/path"}
+
+	f := &cmdutil.Factory{
+		RootContext:     context.Background(),
+		CompletionCache: cmdutil.NewCompletionCache(),
+	}
+	f.Config = func() (*config.Config, error) { return cfg, nil }
+	t.Setenv("GERMINATOR_LIBRARY", "")
+
+	loader := refreshLibrary(f, "")
+	require.NotNil(t, loader, "refreshLibrary must return a non-nil loader when f is non-nil")
+
+	// Invoke the closure; we don't care if LoadLibrary succeeds —
+	// we only need to prove that the resolved path (which FindLibrary
+	// derives from cfgPath) reflects cfg.Library. We assert via the
+	// library.LoadLibrary error message, which embeds the resolved
+	// path. Use a non-existent path that surfaces a recognizable
+	// error containing the cfg.Library path.
+	_, err := loader()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "/from/cfg/path",
+		"resolved library path MUST reflect cfg.Library when flag and env are unset")
+}
+
+// T2c — refreshLibrary closure survives f.Config == nil without panicking.
+// Defense-in-depth for test paths that build a bare cmdutil.NewFactory(...)
+// without setting f.Config. The closure must gracefully fall through
+// to env-only resolution. Sequential (NOT t.Parallel) because
+// t.Setenv is incompatible with parallel subtests per golang-testing
+// Rule 4.
+func TestRefreshLibrary_NilConfigFallsThrough(t *testing.T) {
+	f := &cmdutil.Factory{
+		RootContext:     context.Background(),
+		CompletionCache: cmdutil.NewCompletionCache(),
+		// f.Config intentionally left nil.
+	}
+	t.Setenv("GERMINATOR_LIBRARY", "/from/env/path")
+
+	loader := refreshLibrary(f, "")
+	require.NotNil(t, loader, "loader must be non-nil even when f.Config is nil")
+
+	_, err := loader()
+	require.Error(t, err, "library load is expected to fail on the bogus env path")
+	assert.Contains(t, err.Error(), "/from/env/path",
+		"resolved path MUST fall through to env when f.Config is nil")
 }
 
 // T3 — refreshOptions struct shape: declares exactly the spec-named

@@ -3,6 +3,7 @@ package library
 import (
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/adrg/xdg"
 )
@@ -45,9 +46,9 @@ func FindLibrary(flagPath, envPath, cfgPath string) string {
 // The function does NOT call `xdg.DataFile` directly because that
 // helper attempts to create the directory on disk; we only need the
 // path string. `xdg.DataHome` is computed from the env on `Reload()`
-// (called below) and joined with the standard suffix.
+// (called below under xdgReloadMu to serialize concurrent updates).
 func DefaultLibraryPath() string {
-	xdg.Reload()
+	xdgReload()
 	path := filepath.Join(xdg.DataHome, "germinator", "library")
 	if Exists(path) {
 		return path
@@ -72,4 +73,21 @@ func YAMLExists(path string) bool {
 	yamlPath := filepath.Join(path, "library.yaml")
 	_, err := os.Stat(yamlPath)
 	return err == nil
+}
+
+// xdgReloadMu serializes calls to adrg/xdg.Reload, which mutates
+// package-level caches in the third-party library without internal
+// locking. Calling xdg.Reload from concurrent goroutines (e.g., parallel
+// tests both invoking DefaultLibraryPath / resolveConfigPath after one
+// mutated XDG_* via t.Setenv) races on those caches. We serialize the
+// calls here so the global state is updated atomically; concurrent
+// readers either see the pre-reload or post-reload value, never a
+// torn update. The mutex is package-private and only held across
+// xdg.Reload (cheap; no I/O).
+var xdgReloadMu sync.Mutex
+
+func xdgReload() {
+	xdgReloadMu.Lock()
+	defer xdgReloadMu.Unlock()
+	xdg.Reload()
 }

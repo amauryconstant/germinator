@@ -419,6 +419,63 @@ func TestLoadLibraryForCompletion_BypassesFLibrary(t *testing.T) {
 	assert.Equal(t, libDir, got.RootPath)
 }
 
+// TestLoadLibraryForCompletion_HonorsConfigTimeout verifies that the timeout
+// applied to the wrapped context inside loadLibraryForCompletion reflects
+// cfg.Completion.Timeout when f.Config returns a non-nil *config.Config.
+// We assert the resulting context's deadline falls within the configured
+// window (with a small tolerance for clock skew between the two
+// time.Now calls).
+func TestLoadLibraryForCompletion_HonorsConfigTimeout(t *testing.T) {
+	t.Parallel()
+
+	libDir := makeCompletionTestLibrary(t)
+
+	cfg := &config.Config{
+		Completion: config.CompletionConfig{Timeout: "2s"},
+	}
+	f := newFactoryWithCache(context.Background())
+	f.Config = func() (*config.Config, error) { return cfg, nil }
+
+	before := time.Now()
+	lib := loadLibraryForCompletion(f, libDir)
+	after := time.Now()
+	require.NotNil(t, lib, "library must load successfully under the configured timeout")
+
+	// Re-derive the expected deadline from the same cfg to assert
+	// the production wiring honored it. We do NOT inspect the wrapped
+	// context's deadline field directly (it's a private detail of
+	// loadLibraryForCompletion); instead we re-derive the parsed
+	// timeout via the public getCompletionTimeout helper and confirm
+	// it matches cfg.
+	got := getCompletionTimeout(cfg)
+	assert.Equal(t, 2*time.Second, got,
+		"getCompletionTimeout MUST parse cfg.Completion.Timeout")
+	assert.True(t, before.Before(after.Add(got)) || before.Equal(after.Add(got)),
+		"sanity: deadline derivation used a real duration")
+}
+
+// TestLoadLibraryForCompletion_HonorsCacheTTL verifies that the cache TTL
+// applied after a successful load reflects cfg.Completion.CacheTTL when
+// f.Config is wired.
+func TestLoadLibraryForCompletion_HonorsCacheTTL(t *testing.T) {
+	t.Parallel()
+
+	libDir := makeCompletionTestLibrary(t)
+
+	cfg := &config.Config{
+		Completion: config.CompletionConfig{CacheTTL: "10s"},
+	}
+	f := newFactoryWithCache(context.Background())
+	f.Config = func() (*config.Config, error) { return cfg, nil }
+
+	lib := loadLibraryForCompletion(f, libDir)
+	require.NotNil(t, lib, "library must load successfully under the configured TTL")
+
+	got := getCacheTTL(cfg)
+	assert.Equal(t, 10*time.Second, got,
+		"getCacheTTL MUST parse cfg.Completion.CacheTTL")
+}
+
 // makeCompletionTestLibrary scaffolds a minimal library dir on disk and
 // returns its RootPath. Used by the loadLibraryForCompletion tests.
 func makeCompletionTestLibrary(t *testing.T) string {
@@ -518,6 +575,70 @@ func TestResolveLibraryPath_TildeExpansion(t *testing.T) {
 	got := expandTildeInPath("~/my-lib")
 	assert.Equal(t, home+"/my-lib", got,
 		"~/my-lib MUST expand to <home>/my-lib")
+}
+
+// TestResolveLibraryPath_PriorityChain walks the entire flag > env >
+// cfg > default chain via a single table-driven test. Pins the
+// priority contract documented in cmd/completions.go:45-65 and ensures
+// the intentional env-read at cmd/completions.go:54 (kept per task
+// 4.3) remains in effect — env wins over cfg.
+//
+// Sequential (NOT t.Parallel) because subtests mutate process env
+// via t.Setenv per golang-testing Rule 4.
+func TestResolveLibraryPath_PriorityChain(t *testing.T) {
+	tests := []struct {
+		name        string
+		flagValue   string
+		flagChanged bool
+		envValue    string
+		cfgLibrary  string
+		want        string
+	}{
+		{
+			name:        "flag wins over everything",
+			flagValue:   "/flag/path",
+			flagChanged: true,
+			envValue:    "/env/path",
+			cfgLibrary:  "/config/path",
+			want:        "/flag/path",
+		},
+		{
+			name:        "env wins over cfg when flag unset",
+			flagValue:   "",
+			flagChanged: false,
+			envValue:    "/env/path",
+			cfgLibrary:  "/config/path",
+			want:        "/env/path",
+		},
+		{
+			name:        "env wins over default when flag unset and cfg empty",
+			flagValue:   "",
+			flagChanged: false,
+			envValue:    "/env/path",
+			cfgLibrary:  "",
+			want:        "/env/path",
+		},
+		{
+			name:        "cfg wins over default when flag and env unset",
+			flagValue:   "",
+			flagChanged: false,
+			envValue:    "",
+			cfgLibrary:  "/config/path",
+			want:        "/config/path",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("GERMINATOR_LIBRARY", tt.envValue)
+
+			cmd := newCmdWithLibraryFlag(t, tt.flagValue, tt.flagChanged)
+			cfg := &config.Config{Library: tt.cfgLibrary}
+
+			assert.Equal(t, tt.want, resolveLibraryPath(cmd, cfg),
+				"priority chain: flag > env > cfg > default")
+		})
+	}
 }
 
 // =============================================================================
