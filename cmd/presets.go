@@ -76,7 +76,7 @@ Example:
 		},
 	}
 
-	cmdutil.AddOutputFlags(cmd, &opts.Output)
+	output.AddOutputFlags(cmd, &opts.Output)
 
 	return cmd
 }

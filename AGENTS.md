@@ -201,7 +201,7 @@ Domain-mismatched skills (also not loaded): `golang-database`, `golang-graphql`,
 | `germinator library remove`          | Remove resource or preset                    |
 | `germinator library validate`        | Check library integrity                      |
 
-**Global `--output` flag:** All `germinator library` subcommands support `--output plain|json|table` via `cmdutil.AddOutputFlags`. `json` is for scripts, `table` for humans, `plain` is the default.
+**Global `--output` flag:** All `germinator library` subcommands support `--output plain|json|table` via `output.AddOutputFlags`. `json` is for scripts, `table` for humans, `plain` is the default.
 
 **Library init flags:**
 - `--path <path>` - Library location (default: `$XDG_DATA_HOME/germinator/library/` or `~/.local/share/germinator/library/`)

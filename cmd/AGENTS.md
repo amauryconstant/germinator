@@ -277,7 +277,6 @@ The shell units consumed by `cmd/`:
 | `output.AddOutputFlags` | `internal/output/output_flags.go` | Wires `--output` (`json`/`table`/`plain`) with completion |
 | `cmdutil.Factory` | `internal/cmdutil/factory.go` | Lazy `func() (T, error)` fields with `sync.OnceValues` caching; `NewFactory(ctx, io, appVersion, executable)` |
 | `cmdutil.ExitCodeFor` | `internal/cmdutil/exit.go` | Maps `error` → 0/1/2 (0 if `*core.PartialSuccessError{Succeeded>0}`) |
-| `cmdutil.AddOutputFlags` | `internal/cmdutil/output_flags.go` | Re-export of `output.AddOutputFlags` so cmd files import only `cmdutil` |
 | `core.ValidatePlatform` | `internal/core/rules.go` | Returns `*core.ValidationError` for unknown platform strings |
 | `core.ResolveOutputPath` | `internal/core/rules.go` | `(docType, name, platform) → path` (e.g., `agents/reviewer.claude-code.md`) |
 

@@ -6,7 +6,7 @@
 
 # Output Package
 
-Shared error formatting, output-format flags, and exporters (JSON, table) for read-only commands. Consumed by `cmd/` via the `cmdutil.AddOutputFlags` re-export so command files import only `cmdutil`.
+Shared error formatting, output-format flags, and exporters (JSON, table) for read-only commands. Consumed by `cmd/` via direct import of `output`.
 
 ## Files
 

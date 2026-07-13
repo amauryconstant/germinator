@@ -209,7 +209,7 @@ Other examples:
 	cmd.Flags().BoolVar(&batch, "batch", false, "Batch mode: process all orphans continuously (use with --discover --force)")
 	cmd.Flags().BoolVar(&force, "force", false, "Overwrite existing resource")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview changes without adding")
-	cmdutil.AddOutputFlags(cmd, &outputFormat)
+	output.AddOutputFlags(cmd, &outputFormat)
 
 	return cmd
 }

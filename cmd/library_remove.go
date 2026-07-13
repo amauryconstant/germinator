@@ -138,10 +138,9 @@ Subcommands:
 	// sub-commands see it. The spec's "JSON output" scenario
 	// (`library remove resource skill/commit --output json`) requires
 	// the flag to be visible after the sub-command token, which is
-	// only possible with PersistentFlags. The completion function
-	// mirrors what `cmdutil.AddOutputFlags` would register; we
-	// re-implement here because AddOutputFlags uses
-	// `cmd.Flags()` (local) instead of `cmd.PersistentFlags()`.
+	// only possible with PersistentFlags. `output.AddOutputFlags`
+	// binds to local `cmd.Flags()`, so we wire the flag inline
+	// here to use `cmd.PersistentFlags()`.
 	cmd.PersistentFlags().StringVarP(&opts.Output, "output", "o",
 		output.DefaultOutputFormat, "Output format: json, table, plain")
 	_ = cmd.RegisterFlagCompletionFunc("output",

@@ -122,7 +122,7 @@ Examples:
 		"Overwrite existing library at target path")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false,
 		"Preview changes without creating files")
-	cmdutil.AddOutputFlags(cmd, &initOutputFormat)
+	output.AddOutputFlags(cmd, &initOutputFormat)
 
 	return cmd
 }

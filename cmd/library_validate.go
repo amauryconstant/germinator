@@ -114,7 +114,7 @@ Output formats (--output):
 	}
 
 	cmd.Flags().BoolVar(&fix, "fix", false, "Auto-clean library.yaml (removes missing entries and ghost preset refs)")
-	cmdutil.AddOutputFlags(cmd, &outputFormat)
+	output.AddOutputFlags(cmd, &outputFormat)
 
 	return cmd
 }

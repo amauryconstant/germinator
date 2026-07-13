@@ -118,7 +118,7 @@ Examples:
 
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview changes without modifying library.yaml")
 	cmd.Flags().BoolVar(&force, "force", false, "Skip resources with conflicts")
-	cmdutil.AddOutputFlags(cmd, &outputFormatRefresh)
+	output.AddOutputFlags(cmd, &outputFormatRefresh)
 
 	return cmd
 }
