@@ -110,6 +110,39 @@ The system SHALL expand tilde (~) in library path to user's home directory.
 - **WHEN** config file contains `library = "/absolute/path/library"`
 - **THEN** system uses path as-is
 
+### Requirement: Config field set
+
+The `Config` value type SHALL carry the following user-tunable fields:
+
+- `Library string` — config-file override for the library path. When empty (the `DefaultConfig()` seed), library-path resolution falls through to `DefaultLibraryPath()` (XDG-resolved via `adrg/xdg.DataHome` joined with `"germinator/library"`, see requirement "XDG resolution via adrg/xdg" below).
+- `PlatformDefault string` — default target platform (`claude-code` or `opencode`); used by commands that opt in via a follow-up change. The `koanf` tag remains `platform` so existing config files continue to bind the same key.
+- `Debug bool` — enable debug-level structured logging.
+- `Completion CompletionConfig` — nested struct with `Timeout string` and `CacheTTL string` fields (both `time.ParseDuration`-compatible).
+
+The `Library` field documents its empty default explicitly so the `cfg.Library == ""` "no override" sentinel is part of the public contract.
+
+#### Scenario: DefaultConfig seeds all fields
+
+- **WHEN** `config.DefaultConfig()` is called
+- **THEN** it SHALL return a `*Config` with all fields set to documented defaults (Library: `""` (empty string — XDG falls through at resolution time), PlatformDefault: `""`, Debug: `false`, Completion.Timeout: `"500ms"`, Completion.CacheTTL: `"5s"`)
+- **AND** subsequent `config.Load()` calls SHALL merge on top of these defaults (last wins)
+
+#### Scenario: Validate accepts all field types
+
+- **WHEN** `(*Config).Validate()` is called on a `Config` with all fields populated
+- **THEN** it SHALL return `nil` for valid values
+- **AND** return `*core.ConfigError` for invalid `PlatformDefault` (must be empty, `claude-code`, or `opencode` if non-empty)
+- **AND** return `*core.ConfigError` for invalid `Completion.Timeout` / `Completion.CacheTTL` (must parse via `time.ParseDuration`); empty values are valid and the completion helpers fall back to their defaults for nil cfg or empty strings
+- **AND** when multiple fields are invalid, return all errors via `errors.Join` so users see every problem at once (collect-all semantics)
+- **AND** `Library` SHALL be valid by `(*Config).Validate()` (always nil) for the empty string and for paths that do not start with `~/`; a non-empty `Library` starting with `~/` MAY surface a `*core.ConfigError` from the post-Validate `ExpandPaths()` step if `os.UserHomeDir()` cannot determine the user's home directory (this error path uses the `internal/paths.ExpandHome` canonical helper shared with `cmd/completions.go`)
+
+#### Scenario: Tilde-prefixed Library surfaces ConfigError when HOME is unset
+
+- **GIVEN** the config file sets `library = "~/custom/library"`
+- **AND** `os.UserHomeDir()` cannot determine the user's home directory (e.g., `HOME` unset on a Unix-like system)
+- **WHEN** `config.Load()` runs (via `Manager.Load()` → `(*Config).Validate()` → `(*Config).ExpandPaths()` → `paths.ExpandHome`)
+- **THEN** it SHALL return `(*Config, *core.ConfigError)` with the message wrapping the underlying `os.UserHomeDir` failure
+
 ### Requirement: Configuration precedence
 
 The system SHALL apply configuration sources in the following order, with later sources overriding earlier ones (last write wins):

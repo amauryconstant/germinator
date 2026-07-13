@@ -155,7 +155,7 @@ The CLI SHALL provide completions for the `library show` command argument.
 
 ### Requirement: Completion Configuration
 
-The CLI SHALL support configurable timeout and caching for completions.
+The CLI SHALL support configurable timeout and caching for completions. The timeout/TTL values are observable: the wrapped `context.Context.Deadline()` reflects the configured timeout, and the cache entry's stored `expiresAt` reflects `now + configured_TTL`.
 
 #### Scenario: Default completion timeout
 
@@ -168,18 +168,21 @@ The CLI SHALL support configurable timeout and caching for completions.
 - **GIVEN** config file specifies `completion.timeout = "1s"`
 - **WHEN** a completion action loads the library
 - **THEN** it SHALL timeout after 1 second
+- **AND** the wrapped `context.Context.Deadline()` SHALL be `now + 1s` (observable)
 
 #### Scenario: Default cache TTL
 
 - **GIVEN** no completion config is specified
 - **WHEN** library data is cached for completions
 - **THEN** the cache SHALL expire after 5 seconds
+- **AND** `CompletionCache.WithClock(time.Now)` (test-only) exposes the expiry boundary deterministically
 
 #### Scenario: Configurable cache TTL
 
 - **GIVEN** config file specifies `completion.cache_ttl = "10s"`
 - **WHEN** library data is cached for completions
 - **THEN** the cache SHALL expire after 10 seconds
+- **AND** the cache entry SHALL still be valid at `now + 9.999s` and SHALL be evicted at `now + 10.001s`
 
 ---
 
@@ -211,8 +214,11 @@ Completions SHALL resolve the library path using a priority chain.
 #### Scenario: Resolve library from default
 
 - **GIVEN** no `--library` flag, no env var, and no config
+- **AND** no library is registered at the XDG data path
 - **WHEN** completion loads the library
-- **THEN** it SHALL use `~/.config/germinator/library/` as the library path
+- **THEN** it SHALL first consult the XDG-resolved data path (`$XDG_DATA_HOME/germinator/library/` if `XDG_DATA_HOME` is set, falling back to `~/.local/share/germinator/library/` on Unix, or the platform-appropriate `%LocalAppData%` path on Windows) via `adrg/xdg.DataHome` (NOT `adrg/xdg.DataFile` — `DataFile` creates the directory on disk, which `completion` deliberately avoids)
+- **AND** when the XDG path does not exist on disk AND `./germinator/library/` exists in the current working directory, it SHALL use the project-local fallback (absolute path to `./germinator/library/`) for projects that ship their own library alongside `germinator`
+- **AND** when neither exists, it SHALL return the XDG path string anyway (caller is responsible for "missing library" handling)
 
 ---
 
@@ -302,14 +308,14 @@ When a mutating library command completes successfully, the completion cache SHA
 
 ### Requirement: Completion actions take Factory as input
 
-The completion action functions (`actionResources`, `actionPresets`, `actionLibraryRefs`, `actionPlatforms`) SHALL be implemented as `func(*cmdutil.Factory, *cobra.Command) carapace.Action` (the Factory and the Cobra command). They SHALL wrap `f.RootContext` with `context.WithTimeout(f.RootContext, getCompletionTimeout(nil))` for each lookup, consult `f.CompletionCache.Get(libPath)` first, and on cache miss load the library directly via `library.LoadLibrary(loadCtx, libPath)` rather than `f.Library()`. The bypass of `f.Library()` is intentional: `f.Library` is `sync.OnceValues`-cached and would permanently pin the first error; completion lookups must always reflect current state. The default timeout (`cmd/completions.go:20`) is `500ms`; configurable via `completion.timeout` in the config file.
+The completion action functions (`actionResources`, `actionPresets`, `actionLibraryRefs`) SHALL be implemented as `func(*cmdutil.Factory, *cobra.Command) carapace.Action` (the Factory and the Cobra command). They SHALL wrap `f.RootContext` with `context.WithTimeout(f.RootContext, getCompletionTimeout(f.Config()))` for each lookup, consult `f.CompletionCache.Get(libPath)` first, and on cache miss load the library directly via `library.LoadLibrary(loadCtx, libPath)` rather than `f.Library()`. The bypass of `f.Library()` is intentional: `f.Library` is `sync.OnceValues`-cached and would permanently pin the first error; completion lookups must always reflect current state. `actionPlatforms` SHALL be implemented as `func(*cmdutil.Factory) carapace.Action` (the Factory only) since it returns static platform values and does not need the Cobra command. The default timeout is `500ms`; configurable via `completion.timeout` in the config file.
 
 #### Scenario: actionResources loads library with timeout and bypasses f.Library
 
 - **WHEN** `actionResources(f, cmd)` returns an Action that runs
 - **THEN** the Action SHALL consult `f.CompletionCache.Get(libPath)` first; on hit it returns the cached library
 - **AND** on cache miss it SHALL call `library.LoadLibrary(loadCtx, libPath)` directly (NOT `f.Library()`)
-- **AND** it SHALL use `context.WithTimeout(f.RootContext, getCompletionTimeout(nil))` (default `500ms`, configurable via `completion.timeout`) as `loadCtx`
+- **AND** it SHALL use `context.WithTimeout(f.RootContext, getCompletionTimeout(f.Config()))` (default `500ms`, configurable via `completion.timeout`) as `loadCtx`
 
 #### Scenario: Timeout returns empty completion
 

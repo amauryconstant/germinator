@@ -13,7 +13,7 @@ Every service that performs expensive I/O or holds shared mutable state SHALL be
 - **WHEN** the Factory is constructed
 - **THEN** `Factory.Library func() (*library.Library, error)` SHALL be set
 - **AND** the function SHALL NOT be called during Factory construction
-- **AND** the function SHALL cache its result via `cmdutil.OnceValuesFunc[T]` (a generic helper at `internal/cmdutil/factory.go:71` wrapping `sync.Once`)
+- **AND** the function SHALL cache its result via `cmdutil.OnceValuesFunc[T]` (a generic helper wrapping `sync.Once`)
 
 #### Scenario: Config is a lazy function
 

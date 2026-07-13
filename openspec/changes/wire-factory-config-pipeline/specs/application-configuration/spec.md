@@ -26,7 +26,14 @@ The `Config` value type SHALL carry the following user-tunable fields:
 - **AND** return `*core.ConfigError` for invalid `PlatformDefault` (must be `claude-code` or `opencode` if non-empty)
 - **AND** return `*core.ConfigError` for invalid `Completion.Timeout` / `Completion.CacheTTL` (must parse via `time.ParseDuration`); empty values are valid and the completion helpers fall back to their defaults for nil cfg or empty strings
 - **AND** when multiple fields are invalid, return all errors via `errors.Join` so users see every problem at once (collect-all semantics)
-- **AND** `Library` SHALL always be valid (an empty `Library` is the canonical "use XDG default" signal; non-empty values are user-provided paths with no further validation at this layer)
+- **AND** `Library` SHALL be valid by `(*Config).Validate()` (always nil) for the empty string and for paths that do not start with `~/`; a non-empty `Library` starting with `~/` MAY surface a `*core.ConfigError` from the post-Validate `ExpandPaths()` step if `os.UserHomeDir()` cannot determine the user's home directory (this error path uses the `internal/paths.ExpandHome` canonical helper shared with `cmd/completions.go`)
+
+#### Scenario: Tilde-prefixed Library surfaces ConfigError when HOME is unset
+
+- **GIVEN** the config file sets `library = "~/custom/library"`
+- **AND** `os.UserHomeDir()` cannot determine the user's home directory (e.g., `HOME` unset on a Unix-like system)
+- **WHEN** `config.Load()` runs (via `Manager.Load()` → `(*Config).Validate()` → `(*Config).ExpandPaths()` → `paths.ExpandHome`)
+- **THEN** it SHALL return `(*Config, *core.ConfigError)` with the message wrapping the underlying `os.UserHomeDir` failure
 
 ## MODIFIED Requirements
 

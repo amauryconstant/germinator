@@ -4,7 +4,7 @@
 
 ### Requirement: Completion actions take Factory as input
 
-The completion action functions (`actionResources`, `actionPresets`, `actionLibraryRefs`) SHALL be implemented as `func(*cmdutil.Factory, *cobra.Command) carapace.Action` (the Factory and the Cobra command). They SHALL wrap `f.RootContext` with `context.WithTimeout(f.RootContext, getCompletionTimeout(f.Config()))` for each lookup, consult `f.CompletionCache.Get(libPath)` first, and on cache miss load the library directly via `library.LoadLibrary(loadCtx, libPath)` rather than `f.Library()`. The bypass of `f.Library()` is intentional: `f.Library` is `sync.OnceValues`-cached and would permanently pin the first error; completion lookups must always reflect current state. `actionPlatforms` SHALL be implemented as `func(*cmdutil.Factory) carapace.Action` (the Factory only) since it returns static platform values and does not need the Cobra command. The default timeout (`cmd/completions.go:20`) is `500ms`; configurable via `completion.timeout` in the config file.
+The completion action functions (`actionResources`, `actionPresets`, `actionLibraryRefs`) SHALL be implemented as `func(*cmdutil.Factory, *cobra.Command) carapace.Action` (the Factory and the Cobra command). They SHALL wrap `f.RootContext` with `context.WithTimeout(f.RootContext, getCompletionTimeout(f.Config()))` for each lookup, consult `f.CompletionCache.Get(libPath)` first, and on cache miss load the library directly via `library.LoadLibrary(loadCtx, libPath)` rather than `f.Library()`. The bypass of `f.Library()` is intentional: `f.Library` is `sync.OnceValues`-cached and would permanently pin the first error; completion lookups must always reflect current state. `actionPlatforms` SHALL be implemented as `func(*cmdutil.Factory) carapace.Action` (the Factory only) since it returns static platform values and does not need the Cobra command. The default timeout is `500ms`; configurable via `completion.timeout` in the config file.
 
 **Change**: replace `getCompletionTimeout(nil)` with `getCompletionTimeout(f.Config())` at lines 305 and 312. The `*config.Config` is loaded lazily via the Factory's `Config` field (per `cli-cli-factory`).
 
@@ -24,7 +24,7 @@ The completion action functions (`actionResources`, `actionPresets`, `actionLibr
 
 Completions SHALL resolve the library path using a priority chain.
 
-**Change**: Updated the "Resolve library from default" scenario to reflect the XDG-resolved data path (`$XDG_DATA_HOME/germinator/library/` via `adrg/xdg.DataFile`). The source-of-truth scenario at lines 188-216 of `openspec/specs/cli-shell-completion/spec.md` referenced `~/.config/germinator/library/` — the config dir, not the data dir — pre-existing source-of-truth drift corrected by this delta. The other existing scenarios become testable after this change lands: `cmd/completions.go:120, 132, 144` previously passed `nil` to `resolveLibraryPath`; after this change they pass `f.Config()` so the "Resolve library from config" scenario (lines 203-210) actually executes.
+**Change**: Updated the "Resolve library from default" scenario to reflect the XDG-resolved data path (`$XDG_DATA_HOME/germinator/library/` via `adrg/xdg.DataFile`). The source-of-truth scenario at lines 188-216 of `openspec/specs/cli-shell-completion/spec.md` referenced `~/.config/germinator/library/` — the config dir, not the data dir — pre-existing source-of-truth drift corrected by this delta. The other existing scenarios become testable after this change lands: `cmd/completions.go::actionResources`, `actionPresets`, and `actionLibraryRefs` pass `f.Config()` (via the explicit nil-safe pattern) to `resolveLibraryPath(cmd, cfg)` so the "Resolve library from config" scenario (source-of-truth lines 203-210) actually executes.
 
 #### Scenario: Resolve library from flag
 
@@ -50,8 +50,11 @@ Completions SHALL resolve the library path using a priority chain.
 #### Scenario: Resolve library from default
 
 - **GIVEN** no `--library` flag, no env var, and no config
+- **AND** no library is registered at the XDG data path
 - **WHEN** completion loads the library
-- **THEN** it SHALL use the XDG-resolved data path (`$XDG_DATA_HOME/germinator/library/` if `XDG_DATA_HOME` is set, falling back to `~/.local/share/germinator/library/` on Unix, or the platform-appropriate `%LocalAppData%` path on Windows) via `adrg/xdg.DataFile("germinator/library")`
+- **THEN** it SHALL first consult the XDG-resolved data path (`$XDG_DATA_HOME/germinator/library/` if `XDG_DATA_HOME` is set, falling back to `~/.local/share/germinator/library/` on Unix, or the platform-appropriate `%LocalAppData%` path on Windows) via `adrg/xdg.DataHome` (NOT `adrg/xdg.DataFile` — `DataFile` creates the directory on disk, which `completion` deliberately avoids)
+- **AND** when the XDG path does not exist on disk AND `./germinator/library/` exists in the current working directory, it SHALL use the project-local fallback (absolute path to `./germinator/library/`) for projects that ship their own library alongside `germinator`
+- **AND** when neither exists, it SHALL return the XDG path string anyway (caller is responsible for "missing library" handling)
 
 ### Requirement: Completion Configuration
 
