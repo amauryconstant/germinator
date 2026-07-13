@@ -44,20 +44,21 @@ A lazy function that depends on another lazy function SHALL call through the Fac
 
 ### Requirement: Internal/config.Load top-level wrapper
 
-The `internal/config` package SHALL export a top-level `Load()` function that callers can use without instantiating a Manager.
+The `internal/config` package SHALL export a top-level `Load()` function (at `internal/config/load.go`) that callers can use without instantiating a Manager. The wrapper has the same precedence contract as `NewConfigManager().Load()` — defaults → file → env. The Cobra-flag tier is handled per-command and remains outside `Load()`'s scope (the library-path tier is encoded in `library.FindLibrary`, not in `Load()`).
 
 **Change**: NEW requirement documenting the wrapper added in change `wire-factory-config-pipeline`. The wrapper exists to satisfy the Factory's `Config` lazy field wiring (`main.go` calls `config.Load()` directly via `cmdutil.OnceValuesFunc`).
 
 #### Scenario: Load returns the resolved Config
 
 - **WHEN** `config.Load()` is called from `main.go`
-- **THEN** it SHALL return `(*Config, error)` where `Config` is the result of the four-tier merge (defaults → file → env)
+- **THEN** it SHALL return `(*Config, error)` where `Config` is the result of the koanf-managed merge (defaults → file → env); the Cobra-flag tier (`application-configuration/spec.md` precedence tier 4) is applied separately by each command and not by `Load()`
 - **AND** it SHALL NOT return an error when the config file is missing (defaults apply)
-- **AND** it SHALL return a `*core.ConfigError` if the config file is malformed or contains invalid values
+- **AND** `*Config` SHALL be non-nil on both success and error paths; on error, `*Config` holds zero values or partial defaults — the error chain is the authoritative signal
+- **AND** it SHALL return a `*core.FileError`, `*core.ParseError`, or `*core.ConfigError` matching the failure mode (file I/O, TOML parse, validation), all dispatched via `errors.As` by `output.FormatError`
 
 #### Scenario: Load caches via Factory
 
 - **GIVEN** `main.go` wires `f.Config = cmdutil.OnceValuesFunc(config.Load)`
 - **WHEN** `f.Config()` is called twice in one command invocation
-- **THEN** `config.Load()` SHALL execute exactly once
+- **THEN** the `OnceValuesFunc` wrapper SHALL invoke the inner `config.Load()` exactly once
 - **AND** both calls SHALL return the same `*Config` pointer
