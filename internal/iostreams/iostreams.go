@@ -28,13 +28,14 @@ type IOStreams struct {
 	stderrTTY    bool
 	overrideTTY  *bool
 	overrideErrT *bool
+	debug        bool
 }
 
 // System returns an IOStreams wired to the process standard streams.
 // TTY state is detected from the actual file descriptors. The Logger
-// is gated on the GERMINATOR_DEBUG environment variable: a no-op
-// handler when unset, and a debug-level structured handler writing to
-// ErrOut when set to any non-empty value.
+// starts disabled; activate it via SetDebug after configuration has
+// been loaded (cfg.Debug in main.go flows from koanf env provider,
+// which maps GERMINATOR_DEBUG).
 func System() *IOStreams {
 	stdoutTTY := isTerminalFile(os.Stdout)
 	stdinTTY := isTerminalFile(os.Stdin)
@@ -44,7 +45,7 @@ func System() *IOStreams {
 		In:        os.Stdin,
 		Out:       os.Stdout,
 		ErrOut:    os.Stderr,
-		Logger:    newDebugLogger(os.Stderr),
+		Logger:    newDebugLogger(os.Stderr, false),
 		Styles:    NewStyles(stdoutTTY),
 		stdinTTY:  stdinTTY,
 		stdoutTTY: stdoutTTY,
@@ -61,7 +62,7 @@ func Test() *IOStreams {
 		In:           &bytes.Buffer{},
 		Out:          &bytes.Buffer{},
 		ErrOut:       &bytes.Buffer{},
-		Logger:       newDebugLogger(io.Discard),
+		Logger:       newDebugLogger(io.Discard, false),
 		Styles:       NewStyles(false),
 		stdinTTY:     false,
 		stdoutTTY:    false,
@@ -111,6 +112,23 @@ func (s *IOStreams) SetStderrTTY(v bool) {
 	s.overrideErrT = &v
 }
 
+// SetDebug enables or disables the debug Logger. When enabled, the
+// Logger writes at slog.LevelDebug to ErrOut; when disabled, it
+// discards all output. Configuration flows through the koanf env
+// provider (GERMINATOR_DEBUG) into cfg.Debug, which is then applied
+// here at startup. Safe to call on a nil receiver.
+func (s *IOStreams) SetDebug(enabled bool) {
+	if s == nil {
+		return
+	}
+	s.debug = enabled
+	if enabled {
+		s.Logger = slog.New(slog.NewTextHandler(s.ErrOut, &slog.HandlerOptions{Level: slog.LevelDebug}))
+		return
+	}
+	s.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+}
+
 // Verbosef writes a formatted message to ErrOut when Verbose is true.
 // A trailing newline is appended.
 func (s *IOStreams) Verbosef(format string, args ...any) {
@@ -148,10 +166,9 @@ func isTerminalFile(f *os.File) bool {
 
 const maxFd = 1 << 30
 
-func newDebugLogger(w io.Writer) *slog.Logger {
-	if v, ok := os.LookupEnv("GERMINATOR_DEBUG"); ok && v != "" {
-		handler := slog.NewTextHandler(w, &slog.HandlerOptions{Level: slog.LevelDebug})
-		return slog.New(handler)
+func newDebugLogger(w io.Writer, enabled bool) *slog.Logger {
+	if enabled {
+		return slog.New(slog.NewTextHandler(w, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	}
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }

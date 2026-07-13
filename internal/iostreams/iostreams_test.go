@@ -21,16 +21,16 @@ func TestSystem(t *testing.T) {
 		assert.Equal(t, os.Stderr, io2.ErrOut)
 	})
 
-	t.Run("logger uses noop when GERMINATOR_DEBUG unset", func(t *testing.T) {
-		t.Setenv("GERMINATOR_DEBUG", "")
+	t.Run("logger uses noop when debug unset", func(t *testing.T) {
 		io2 := System()
+		io2.SetDebug(false)
 		require.NotNil(t, io2.Logger)
 		assert.False(t, io2.Logger.Enabled(context.TODO(), slog.LevelDebug))
 	})
 
-	t.Run("logger uses debug when GERMINATOR_DEBUG set", func(t *testing.T) {
-		t.Setenv("GERMINATOR_DEBUG", "1")
+	t.Run("logger uses debug when debug set", func(t *testing.T) {
 		io2 := System()
+		io2.SetDebug(true)
 		require.NotNil(t, io2.Logger)
 		assert.True(t, io2.Logger.Enabled(context.TODO(), slog.LevelDebug))
 	})
@@ -143,20 +143,57 @@ func TestIsInteractive(t *testing.T) {
 }
 
 func TestSystemLoggerWritesToErrOut(t *testing.T) {
-	t.Setenv("GERMINATOR_DEBUG", "1")
-
 	io2 := System()
+	io2.SetDebug(true)
 	require.True(t, io2.Logger.Enabled(context.TODO(), slog.LevelDebug))
 
 	io2.Logger.Debug("test message", "key", "value")
 }
 
 func TestTestLoggerIsNoop(t *testing.T) {
-	t.Setenv("GERMINATOR_DEBUG", "")
-
 	io2 := Test()
 	require.NotNil(t, io2.Logger)
 	assert.False(t, io2.Logger.Enabled(context.TODO(), slog.LevelDebug))
+}
+
+func TestSetDebug(t *testing.T) {
+	t.Parallel()
+
+	t.Run("disabled by default", func(t *testing.T) {
+		t.Parallel()
+		io2 := Test()
+		assert.False(t, io2.Logger.Enabled(context.TODO(), slog.LevelDebug))
+	})
+
+	t.Run("enabled writes to ErrOut", func(t *testing.T) {
+		t.Parallel()
+		io2 := Test()
+		io2.SetDebug(true)
+		io2.Logger.Debug("hello", "k", "v")
+
+		out, ok := io2.ErrOut.(*bytes.Buffer)
+		require.True(t, ok)
+		assert.Contains(t, out.String(), "hello")
+		assert.Contains(t, out.String(), "k=v")
+	})
+
+	t.Run("toggles back to discard", func(t *testing.T) {
+		t.Parallel()
+		io2 := Test()
+		io2.SetDebug(true)
+		io2.SetDebug(false)
+		assert.False(t, io2.Logger.Enabled(context.TODO(), slog.LevelDebug))
+
+		out, ok := io2.ErrOut.(*bytes.Buffer)
+		require.True(t, ok)
+		assert.Empty(t, out.String())
+	})
+
+	t.Run("nil receiver is a no-op", func(t *testing.T) {
+		t.Parallel()
+		var io2 *IOStreams
+		assert.NotPanics(t, func() { io2.SetDebug(true) })
+	})
 }
 
 func TestVerbosefNoopWriter(t *testing.T) {

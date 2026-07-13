@@ -10,6 +10,7 @@ import (
 
 	"gitlab.com/amoconst/germinator/cmd"
 	"gitlab.com/amoconst/germinator/internal/cmdutil"
+	"gitlab.com/amoconst/germinator/internal/config"
 	"gitlab.com/amoconst/germinator/internal/iostreams"
 	"gitlab.com/amoconst/germinator/internal/library"
 	"gitlab.com/amoconst/germinator/internal/output"
@@ -27,13 +28,27 @@ func main() {
 
 	f.CompletionCache = cmdutil.NewCompletionCache()
 
+	// Config is wired here (the only composition root). OnceValuesFunc
+	// caches the result so subsequent calls from completion actions
+	// return the same *Config pointer without re-reading the disk.
+	f.Config = cmdutil.OnceValuesFunc(config.Load)
+	cfg, err := f.Config()
+	if err != nil {
+		output.FormatError(f.IOStreams, err)
+		os.Exit(int(cmdutil.ExitCodeFor(err)))
+	}
+
+	// Activate debug logging based on the loaded config (GERMINATOR_DEBUG
+	// flows through koanf env provider -> cfg.Debug -> SetDebug).
+	io.SetDebug(cfg.Debug)
+
 	// The four service interfaces (Transformer/Validator/Canonicalizer/
 	// Initializer) were removed from the Factory in slice 7.5 — their
 	// concrete adapters are now constructed lazily inside the per-command
 	// run functions (cmd.NewTransformer, cmd.NewValidator, etc.), so
-	// main.go has nothing to wire.
+	// main.go has nothing to wire for those.
 	f.Library = cmdutil.OnceValuesFunc(func() (*library.Library, error) {
-		path := library.FindLibrary("", os.Getenv("GERMINATOR_LIBRARY"), "")
+		path := library.FindLibrary("", os.Getenv("GERMINATOR_LIBRARY"), cfg.Library)
 		return library.LoadLibrary(f.RootContext, path)
 	})
 
