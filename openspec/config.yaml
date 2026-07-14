@@ -71,8 +71,6 @@ context: |
                                   (PermissionPolicyMappings, ToPascalCase)
   - internal/version/             Build-time version metadata
                                   (Version, Commit, Date via ldflags)
-  - internal/warning/             Exit-code deprecation canary
-                                  (MaybeWarnLegacyExitCode)
   - config/templates/             Go text/template files for rendering
   - test/                         Unit, golden, e2e tests and fixtures
                                   (see test/AGENTS.md)

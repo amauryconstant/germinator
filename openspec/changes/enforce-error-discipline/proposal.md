@@ -1,24 +1,36 @@
 ## Why
 
-The 2026-07-08 code review identified **10 error-handling findings** (B-001..B-014, B-018) that violate the project's documented error-handling contract. The single-handling rule — "errors are either logged OR returned, NEVER both" — is broken in 7 production sites; the typed-error model is inconsistently applied (`FileError` used where `NotFoundError` is semantically correct; `ConfigError` used where `NotFoundError` is correct); the `FormatError` dispatch set is missing `InitializeError`; the `NotFoundError` exit code mapping is semantically wrong (mapped to `ExitCodeUsage` (2) instead of `ExitCodeError` (1)); the `internal/output/exporter.go:172` `var _ = io.EOF` dead-code suppression anchors an unused `io` import; the `errEmptyResources` constructor encodes a Cobra-substring into an `errors.New`; and the `RemoveResource` call path silently swallows `os.IsNotExist` on physical file removal.
+The 2026-07-08 code review identified **12 finding IDs** (B-001, B-002, B-005, B-006, B-008, B-009, B-010, B-011, B-012, B-013, B-014, B-018) grouped into **10 thematic clusters** that violate the project's documented error-handling contract. The single-handling rule — "errors are either logged OR returned, NEVER both" — is broken in **10 production sites across 4 cmd files** (`cmd/library_add.go`, `cmd/library_validate.go`, `cmd/validate.go`, `cmd/init.go`); the typed-error model is inconsistently applied (`FileError` used where `NotFoundError` is semantically correct; `ConfigError` used where `NotFoundError` is correct); the `FormatError` dispatch set is missing `InitializeError` and `UsageError`; the `NotFoundError` exit code mapping is semantically wrong (mapped to `ExitCodeUsage` (2) instead of `ExitCodeError` (1)); the `internal/output/exporter.go:172` `var _ = io.EOF` dead-code suppression anchors an unused `io` import; the `errEmptyResources` constructor encodes a Cobra-substring into an `errors.New`; the `RemoveResource` call path silently swallows `os.IsNotExist` on physical file removal; and the typed-error chain is destroyed when `opErr := core.NewOperationError("add", f.Source, errors.New(f.Error))` re-wraps a typed cause as a plain `errors.New` (`cmd/library_add.go:546-549`, `cmd/library_add.go:703-706`).
 
-This change enforces the error-handling contract end-to-end. It is a **production-code refactor** with spec deltas because several findings require semantic changes (exit code mapping, new typed error, dispatch set expansion).
+This change enforces the error-handling contract end-to-end. It is a **production-code refactor** with spec deltas because several findings require semantic changes (exit code mapping, new typed error, dispatch set expansion, canary exemption).
 
 ## What Changes
 
 - **BREAKING**: **MODIFY** `internal/cmdutil/exit.go:73` — map `NotFoundError` to `ExitCodeError` (1) instead of `ExitCodeUsage` (2). Update `internal/cmdutil/exit_test.go:58` to match. Scripts that special-case `exit 2` for not-found scenarios will see exit 1 instead; this is a semantic correction (a lookup miss is a runtime state, not a user-input validation error) and the CHANGELOG entry MUST call it out under a `### BREAKING` heading.
-- **MODIFY** `internal/cmdutil/exit.go:24` — replace brittle Cobra string-prefix matching with `errors.As` dispatch against `*cobra.FlagError` / `*flag.Error` (or document the limitation explicitly if typed errors are not available).
-- **DELETE** 6 inline `output.FormatError(opts.IO, err)` calls in `cmd/library_remove.go:170,178`, `cmd/library_add.go:343,537,681,694`, `cmd/init.go:205/209`. Rely on `main.go`'s central `output.FormatError` handler.
-- **MODIFY** `internal/library/remover.go:83` — replace `gerrors.NewFileError("access", "resource not found", nil)` with `gerrors.NewNotFoundError("library ref", opts.Ref)`.
-- **MODIFY** `internal/library/resolver.go:67` — replace `gerrors.NewConfigError("preset", name, "preset not found")` with `gerrors.NewNotFoundError("preset", name)`. Remove the cmd-side translation in `cmd/init.go:178`.
-- **MODIFY** `internal/output/errors.go:21-50` — add `case *core.InitializeError` to the `FormatError` switch. Render `"Error: initialize failed: <ref>"`.
+- **REMOVE** `internal/warning/MaybeWarnLegacyExitCode` (canary) and the `internal/warning` package. The exit-code 5 → 1 migration the canary was added to support (in `migrate-library-rest` slice 7) is now complete; the `*core.NotFoundError → 1` change below does not need a second deprecation warning. Delete `internal/warning/canary.go`, `canary_test.go`, and `AGENTS.md`; remove the `warning.MaybeWarnLegacyExitCode(io)` call block from `main.go:51-53`; remove the `internal/warning` import from `main.go`. Document the removal under `### Removed` in the CHANGELOG.
+- **MODIFY** `internal/cmdutil/exit.go:24` — drop the 12-substring `cobraUsagePrefixes` fallback. Keep the existing typed branch (`errors.As(err, &pflag.{NotExist,ValueRequired,InvalidValue,InvalidSyntax}Error)` already present at lines 64-69). Add a new `*core.CobraUsageError` sentinel that commands wrap Cobra arg-count and required-flag errors with; `ExitCodeFor` returns `ExitCodeUsage` (2) on that sentinel.
+- **MODIFY** `internal/core/errors.go` — add `*core.UsageError` (private fields + getters + immutable `WithSuggestions(...)` builder matching the existing 9 typed errors) and `*core.CobraUsageError`. `UsageError` carries `flag`, `reason`, and `suggestions` (private); the `WithSuggestions([]string) *UsageError` builder returns a new instance, matching `ParseError`/`ValidationError`. `MustNewCobraUsageError(err error) *CobraUsageError` panics on `err == nil` (a nil cause is a programmer error, per `golang-error-handling` rule 1; use the `Must*` prefix to telegraph the panic to callers, matching `regexp.MustCompile` and `template.Must`). Add `MarshalJSON()` to all existing `core.*Error` types returning `{"error": "<Error()>"}`. Document the new text format: `UsageError.Error()` returns `"<flag>: <reason>"`; `FormatError` renders `"Error: <flag>: <reason>"`. This is a deliberate wording change (clean break with Cobra's "flag needs an argument" phrasing); tracked under `### Changed` in the CHANGELOG. `UsageError.Unwrap()` returns `nil` (it is a leaf error; godoc will note this explicitly so future maintainers do not add a `cause` field and break the contract). Note: any future exported struct fields on `core.*Error` types must be exposed via `MarshalJSON` to appear in JSON output — `json.Marshaler` precedence in stdlib means `MarshalJSON` wins over struct-field marshaling.
+- **DELETE** 10 inline `output.FormatError(opts.IO, err)` calls in `cmd/library_add.go:355,549,693,706`, `cmd/library_validate.go:182,190`, `cmd/validate.go:123`, `cmd/init.go:218,222,258`. Rely on `main.go:32` (factory-build error path) and `main.go:46` (post-Execute error path) as the two central `output.FormatError` handlers. Test-file calls (`cmd/init_test.go:185`, `cmd/show_test.go:239`) are intentionally retained because they exercise the FormatError renderer as a unit.
+- **MIGRATE** all lookup-branch `NewFileError(..., "...not found", nil)` and `NewConfigError("preset", ..., "preset not found")` sites to `NewNotFoundError`:
+  - `internal/library/resolver.go:21` — `NewFileError(ref, "resolve", "resource not found", nil)` → `NewNotFoundError("resource", ref)`.
+  - `internal/library/resolver.go:26` — same.
+  - `internal/library/resolver.go:70` — `NewConfigError("preset", name, "preset not found")` → `NewNotFoundError("preset", name)`.
+  - `internal/library/loader.go:36` — `NewFileError(path, "access", "library not found", nil)` → `NewNotFoundError("library", path)`.
+  - `internal/library/loader.go:53` — `NewFileError(yamlPath, "read", "library.yaml not found", nil)` → `NewNotFoundError("library.yaml", yamlPath)`.
+  - `internal/library/adder.go:146` — `NewFileError(source, "access", "source file not found", nil)` → `NewNotFoundError("source file", source)`.
+  - `internal/library/remover.go:83` — `NewFileError(opts.LibraryPath, "access", fmt.Sprintf("resource %s not found", opts.Ref), nil)` → `NewNotFoundError("library ref", opts.Ref)`.
+  - `internal/library/remover.go:88` — same pattern for `RemoveResource`'s sibling branch.
+  - `internal/library/remover.go:142` — `NewFileError(opts.LibraryPath, "access", fmt.Sprintf("preset %s not found", opts.Name), nil)` → `NewNotFoundError("preset", opts.Name)`.
+- **MODIFY** `cmd/init.go:188-191` — drop the redundant `NewNotFoundError("preset", opts.Preset)` re-wrap. After the resolver migration in task `3.3`, `lib.ResolvePreset` already returns `*core.NotFoundError`; the `cmd/init.go` call site simplifies to `if rerr != nil { return rerr }` (errors.As still resolves to `*core.NotFoundError` for exit-code mapping).
+- **MODIFY** `internal/output/errors.go:21-50` — add `case *core.InitializeError` to the `FormatError` switch. Render `"Error: initialize failed: <ref>"`. Add `case *core.UsageError` rendering `"Error: <flag>: <reason>"`. Drop the `causes` fallback string for the new cases; rely on the error's `Error()` string.
 - **DELETE** `var _ = io.EOF` line and unused `io` import in `internal/output/exporter.go:172,7`.
-- **MODIFY** `internal/library/remover.go:103` — surface `os.IsNotExist` errors as `*core.NotFoundError` instead of silent swallow.
-- **MODIFY** `cmd/library_add.go:534` — add `ErrorType` / `ErrorCause` fields to `BatchFailureInfo` so the typed-error chain is preserved.
-- **NEW** typed `core.UsageError` in `internal/core/errors.go`. Migrate `errEmptyResources = errors.New("flag needs an argument: --resources ...")` in `cmd/library_add.go:82` to use the new typed error.
-- **MODIFY** `cmd/library_init.go:144` — extract `os.Stat` / `os.MkdirAll(0o750)` / `os.WriteFile(0o600)` to a new `internal/config/scaffold.go` `WriteDefault(path string, force bool) error` helper. (Trivial fold: A-009.)
-- **MODIFY** `cmd/canonicalize.go:94` — front-load `--type` validation by calling `core.ValidateDocumentType` before the `default` branch in `validateCanonicalDoc`. (Trivial fold: A-011.)
-- **MODIFY** `cmd/library.go:11` — drop the dead `runF` parameter from `NewLibraryCommand`. (Trivial fold: A-007.)
+- **MODIFY** `internal/library/remover.go:104` — replace silent `os.IsNotExist` swallow with a surface-as-`NotFoundError` path: `if errors.Is(err, os.ErrNotExist) { return nil, core.NewNotFoundError("library file", path) }`.
+- **MODIFY** `internal/library/adder.go:526` — extend `BatchFailureInfo` with `ErrorType string \`json:",omitempty"\`` and `Cause error \`json:",omitempty"\`` fields. Populate at every `BatchFailureInfo{...}` construction site (`adder.go:647-651, 664-668, 682-686, 700-704, 764-768`). Update `cmd/library_add.go:546-549` and `cmd/library_add.go:703-706` to thread the typed error into `f.Cause` instead of `errors.New(f.Error)` (lossy pattern).
+- **MIGRATE** `errEmptyResources = errors.New("flag needs an argument: --resources (must be non-empty list of refs)")` declared at `cmd/library_create.go:70` to `errEmptyResources = core.NewUsageError("--resources", "must be non-empty list of refs")`. The single call site is `cmd/library_create.go:203`. Cross-references `openspec/changes/harden-tests-and-coverage/tasks.md:6.6` (this change assumes ownership of the migration because it depends on the new `UsageError` type defined in this change).
+- **MODIFY** `cmd/config_init.go:144,151,156` — extract `os.Stat` / `os.MkdirAll(0o750)` / `os.WriteFile(0o600)` to a new `internal/config/scaffold.go` `WriteDefault(path string, force bool) error` helper. (Trivial fold: A-009.)
+- **MODIFY** `cmd/library.go:11` + `cmd/resources.go:48` (`NewCmdResources`) — drop the dead `runF` parameter. Propagate to all 6 call sites: `cmd/library.go:39` (1 production), `cmd/library_test.go:30,52,76,95` (4 test rows), `cmd/root.go:35` (1 composition-root). The `resources.go` constructor accepted `runF` for test injection; tests use `runF = nil` because they assert against `cmd.NewCmdLibraryAdd` directly. (Trivial fold: A-007 expanded — touches two files, not one.)
+- **MODIFY** `cmd/canonicalize.go:96` — keep `_ = cmd.MarkFlagRequired("type")` (line 96) unchanged; do NOT add `cobra.MatchAll(cobra.ExactArgs(2), cobra.OnlyValidArgs)` with `ValidArgs: []string{"agent", "command", "skill", "memory"}` — `ValidArgs` is for positional argument validation in cobra, not flag-value validation, and the positional args of `canonicalize` are file paths (`<input> <output>`), so `ValidArgs: ["agent", ...]` would reject every legitimate file path. Add a new `core.ValidateDocumentType(docType string) error` helper in `internal/core/rules.go` (mirroring `CanInstallResource`'s style but validating a bare docType against `validResourceTypes`); wire it as defense-in-depth in `runCanonicalize` to return `*core.ValidationError` for unknown types (catches the case where `--type` is provided but has an unknown value, e.g., the plural form `"skills"` or empty string). (Trivial fold: A-011. `core.CanInstallResource` validates the `"type/name"` shape and is the wrong guardrail for a bare docType; `ValidateDocumentType` is the canonical guardrail for this use case. Flag-value completion for `--type` is already wired at `cmd/canonicalize.go:98-100` via `carapace.Gen(cmd).FlagCompletion(...)` and is unchanged. The only current caller of `core.ValidateDocumentType` is `cmd/canonicalize.go`; the helper is added with the expectation that future commands will need it.)
+- **MODIFY** `cmd/library_init.go:161-165` — add `Stdout: opts.IO.Out` to the `library.InitRequest` literal (additive new field, not a breaking positional arg). The `Stdout io.Writer` field is introduced by `openspec/changes/fix-library-io-discipline/tasks.md:1.4` on the `InitRequest` struct. Lands AFTER that change's Phase 1 ships; this change assumes the field exists and passes `opts.IO.Out` to preserve the current stderr-as-OutForCobra semantics.
 
 ## Capabilities
 
@@ -28,36 +40,51 @@ None.
 
 ### Modified Capabilities
 
-- **`errors-typed-errors`** — add `UsageError` typed error; clarify `NotFoundError` vs `FileError` boundaries (lookup branches use `NotFoundError`; filesystem I/O failures use `FileError`).
-- **`errors-enhanced-errors`** — extend `BatchFailureInfo` with `ErrorType` and `ErrorCause` fields to preserve the typed-error chain.
-- **`cli-error-formatting`** — extend `FormatError` dispatch set to include `InitializeError`; document the rendering format.
-- **`cli-exit-codes`** — `NotFoundError` SHALL map to `ExitCodeError` (1), not `ExitCodeUsage` (2). "Not found" is a runtime state, not a user-input validation error.
+- **`errors-typed-errors`** — add `UsageError` typed error (private fields + getters + immutable `WithSuggestions(...)` builder); add `CobraUsageError` sentinel (with `MustNewCobraUsageError` constructor that panics on nil cause); clarify `NotFoundError` vs `FileError` boundaries (lookup branches use `NotFoundError`; filesystem I/O failures use `FileError`); clarify that `*core.*Error` types implement `MarshalJSON` returning `{"error": "<Error()>"}`.
+- **`errors-enhanced-errors`** — extend `BatchFailureInfo` with `ErrorType` and `Cause` fields to preserve the typed-error chain; `ErrorType` SHALL be computed via a typed switch in `internal/library/adder.go` mapping well-known types to canonical names (e.g., `*core.NotFoundError` → `"NotFoundError"`, `*core.FileError` → `"FileError"`, `*core.ValidationError` → `"ValidationError"`, `*os.PathError` → `"PathError"`, default → `fmt.Sprintf("%T", cause)`); cite `internal/library/adder.go:526-529` as the declaration site.
+- **`cli-error-formatting`** — extend `FormatError` dispatch set to include `InitializeError` and `UsageError`; document the rendering format. Remove the prior `NotFoundError → ExitCodeUsage` scenario from `openspec/specs/cli-error-formatting/spec.md:85-88` (the exit-code mapping lives in `cli-exit-codes`).
+- **`cli-exit-codes`** — `NotFoundError` SHALL map to `ExitCodeError` (1), not `ExitCodeUsage` (2). "Not found" is a runtime state, not a user-input validation error. The exit-code deprecation canary (formerly in `internal/warning`) is REMOVED entirely; the `cli-exit-codes/spec.md` "Exit code deprecation canary exemption" requirement is dropped. The substring-prefix dispatch fallback SHALL be removed in favor of typed dispatch against `*pflag.{NotExist,ValueRequired,InvalidValue,InvalidSyntax}Error` and the new `*core.CobraUsageError` sentinel.
 
 ## Impact
 
 ### Affected code
 
-| File | Change | LOC impact |
-|---|---|---|
-| `internal/cmdutil/exit.go:73` | Exit code mapping | -1 / +1 |
-| `internal/cmdutil/exit_test.go:58` | Test update | 0 (literal) |
-| `internal/cmdutil/exit.go:24` | Cobra dispatch | -10 / +20 |
-| `cmd/library_remove.go:170,178` | Delete `FormatError` | -2 |
-| `cmd/library_add.go:343,537,681,694` | Delete `FormatError` | -4 |
-| `cmd/library_add.go:534` | Extend `BatchFailureInfo` | +2 fields |
-| `cmd/init.go:205,209` | Delete `FormatError` | -2 |
-| `cmd/init.go:178` | Delete cross-package translation | -3 |
-| `cmd/library_add.go:82` | Migrate to `UsageError` | -1 / +2 |
-| `internal/library/remover.go:83` | Error type swap | -2 / +1 |
-| `internal/library/remover.go:103` | Surface `os.IsNotExist` | -3 / +4 |
-| `internal/library/resolver.go:67` | Error type swap | -1 |
-| `internal/output/errors.go:21-50` | Add `InitializeError` case | +5 |
-| `internal/output/exporter.go:172,7` | Delete dead code | -2 |
-| `internal/core/errors.go` | New `UsageError` type | +30 |
-| `internal/config/scaffold.go` (new) | `WriteDefault` helper | +20 |
-| `cmd/library_init.go:144` | Use new helper | -8 |
-| `cmd/canonicalize.go:94` | Front-load validation | +1 |
-| `cmd/library.go:11` | Drop dead param | -1 / -1 |
+| File | Change | LOC impact | Task |
+|---|---|---|---|
+| `internal/cmdutil/exit.go:73` | Exit code mapping | -1 / +1 | 1.1 |
+| `internal/cmdutil/exit.go:24` | Drop prefix list; add `CobraUsageError` branch | -14 / +6 | 1.2-1.3 |
+| `internal/cmdutil/exit_test.go:58` | Flip expectation; add new rows | +12 | 1.4 |
+| `internal/output/errors.go:21-50` | Add `InitializeError`, `UsageError`, `WriteError` cases | +13 | 1.5, 1.5b |
+| `internal/output/exporter.go:172,7` | Delete dead code | -2 | 1.6 |
+| `internal/core/errors.go` | New `UsageError` + `CobraUsageError` + 9 `MarshalJSON`s | +90 | 1.7 |
+| `cmd/library_add.go:355,549,693,706` | Delete inline `FormatError` | -4 | 2.1-2.4 |
+| `cmd/library_validate.go:182,190` | Delete inline `FormatError` | -2 | 2.5-2.6 |
+| `cmd/validate.go:123` | Delete inline `FormatError` | -1 | 2.7 |
+| `cmd/init.go:218,222,258` | Delete inline `FormatError` | -3 | 2.8-2.10 |
+| `cmd/library_add.go:546-549,703-706` | Lift typed cause into `BatchFailureInfo.Cause` | +0 / +6 | 3.11 |
+| `cmd/init.go:188-191` | Drop redundant `NotFoundError` translation | -3 | 3.17 |
+| `internal/library/resolver.go:21,26,70` | Lookups → `NotFoundError` (3 sites) | -6 / +9 | 3.1-3.3 |
+| `internal/library/loader.go:36,53` | Lookups → `NotFoundError` (2 sites) | -4 / +6 | 3.4-3.5 |
+| `internal/library/adder.go:146` | Lookups → `NotFoundError` (1 site) | -1 | 3.6 |
+| `internal/library/remover.go:83,88,142` | Lookups → `NotFoundError` (3 sites) | -6 / +9 | 3.7-3.9 |
+| `internal/library/remover.go:104` | Surface `os.IsNotExist` | -2 / +4 | 3.10 |
+| `internal/library/adder.go:526-529` | Extend `BatchFailureInfo` | +4 | 3.11 |
+| `internal/library/adder.go:647-651,664-668,682-686,700-704,764-768` | Populate new fields via typed switch | +5 sites × 2 lines | 3.11 |
+| `cmd/library_create.go:70,203` | Migrate `errEmptyResources` | -1 / +2 | 3.12 |
+| `internal/config/errors.go` (new) | `WriteError` domain type | +25 | 4.1 |
+| `internal/config/scaffold.go` (new) | `WriteDefault` helper (returns `*config.WriteError`) | +30 | 4.1 |
+| `cmd/config_init.go:144-156` | Use new helper | -12 | 4.2 |
+| `cmd/library.go:11,39` | Drop `runF` | -2 / -1 | 4.3 |
+| `cmd/resources.go:48` | Drop `runF` from `NewCmdResources` | -1 / +0 | 4.3 |
+| `cmd/library_test.go:30,52,76,95` + `cmd/root.go:35` | Update 6 call sites | -5 / +0 | 4.3 |
+| `cmd/canonicalize.go:96` | Keep `MarkFlagRequired("type")` unchanged | 0 | 4.4 |
+| `cmd/canonicalize.go` `runCanonicalize` | Add `core.ValidateDocumentType` defense-in-depth | +5 | 4.4 |
+| `cmd/library_init.go:161-165` | Set `InitRequest.Stdout` field per `fix-library-io-discipline` task 1.4 | +1 | 4.5 |
+| `internal/warning/canary.go` | **Delete file** (canary removal) | -50 | 1.7a |
+| `internal/warning/canary_test.go` | **Delete file** (canary removal) | -180 | 1.7a |
+| `internal/warning/AGENTS.md` | **Delete or shrink** (canary removal) | -20 | 1.7a |
+| `main.go:51-53` | **Delete canary call block** (canary removal) | -3 | 1.7a |
+| `main.go` imports | Remove `internal/warning` import | -1 | 1.7a |
 
 ### Affected systems
 
@@ -68,8 +95,21 @@ None.
 
 ## Risks
 
-- **Exit code change is user-visible.** `NotFoundError` → 1 (was 2) breaks scripts that special-case `exit 2` for not-found. **Mitigation:** document in CHANGELOG as a **BREAKING** entry; the prior mapping was semantically wrong (per the review). The change is a correctness fix, not a feature toggle.
-- **Single-handling rule cleanup is mechanical but spans 7 sites.** A missed `FormatError` call doubles output. **Mitigation:** task `5.1.7` runs `rg "output\.FormatError" cmd/` and verifies the remaining calls are all in the `main.go` central handler.
-- **Typed error migration in `BatchFailureInfo`** is additive (new fields); old consumers that don't read them are unaffected. **Mitigation:** task `5.11.1` verifies the new fields have `omitempty` JSON tags so JSON consumers don't see a breaking change in serialized output.
-- **`UsageError` introduction** is a new public type. **Mitigation:** the type follows the existing `core.Error` builder pattern; godoc explains the purpose (user-input validation that should map to exit code 2). The constructor is exported.
-- **Cobra string-prefix replacement** is a non-trivial refactor. **Mitigation:** design Decision 2 evaluates both typed-error dispatch and a documented-prefix-list approach; the chosen path is documented in `design.md`.
+- **Exit code change is user-visible.** `NotFoundError` → 1 (was 2) breaks scripts that special-case `exit 2` for not-found. **Mitigation:** document in CHANGELOG as a `### BREAKING` entry; the prior mapping was semantically wrong (per the review). The change is a correctness fix, not a feature toggle. The `internal/warning` canary (formerly `MaybeWarnLegacyExitCode`) is REMOVED in Phase 1.7a — it was emitting a deprecation warning for the exit-code 5 → 1 migration, which is now complete; the canary would otherwise fire on every interactive `not found` because of the new `NotFoundError → 1` mapping.
+- **Single-handling rule cleanup spans 10 production sites across 4 cmd files.** A missed `output.FormatError` call doubles output. **Mitigation:** task `2.11` runs `rg "output\.FormatError" cmd/` (and verifies the only remaining calls are `main.go:46` and the two test files at `cmd/init_test.go:185`, `cmd/show_test.go:239`). Per-file atomic commits prevent the "two `FormatError` calls per error" intermediate state.
+- **`UsageError` wording is a clean break.** User-facing text changes from `Error: flag needs an argument: --resources (must be non-empty list of refs)` to `Error: --resources: must be non-empty list of refs`. **Mitigation:** CHANGELOG `### Changed` entry. `cmd/library_create_test.go:152-176` (the only consumer) is updated in task `3.12` to assert the new format. The change is bounded to one `--resources` empty-list path; pflag typed errors retain their own wording via the existing dispatch branch.
+- **Lookup-branch `FileError → NotFoundError` migration widens to 9 sites** (8 `NewFileError("…not found", nil)` + 1 `NewConfigError("preset", …, "preset not found")`). Tests asserting `*core.ConfigError` or `*core.FileError` for not-found paths will fail. **Mitigation:** task `3.13` updates `internal/library/resolver_test.go:174-177`, `cmd/library_create_test.go:343-365` (T11 `TestRunCreatePreset_RefReferencesMissingResource`; the `ExitCodeUsage` assertion is at line 364), `cmd/show_test.go:151,179`, `cmd/library_remove_test.go:397`, `test/e2e/init_test.go:108`, `internal/cmdutil/exit_test.go:58` to assert `*core.NotFoundError` → `ExitCodeError (1)`. The 9 lookup-branch sites are: `internal/library/resolver.go:21,26,70`; `internal/library/loader.go:36,53`; `internal/library/adder.go:146`; `internal/library/remover.go:83,88,142`. Widen `tasks.md` verification regexes to `rg "NewFileError\([^)]*not found" internal/library/` and `rg "NewConfigError\("preset"[^)]*preset not found" internal/library/` so the verification gate catches all 9 sites.
+- **Typed-error chain preservation in `BatchFailureInfo`** is additive (new fields); old consumers that don't read them are unaffected. **Mitigation:** task `3.11` ensures the new fields carry `json:",omitempty"` so JSON consumers don't see a breaking change in serialized output. The change is bounded to 5 population sites inside `internal/library/adder.go` and 2 call-site updates in `cmd/library_add.go`.
+- **`UsageError` introduction** is a new public type. **Mitigation:** the type follows the existing `core.Error` builder pattern (private fields + `Flag()`/`Reason()` getters); godoc explains the purpose (CLI flag validation that is not caught by `cobra.Args` validators or `MarkFlagRequired` and should map to exit code 2). The `NewUsageError(flag, reason)` constructor is exported.
+- **`MarshalJSON` adoption on all 9 existing `core.*Error` types** changes JSON wire-shape. **Mitigation:** the shape `{"error": "<Error()>"}` is the only sensible JSON projection of an error interface (stdlib's default would marshal as `{}`); consumers currently parsing JSON expect a string under `error` and key off text patterns. `specs/errors-enhanced-errors/spec.md` documents the new shape. No E2E test asserts the old shape today (verified by `rg "BatchFailureInfo" test/`); population is bounded to the new code paths.
+- **Cross-change ownership.** This change owns the `errEmptyResources` migration (task `3.12`) and the `cmd/library_init.go:161-165` `(*Library).Init` call update (task `4.5`, which sets the new `InitRequest.Stdout io.Writer` field) that are also referenced in `openspec/changes/harden-tests-and-coverage/proposal.md:59` and `openspec/changes/fix-library-io-discipline/proposal.md:60` respectively. **Mitigation:** explicit cross-references added to both source changes' `tasks.md` de-scoping their respective tasks. Task `4.5` waits on `fix-library-io-discipline` Phase 1 to land first (the `InitRequest` struct must include the `Stdout` field before this change sets it).
+- **Cobra typed-error dispatch requires runtime `errors.As` against `*pflag.{NotExist,ValueRequired,InvalidValue,InvalidSyntax}Error` and the new `*core.CobraUsageError` sentinel.** pflag's typed errors are stable across `v1.0.x` (verified against the local modcache at `pflag@v1.0.10`); `*core.CobraUsageError` is project-owned so its API stability is our responsibility. **Mitigation:** all four `*pflag.*Error` types are part of pflag's stable API (declared in `flag.go`); the new sentinel is documented under `errors-typed-errors`. The prior substring-prefix fallback is dropped because the four typed pflag errors plus the new `CobraUsageError` sentinel cover every Cobra exit-code-2 path observed in the test suite.
+
+## Cross-references
+
+This change preempts two tasks owned by other active changes:
+
+- **`openspec/changes/harden-tests-and-coverage/tasks.md:6.6`** — task `6.6` (replace `var errEmptyResources` with a typed-error constructor) is **deferred** to `enforce-error-discipline/tasks.md:3.12`. The deferral edit lives in `harden-tests-and-coverage/tasks.md:130`. This change introduces `*core.UsageError` (the constructor the original task hinted at) and migrates `errEmptyResources` to `core.NewUsageError("--resources", "must be non-empty list of refs")`.
+- **`openspec/changes/fix-library-io-discipline/proposal.md` Risks** — task `4.5` of this change consumes the new `stdout io.Writer` parameter introduced by `fix-library-io-discipline/tasks.md:1.4` (Phase 1). The consumption edit lives in `cmd/library_init.go:161-166` (deferred until `fix-library-io-discipline` Phase 1 ships). The risk row lives at `fix-library-io-discipline/proposal.md:75`.
+
+Ordering: `fix-library-io-discipline` Phase 1 must land BEFORE this change's Phase 4 (task `4.5`) to provide the `InitRequest.Stdout io.Writer` field. `harden-tests-and-coverage` may ship before or after this change; the only coupling is the de-scope note in `tasks.md:130`. `internal/warning` canary removal (Phase 1.7a) is independent of all other changes.

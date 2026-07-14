@@ -127,7 +127,7 @@
 - [ ] 6.3 In `cmd/library_add.go`, replace `var outputFormat` and `var initOutputFormat` with per-options fields.
 - [ ] 6.4 In `cmd/library_refresh.go`, replace `var outputFormatRefresh` with a per-options field.
 - [ ] 6.5 In `cmd/completion.go`, replace `var completionShells` with a per-command constant or per-options field.
-- [ ] 6.6 In `cmd/library_add.go:82`, replace `var errEmptyResources` with a per-options field or a typed error constructor.
+- [ ] 6.6 ~~In `cmd/library_add.go:82`, replace `var errEmptyResources` with a per-options field or a typed error constructor.~~ **Deferred** to `openspec/changes/enforce-error-discipline/tasks.md:3.12` (the typed-error-constructor path). `enforce-error-discipline` introduces `*core.UsageError` (the constructor the original task hinted at) and migrates `errEmptyResources` to `core.NewUsageError("--resources", "must be non-empty list of refs")`. After that change ships, `cmd/library_add.go` no longer references the package-level var — the forbidigo pattern at task `6.1` still catches it as a transitive cleanup if any straggler remains.
 - [ ] 6.7 In `cmd/lint_test.go:96` (`TestNoNewForbidigoPatterns`), replace the hard-coded `[]string{"adapt.go", "resources.go", "presets.go", "show.go"}` slice with `out, _ := exec.Command("go", "list", "./cmd").Output(); strings.Split(string(out), "\n")` filtered to exclude `_test.go` files.
 - [ ] 6.8 Run `mise run lint` — must report 0 issues (the widened forbidigo pattern may flag the package-level vars; the migration in 6.2-6.6 must precede the lint check).
 - [ ] 6.9 Run `mise run check` — full validation passes.
