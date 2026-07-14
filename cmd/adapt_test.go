@@ -24,7 +24,8 @@ type fakeTransformer struct {
 	err     error
 }
 
-func (f *fakeTransformer) Transform(_ context.Context, req *TransformRequest) (*core.TransformResult, error) {
+func (f *fakeTransformer) Transform(ctx context.Context, req *TransformRequest) (*core.TransformResult, error) {
+	_ = ctx // accept-and-may-ignore: fake records the request only
 	f.calls++
 	f.lastReq = req
 	if f.err != nil {

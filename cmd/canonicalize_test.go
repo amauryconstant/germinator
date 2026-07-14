@@ -29,7 +29,8 @@ type fakeCanonicalizer struct {
 	err     error
 }
 
-func (f *fakeCanonicalizer) Canonicalize(_ context.Context, req *CanonicalizeRequest) (*core.CanonicalizeResult, error) {
+func (f *fakeCanonicalizer) Canonicalize(ctx context.Context, req *CanonicalizeRequest) (*core.CanonicalizeResult, error) {
+	_ = ctx // accept-and-may-ignore: fake records the request only
 	f.calls++
 	f.lastReq = req
 	if f.err != nil {

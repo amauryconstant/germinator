@@ -20,10 +20,10 @@ Loads, type-detects, and parses Germinator source documents (agent / command / s
 
 ## Public Surface
 
-- `LoadDocument(filepath, platform string) (interface{}, error)` — canonical-source entry point: validates platform, detects doc type from filename, parses. Returns `*core.ParseError` / `*core.FileError` on failure.
-- `ParseDocument(filePath, docType string) (interface{}, error)` — reads a file and dispatches to `parseMemory` (handles optional frontmatter) or `parseDocumentWithFrontmatter` (agent/command/skill).
-- `DetectType(filepath string) string` — filename regex → `"agent" | "command" | "skill" | "memory" | ""`. Recognizes both `agent-*.md` / `*-agent.md` (and `.yaml`) shapes.
-- `ParsePlatformDocument(path, platform, docType string) (interface{}, error)` — reads a platform YAML file, selects the adapter via `claudecode.New()` / `opencode.New()`, calls `ToCanonical`, and wraps the result in the corresponding `Canonical*` struct.
+- `LoadDocument(ctx context.Context, filepath, platform string) (interface{}, error)` — canonical-source entry point: validates platform, detects doc type from filename, parses. `ctx` is checked at entry and forwarded to `DetectType` and `ParseDocument`. Returns `*core.ParseError` / `*core.FileError` on failure.
+- `ParseDocument(ctx context.Context, filePath, docType string) (interface{}, error)` — checks `ctx.Err()` then reads the file and dispatches to `parseMemory` (handles optional frontmatter) or `parseDocumentWithFrontmatter` (agent/command/skill). `ctx` is forwarded to both helpers.
+- `DetectType(ctx context.Context, filepath string) string` — filename regex → `"agent" | "command" | "skill" | "memory" | ""`. Recognizes both `agent-*.md` / `*-agent.md` (and `.yaml`) shapes. `ctx` is checked between regex iterations; detection is regex-only (no I/O), so ctx is accept-and-may-ignore per the cli-framework spec.
+- `ParsePlatformDocument(ctx context.Context, path, platform, docType string) (interface{}, error)` — checks `ctx.Err()` then reads a platform YAML file, selects the adapter via `claudecode.New()` / `opencode.New()`, calls `ToCanonical`, and wraps the result in the corresponding `Canonical*` struct.
 - `Parser` / `NewParser()` — thin method-style wrapper around `LoadDocument` for callers that prefer instance syntax.
 
 ### Canonical struct types

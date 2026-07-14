@@ -144,8 +144,8 @@ func runCanonicalize(opts *canonicalizeOptions) error {
 // canonicalizeDocument performs the actual canonicalization: parse
 // the platform-specific document, validate it, render to canonical
 // YAML, and write to the output file.
-func canonicalizeDocument(_ context.Context, req *CanonicalizeRequest) (*core.CanonicalizeResult, error) {
-	doc, err := parser.ParsePlatformDocument(req.InputPath, req.Platform, req.DocType)
+func canonicalizeDocument(ctx context.Context, req *CanonicalizeRequest) (*core.CanonicalizeResult, error) {
+	doc, err := parser.ParsePlatformDocument(ctx, req.InputPath, req.Platform, req.DocType)
 	if err != nil {
 		return nil, core.NewParseError(req.InputPath, "failed to parse platform document", err)
 	}
@@ -154,7 +154,7 @@ func canonicalizeDocument(_ context.Context, req *CanonicalizeRequest) (*core.Ca
 		return nil, core.NewValidationError("", "", "", errs[0].Error())
 	}
 
-	yamlBytes, err := renderer.MarshalCanonical(doc)
+	yamlBytes, err := renderer.MarshalCanonical(ctx, doc)
 	if err != nil {
 		return nil, core.NewTransformError("marshal", req.Platform, "failed to marshal canonical document", err)
 	}

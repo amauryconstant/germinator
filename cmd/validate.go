@@ -131,13 +131,13 @@ func runValidate(opts *validateOptions) error {
 
 // validateDocument contains the document validation logic. Platform is
 // already validated by runValidate.
-func validateDocument(_ context.Context, req *ValidateRequest) (*core.ValidateResult, error) {
-	docType := parser.DetectType(req.InputPath)
+func validateDocument(ctx context.Context, req *ValidateRequest) (*core.ValidateResult, error) {
+	docType := parser.DetectType(ctx, req.InputPath)
 	if docType == "" {
 		return nil, core.NewParseError(req.InputPath, "unrecognizable filename", nil)
 	}
 
-	doc, parseErr := parser.ParseDocument(req.InputPath, docType)
+	doc, parseErr := parser.ParseDocument(ctx, req.InputPath, docType)
 	if parseErr != nil {
 		return nil, core.NewParseError(req.InputPath, "failed to parse document", parseErr)
 	}

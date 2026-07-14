@@ -397,6 +397,7 @@ func (lib *Library) RemoveResource(ctx context.Context, req *RemoveResourceReque
 func (lib *Library) RemovePreset(ctx context.Context, req *RemovePresetRequest) error
 func (lib *Library) Validate(ctx context.Context, req *ValidateRequest) (*ValidationResult, error)
 func (lib *Library) Fix(ctx context.Context, _ *FixRequest) (*FixResult, error)
+func (lib *Library) ResolvePreset(ctx context.Context, name string) ([]string, error) // ctx accept-and-may-ignore (pure in-memory lookup)
 
 // Init is a package function (no pre-existing *Library to receive a method)
 func Init(ctx context.Context, req *InitRequest) error

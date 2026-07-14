@@ -50,7 +50,7 @@ var _ Initializer = (*initializerAdapter)(nil)
 // reserved for transport-level failures; per-resource outcomes
 // always live in result.Error, allowing callers to synthesize
 // *core.PartialSuccessError.
-func (i *initializerAdapter) Initialize(_ context.Context, req *InitializeRequest) ([]core.InitializeResult, error) {
+func (i *initializerAdapter) Initialize(ctx context.Context, req *InitializeRequest) ([]core.InitializeResult, error) {
 	results := make([]core.InitializeResult, 0, len(req.Refs))
 
 	for _, ref := range req.Refs {
@@ -92,14 +92,14 @@ func (i *initializerAdapter) Initialize(_ context.Context, req *InitializeReques
 			continue
 		}
 
-		doc, err := i.parser.LoadDocument(inputPath, req.Platform)
+		doc, err := i.parser.LoadDocument(ctx, inputPath, req.Platform)
 		if err != nil {
 			result.Error = err
 			results = append(results, result)
 			continue
 		}
 
-		rendered, err := i.serializer.RenderDocument(doc, req.Platform)
+		rendered, err := i.serializer.RenderDocument(ctx, doc, req.Platform)
 		if err != nil {
 			result.Error = err
 			results = append(results, result)

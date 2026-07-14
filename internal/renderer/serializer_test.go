@@ -1,6 +1,7 @@
 package renderer
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -33,7 +34,7 @@ func TestRenderDocumentAgent(t *testing.T) {
 		Content: "This is test content\nWith multiple lines",
 	}
 
-	result, err := RenderDocument(agent, "claude-code")
+	result, err := RenderDocument(context.Background(), agent, "claude-code")
 	if err != nil {
 		t.Fatalf("RenderDocument failed: %v", err)
 	}
@@ -75,7 +76,7 @@ func TestRenderDocumentCommand(t *testing.T) {
 		Content: "Command content here",
 	}
 
-	result, err := RenderDocument(command, "claude-code")
+	result, err := RenderDocument(context.Background(), command, "claude-code")
 	if err != nil {
 		t.Fatalf("RenderDocument failed: %v", err)
 	}
@@ -102,7 +103,7 @@ func TestRenderDocumentSkill(t *testing.T) {
 		Content: "Skill instructions",
 	}
 
-	result, err := RenderDocument(skill, "claude-code")
+	result, err := RenderDocument(context.Background(), skill, "claude-code")
 	if err != nil {
 		t.Fatalf("RenderDocument failed: %v", err)
 	}
@@ -126,7 +127,7 @@ func TestRenderDocumentMemory(t *testing.T) {
 		Content: "Memory content\nWith multiple lines",
 	}
 
-	result, err := RenderDocument(memory, "claude-code")
+	result, err := RenderDocument(context.Background(), memory, "claude-code")
 	if err != nil {
 		t.Fatalf("RenderDocument failed: %v", err)
 	}
@@ -143,7 +144,7 @@ func TestRenderDocumentUnknownType(t *testing.T) {
 	type UnknownType struct{}
 
 	doc := &UnknownType{}
-	_, err := RenderDocument(doc, "claude-code")
+	_, err := RenderDocument(context.Background(), doc, "claude-code")
 	if err == nil {
 		t.Error("Expected error for unknown document type")
 	}
@@ -160,7 +161,7 @@ func TestRenderDocumentInvalidTemplate(t *testing.T) {
 		},
 	}
 
-	_, err := RenderDocument(agent, "invalid-platform")
+	_, err := RenderDocument(context.Background(), agent, "invalid-platform")
 	if err == nil {
 		t.Error("Expected error for invalid platform")
 	}
@@ -203,7 +204,7 @@ func TestRenderDocumentMarkdownBodyPreservation(t *testing.T) {
 				Content: tt.content,
 			}
 
-			result, err := RenderDocument(agent, "claude-code")
+			result, err := RenderDocument(context.Background(), agent, "claude-code")
 			if err != nil {
 				t.Fatalf("RenderDocument failed: %v", err)
 			}
@@ -291,7 +292,7 @@ func TestRenderCanonicalAgentClaudeCode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := RenderDocument(tt.agent, "claude-code")
+			result, err := RenderDocument(context.Background(), tt.agent, "claude-code")
 			if err != nil {
 				t.Fatalf("RenderDocument failed: %v", err)
 			}
@@ -393,7 +394,7 @@ func TestRenderCanonicalAgentOpenCode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := RenderDocument(tt.agent, "opencode")
+			result, err := RenderDocument(context.Background(), tt.agent, "opencode")
 			if err != nil {
 				t.Fatalf("RenderDocument failed: %v", err)
 			}
@@ -447,7 +448,7 @@ func TestRenderCanonicalCommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := RenderDocument(tt.command, tt.platform)
+			result, err := RenderDocument(context.Background(), tt.command, tt.platform)
 			if err != nil {
 				t.Fatalf("RenderDocument failed: %v", err)
 			}
@@ -506,7 +507,7 @@ func TestRenderCanonicalSkill(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := RenderDocument(tt.skill, tt.platform)
+			result, err := RenderDocument(context.Background(), tt.skill, tt.platform)
 			if err != nil {
 				t.Fatalf("RenderDocument failed: %v", err)
 			}
@@ -556,7 +557,7 @@ func TestRenderCanonicalMemory(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := RenderDocument(tt.memory, tt.platform)
+			result, err := RenderDocument(context.Background(), tt.memory, tt.platform)
 			if err != nil {
 				t.Fatalf("RenderDocument failed: %v", err)
 			}
@@ -746,7 +747,7 @@ func TestMarshalCanonicalAgent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := MarshalCanonical(tt.agent)
+			result, err := MarshalCanonical(context.Background(), tt.agent)
 			if err != nil {
 				t.Fatalf("MarshalCanonical() failed: %v", err)
 			}
@@ -817,7 +818,7 @@ func TestMarshalCanonicalCommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := MarshalCanonical(tt.command)
+			result, err := MarshalCanonical(context.Background(), tt.command)
 			if err != nil {
 				t.Fatalf("MarshalCanonical() failed: %v", err)
 			}
@@ -905,7 +906,7 @@ func TestMarshalCanonicalSkill(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := MarshalCanonical(tt.skill)
+			result, err := MarshalCanonical(context.Background(), tt.skill)
 			if err != nil {
 				t.Fatalf("MarshalCanonical() failed: %v", err)
 			}
@@ -984,7 +985,7 @@ func TestMarshalCanonicalMemory(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := MarshalCanonical(tt.memory)
+			result, err := MarshalCanonical(context.Background(), tt.memory)
 			if err != nil {
 				t.Fatalf("MarshalCanonical() failed: %v", err)
 			}
@@ -1002,7 +1003,7 @@ func TestMarshalCanonicalAllEmptyOptionalFields(t *testing.T) {
 		Content: "Content",
 	}
 
-	result, err := MarshalCanonical(agent)
+	result, err := MarshalCanonical(context.Background(), agent)
 	if err != nil {
 		t.Fatalf("MarshalCanonical() failed: %v", err)
 	}
@@ -1040,7 +1041,7 @@ func TestMarshalCanonicalNoAdapterFieldAccess(t *testing.T) {
 		Content: "Content",
 	}
 
-	result, err := MarshalCanonical(agent)
+	result, err := MarshalCanonical(context.Background(), agent)
 	if err != nil {
 		t.Fatalf("MarshalCanonical() failed: %v", err)
 	}
@@ -1057,7 +1058,7 @@ func TestMarshalCanonicalUnknownType(t *testing.T) {
 	type UnknownType struct{}
 	doc := &UnknownType{}
 
-	_, err := MarshalCanonical(doc)
+	_, err := MarshalCanonical(context.Background(), doc)
 	if err == nil {
 		t.Error("Expected error for unknown document type")
 	}

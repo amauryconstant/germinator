@@ -41,13 +41,13 @@ var _ Transformer = (*transformerAdapter)(nil)
 
 // Transform loads the source document, renders it for the target
 // platform, and writes the rendered bytes to the output path.
-func (t *transformerAdapter) Transform(_ context.Context, req *TransformRequest) (*core.TransformResult, error) {
-	doc, err := t.parser.LoadDocument(req.InputPath, req.Platform)
+func (t *transformerAdapter) Transform(ctx context.Context, req *TransformRequest) (*core.TransformResult, error) {
+	doc, err := t.parser.LoadDocument(ctx, req.InputPath, req.Platform)
 	if err != nil {
 		return nil, fmt.Errorf("loading document: %w", err)
 	}
 
-	rendered, err := t.serializer.RenderDocument(doc, req.Platform)
+	rendered, err := t.serializer.RenderDocument(ctx, doc, req.Platform)
 	if err != nil {
 		return nil, core.NewTransformError("render", req.Platform, "failed to render document", err)
 	}

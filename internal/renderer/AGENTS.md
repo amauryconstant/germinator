@@ -18,8 +18,8 @@ Platform-agnostic document renderer. Executes Go `text/template` templates again
 
 ## Public Surface
 
-- `RenderDocument(doc interface{}, platform string) (string, error)` — renders a `parser.Canonical*` value to a platform-specific document string. Selects template at `config/templates/<platform>/<docType>.tmpl`.
-- `MarshalCanonical(doc interface{}) (string, error)` — renders a `parser.Canonical*` value back to canonical Germinator YAML using `config/templates/canonical/<docType>.tmpl`.
+- `RenderDocument(ctx context.Context, doc interface{}, platform string) (string, error)` — checks `ctx.Err()` then renders a `parser.Canonical*` value to a platform-specific document string. Selects template at `config/templates/<platform>/<docType>.tmpl`. The bundled template read is independent of ctx, so the entry check is sufficient.
+- `MarshalCanonical(ctx context.Context, doc interface{}) (string, error)` — checks `ctx.Err()` then renders a `parser.Canonical*` value back to canonical Germinator YAML using `config/templates/canonical/<docType>.tmpl`.
 - `Serializer` / `NewSerializer()` — method-style wrapper around `RenderDocument` for callers that prefer instance syntax.
 
 ### Template function map (custom, beyond Sprig)

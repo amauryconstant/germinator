@@ -29,7 +29,8 @@ type fakeValidator struct {
 // Compile-time interface satisfaction check.
 var _ Validator = (*fakeValidator)(nil)
 
-func (f *fakeValidator) Validate(_ context.Context, req *ValidateRequest) (*core.ValidateResult, error) {
+func (f *fakeValidator) Validate(ctx context.Context, req *ValidateRequest) (*core.ValidateResult, error) {
+	_ = ctx // accept-and-may-ignore: fake records the request only
 	f.calls++
 	f.lastReq = req
 	if f.err != nil {

@@ -2,6 +2,7 @@
 package renderer
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -27,7 +28,14 @@ type canonicalTemplateContext struct {
 }
 
 // RenderDocument renders a document using platform-specific template.
-func RenderDocument(doc interface{}, platform string) (string, error) {
+// The ctx parameter is checked at entry so a cancelled caller terminates
+// before template lookup and execution. The inner os.ReadFile reads bundled
+// templates whose path is independent of ctx, so the entry check is sufficient.
+func RenderDocument(ctx context.Context, doc interface{}, platform string) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", fmt.Errorf("renderer: render cancelled: %w", err)
+	}
+
 	docType, err := getDocType(doc)
 	if err != nil {
 		return "", gerrors.NewTransformError("render", platform, "failed to determine document type", err)
@@ -51,7 +59,7 @@ func RenderDocument(doc interface{}, platform string) (string, error) {
 		adapter = opencode.New()
 	}
 
-	ctx := templateContext{
+	tmplCtx := templateContext{
 		Doc:     doc,
 		Adapter: adapter,
 	}
@@ -62,7 +70,7 @@ func RenderDocument(doc interface{}, platform string) (string, error) {
 	}
 
 	var sb strings.Builder
-	if err := tmpl.Execute(&sb, ctx); err != nil {
+	if err := tmpl.Execute(&sb, tmplCtx); err != nil {
 		return "", gerrors.NewTransformError("render", platform, "failed to execute template", err)
 	}
 
@@ -229,7 +237,14 @@ func getDocType(doc interface{}) (string, error) {
 }
 
 // MarshalCanonical serializes a canonical model to YAML string using canonical templates.
-func MarshalCanonical(doc interface{}) (string, error) {
+// The ctx parameter is checked at entry so a cancelled caller terminates
+// before template lookup and execution. The inner os.ReadFile reads bundled
+// templates whose path is independent of ctx, so the entry check is sufficient.
+func MarshalCanonical(ctx context.Context, doc interface{}) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", fmt.Errorf("renderer: marshal cancelled: %w", err)
+	}
+
 	docType, err := getDocType(doc)
 	if err != nil {
 		return "", gerrors.NewTransformError("marshal", "canonical", "failed to determine document type", err)
@@ -245,7 +260,7 @@ func MarshalCanonical(doc interface{}) (string, error) {
 		return "", gerrors.NewFileError(tmplPath, "read", "failed to read template file", err)
 	}
 
-	ctx := canonicalTemplateContext{
+	tmplCtx := canonicalTemplateContext{
 		Doc: doc,
 	}
 
@@ -255,7 +270,7 @@ func MarshalCanonical(doc interface{}) (string, error) {
 	}
 
 	var sb strings.Builder
-	if err := tmpl.Execute(&sb, ctx); err != nil {
+	if err := tmpl.Execute(&sb, tmplCtx); err != nil {
 		return "", gerrors.NewTransformError("marshal", "canonical", "failed to execute template", err)
 	}
 
@@ -274,8 +289,10 @@ func NewSerializer() *Serializer {
 }
 
 // RenderDocument renders a document to the target platform format.
-func (s *Serializer) RenderDocument(doc interface{}, platform string) (string, error) {
-	return RenderDocument(doc, platform)
+// Forwards ctx to the package-level RenderDocument so caller cancellation
+// propagates through template lookup and execution.
+func (s *Serializer) RenderDocument(ctx context.Context, doc interface{}, platform string) (string, error) {
+	return RenderDocument(ctx, doc, platform)
 }
 
 // getCanonicalTemplatePath returns the absolute path to a canonical template file.

@@ -3,6 +3,7 @@
 package parser
 
 import (
+	"context"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -107,7 +108,7 @@ func TestLoadDocumentIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			doc, err := LoadDocument(tt.filepath, tt.platform)
+			doc, err := LoadDocument(context.Background(), tt.filepath, tt.platform)
 
 			if tt.expectError {
 				if err == nil {
@@ -242,7 +243,7 @@ func TestParseDocument(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			doc, err := ParseDocument(tt.filepath, tt.docType)
+			doc, err := ParseDocument(context.Background(), tt.filepath, tt.docType)
 
 			if tt.expectError {
 				if err == nil {
@@ -421,7 +422,7 @@ func TestDetectType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			docType := DetectType(tt.filepath)
+			docType := DetectType(context.Background(), tt.filepath)
 			if docType != tt.expectedType {
 				t.Errorf("DetectType() = %v, want %v", docType, tt.expectedType)
 			}

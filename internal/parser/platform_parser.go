@@ -2,6 +2,8 @@
 package parser
 
 import (
+	"context"
+	"fmt"
 	"os"
 
 	claudecode "gitlab.com/amoconst/germinator/internal/claude-code"
@@ -11,7 +13,13 @@ import (
 )
 
 // ParsePlatformDocument parses a platform YAML file and converts it to a canonical model.
-func ParsePlatformDocument(path string, platform string, docType string) (interface{}, error) {
+// The ctx parameter is checked before the file read so caller cancellation
+// propagates before blocking I/O is attempted.
+func ParsePlatformDocument(ctx context.Context, path string, platform string, docType string) (interface{}, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("parser: platform parse cancelled: %w", err)
+	}
+
 	content, err := os.ReadFile(path) //nolint:gosec // G304: User provides file path, tool must read user documents
 	if err != nil {
 		return nil, core.NewFileError(path, "read", "failed to read file", err)

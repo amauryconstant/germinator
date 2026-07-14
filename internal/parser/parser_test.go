@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -36,7 +37,7 @@ func TestParseMemoryWithPaths(t *testing.T) {
 				t.Fatalf("failed to read file: %v", err)
 			}
 
-			doc, err := parseMemory(tt.filepath, string(content))
+			doc, err := parseMemory(context.Background(), tt.filepath, string(content))
 
 			if tt.expectError {
 				if err == nil {
@@ -104,7 +105,7 @@ func TestParseAgentWithFrontmatter(t *testing.T) {
 				t.Fatalf("failed to read file: %v", err)
 			}
 
-			doc, err := parseDocumentWithFrontmatter(tt.filepath, string(content), "agent")
+			doc, err := parseDocumentWithFrontmatter(context.Background(), tt.filepath, string(content), "agent")
 
 			if tt.expectError {
 				if err == nil {
@@ -166,7 +167,7 @@ func TestParseSkillWithFrontmatter(t *testing.T) {
 				t.Fatalf("failed to read file: %v", err)
 			}
 
-			doc, err := parseDocumentWithFrontmatter(tt.filepath, string(content), "skill")
+			doc, err := parseDocumentWithFrontmatter(context.Background(), tt.filepath, string(content), "skill")
 
 			if tt.expectError {
 				if err == nil {
@@ -220,7 +221,7 @@ func TestParseCommandWithFrontmatter(t *testing.T) {
 				t.Fatalf("failed to read file: %v", err)
 			}
 
-			doc, err := parseDocumentWithFrontmatter(tt.filepath, string(content), "command")
+			doc, err := parseDocumentWithFrontmatter(context.Background(), tt.filepath, string(content), "command")
 
 			if tt.expectError {
 				if err == nil {

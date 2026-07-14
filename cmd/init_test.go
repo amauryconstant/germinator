@@ -33,7 +33,8 @@ type fakeInitializer struct {
 	lastReq *InitializeRequest
 }
 
-func (f *fakeInitializer) Initialize(_ context.Context, req *InitializeRequest) ([]core.InitializeResult, error) {
+func (f *fakeInitializer) Initialize(ctx context.Context, req *InitializeRequest) ([]core.InitializeResult, error) {
+	_ = ctx // accept-and-may-ignore: fake records the request only
 	f.calls++
 	f.lastReq = req
 	if f.err != nil {

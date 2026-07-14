@@ -59,12 +59,16 @@ func ResolvePreset(lib *Library, name string) ([]string, error) {
 // references using the receiver library. Returns references in
 // "type/name" format. The ctx parameter is accepted for parity with
 // future context-aware preset loading (e.g., for cancellation) but is
-// unused in the current implementation.
+// unused in the current implementation. Resolution is a pure in-memory
+// map lookup; if the resolution path is extended to perform I/O in the
+// future, ctx SHALL be forwarded to that I/O (per cli-framework/spec.md
+// accept-and-may-ignore pattern).
 //
 // On miss, returns *core.ConfigError("preset", name, "preset not
 // found"); the cmd/init runInit wrapper translates this into the
 // *core.NotFoundError expected by ExitCodeFor.
-func (lib *Library) ResolvePreset(_ context.Context, name string) ([]string, error) {
+func (lib *Library) ResolvePreset(ctx context.Context, name string) ([]string, error) {
+	_ = ctx // accept-and-may-ignore: pure in-memory lookup, no I/O to forward to today
 	preset, ok := lib.Presets[name]
 	if !ok {
 		return nil, gerrors.NewConfigError("preset", name, "preset not found")

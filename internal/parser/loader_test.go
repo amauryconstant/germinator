@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"context"
 	"errors"
 	"os"
 	"strings"
@@ -138,7 +139,7 @@ func TestDetectTypeFromFilename(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			docType := DetectType(tt.filepath)
+			docType := DetectType(context.Background(), tt.filepath)
 			if docType != tt.expectedType {
 				t.Errorf("DetectType(%q) = %v, want %v", tt.filepath, docType, tt.expectedType)
 			}
@@ -176,7 +177,7 @@ func TestDetectTypeCaseSensitivity(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			docType := DetectType(tt.filepath)
+			docType := DetectType(context.Background(), tt.filepath)
 			if docType != tt.expectedType {
 				t.Errorf("DetectType(%q) = %v, want %v", tt.filepath, docType, tt.expectedType)
 			}
@@ -219,7 +220,7 @@ func TestDetectTypeSpecialCharacters(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			docType := DetectType(tt.filepath)
+			docType := DetectType(context.Background(), tt.filepath)
 			if docType != tt.expectedType {
 				t.Errorf("DetectType(%q) = %v, want %v", tt.filepath, docType, tt.expectedType)
 			}
@@ -265,7 +266,7 @@ Content`
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			doc, err := LoadDocument(testFile, tt.platform)
+			doc, err := LoadDocument(context.Background(), testFile, tt.platform)
 
 			if tt.wantErr {
 				if err == nil {
@@ -300,7 +301,7 @@ Content`
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	doc, err := LoadDocument(testFile, "claude-code")
+	doc, err := LoadDocument(context.Background(), testFile, "claude-code")
 
 	if err == nil {
 		t.Errorf("LoadDocument() expected error for unrecognizable filename, got nil")
@@ -328,7 +329,7 @@ Content`
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	doc, err := LoadDocument(testFile, "claude-code")
+	doc, err := LoadDocument(context.Background(), testFile, "claude-code")
 
 	if err == nil {
 		t.Errorf("LoadDocument() expected error for invalid YAML, got nil")
@@ -352,7 +353,7 @@ Content`
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	doc, err := LoadDocument(testFile, "claude-code")
+	doc, err := LoadDocument(context.Background(), testFile, "claude-code")
 
 	if err != nil {
 		t.Errorf("LoadDocument() unexpected error: %v", err)
@@ -417,7 +418,7 @@ Skill content`,
 				t.Fatalf("Failed to create test file: %v", err)
 			}
 
-			doc, err := LoadDocument(testFile, "claude-code")
+			doc, err := LoadDocument(context.Background(), testFile, "claude-code")
 			if err != nil {
 				t.Errorf("LoadDocument() failed for %s: %v", tt.name, err)
 			}
@@ -444,7 +445,7 @@ Content`
 			t.Fatalf("Failed to create test file: %v", err)
 		}
 
-		_, err := LoadDocument(testFile, "claude-code")
+		_, err := LoadDocument(context.Background(), testFile, "claude-code")
 
 		if err == nil {
 			t.Fatal("Expected error for unrecognizable filename")
@@ -476,7 +477,7 @@ Content`
 			t.Fatalf("Failed to create test file: %v", err)
 		}
 
-		_, err := LoadDocument(testFile, "claude-code")
+		_, err := LoadDocument(context.Background(), testFile, "claude-code")
 
 		if err == nil {
 			t.Fatal("Expected error for invalid YAML")
@@ -500,7 +501,7 @@ func TestLoadDocumentReturnsTypedFileError(t *testing.T) {
 	t.Run("file not found returns FileError", func(t *testing.T) {
 		nonExistentFile := "/nonexistent/path/test-agent.md"
 
-		_, err := LoadDocument(nonExistentFile, "claude-code")
+		_, err := LoadDocument(context.Background(), nonExistentFile, "claude-code")
 
 		if err == nil {
 			t.Fatal("Expected error for non-existent file")
@@ -537,7 +538,7 @@ Content`
 			t.Fatalf("Failed to create test file: %v", err)
 		}
 
-		doc, err := LoadDocument(testFile, "claude-code")
+		doc, err := LoadDocument(context.Background(), testFile, "claude-code")
 
 		if err != nil {
 			t.Fatalf("LoadDocument should parse without error: %v", err)

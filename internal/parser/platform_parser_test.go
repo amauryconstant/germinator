@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -97,7 +98,7 @@ func TestParsePlatformDocumentClaudeCodeAgent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			doc, err := ParsePlatformDocument(tt.filepath, tt.platform, tt.docType)
+			doc, err := ParsePlatformDocument(context.Background(), tt.filepath, tt.platform, tt.docType)
 
 			if tt.expectError {
 				if err == nil {
@@ -202,7 +203,7 @@ func TestParsePlatformDocumentOpenCodeAgent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			doc, err := ParsePlatformDocument(tt.filepath, tt.platform, tt.docType)
+			doc, err := ParsePlatformDocument(context.Background(), tt.filepath, tt.platform, tt.docType)
 
 			if tt.expectError {
 				if err == nil {
@@ -236,7 +237,7 @@ content`
 		t.Fatalf("failed to write test file: %v", err)
 	}
 
-	_, err := ParsePlatformDocument(invalidFile, "claude-code", "agent")
+	_, err := ParsePlatformDocument(context.Background(), invalidFile, "claude-code", "agent")
 	if err == nil {
 		t.Error("ParsePlatformDocument() expected error for invalid YAML, got nil")
 	}
@@ -248,7 +249,7 @@ content`
 func TestParsePlatformDocumentFileNotFound(t *testing.T) {
 	nonExistentPath := "/non/existent/path/file.md"
 
-	_, err := ParsePlatformDocument(nonExistentPath, "claude-code", "agent")
+	_, err := ParsePlatformDocument(context.Background(), nonExistentPath, "claude-code", "agent")
 	if err == nil {
 		t.Error("ParsePlatformDocument() expected error for non-existent file, got nil")
 	}
@@ -273,7 +274,7 @@ and formatting
 		t.Fatalf("failed to write test file: %v", err)
 	}
 
-	doc, err := ParsePlatformDocument(testFile, "claude-code", "agent")
+	doc, err := ParsePlatformDocument(context.Background(), testFile, "claude-code", "agent")
 	if err != nil {
 		t.Fatalf("ParsePlatformDocument() unexpected error: %v", err)
 	}
@@ -302,7 +303,7 @@ content`
 		t.Fatalf("failed to write test file: %v", err)
 	}
 
-	_, err := ParsePlatformDocument(testFile, "unsupported-platform", "agent")
+	_, err := ParsePlatformDocument(context.Background(), testFile, "unsupported-platform", "agent")
 	if err == nil {
 		t.Error("ParsePlatformDocument() expected error for unsupported platform, got nil")
 	}
@@ -324,7 +325,7 @@ content`
 		t.Fatalf("failed to write test file: %v", err)
 	}
 
-	_, err := ParsePlatformDocument(testFile, "claude-code", "unsupported-type")
+	_, err := ParsePlatformDocument(context.Background(), testFile, "claude-code", "unsupported-type")
 	if err == nil {
 		t.Error("ParsePlatformDocument() expected error for unsupported document type, got nil")
 	}
