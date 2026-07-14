@@ -146,10 +146,12 @@ Examples:
 //	default: confirmation message on opts.IO.Out (stdout)
 //
 // For dry-run, the underlying library.CreateLibrary has already
-// printed the "Would create library at..." block to os.Stdout
-// (legacy behavior preserved in the library layer). runLibraryInit
-// does not double-print; the cmd-layer "Dry run complete"
-// confirmation is the only line added in dry-run plain mode.
+// printed the "Would create library at..." block via the writer
+// passed in InitRequest.Stdout (cmd layer sets it to opts.IO.Out,
+// so the preview lands on the same writer as the confirmation line
+// below). runLibraryInit does not double-print; the cmd-layer
+// "Dry run complete" confirmation is the only line added in
+// dry-run plain mode.
 func runLibraryInit(opts *libraryInitOptions) error {
 	path := opts.Path
 	if path == "" {
@@ -162,6 +164,7 @@ func runLibraryInit(opts *libraryInitOptions) error {
 		Path:   path,
 		Force:  opts.Force,
 		DryRun: opts.DryRun,
+		Stdout: opts.IO.Out,
 	}); err != nil {
 		return fmt.Errorf("creating library: %w", err)
 	}

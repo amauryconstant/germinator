@@ -5,6 +5,7 @@ package library
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,6 +21,10 @@ type CreateOptions struct {
 	DryRun bool
 	// Force overwrites an existing library at the target path.
 	Force bool
+	// Stdout receives dry-run output (typically opts.IO.Out from the
+	// cmd layer). Optional: nil means "no dry-run output" so tests
+	// can construct CreateOptions{} without a writer.
+	Stdout io.Writer
 }
 
 // CreateLibrary creates a new library directory structure at the specified path.
@@ -35,12 +40,14 @@ func CreateLibrary(opts CreateOptions) error {
 
 	// Dry run mode - print what would be created
 	if opts.DryRun {
-		_, _ = fmt.Fprintln(os.Stdout, "Would create library at:", opts.Path)
-		_, _ = fmt.Fprintln(os.Stdout, "  -", filepath.Join(opts.Path, "library.yaml"))
-		_, _ = fmt.Fprintln(os.Stdout, "  -", filepath.Join(opts.Path, "skills")+"/")
-		_, _ = fmt.Fprintln(os.Stdout, "  -", filepath.Join(opts.Path, "agents")+"/")
-		_, _ = fmt.Fprintln(os.Stdout, "  -", filepath.Join(opts.Path, "commands")+"/")
-		_, _ = fmt.Fprintln(os.Stdout, "  -", filepath.Join(opts.Path, "memory")+"/")
+		if opts.Stdout != nil {
+			_, _ = fmt.Fprintln(opts.Stdout, "Would create library at:", opts.Path)
+			_, _ = fmt.Fprintln(opts.Stdout, "  -", filepath.Join(opts.Path, "library.yaml"))
+			_, _ = fmt.Fprintln(opts.Stdout, "  -", filepath.Join(opts.Path, "skills")+"/")
+			_, _ = fmt.Fprintln(opts.Stdout, "  -", filepath.Join(opts.Path, "agents")+"/")
+			_, _ = fmt.Fprintln(opts.Stdout, "  -", filepath.Join(opts.Path, "commands")+"/")
+			_, _ = fmt.Fprintln(opts.Stdout, "  -", filepath.Join(opts.Path, "memory")+"/")
+		}
 		return nil
 	}
 
@@ -102,6 +109,7 @@ func Init(ctx context.Context, req *InitRequest) error {
 		Path:   req.Path,
 		DryRun: req.DryRun,
 		Force:  req.Force,
+		Stdout: req.Stdout,
 	}); err != nil {
 		return fmt.Errorf("creating library: %w", err)
 	}

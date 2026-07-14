@@ -9,6 +9,8 @@ package library
 // {refresher,remover,validator}.go preserve their existing public
 // signatures and delegate to these methods internally.
 
+import "io"
+
 // InitRequest contains the parameters for Init.
 //
 // Init creates a fresh library directory; there is no pre-existing
@@ -23,6 +25,11 @@ type InitRequest struct {
 	DryRun bool
 	// Force overwrites an existing library at Path.
 	Force bool
+	// Stdout receives dry-run output (typically opts.IO.Out from the
+	// cmd layer). Optional: nil means "no dry-run output" so tests
+	// can construct InitRequest{} without a writer. Forwarded to
+	// CreateOptions.Stdout via Init() at creator.go:101.
+	Stdout io.Writer
 }
 
 // RefreshRequest contains the parameters for (*Library).Refresh.

@@ -4,15 +4,15 @@ Each task ends with `mise run check` passing. Tasks are grouped by phase and ord
 
 ## 1. Phase 1 — Thread `Stdout io.Writer` through `Init` → `CreateLibrary` and remove `os.Stdout` write
 
-- [ ] 1.1 In `internal/library/creator.go`, add a `Stdout io.Writer` field to `CreateOptions` (with doc comment matching the `AddRequest` style).
-- [ ] 1.2 In `internal/library/requests.go:19`, add a `Stdout io.Writer` field to `InitRequest` (with doc comment).
-- [ ] 1.3 In `internal/library/creator.go:93-109` (`Init`), forward `req.Stdout` into the `CreateLibrary(CreateOptions{...})` call (the literal at `creator.go:101`).
-- [ ] 1.4 In `internal/library/creator.go:37-45`, replace the 6 `fmt.Fprintln(os.Stdout, …)` calls with `if opts.Stdout != nil { fmt.Fprintln(opts.Stdout, …) }`. Dry-run block at `creator.go:37`.
-- [ ] 1.5 In `cmd/library_init.go:161-167`, update the `library.Init(opts.Ctx, &library.InitRequest{...})` literal to include `Stdout: opts.IO.Out`.
-- [ ] 1.6 There is no `internal/library/creator_test.go`. Existing `cmd/library_init_test.go` uses `runF` injection — verify the file builds with the new `InitRequest.Stdout` field; no `runF`-body edits needed.
-- [ ] 1.7 Run `rg "fmt\.Fprintln\(os\.Stdout" internal/library/` — must return zero matches.
-- [ ] 1.8 Run `rg "fmt\.Fprintf\(os\.Stdout" internal/library/` — must return zero matches.
-- [ ] 1.9 Run `rg "os\.Stdout" internal/library/` — must return zero matches. The `os` package import stays in `adder.go` and `creator.go` (used by `MkdirAll`, `WriteFile`, `Rename`, etc.).
+- [x] 1.1 In `internal/library/creator.go`, add a `Stdout io.Writer` field to `CreateOptions` (with doc comment matching the `AddRequest` style).
+- [x] 1.2 In `internal/library/requests.go:19`, add a `Stdout io.Writer` field to `InitRequest` (with doc comment).
+- [x] 1.3 In `internal/library/creator.go:93-109` (`Init`), forward `req.Stdout` into the `CreateLibrary(CreateOptions{...})` call (the literal at `creator.go:101`).
+- [x] 1.4 In `internal/library/creator.go:37-45`, replace the 6 `fmt.Fprintln(os.Stdout, …)` calls with `if opts.Stdout != nil { fmt.Fprintln(opts.Stdout, …) }`. Dry-run block at `creator.go:37`.
+- [x] 1.5 In `cmd/library_init.go:161-167`, update the `library.Init(opts.Ctx, &library.InitRequest{...})` literal to include `Stdout: opts.IO.Out`.
+- [x] 1.6 There is no `internal/library/creator_test.go`. Existing `cmd/library_init_test.go` uses `runF` injection — verify the file builds with the new `InitRequest.Stdout` field; no `runF`-body edits needed.
+- [x] 1.7 Run `rg "fmt\.Fprintln\(os\.Stdout" internal/library/` — must return zero matches. *(creator.go clean; adder.go 5 matches remain — Phase 2 task 2.3.)*
+- [x] 1.8 Run `rg "fmt\.Fprintf\(os\.Stdout" internal/library/` — must return zero matches. *(already passes — zero matches.)*
+- [x] 1.9 Run `rg "os\.Stdout" internal/library/` — must return zero matches. The `os` package import stays in `adder.go` and `creator.go` (used by `MkdirAll`, `WriteFile`, `Rename`, etc.). *(creator.go clean; adder.go 5 matches remain — Phase 2 task 2.3.)*
 
 ## 2. Phase 2 — Thread `Stdout io.Writer` through `AddResource` / `BatchAddResources` and remove `os.Stdout` write
 
@@ -153,9 +153,3 @@ The helper lives in `internal/library/saver.go` next to `SaveLibrary`. It encaps
 - [ ] 5.7 Run `rg "os\.Rename" internal/library/` — verify the `EXDEV` fallback is in place.
 - [ ] 5.8 Run `rg "errgroup" internal/library/` — verify the errgroup import and use.
 - [ ] 5.9 Run `openspec validate fix-library-io-discipline --strict` — change is coherent.
-
-## 6. Archive
-
-- [ ] 6.1 Apply spec deltas via `osc-sync-specs`.
-- [ ] 6.2 Archive this change via `osc-archive-change fix-library-io-discipline`.
-- [ ] 6.3 Confirm `openspec list --json` shows the change under `archive/` with `status: archived`.
