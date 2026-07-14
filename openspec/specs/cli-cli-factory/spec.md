@@ -26,10 +26,23 @@ Every service that performs expensive I/O or holds shared mutable state SHALL be
 
 #### Scenario: Library is a lazy function
 
-- **WHEN** the Factory is constructed
-- **THEN** `Factory.Library func() (*library.Library, error)` SHALL be set
-- **AND** the function SHALL NOT be called during Factory construction
-- **AND** the function SHALL cache its result via `cmdutil.OnceValuesFunc[T]` (a generic helper wrapping `sync.Once`)
+- **GIVEN** the Factory is constructed via `cmdutil.BuildFactory(ctx, io, appVersion, executable)`
+- **WHEN** the Factory struct is inspected
+- **THEN** `Factory.Library func() (*library.Library, error)` SHALL be exposed with the correct signature
+- **AND** the contract test `TestFactory_OnlyConfigAndLibraryAreLazyFields` SHALL continue to pass because the `Library` field exists with the correct signature; only the `BuildFactory` wiring is removed
+- **AND** any cmd-side code MAY assign `f.Library` (e.g., for tests or alternative composition roots in `main.go`) without violating this spec — the field is exposed and assignable, not required-to-be-set-by-BuildFactory
+
+#### Scenario: f.Library is nil after BuildFactory returns
+
+- **WHEN** `cmdutil.BuildFactory(ctx, io, appVersion, executable)` returns
+- **THEN** `f.Library` SHALL be `nil` (the eager `OnceValuesFunc` wiring that previously captured `f.RootContext` is removed per `propagate-context-through-shell` Decision 6)
+
+#### Scenario: Per-RunE lazy closure captures c.Context()
+
+- **GIVEN** a `RunE` for a command that needs the library
+- **WHEN** the command is invoked
+- **THEN** the `RunE` SHALL construct a lazy `opts.Library` closure capturing `c.Context()` at `RunE` entry
+- **AND** the closure SHALL load the library once per `RunE` invocation and cache the result for subsequent `opts.Library()` calls within the same invocation
 
 #### Scenario: Config is a lazy function
 
