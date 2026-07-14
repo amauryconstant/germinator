@@ -21,17 +21,19 @@ type CreateOptions struct {
 	DryRun bool
 	// Force overwrites an existing library at the target path.
 	Force bool
-	// Stdout receives dry-run output (typically opts.IO.Out from the
-	// cmd layer). Optional: nil means "no dry-run output" so tests
-	// can construct CreateOptions{} without a writer.
-	Stdout io.Writer
 }
 
 // CreateLibrary creates a new library directory structure at the specified path.
 // It creates library.yaml and empty resource directories (skills, agents, commands, memory).
-// If DryRun is true, it prints what would be created without making changes.
+// If DryRun is true, it writes a summary of what would be created to stdout without making changes.
 // If Force is false and a library already exists at Path, an error is returned.
-func CreateLibrary(opts CreateOptions) error {
+//
+// ctx is forwarded to LoadLibrary so caller cancellation propagates through the
+// post-create validation step. The stdout parameter is the destination for the
+// DryRun summary; pass nil to suppress DryRun output (or call from contexts that
+// have no UI). This task absorbs the stdout parameter from `fix-library-io-discipline`
+// alongside the ctx-first reorder per Go convention.
+func CreateLibrary(ctx context.Context, opts CreateOptions, stdout io.Writer) error {
 	// Check if library already exists
 	exists := Exists(opts.Path)
 	if exists && !opts.Force {
@@ -40,13 +42,13 @@ func CreateLibrary(opts CreateOptions) error {
 
 	// Dry run mode - print what would be created
 	if opts.DryRun {
-		if opts.Stdout != nil {
-			_, _ = fmt.Fprintln(opts.Stdout, "Would create library at:", opts.Path)
-			_, _ = fmt.Fprintln(opts.Stdout, "  -", filepath.Join(opts.Path, "library.yaml"))
-			_, _ = fmt.Fprintln(opts.Stdout, "  -", filepath.Join(opts.Path, "skills")+"/")
-			_, _ = fmt.Fprintln(opts.Stdout, "  -", filepath.Join(opts.Path, "agents")+"/")
-			_, _ = fmt.Fprintln(opts.Stdout, "  -", filepath.Join(opts.Path, "commands")+"/")
-			_, _ = fmt.Fprintln(opts.Stdout, "  -", filepath.Join(opts.Path, "memory")+"/")
+		if stdout != nil {
+			_, _ = fmt.Fprintln(stdout, "Would create library at:", opts.Path)
+			_, _ = fmt.Fprintln(stdout, "  -", filepath.Join(opts.Path, "library.yaml"))
+			_, _ = fmt.Fprintln(stdout, "  -", filepath.Join(opts.Path, "skills")+"/")
+			_, _ = fmt.Fprintln(stdout, "  -", filepath.Join(opts.Path, "agents")+"/")
+			_, _ = fmt.Fprintln(stdout, "  -", filepath.Join(opts.Path, "commands")+"/")
+			_, _ = fmt.Fprintln(stdout, "  -", filepath.Join(opts.Path, "memory")+"/")
 		}
 		return nil
 	}
@@ -76,8 +78,6 @@ func CreateLibrary(opts CreateOptions) error {
 	}
 
 	// Validate created library by loading it
-	// TODO(slice-7): replace with caller context (c.Context() in runF wiring).
-	ctx := context.Background()
 	if _, err := LoadLibrary(ctx, opts.Path); err != nil {
 		// Validation failed - leave partial structure for debugging
 		return fmt.Errorf("library created but validation failed: %w (partial structure left for debugging)", err)
@@ -98,8 +98,10 @@ func CreateLibrary(opts CreateOptions) error {
 // form at internal/library/creator.go:127.
 //
 // ctx is checked at entry to honor caller-supplied cancellation
-// before any I/O.
-func Init(ctx context.Context, req *InitRequest) error {
+// before any I/O. stdout is forwarded to CreateLibrary so the DryRun
+// preview ("Would create library at: …") appears on the cmd-side
+// writer (typically opts.IO.Out); pass io.Discard or nil to suppress.
+func Init(ctx context.Context, req *InitRequest, stdout io.Writer) error {
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("init library: %w", err)
 	}
@@ -107,12 +109,11 @@ func Init(ctx context.Context, req *InitRequest) error {
 		return gerrors.NewValidationError("library init", "request", "",
 			"init request must not be nil")
 	}
-	if err := CreateLibrary(CreateOptions{
+	if err := CreateLibrary(ctx, CreateOptions{
 		Path:   req.Path,
 		DryRun: req.DryRun,
 		Force:  req.Force,
-		Stdout: req.Stdout,
-	}); err != nil {
+	}, stdout); err != nil {
 		return fmt.Errorf("creating library: %w", err)
 	}
 	return nil

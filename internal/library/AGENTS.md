@@ -99,14 +99,14 @@ type CreateOptions struct {
 }
 
 // Create new library directory structure
-CreateLibrary(opts CreateOptions) error
+CreateLibrary(ctx context.Context, opts CreateOptions, stdout io.Writer) error
 ```
 
 Creates:
 - `library.yaml` with version "1" and empty resources/presets
 - `skills/`, `agents/`, `commands/`, `memory/` directories
 
-Post-creation: Validates by calling `LoadLibrary()` to ensure well-formed structure.
+Post-creation: Validates by calling `LoadLibrary()` to ensure well-formed structure. The `ctx` parameter is forwarded to the validation load; `stdout` receives the DryRun summary when non-nil (or is suppressed entirely when nil).
 
 ## Listing
 
@@ -255,10 +255,10 @@ type RemovePresetOptions struct {
 }
 
 // RemoveResource removes a resource from the library (deletes file + YAML entry)
-RemoveResource(opts RemoveResourceOptions) error
+RemoveResource(ctx context.Context, opts RemoveResourceOptions) error
 
 // RemovePreset removes a preset from the library YAML
-RemovePreset(opts RemovePresetOptions) error
+RemovePreset(ctx context.Context, opts RemovePresetOptions) error
 ```
 
 ### RemoveResource Flow
@@ -370,7 +370,7 @@ type RefreshError struct {
 }
 
 // RefreshLibrary syncs metadata from registered resource files into library.yaml
-RefreshLibrary(opts RefreshOptions) (*RefreshResult, error)
+RefreshLibrary(ctx context.Context, opts RefreshOptions) (*RefreshResult, error)
 ```
 
 ### Refresh Behavior
@@ -403,7 +403,7 @@ func (lib *Library) ResolvePreset(ctx context.Context, name string) ([]string, e
 func Init(ctx context.Context, req *InitRequest) error
 ```
 
-All methods assert `lib != nil && lib.RootPath != ""` at entry. See `methods_test.go` for table-driven coverage. The package-level functions (`RefreshLibrary`, `RemoveResource`, `RemovePreset`, `ValidateLibrary`, `FixLibrary`) preserve their existing public signatures and delegate internally to the method form.
+All methods assert `lib != nil && lib.RootPath != ""` at entry. See `methods_test.go` for table-driven coverage. The package-level functions `RefreshLibrary(ctx, opts)`, `RemoveResource(ctx, opts)`, `RemovePreset(ctx, opts)`, and `CreateLibrary(ctx, opts, stdout)` accept `ctx context.Context` as the first parameter (per the cli-framework/spec.md ctx-propagation contract) and forward it to internal `LoadLibrary` calls; `ValidateLibrary(lib)` and `FixLibrary(lib)` are pure in-memory operations and do not take ctx. The methods delegate to the package-level forms, passing the receiver's ctx through.
 
 ## Orphan Discovery
 

@@ -148,7 +148,7 @@ func (lib *Library) Refresh(ctx context.Context, req *RefreshRequest) (*RefreshR
 		return nil, gerrors.NewValidationError("library refresh", "rootPath", "",
 			"library is not loaded (RootPath is empty)")
 	}
-	return RefreshLibrary(RefreshOptions{
+	return RefreshLibrary(ctx, RefreshOptions{
 		LibraryPath: lib.RootPath,
 		DryRun:      req.DryRun,
 		Force:       req.Force,
@@ -174,7 +174,7 @@ func (lib *Library) RemoveResource(ctx context.Context, req *RemoveResourceReque
 		return gerrors.NewValidationError("library remove resource", "rootPath", "",
 			"library is not loaded (RootPath is empty)")
 	}
-	if _, err := RemoveResource(RemoveResourceOptions{
+	if _, err := RemoveResource(ctx, RemoveResourceOptions{
 		Ref:         req.Ref,
 		LibraryPath: lib.RootPath,
 	}); err != nil {
@@ -202,7 +202,7 @@ func (lib *Library) RemovePreset(ctx context.Context, req *RemovePresetRequest) 
 		return gerrors.NewValidationError("library remove preset", "rootPath", "",
 			"library is not loaded (RootPath is empty)")
 	}
-	if _, err := RemovePreset(RemovePresetOptions{
+	if _, err := RemovePreset(ctx, RemovePresetOptions{
 		Name:        req.Name,
 		LibraryPath: lib.RootPath,
 	}); err != nil {

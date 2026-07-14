@@ -54,11 +54,9 @@ type RefreshError struct {
 
 // RefreshLibrary syncs metadata from registered resource files into library.yaml.
 // It updates descriptions when they differ from frontmatter, updates paths when files
-// are renamed (if frontmatter name matches), and detects conflicts.
-func RefreshLibrary(opts RefreshOptions) (*RefreshResult, error) {
-	// TODO(slice-7): replace with caller context (c.Context() in runF wiring).
-	ctx := context.Background()
-
+// are renamed (if frontmatter name matches), and detects conflicts. The ctx parameter
+// is forwarded to LoadLibrary so caller cancellation propagates through the refresh.
+func RefreshLibrary(ctx context.Context, opts RefreshOptions) (*RefreshResult, error) {
 	// Load the library
 	lib, err := LoadLibrary(ctx, opts.LibraryPath)
 	if err != nil {

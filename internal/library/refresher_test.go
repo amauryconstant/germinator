@@ -214,7 +214,7 @@ description: new description
 			opts := tt.opts
 			opts.LibraryPath = tmpDir
 
-			result, err := RefreshLibrary(opts)
+			result, err := RefreshLibrary(context.Background(), opts)
 			if err != nil {
 				t.Fatalf("RefreshLibrary() error = %v", err)
 			}

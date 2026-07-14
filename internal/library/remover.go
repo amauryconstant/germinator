@@ -58,11 +58,10 @@ type RemovePresetError struct {
 }
 
 // RemoveResource removes a resource from the library.
-// It deletes both the physical file and the YAML entry.
-func RemoveResource(opts RemoveResourceOptions) (*RemoveResourceOutput, error) {
-	// TODO(slice-7): replace with caller context (c.Context() in runF wiring).
-	ctx := context.Background()
-
+// It deletes both the physical file and the YAML entry. The ctx parameter
+// is forwarded to LoadLibrary so caller cancellation propagates through
+// the load → mutate → reload sequence.
+func RemoveResource(ctx context.Context, opts RemoveResourceOptions) (*RemoveResourceOutput, error) {
 	typ, name, err := ParseRef(opts.Ref)
 	if err != nil {
 		return nil, fmt.Errorf("parsing reference: %w", err)
@@ -123,11 +122,10 @@ func RemoveResource(opts RemoveResourceOptions) (*RemoveResourceOutput, error) {
 	}, nil
 }
 
-// RemovePreset removes a preset from the library.
-func RemovePreset(opts RemovePresetOptions) (*RemovePresetOutput, error) {
-	// TODO(slice-7): replace with caller context (c.Context() in runF wiring).
-	ctx := context.Background()
-
+// RemovePreset removes a preset from the library. The ctx parameter is
+// forwarded to LoadLibrary so caller cancellation propagates through the
+// load → mutate → reload sequence.
+func RemovePreset(ctx context.Context, opts RemovePresetOptions) (*RemovePresetOutput, error) {
 	if opts.Name == "" {
 		return nil, gerrors.NewValidationError("", "name", "", "preset name is required")
 	}

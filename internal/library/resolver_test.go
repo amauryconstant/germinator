@@ -111,36 +111,6 @@ func TestResolveResources_FailFast(t *testing.T) {
 	}
 }
 
-func TestResolvePreset(t *testing.T) {
-	lib := &Library{
-		Presets: map[string]Preset{
-			"git-workflow": {
-				Name:        "git-workflow",
-				Description: "Git tools",
-				Resources:   []string{"skill/commit", "skill/merge-request"},
-			},
-		},
-	}
-
-	refs, err := ResolvePreset(lib, "git-workflow")
-	if err != nil {
-		t.Fatalf("ResolvePreset() error = %v", err)
-	}
-
-	if len(refs) != 2 {
-		t.Errorf("ResolvePreset() returned %d refs, want 2", len(refs))
-	}
-}
-
-func TestResolvePreset_NotFound(t *testing.T) {
-	lib := &Library{Presets: map[string]Preset{}}
-
-	_, err := ResolvePreset(lib, "nonexistent")
-	if err == nil {
-		t.Error("ResolvePreset() expected error for missing preset")
-	}
-}
-
 func TestLibraryResolvePreset(t *testing.T) {
 	lib := &Library{
 		Presets: map[string]Preset{
@@ -193,35 +163,6 @@ func TestLibraryResolvePreset_EmptyResources(t *testing.T) {
 	}
 	if len(refs) != 0 {
 		t.Errorf("ResolvePreset() returned %d refs, want 0", len(refs))
-	}
-}
-
-func TestResolvePreset_PackageShimDelegatesToMethod(t *testing.T) {
-	lib := &Library{
-		Presets: map[string]Preset{
-			"git-workflow": {
-				Name:      "git-workflow",
-				Resources: []string{"skill/commit"},
-			},
-		},
-	}
-
-	refs, err := ResolvePreset(lib, "git-workflow")
-	if err != nil {
-		t.Fatalf("ResolvePreset() error = %v", err)
-	}
-	if len(refs) != 1 || refs[0] != "skill/commit" {
-		t.Errorf("ResolvePreset() refs = %v, want [skill/commit]", refs)
-	}
-
-	// Shim and method must produce equivalent errors on miss.
-	_, errShim := ResolvePreset(lib, "ghost")
-	_, errMethod := lib.ResolvePreset(context.Background(), "ghost")
-	if errShim == nil || errMethod == nil {
-		t.Fatalf("expected errors from both, got shim=%v method=%v", errShim, errMethod)
-	}
-	if errShim.Error() != errMethod.Error() {
-		t.Errorf("shim error %q does not match method error %q", errShim.Error(), errMethod.Error())
 	}
 }
 

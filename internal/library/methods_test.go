@@ -2,6 +2,7 @@ package library
 
 import (
 	"context"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -556,7 +557,7 @@ func TestInit(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := Init(context.Background(), tt.req)
+			err := Init(context.Background(), tt.req, io.Discard)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("Init() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -568,7 +569,7 @@ func TestInit_CtxCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	err := Init(ctx, &InitRequest{Path: filepath.Join(t.TempDir(), "x")})
+	err := Init(ctx, &InitRequest{Path: filepath.Join(t.TempDir(), "x")}, io.Discard)
 	if err == nil {
 		t.Fatal("expected ctx cancellation error, got nil")
 	}

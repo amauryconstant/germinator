@@ -2,6 +2,7 @@ package library
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,20 +16,19 @@ import (
 // was previously only verified end-to-end via test/e2e/library_init_test.go.
 
 // TestCreateLibrary_DryRun_WritesToStdout verifies that the dry-run
-// preview writes to the Stdout field on CreateOptions (gated on
-// opts.Stdout != nil) rather than to os.Stdout directly. Closes the
-// partial coverage on the library-library-scaffolding spec scenario
-// "Dry-run does not create files" by injecting a bytes.Buffer and
-// asserting each preview line is present in the captured output.
+// preview writes to the stdout parameter (gated on stdout != nil)
+// rather than to os.Stdout directly. Closes the partial coverage on
+// the library-library-scaffolding spec scenario "Dry-run does not
+// create files" by injecting a bytes.Buffer and asserting each
+// preview line is present in the captured output.
 func TestCreateLibrary_DryRun_WritesToStdout(t *testing.T) {
 	tmpDir := filepath.Join(t.TempDir(), "writer-lib")
 
 	var buf bytes.Buffer
-	err := CreateLibrary(CreateOptions{
+	err := CreateLibrary(context.Background(), CreateOptions{
 		Path:   tmpDir,
 		DryRun: true,
-		Stdout: &buf,
-	})
+	}, &buf)
 	if err != nil {
 		t.Fatalf("CreateLibrary() error = %v", err)
 	}

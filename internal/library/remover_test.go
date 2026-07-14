@@ -44,7 +44,7 @@ tools:
 	}
 
 	// Remove the resource
-	result, err := RemoveResource(RemoveResourceOptions{
+	result, err := RemoveResource(context.Background(), RemoveResourceOptions{
 		Ref:         "skill/to-remove",
 		LibraryPath: tmpLibDir,
 	})
@@ -82,7 +82,7 @@ func TestRemoveResource_NotFound(t *testing.T) {
 	tmpLibDir := t.TempDir()
 	createTestLibrary(t, tmpLibDir)
 
-	_, err := RemoveResource(RemoveResourceOptions{
+	_, err := RemoveResource(context.Background(), RemoveResourceOptions{
 		Ref:         "skill/nonexistent",
 		LibraryPath: tmpLibDir,
 	})
@@ -139,7 +139,7 @@ tools:
 	}
 
 	// Try to remove the resource - should fail
-	_, err = RemoveResource(RemoveResourceOptions{
+	_, err = RemoveResource(context.Background(), RemoveResourceOptions{
 		Ref:         "skill/conflict-skill",
 		LibraryPath: tmpLibDir,
 	})
@@ -164,7 +164,7 @@ func TestRemoveResource_InvalidRefFormat(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := RemoveResource(RemoveResourceOptions{
+			_, err := RemoveResource(context.Background(), RemoveResourceOptions{
 				Ref:         tt.ref,
 				LibraryPath: tmpLibDir,
 			})
@@ -232,7 +232,7 @@ tools:
 	}
 
 	// Remove the preset
-	result, err := RemovePreset(RemovePresetOptions{
+	result, err := RemovePreset(context.Background(), RemovePresetOptions{
 		Name:        "workflow-preset",
 		LibraryPath: tmpLibDir,
 	})
@@ -269,7 +269,7 @@ func TestRemovePreset_NotFound(t *testing.T) {
 	tmpLibDir := t.TempDir()
 	createTestLibrary(t, tmpLibDir)
 
-	_, err := RemovePreset(RemovePresetOptions{
+	_, err := RemovePreset(context.Background(), RemovePresetOptions{
 		Name:        "nonexistent-preset",
 		LibraryPath: tmpLibDir,
 	})
@@ -282,7 +282,7 @@ func TestRemovePreset_EmptyName(t *testing.T) {
 	tmpLibDir := t.TempDir()
 	createTestLibrary(t, tmpLibDir)
 
-	_, err := RemovePreset(RemovePresetOptions{
+	_, err := RemovePreset(context.Background(), RemovePresetOptions{
 		Name:        "",
 		LibraryPath: tmpLibDir,
 	})

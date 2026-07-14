@@ -9,15 +9,19 @@ package library
 // {refresher,remover,validator}.go preserve their existing public
 // signatures and delegate to these methods internally.
 
-import "io"
-
 // InitRequest contains the parameters for Init.
 //
 // Init creates a fresh library directory; there is no pre-existing
 // *Library to receive a method, so Init stays a package function
 // (design Decision 6) and uses this request type to match the
 // CreatePreset / (*Library).CreatePreset dual form at
-// internal/library/creator.go:127.
+// internal/library/creator.go.
+//
+// The dry-run writer is forwarded separately via the
+// library.Init(ctx, req, stdout) parameter per the package's
+// io.Writer-parameter convention (see CreateLibrary at
+// internal/library/creator.go); no writer field lives on
+// InitRequest.
 type InitRequest struct {
 	// Path is the directory where the library will be created.
 	Path string
@@ -25,11 +29,6 @@ type InitRequest struct {
 	DryRun bool
 	// Force overwrites an existing library at Path.
 	Force bool
-	// Stdout receives dry-run output (typically opts.IO.Out from the
-	// cmd layer). Optional: nil means "no dry-run output" so tests
-	// can construct InitRequest{} without a writer. Forwarded to
-	// CreateOptions.Stdout via Init() at creator.go:101.
-	Stdout io.Writer
 }
 
 // RefreshRequest contains the parameters for (*Library).Refresh.
