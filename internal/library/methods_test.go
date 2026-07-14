@@ -7,6 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // These tests cover the (*Library) X method forms (Refresh,
@@ -139,17 +142,13 @@ resources: {}
 }
 
 func TestLibrary_Refresh_CtxCancelled(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
 	lib := &Library{RootPath: t.TempDir()}
 	_, err := lib.Refresh(ctx, &RefreshRequest{})
-	if err == nil {
-		t.Fatal("expected ctx cancellation error, got nil")
-	}
-	if !strings.Contains(err.Error(), context.Canceled.Error()) {
-		t.Errorf("expected wrapped context.Canceled, got %v", err)
-	}
+	require.Error(t, err)
+	assert.ErrorIs(t, err, context.Canceled)
 }
 
 func TestLibrary_RemoveResource(t *testing.T) {
@@ -232,17 +231,13 @@ func TestLibrary_RemoveResource(t *testing.T) {
 }
 
 func TestLibrary_RemoveResource_CtxCancelled(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
 	lib := &Library{RootPath: t.TempDir()}
 	err := lib.RemoveResource(ctx, &RemoveResourceRequest{Ref: "skill/x"})
-	if err == nil {
-		t.Fatal("expected ctx cancellation error, got nil")
-	}
-	if !strings.Contains(err.Error(), context.Canceled.Error()) {
-		t.Errorf("expected wrapped context.Canceled, got %v", err)
-	}
+	require.Error(t, err)
+	assert.ErrorIs(t, err, context.Canceled)
 }
 
 func TestLibrary_RemovePreset(t *testing.T) {
@@ -327,17 +322,13 @@ func TestLibrary_RemovePreset(t *testing.T) {
 }
 
 func TestLibrary_RemovePreset_CtxCancelled(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
 	lib := &Library{RootPath: t.TempDir()}
 	err := lib.RemovePreset(ctx, &RemovePresetRequest{Name: "x"})
-	if err == nil {
-		t.Fatal("expected ctx cancellation error, got nil")
-	}
-	if !strings.Contains(err.Error(), context.Canceled.Error()) {
-		t.Errorf("expected wrapped context.Canceled, got %v", err)
-	}
+	require.Error(t, err)
+	assert.ErrorIs(t, err, context.Canceled)
 }
 
 func TestLibrary_Validate(t *testing.T) {
@@ -439,17 +430,13 @@ func TestLibrary_Validate(t *testing.T) {
 }
 
 func TestLibrary_Validate_CtxCancelled(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
 	lib := &Library{RootPath: t.TempDir()}
 	_, err := lib.Validate(ctx, &ValidateRequest{})
-	if err == nil {
-		t.Fatal("expected ctx cancellation error, got nil")
-	}
-	if !strings.Contains(err.Error(), context.Canceled.Error()) {
-		t.Errorf("expected wrapped context.Canceled, got %v", err)
-	}
+	require.Error(t, err)
+	assert.ErrorIs(t, err, context.Canceled)
 }
 
 func TestLibrary_Fix(t *testing.T) {
@@ -521,17 +508,13 @@ func TestLibrary_Fix(t *testing.T) {
 }
 
 func TestLibrary_Fix_CtxCancelled(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
 	lib := &Library{RootPath: t.TempDir()}
 	_, err := lib.Fix(ctx, &FixRequest{})
-	if err == nil {
-		t.Fatal("expected ctx cancellation error, got nil")
-	}
-	if !strings.Contains(err.Error(), context.Canceled.Error()) {
-		t.Errorf("expected wrapped context.Canceled, got %v", err)
-	}
+	require.Error(t, err)
+	assert.ErrorIs(t, err, context.Canceled)
 }
 
 func TestInit(t *testing.T) {
@@ -566,16 +549,12 @@ func TestInit(t *testing.T) {
 }
 
 func TestInit_CtxCancelled(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
 	err := Init(ctx, &InitRequest{Path: filepath.Join(t.TempDir(), "x")}, io.Discard)
-	if err == nil {
-		t.Fatal("expected ctx cancellation error, got nil")
-	}
-	if !strings.Contains(err.Error(), context.Canceled.Error()) {
-		t.Errorf("expected wrapped context.Canceled, got %v", err)
-	}
+	require.Error(t, err)
+	assert.ErrorIs(t, err, context.Canceled)
 }
 
 // stringSlicesEqualUnordered reports whether two string slices contain

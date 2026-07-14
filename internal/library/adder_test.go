@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -1076,4 +1077,35 @@ tools:
 	if _, exists := lib.Resources["skill"]["writer-skill"]; exists {
 		t.Error("dry-run should not have added resource to library")
 	}
+}
+
+// TestAddResource_CtxCancelled covers the spec scenario
+// "Cancellation during add" (library-library-resource-import).
+// A pre-cancelled ctx surfaces as wrapped context.Canceled per
+// cli-framework's ctx-propagation contract.
+func TestAddResource_CtxCancelled(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	err := AddResource(ctx, AddRequest{
+		Source:      "skill-cancel.md",
+		LibraryPath: t.TempDir(),
+		Type:        "skill",
+	})
+	require.Error(t, err)
+	assert.ErrorIs(t, err, context.Canceled)
+}
+
+// TestBatchAddResources_CtxCancelled covers the spec scenario
+// "Cancellation during batch add" (library-library-batch-add).
+func TestBatchAddResources_CtxCancelled(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	_, err := BatchAddResources(ctx, BatchAddOptions{
+		Sources:     []string{"a.md", "b.md"},
+		LibraryPath: t.TempDir(),
+	})
+	require.Error(t, err)
+	assert.ErrorIs(t, err, context.Canceled)
 }

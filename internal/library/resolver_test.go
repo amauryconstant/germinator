@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	gerrors "gitlab.com/amoconst/germinator/internal/core"
 )
 
@@ -164,6 +166,27 @@ func TestLibraryResolvePreset_EmptyResources(t *testing.T) {
 	if len(refs) != 0 {
 		t.Errorf("ResolvePreset() returned %d refs, want 0", len(refs))
 	}
+}
+
+// TestResolvePreset_AcceptAndMayIgnore documents the spec contract from
+// library-library-resolution "Cancellation during resolution": ctx is
+// forwarded for symmetry with other I/O adapter methods, but the current
+// implementation is a pure in-memory map lookup so ctx.Err() is not
+// checked. A pre-cancelled ctx MUST NOT cause ResolvePreset to return
+// an error today; future I/O additions must respect ctx.
+//
+// See cli-framework/spec.md "accept-and-may-ignore" pattern.
+func TestResolvePreset_AcceptAndMayIgnore(t *testing.T) {
+	lib := &Library{Presets: map[string]Preset{
+		"alpha": {Name: "alpha", Resources: []string{"skill/a"}},
+	}}
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	refs, err := lib.ResolvePreset(ctx, "alpha")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"skill/a"}, refs)
 }
 
 func TestGetOutputPath(t *testing.T) {
