@@ -61,6 +61,8 @@ func CreateLibrary(opts CreateOptions) error {
 	}
 
 	for _, dir := range dirs {
+		// Unix permission bits (0o750) are no-ops on Windows;
+		// Windows support is out of scope.
 		if err := os.MkdirAll(dir, 0o750); err != nil {
 			return gerrors.NewFileError(dir, "create", "failed to create directory", err)
 		}

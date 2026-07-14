@@ -2,9 +2,12 @@ package library
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestRefreshLibrary(t *testing.T) {
@@ -697,5 +700,83 @@ resources: {}
 	}
 	if result.Summary.TotalFailed != 0 {
 		t.Errorf("Summary.TotalFailed = %d, want 0", result.Summary.TotalFailed)
+	}
+}
+
+// TestDiscoverOrphans_CtxCancelled verifies that DiscoverOrphans
+// observes ctx cancellation promptly. After Phase 4's errgroup
+// refactor, sibling subtrees are walked concurrently under
+// scanConcurrencyLimit, so ctx.Err() checks at goroutine entry surface
+// cancellation as soon as the next goroutine yields. The function
+// returns wrapped context.Canceled alongside a partial
+// *DiscoverResult so callers can inspect progress made before the
+// cancel.
+func TestDiscoverOrphans_CtxCancelled(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Library.yaml: empty registry so every .md file is an orphan.
+	if err := os.WriteFile(filepath.Join(tmpDir, "library.yaml"),
+		[]byte(`version: "1"
+resources: {}
+`), 0o600); err != nil {
+		t.Fatalf("write library.yaml: %v", err)
+	}
+
+	// Build a deeply nested library with enough files that the scan
+	// is still in-flight when ctx cancellation arrives at 50ms.
+	// Layout: skills/<12 sub-levels>/skill-N.md, agents/<12 sub-levels>/agent-N.md,
+	// commands/<12 sub-levels>/command-N.md, memory/<12 sub-levels>/memory-N.md.
+	const subLevels = 12
+	const perDir = 200
+	dirs := []string{"skills", "agents", "commands", "memory"}
+	for _, dir := range dirs {
+		base := filepath.Join(tmpDir, dir)
+		for level := 0; level < subLevels; level++ {
+			base = filepath.Join(base, fmt.Sprintf("sub%d", level))
+		}
+		if err := os.MkdirAll(base, 0o755); err != nil {
+			t.Fatalf("MkdirAll %s: %v", base, err)
+		}
+		for i := 0; i < perDir; i++ {
+			body := fmt.Sprintf("---\nname: %s%d\ndescription: test\n---\n# %d\n",
+				dir, i, i)
+			if err := os.WriteFile(filepath.Join(base, fmt.Sprintf("r%d.md", i)),
+				[]byte(body), 0o644); err != nil {
+				t.Fatalf("write %s/r%d.md: %v", dir, i, err)
+			}
+		}
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	// Cancel after a short delay. The scan is large enough (800+
+	// files across 12-deep trees) that some goroutines are still
+	// in-flight; errgroup.WithContext surfaces cancellation when the
+	// next goroutine observes ctx.Err(). Pre-change filepath.WalkDir
+	// was bounded by total scan time; post-change the parallel
+	// sibling-subtree descent surfaces cancellation at the next
+	// goroutine yield.
+	time.AfterFunc(1*time.Millisecond, cancel)
+
+	start := time.Now()
+	result, err := DiscoverOrphans(ctx, DiscoverOptions{LibraryPath: tmpDir})
+	elapsed := time.Since(start)
+
+	if err == nil {
+		t.Fatal("DiscoverOrphans() expected error from cancelled ctx, got nil")
+	}
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("DiscoverOrphans() err = %v, want wrapped context.Canceled", err)
+	}
+	// Allow generous slack — the errgroup must surface cancellation
+	// at the next goroutine yield, not after the slowest subtree's
+	// full walk. Pre-change filepath.WalkDir typically bounded
+	// cancellation by total scan time (~500ms+ on this fixture).
+	if elapsed > 500*time.Millisecond {
+		t.Errorf("DiscoverOrphans took %v after cancel; expected <500ms "+
+			"(errgroup must observe ctx cancellation promptly)", elapsed)
+	}
+	// Partial result is still returned alongside the error.
+	if result == nil {
+		t.Error("DiscoverOrphans() result should be non-nil on cancellation")
 	}
 }

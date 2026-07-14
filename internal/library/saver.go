@@ -90,7 +90,9 @@ func SaveLibrary(lib *Library) error {
 		return gerrors.NewFileError("", "write", "library has no root path set", nil)
 	}
 
-	// Ensure directory exists
+	// Ensure directory exists.
+	// Unix permission bits (0o750) are no-ops on Windows; Windows
+	// support is out of scope.
 	if err := os.MkdirAll(lib.RootPath, 0o750); err != nil {
 		return gerrors.NewFileError(lib.RootPath, "create", "failed to create library directory", err)
 	}

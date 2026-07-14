@@ -10,8 +10,10 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 
 	"gitlab.com/amoconst/germinator/internal/core"
+	"golang.org/x/sync/errgroup"
 	yaml "gopkg.in/yaml.v3"
 )
 
@@ -108,7 +110,9 @@ func AddResource(ctx context.Context, opts AddRequest) error {
 	targetDir := filepath.Join(opts.LibraryPath, docType+"s")
 	targetFile := filepath.Join(targetDir, name+".md")
 
-	// Ensure directory exists
+	// Ensure directory exists.
+	// Unix permission bits (0o750) are no-ops on Windows; Windows
+	// support is out of scope.
 	if err := os.MkdirAll(targetDir, 0o750); err != nil {
 		return core.NewFileError(targetDir, "create", "failed to create resource directory", err)
 	}
@@ -503,6 +507,14 @@ type DiscoverResult struct {
 	Added     []AddSuccess    `json:"added"`
 	Conflicts []ConflictInfo  `json:"conflicts"`
 	Summary   DiscoverSummary `json:"summary"`
+
+	// scanMu guards Orphans / Conflicts slice appends and the
+	// Summary.TotalScanned integer increment when scanDirectory runs
+	// sibling subtrees concurrently via errgroup.SetLimit. The mutex
+	// is acquired only inside the scan phase; post-scan writers in
+	// DiscoverOrphans (Summary.TotalOrphans, Added, Summary.TotalAdded)
+	// run sequentially after g.Wait() and need no synchronization.
+	scanMu sync.Mutex
 }
 
 // BatchAddResult contains the result of a batch add operation.
@@ -846,66 +858,125 @@ func DiscoverOrphans(ctx context.Context, opts DiscoverOptions) (*DiscoverResult
 	return result, nil
 }
 
-// scanDirectory scans a single resource directory for orphans recursively.
-// The walker inspects ctx.Err() per file entry so that a mid-walk
-// cancellation surfaces a wrapped context.Canceled / DeadlineExceeded
-// instead of running to completion.
+// scanConcurrencyLimit caps the number of sibling-subtree goroutines
+// that scanLevel may spawn via errgroup.SetLimit. Hoisted to a file-
+// scope const so the cap is grep-able and easy to tune in a follow-up
+// change. The N=10 errgroup trigger from golang-cli-architecture
+// suggests values 4..16; 8 covers typical library depth without
+// bounding memory too aggressively.
+const scanConcurrencyLimit = 8
+
+// scanDirectory scans a single resource directory for orphans
+// recursively. The recursive descent uses errgroup.SetLimit(
+// scanConcurrencyLimit) to fan out sibling-subtree walks in parallel
+// so ctx cancellation is observed at the next goroutine yield rather
+// than at the slowest subtree's wall time.
+//
+// Concurrency model:
+//   - scanDirectory builds a single errgroup.WithContext and is called
+//     once per top-level resource directory (skills / agents /
+//     commands / memory) by DiscoverOrphans — N=4 fails the
+//     golang-cli-architecture N>10 trigger, so the outer 4-directory
+//     loop in DiscoverOrphans is intentionally NOT wrapped.
+//   - scanLevel reads ONE level with os.ReadDir and dispatches each
+//     child as a goroutine on the shared errgroup. Subtree recursion
+//     re-enters scanLevel with the same shared errgroup.
+//   - The errgroup's SetLimit caps in-flight subtree goroutines so a
+//     deeply nested library does not spawn unbounded goroutines.
+//   - All writes to result (Orphans / Conflicts slice appends AND the
+//     Summary.TotalScanned integer increment) are guarded by
+//     result.scanMu — the race detector verifies the lock covers both.
+//   - lib is read-only during the scan (loaded once in
+//     DiscoverOrphans and never mutated), so concurrent reads of
+//     lib.Resources from multiple goroutines are safe per Go's memory
+//     model without further synchronization.
 func scanDirectory(ctx context.Context, dirPath, resType string, lib *Library, _ DiscoverOptions, result *DiscoverResult) error {
-	err := filepath.WalkDir(dirPath, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			// Skip entries we can't access - continue walking
-			return nil
-		}
+	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(scanConcurrencyLimit)
 
-		// Skip directories - we only process files
-		if d.IsDir() {
-			return nil
-		}
-
-		// Only process .md files
-		if !strings.HasSuffix(strings.ToLower(path), ".md") {
-			return nil
-		}
-
-		// Per-file cancellation check inside the walk.
-		if cerr := ctx.Err(); cerr != nil {
-			return fmt.Errorf("scan: %w", cerr)
-		}
-
-		// Increment scanned count for .md files
-		result.Summary.TotalScanned++
-
-		orphan := detectOrphan(path, resType)
-
-		// Check if already registered
-		if isRegistered(lib, resType, orphan.Name) {
-			return nil
-		}
-
-		// Check for name conflict with other type. checkNameConflict
-		// returns ErrNameConflict wrapped with the offending <type>/<name>
-		// ref so callers (notably runAdd Mode 2 in task 6.4) can wrap the
-		// collision as the Cause of a *core.OperationError. We surface it
-		// via the per-file ConflictInfo here so the existing JSON / human
-		// output continues to show the conflict alongside the orphan.
-		if conflictErr := checkNameConflict(lib, &orphan); conflictErr != nil {
-			result.Conflicts = append(result.Conflicts, ConflictInfo{
-				Orphan: orphan,
-				Issue:  conflictErr.Error(),
-				Cause:  conflictErr,
-			})
-			return nil
-		}
-
-		result.Orphans = append(result.Orphans, orphan)
-		return nil
-	})
-	if err != nil {
-		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			return fmt.Errorf("scanning directory %s: %w", dirPath, err)
-		}
-		return fmt.Errorf("walking directory %s: %w", dirPath, err)
+	if err := scanLevel(gctx, g, dirPath, resType, lib, result); err != nil {
+		return err
 	}
+	if err := g.Wait(); err != nil {
+		return fmt.Errorf("scanning directory %s: %w", dirPath, err)
+	}
+	return nil
+}
+
+// scanLevel reads ONE level of dirPath and fans out each child entry
+// to the shared errgroup. Goroutines for subdirectories recurse into
+// scanLevel (which dispatches another level); goroutines for .md files
+// call processScanFile directly. Missing directories are tolerated
+// (return nil) so a partially-populated library does not fail the scan.
+func scanLevel(ctx context.Context, g *errgroup.Group, dirPath, resType string, lib *Library, result *DiscoverResult) error {
+	entries, err := os.ReadDir(dirPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("reading directory %s: %w", dirPath, err)
+	}
+
+	for _, entry := range entries {
+		full := filepath.Join(dirPath, entry.Name())
+		if entry.IsDir() {
+			g.Go(func() error {
+				if cerr := ctx.Err(); cerr != nil {
+					return fmt.Errorf("scan: %w", cerr)
+				}
+				return scanLevel(ctx, g, full, resType, lib, result)
+			})
+			continue
+		}
+		if !strings.HasSuffix(strings.ToLower(entry.Name()), ".md") {
+			continue
+		}
+		fullPath := full // capture for the closure
+		g.Go(func() error {
+			if cerr := ctx.Err(); cerr != nil {
+				return fmt.Errorf("scan: %w", cerr)
+			}
+			return processScanFile(ctx, fullPath, resType, lib, result)
+		})
+	}
+	return nil
+}
+
+// processScanFile classifies a single .md file as orphan / conflict /
+// already-registered and appends to the shared *DiscoverResult under
+// result.scanMu. Reads against lib are lock-free (lib is read-only
+// during the scan, so concurrent reads are safe).
+func processScanFile(ctx context.Context, path, resType string, lib *Library, result *DiscoverResult) error {
+	if cerr := ctx.Err(); cerr != nil {
+		return fmt.Errorf("scan: %w", cerr)
+	}
+
+	orphan := detectOrphan(path, resType)
+
+	// Lock-free read against lib (read-only during scan).
+	if isRegistered(lib, resType, orphan.Name) {
+		result.scanMu.Lock()
+		result.Summary.TotalScanned++
+		result.scanMu.Unlock()
+		return nil
+	}
+
+	if conflictErr := checkNameConflict(lib, &orphan); conflictErr != nil {
+		result.scanMu.Lock()
+		result.Summary.TotalScanned++
+		result.Conflicts = append(result.Conflicts, ConflictInfo{
+			Orphan: orphan,
+			Issue:  conflictErr.Error(),
+			Cause:  conflictErr,
+		})
+		result.scanMu.Unlock()
+		return nil
+	}
+
+	result.scanMu.Lock()
+	result.Summary.TotalScanned++
+	result.Orphans = append(result.Orphans, orphan)
+	result.scanMu.Unlock()
 	return nil
 }
 
