@@ -92,7 +92,6 @@ Examples:
 		RunE: func(c *cobra.Command, _ []string) error {
 			opts := &initOptions{
 				IO:          f.IOStreams,
-				Library:     initLibrary(f, libraryPath),
 				Ctx:         c.Context(),
 				LibraryPath: libraryPath,
 				Platform:    platform,
@@ -102,6 +101,16 @@ Examples:
 				DryRun:      dryRun,
 				Force:       force,
 			}
+			var cfgPath string
+			if f.Config != nil {
+				if cfg, cfgErr := f.Config(); cfgErr == nil && cfg != nil {
+					cfgPath = cfg.Library
+				}
+			}
+			resolved := library.FindLibrary(libraryPath, os.Getenv("GERMINATOR_LIBRARY"), cfgPath)
+			opts.Library = cmdutil.OnceValuesFunc(func() (*library.Library, error) {
+				return library.LoadLibrary(c.Context(), resolved)
+			})
 			if runF != nil {
 				return runF(opts)
 			}
@@ -126,31 +135,6 @@ Examples:
 	})
 
 	return cmd
-}
-
-// initLibrary wraps per-call library loading so --library is
-// honored on each invocation (the Factory's own Library field uses
-// env-only resolution; the --library flag is parented to the
-// command). Uses the Factory's RootContext (signal-aware context
-// owned by the composition root) instead of context.Background() so
-// the forbidigo pattern check stays green.
-//
-// cfgPath is sourced inside the closure via the explicit nil-safe
-// pattern (per task 4.4): if f.Config is wired (production main.go
-// path) and returns a non-nil *Config, cfg.Library feeds the
-// config-tier of the FindLibrary precedence chain. If f.Config is
-// nil or returns nil/err, the config tier falls through silently.
-func initLibrary(f *cmdutil.Factory, explicitPath string) func() (*library.Library, error) {
-	return func() (*library.Library, error) {
-		var cfgPath string
-		if f.Config != nil {
-			if cfg, cfgErr := f.Config(); cfgErr == nil && cfg != nil {
-				cfgPath = cfg.Library
-			}
-		}
-		resolved := library.FindLibrary(explicitPath, os.Getenv("GERMINATOR_LIBRARY"), cfgPath)
-		return library.LoadLibrary(f.RootContext, resolved)
-	}
 }
 
 // runInit executes the init logic against the resolved options. It

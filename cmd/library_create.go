@@ -16,11 +16,9 @@ import (
 )
 
 // createPresetOptions holds the runtime state for a `library create preset`
-// invocation. IO, Library (lazy: loaded via createPresetLibrary), and
-// Ctx come from the Factory; the rest come from parsed flags. The
-// Library lazy field is func() so the Factory can cache the heavy
-// work (LoadLibrary) per the slice-5 initOptions / slice-6 addOptions
-// pattern.
+// invocation. IO, Library (lazy: built inline in RunE via
+// cmdutil.OnceValuesFunc), and Ctx come from the Factory; the rest
+// come from parsed flags.
 //
 // No --output field: design Decision 5 — `library create preset` does
 // NOT expose --output (legacy did not have --json). The output is a
@@ -112,13 +110,22 @@ Examples:
 		RunE: func(c *cobra.Command, args []string) error {
 			opts := &createPresetOptions{
 				IO:              f.IOStreams,
-				Library:         createPresetLibrary(f, derefString(libraryPath)),
 				Ctx:             c.Context(),
 				Resources:       resources,
 				Description:     description,
 				Force:           force,
 				CompletionCache: f.CompletionCache,
 			}
+			var cfgPath string
+			if f.Config != nil {
+				if cfg, cfgErr := f.Config(); cfgErr == nil && cfg != nil {
+					cfgPath = cfg.Library
+				}
+			}
+			resolved := library.FindLibrary(derefString(libraryPath), os.Getenv("GERMINATOR_LIBRARY"), cfgPath)
+			opts.Library = cmdutil.OnceValuesFunc(func() (*library.Library, error) {
+				return library.LoadLibrary(c.Context(), resolved)
+			})
 			if runF != nil {
 				return runF(opts)
 			}
@@ -133,43 +140,6 @@ Examples:
 	_ = cmd.MarkFlagRequired("resources")
 
 	return cmd
-}
-
-// createPresetLibrary wraps path resolution + load into a single lazy
-// closure that callers populate into opts.Library. Mirrors
-// cmd.initLibrary (slice-5) and cmd.addLibrary (slice-6) so the
-// Factory's per-call path resolution pattern is honored.
-//
-//   - nil factory => nil loader (tests bypass this layer by passing
-//     their own Library closure).
-//   - explicitPath == "" + env unset => FindLibrary falls through to
-//     the XDG default path.
-//
-// The Library field in createPresetOptions is typed as the canonical
-// `func() (*library.Library, error)` per the task spec; the resolved
-// path is captured in the closure.
-//
-// cfgPath is sourced inside the closure via the explicit nil-safe
-// pattern (per task 4.4): if f.Config is wired (production main.go
-// path) and returns a non-nil *Config, cfg.Library feeds the
-// config-tier of the FindLibrary precedence chain. If f.Config is
-// nil or returns nil/err, the config tier falls through silently.
-func createPresetLibrary(f *cmdutil.Factory, explicitPath string) func() (*library.Library, error) {
-	if f == nil {
-		return nil
-	}
-	return func() (*library.Library, error) {
-		var cfgPath string
-		if f.Config != nil {
-			if cfg, cfgErr := f.Config(); cfgErr == nil && cfg != nil {
-				cfgPath = cfg.Library
-			}
-		}
-		resolved := library.FindLibrary(explicitPath, os.Getenv("GERMINATOR_LIBRARY"), cfgPath)
-		// TODO(slice-7): replace f.RootContext with the runF ctx
-		// once the Factory pattern supports per-call contexts.
-		return library.LoadLibrary(f.RootContext, resolved)
-	}
 }
 
 // runCreatePreset executes the preset creation logic. It is the

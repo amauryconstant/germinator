@@ -16,8 +16,9 @@ import (
 )
 
 // removeOptions holds the runtime state for a `library remove` invocation.
-// IO, Library (lazy: loaded via removeLibrary), and Ctx come from the
-// Factory; the rest come from parsed flags + positional args.
+// IO, Library (lazy: built inline in RunE via cmdutil.OnceValuesFunc),
+// and Ctx come from the Factory; the rest come from parsed flags +
+// positional args.
 //
 // `Ref` and `PresetName` are mutually exclusive: the resource sub-command
 // populates `Ref` (e.g., "skill/commit"), the preset sub-command
@@ -168,8 +169,17 @@ Examples:
 			opts.IO = f.IOStreams
 			opts.Ctx = c.Context()
 			opts.Ref = args[0]
-			opts.Library = removeLibrary(f, derefString(libraryPath))
 			opts.CompletionCache = f.CompletionCache
+			var cfgPath string
+			if f.Config != nil {
+				if cfg, cfgErr := f.Config(); cfgErr == nil && cfg != nil {
+					cfgPath = cfg.Library
+				}
+			}
+			resolved := library.FindLibrary(derefString(libraryPath), os.Getenv("GERMINATOR_LIBRARY"), cfgPath)
+			opts.Library = cmdutil.OnceValuesFunc(func() (*library.Library, error) {
+				return library.LoadLibrary(c.Context(), resolved)
+			})
 			if runF != nil {
 				return runF(opts)
 			}
@@ -197,8 +207,17 @@ Examples:
 			opts.IO = f.IOStreams
 			opts.Ctx = c.Context()
 			opts.PresetName = args[0]
-			opts.Library = removeLibrary(f, derefString(libraryPath))
 			opts.CompletionCache = f.CompletionCache
+			var cfgPath string
+			if f.Config != nil {
+				if cfg, cfgErr := f.Config(); cfgErr == nil && cfg != nil {
+					cfgPath = cfg.Library
+				}
+			}
+			resolved := library.FindLibrary(derefString(libraryPath), os.Getenv("GERMINATOR_LIBRARY"), cfgPath)
+			opts.Library = cmdutil.OnceValuesFunc(func() (*library.Library, error) {
+				return library.LoadLibrary(c.Context(), resolved)
+			})
 			if runF != nil {
 				return runF(opts)
 			}
@@ -208,42 +227,6 @@ Examples:
 	cmd.AddCommand(presetCmd)
 
 	return cmd
-}
-
-// removeLibrary wraps path resolution + load into a single lazy
-// closure that callers populate into opts.Library. Mirrors
-// cmd.refreshLibrary (slice 7) so the Factory's per-call path
-// resolution pattern is honored.
-//
-//   - nil factory => nil loader (tests bypass this layer by passing
-//     their own Library closure).
-//   - explicitPath == "" + env unset => FindLibrary falls through to
-//     the XDG default path.
-//
-// The Library field in removeOptions is typed as the canonical
-// `func() (*library.Library, error)` per the task spec; the resolved
-// path is captured in the closure per call.
-//
-// cfgPath is sourced inside the closure via the explicit nil-safe
-// pattern (per task 4.4): if f.Config is wired (production main.go
-// path) and returns a non-nil *Config, cfg.Library feeds the
-// config-tier of the FindLibrary precedence chain. If f.Config is
-// nil or returns nil/err, the config tier falls through silently.
-func removeLibrary(f *cmdutil.Factory, explicitPath string) func() (*library.Library, error) {
-	if f == nil {
-		return nil
-	}
-	return func() (*library.Library, error) {
-		envPath := os.Getenv("GERMINATOR_LIBRARY")
-		var cfgPath string
-		if f.Config != nil {
-			if cfg, cfgErr := f.Config(); cfgErr == nil && cfg != nil {
-				cfgPath = cfg.Library
-			}
-		}
-		resolved := library.FindLibrary(explicitPath, envPath, cfgPath)
-		return library.LoadLibrary(f.RootContext, resolved)
-	}
 }
 
 // runRemove dispatches on `opts.PresetName` to choose the removal

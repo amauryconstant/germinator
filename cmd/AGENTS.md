@@ -275,7 +275,7 @@ The shell units consumed by `cmd/`:
 | `output.FormatError` | `internal/output/errors.go` | Dispatches on typed `*core.*Error` via `errors.As`; writes to `io.ErrOut` |
 | `output.Exporter` + `JSONExporter` + `TableExporter` | `internal/output/exporter.go` | Format-flexible output (`tab:"HEADER"` struct tag) |
 | `output.AddOutputFlags` | `internal/output/output_flags.go` | Wires `--output` (`json`/`table`/`plain`) with completion |
-| `cmdutil.Factory` | `internal/cmdutil/factory.go` | Lazy `func() (T, error)` fields with `sync.OnceValues` caching; `NewFactory(ctx, io, appVersion, executable)` |
+| `cmdutil.Factory` | `internal/cmdutil/factory.go` | Lazy `func() (T, error)` fields; `Config` is wired by `BuildFactory` (cached via `OnceValuesFunc`), `Library` field is **preserved** (per `cli-cli-factory/spec.md`) but left nil — each `RunE` builds its own `opts.Library` closure from `c.Context()` wrapped in `OnceValuesFunc`; `NewFactory(ctx, io, appVersion, executable)` |
 | `cmdutil.ExitCodeFor` | `internal/cmdutil/exit.go` | Maps `error` → 0/1/2 (0 if `*core.PartialSuccessError{Succeeded>0}`) |
 | `core.ValidatePlatform` | `internal/core/rules.go` | Returns `*core.ValidationError` for unknown platform strings |
 | `core.ResolveOutputPath` | `internal/core/rules.go` | `(docType, name, platform) → path` (e.g., `agents/reviewer.claude-code.md`) |

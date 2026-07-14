@@ -15,11 +15,8 @@ import (
 )
 
 // refreshOptions holds the runtime state for a `library refresh` invocation.
-// IO, Library (lazy: loaded via refreshLibrary in RunE), and Ctx
-// come from the Factory; the rest come from parsed flags. The Library
-// lazy field is func() so the Factory can cache the heavy work
-// (LoadLibrary) per the slice-5/6 addOptions / createPresetOptions
-// pattern.
+// IO, Library (lazy: built inline in RunE via cmdutil.OnceValuesFunc),
+// and Ctx come from the Factory; the rest come from parsed flags.
 type refreshOptions struct {
 	IO              *iostreams.IOStreams
 	Library         func() (*library.Library, error)
@@ -101,13 +98,22 @@ Examples:
 		RunE: func(c *cobra.Command, _ []string) error {
 			opts := &refreshOptions{
 				IO:              f.IOStreams,
-				Library:         refreshLibrary(f, derefString(libraryPath)),
 				Ctx:             c.Context(),
 				DryRun:          dryRun,
 				Force:           force,
 				Output:          outputFormatRefresh,
 				CompletionCache: f.CompletionCache,
 			}
+			var cfgPath string
+			if f.Config != nil {
+				if cfg, cfgErr := f.Config(); cfgErr == nil && cfg != nil {
+					cfgPath = cfg.Library
+				}
+			}
+			resolved := library.FindLibrary(derefString(libraryPath), os.Getenv("GERMINATOR_LIBRARY"), cfgPath)
+			opts.Library = cmdutil.OnceValuesFunc(func() (*library.Library, error) {
+				return library.LoadLibrary(c.Context(), resolved)
+			})
 
 			if runF != nil {
 				return runF(opts)
@@ -129,42 +135,6 @@ Examples:
 // storage; the runF closure captures &outputFormatRefresh when
 // opts.Output is set in RunE.
 var outputFormatRefresh string
-
-// refreshLibrary wraps path resolution + load into a single lazy
-// closure that callers populate into opts.Library. Mirrors
-// cmd.addLibrary (slice 6) and cmd.createPresetLibrary (slice 6).
-//
-//   - nil factory => nil loader (tests bypass this layer by passing
-//     their own Library closure).
-//   - explicitPath == "" + env unset => FindLibrary falls through to
-//     the XDG default path.
-//
-// The Library field in refreshOptions is typed as the canonical
-// `func() (*library.Library, error)` per the task spec; the resolved
-// path is captured in the closure per call. f.RootContext is the
-// signal-aware context owned by the Factory.
-//
-// cfgPath is sourced inside the closure via the explicit nil-safe
-// pattern (per task 4.4): if f.Config is wired (production main.go
-// path) and returns a non-nil *Config, cfg.Library feeds the
-// config-tier of the FindLibrary precedence chain. If f.Config is
-// nil or returns nil/err, the config tier falls through silently.
-func refreshLibrary(f *cmdutil.Factory, explicitPath string) func() (*library.Library, error) {
-	if f == nil {
-		return nil
-	}
-	return func() (*library.Library, error) {
-		envPath := os.Getenv("GERMINATOR_LIBRARY")
-		var cfgPath string
-		if f.Config != nil {
-			if cfg, cfgErr := f.Config(); cfgErr == nil && cfg != nil {
-				cfgPath = cfg.Library
-			}
-		}
-		resolved := library.FindLibrary(explicitPath, envPath, cfgPath)
-		return library.LoadLibrary(f.RootContext, resolved)
-	}
-}
 
 // refreshChangedRow is the per-resource shape for refreshed entries.
 // The dual json/tab tags mirror the slice-6 discoverRow pattern so the

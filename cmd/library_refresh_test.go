@@ -103,18 +103,8 @@ func TestNewCmdRefresh_ValidatesArgs(t *testing.T) {
 	assert.NotNil(t, captured.Ctx, "opts.Ctx must be wired by NewCmdRefresh")
 }
 
-// T2 — refreshLibrary helper: nil factory returns a nil loader so
-// tests that don't care about the loader can ignore it (mirrors the
-// slice-6 addLibrary / createPresetLibrary helpers).
-func TestRefreshLibrary_NilFactoryReturnsNil(t *testing.T) {
-	t.Parallel()
-
-	assert.Nil(t, refreshLibrary(nil, ""),
-		"refreshLibrary(nil, ...) returns nil so opts.Library is unset")
-}
-
-// T2b — refreshLibrary closure honors cfg.Library when f.Config is wired.
-// Pins task 4.4's nil-safe closure pattern: the cfgPath inside the
+// T2b — inline closure honors cfg.Library when f.Config is wired.
+// Pins the per-RunE path resolution pattern: the cfgPath inside the
 // closure must come from f.Config().Library, falling through silently
 // when f.Config is unset. Sequential (NOT t.Parallel) because
 // t.Setenv is incompatible with parallel subtests per golang-testing
@@ -129,22 +119,28 @@ func TestRefreshLibrary_HonorsConfigLibrary(t *testing.T) {
 	f.Config = func() (*config.Config, error) { return cfg, nil }
 	t.Setenv("GERMINATOR_LIBRARY", "")
 
-	loader := refreshLibrary(f, "")
-	require.NotNil(t, loader, "refreshLibrary must return a non-nil loader when f is non-nil")
+	// Mirror the RunE inline closure pattern (Phase 1: per-RunE
+	// lazy loader built from f.Config + FindLibrary).
+	var cfgPath string
+	if f.Config != nil {
+		if loaded, cfgErr := f.Config(); cfgErr == nil && loaded != nil {
+			cfgPath = loaded.Library
+		}
+	}
+	resolved := library.FindLibrary("", os.Getenv("GERMINATOR_LIBRARY"), cfgPath)
+	loader := cmdutil.OnceValuesFunc(func() (*library.Library, error) {
+		return library.LoadLibrary(context.Background(), resolved)
+	})
 
 	// Invoke the closure; we don't care if LoadLibrary succeeds —
-	// we only need to prove that the resolved path (which FindLibrary
-	// derives from cfgPath) reflects cfg.Library. We assert via the
-	// library.LoadLibrary error message, which embeds the resolved
-	// path. Use a non-existent path that surfaces a recognizable
-	// error containing the cfg.Library path.
+	// we only need to prove that the resolved path reflects cfg.Library.
 	_, err := loader()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "/from/cfg/path",
 		"resolved library path MUST reflect cfg.Library when flag and env are unset")
 }
 
-// T2c — refreshLibrary closure survives f.Config == nil without panicking.
+// T2c — inline closure survives f.Config == nil without panicking.
 // Defense-in-depth for test paths that build a bare cmdutil.NewFactory(...)
 // without setting f.Config. The closure must gracefully fall through
 // to env-only resolution. Sequential (NOT t.Parallel) because
@@ -158,8 +154,17 @@ func TestRefreshLibrary_FConfigIsNilFallsBack(t *testing.T) {
 	}
 	t.Setenv("GERMINATOR_LIBRARY", "/from/env/path")
 
-	loader := refreshLibrary(f, "")
-	require.NotNil(t, loader, "loader must be non-nil even when f.Config is nil")
+	// Mirror the RunE inline closure pattern (Phase 1).
+	var cfgPath string
+	if f.Config != nil {
+		if loaded, cfgErr := f.Config(); cfgErr == nil && loaded != nil {
+			cfgPath = loaded.Library
+		}
+	}
+	resolved := library.FindLibrary("", os.Getenv("GERMINATOR_LIBRARY"), cfgPath)
+	loader := cmdutil.OnceValuesFunc(func() (*library.Library, error) {
+		return library.LoadLibrary(context.Background(), resolved)
+	})
 
 	_, err := loader()
 	require.Error(t, err, "library load is expected to fail on the bogus env path")

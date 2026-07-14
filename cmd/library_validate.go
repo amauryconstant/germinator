@@ -16,11 +16,9 @@ import (
 )
 
 // libraryValidateOptions holds the runtime state for a
-// `library validate` invocation. IO, Library (lazy: loaded via
-// validateLibrary), and Ctx come from the Factory; the rest come from
-// parsed flags. The Library lazy field is func() so the Factory can
-// cache the heavy work (LoadLibrary) per call, matching the slice-6
-// libraryPath pattern at cmd/library_create.go:149-159.
+// `library validate` invocation. IO, Library (lazy: built inline in
+// RunE via cmdutil.OnceValuesFunc), and Ctx come from the Factory;
+// the rest come from parsed flags.
 type libraryValidateOptions struct {
 	IO              *iostreams.IOStreams
 	Library         func() (*library.Library, error)
@@ -100,12 +98,21 @@ Output formats (--output):
 		RunE: func(c *cobra.Command, _ []string) error {
 			opts := &libraryValidateOptions{
 				IO:              f.IOStreams,
-				Library:         validateLibrary(f, resolveLibraryFlag(c)),
 				Ctx:             c.Context(),
 				Fix:             fix,
 				Output:          outputFormat,
 				CompletionCache: f.CompletionCache,
 			}
+			var cfgPath string
+			if f.Config != nil {
+				if cfg, cfgErr := f.Config(); cfgErr == nil && cfg != nil {
+					cfgPath = cfg.Library
+				}
+			}
+			resolved := library.FindLibrary(resolveLibraryFlag(c), os.Getenv("GERMINATOR_LIBRARY"), cfgPath)
+			opts.Library = cmdutil.OnceValuesFunc(func() (*library.Library, error) {
+				return library.LoadLibrary(c.Context(), resolved)
+			})
 			if runF != nil {
 				return runF(opts)
 			}
@@ -134,41 +141,6 @@ func resolveLibraryFlag(c *cobra.Command) string {
 		return ""
 	}
 	return pf.Value.String()
-}
-
-// validateLibrary wraps path resolution + load into a single lazy
-// closure that callers populate into opts.Library. Mirrors
-// cmd.createPresetLibrary (slice-6) and cmd.addLibrary (slice-6) so
-// the Factory's per-call path resolution pattern is honored.
-//
-//   - nil factory => nil loader (tests bypass this layer by passing
-//     their own Library closure).
-//   - explicitPath == "" + env unset => FindLibrary falls through to
-//     the XDG default path.
-//
-// The Library field in libraryValidateOptions is typed as the
-// canonical `func() (*library.Library, error)` per the task spec;
-// the resolved path is captured in the closure.
-//
-// cfgPath is sourced inside the closure via the explicit nil-safe
-// pattern (per task 4.4): if f.Config is wired (production main.go
-// path) and returns a non-nil *Config, cfg.Library feeds the
-// config-tier of the FindLibrary precedence chain. If f.Config is
-// nil or returns nil/err, the config tier falls through silently.
-func validateLibrary(f *cmdutil.Factory, explicitPath string) func() (*library.Library, error) {
-	if f == nil {
-		return nil
-	}
-	return func() (*library.Library, error) {
-		var cfgPath string
-		if f.Config != nil {
-			if cfg, cfgErr := f.Config(); cfgErr == nil && cfg != nil {
-				cfgPath = cfg.Library
-			}
-		}
-		resolved := library.FindLibrary(explicitPath, os.Getenv("GERMINATOR_LIBRARY"), cfgPath)
-		return library.LoadLibrary(f.RootContext, resolved)
-	}
 }
 
 // runLibraryValidate executes the validation logic. Dispatches on

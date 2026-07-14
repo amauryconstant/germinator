@@ -134,35 +134,23 @@ func TestBuildFactory_ConfigLoadErrorSurfaces(t *testing.T) {
 	}
 }
 
-// TestBuildFactory_LibraryIsLazy verifies that f.Library is wired
-// (non-nil) and respects the flag > env > cfg > XDG default priority
-// chain via library.FindLibrary. Pins task 4.4's closure migration.
-func TestBuildFactory_LibraryIsLazy(t *testing.T) {
+// TestBuildFactory_LibraryLeftNil verifies that BuildFactory does NOT
+// wire f.Library — the field is preserved on the Factory struct (per
+// cli-cli-factory/spec.md) but left nil so each RunE builds its own
+// opts.Library closure from c.Context(). Pins the Phase 1 change
+// (propagate-context-through-shell design.md Decision 6).
+func TestBuildFactory_LibraryLeftNil(t *testing.T) {
 	ios := iostreams.Test()
 	t.Cleanup(swapConfigLoadForTest(func() (*config.Config, error) {
-		cfg := config.DefaultConfig()
-		cfg.Library = "/from/cfg/path"
-		return cfg, nil
+		return config.DefaultConfig(), nil
 	}))
 
-	t.Setenv("GERMINATOR_LIBRARY", "")
 	f, err := BuildFactory(context.Background(), ios, "v0.0.0", "germinator")
 	require.NoError(t, err)
 	defer f.Close()
 
-	require.NotNil(t, f.Library, "BuildFactory MUST wire f.Library")
-
-	// The closure must NOT be called eagerly; verify by checking that
-	// calling it surfaces an error from library.LoadLibrary (the path
-	// does not exist). The error message embeds the resolved path,
-	// which must come from cfg.Library — the XDG-fallthrough tier is
-	// bypassed because cfg.Library is non-empty.
-	t.Setenv("XDG_DATA_HOME", t.TempDir())
-	t.Setenv("HOME", "/nonexistent")
-	_, err = f.Library()
-	require.Error(t, err, "loadLibrary for nonexistent path should error")
-	assert.Contains(t, err.Error(), "/from/cfg/path",
-		"f.Library() resolved path MUST reflect cfg.Library when flag/env are unset")
+	assert.Nil(t, f.Library,
+		"BuildFactory MUST NOT wire f.Library; each RunE builds its own closure from c.Context()")
 }
 
 // TestBuildFactory_CompletionCacheAssigned verifies that

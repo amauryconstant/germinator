@@ -72,9 +72,9 @@ Example:
 				}
 			}
 			resolved := library.FindLibrary(lp, os.Getenv("GERMINATOR_LIBRARY"), opts.ConfigLibraryPath)
-			opts.Library = func() (*library.Library, error) {
+			opts.Library = cmdutil.OnceValuesFunc(func() (*library.Library, error) {
 				return library.LoadLibrary(opts.Ctx, resolved)
-			}
+			})
 			if runF != nil {
 				return runF(opts)
 			}

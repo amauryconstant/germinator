@@ -542,13 +542,6 @@ func TestClassifyResults_Empty(t *testing.T) {
 	assert.Nil(t, errs)
 }
 
-// initLibrary returns a non-nil closure regardless of ctx (it
-// captures ctx by closure for the per-call invocation). The previous
-// slice's "NilFactoryReturnsNil" pattern only applied to the
-// deleted Factory.{Transformer,Validator,Canonicalizer,Initializer}
-// lazy-field accessors, not to initLibrary — which is a pure closure
-// constructor.
-
 // §5.x — --library end-to-end: passing an explicit path surfaces
 // resources from that library (proves the loader is honored, not the
 // env/XDG default).
@@ -587,8 +580,19 @@ func TestInitLibrary_HonorsExplicitPath(t *testing.T) {
 
 	io := iostreams.Test()
 	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
-	loader := initLibrary(f, tmp)
-	require.NotNil(t, loader, "initLibrary must return a non-nil loader")
+
+	// Mirror the RunE inline closure pattern (Phase 1: per-RunE
+	// lazy loader built from f.Config + FindLibrary).
+	var cfgPath string
+	if f.Config != nil {
+		if loaded, cfgErr := f.Config(); cfgErr == nil && loaded != nil {
+			cfgPath = loaded.Library
+		}
+	}
+	resolved := library.FindLibrary(tmp, os.Getenv("GERMINATOR_LIBRARY"), cfgPath)
+	loader := cmdutil.OnceValuesFunc(func() (*library.Library, error) {
+		return library.LoadLibrary(context.Background(), resolved)
+	})
 
 	_, err := loader()
 	require.Error(t, err)

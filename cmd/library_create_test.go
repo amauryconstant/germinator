@@ -407,15 +407,6 @@ func TestPresetWriterInterfaceSatisfied(t *testing.T) {
 	assert.NotNil(t, pw, "*library.Library must satisfy presetWriter")
 }
 
-// T14 — createPresetLibrary helper: nil factory returns a nil
-// loader so tests that don't care about the loader can ignore it.
-func TestCreatePresetLibrary_NilFactoryReturnsNil(t *testing.T) {
-	t.Parallel()
-
-	assert.Nil(t, createPresetLibrary(nil, "/tmp"),
-		"createPresetLibrary(nil, ...) returns nil so opts.Library is unset")
-}
-
 // T15 — No --output flag on `library create preset`: design
 // Decision 5. Help output must NOT mention --output.
 func TestNewCmdCreatePreset_HelpOutput_NoOutputFlag(t *testing.T) {

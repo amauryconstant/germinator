@@ -558,14 +558,6 @@ func TestResourceAdderInterfaceSatisfied(t *testing.T) {
 	assert.NotNil(t, ra, "libraryAdapter must satisfy resourceAdder")
 }
 
-// T13 — addLibrary helper: nil factory returns a nil loader so
-// tests that don't care about the loader can ignore it.
-func TestAddLibrary_NilFactoryReturnsNil(t *testing.T) {
-	t.Parallel()
-
-	assert.Nil(t, addLibrary(nil, "/tmp"))
-}
-
 // T14 — Golden file: explicit-mode plain output for a single
 // successful skill add. Regenerated alongside the implementation
 // (per design Decision 9: "Plain-output byte-identical guarantee is

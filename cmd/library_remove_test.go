@@ -690,19 +690,10 @@ func TestRunRemove_Resource_InvalidType(t *testing.T) {
 		"expected *core.NotFoundError, got %T: %v", err, err)
 }
 
-// T23 — removeLibrary with nil factory returns nil so tests
-// bypassing the loader layer can ignore it.
-func TestRemoveLibrary_NilFactoryReturnsNil(t *testing.T) {
-	t.Parallel()
-
-	assert.Nil(t, removeLibrary(nil, ""),
-		"removeLibrary(nil) returns nil so opts.Library is unset for tests")
-}
-
-// T23b — removeLibrary closure honors cfg.Library when f.Config is wired.
-// Pins task 4.4's nil-safe closure pattern. Sequential (NOT t.Parallel)
-// because t.Setenv is incompatible with parallel subtests per
-// golang-testing Rule 4.
+// T23b — inline closure honors cfg.Library when f.Config is wired.
+// Pins the per-RunE path resolution pattern. Sequential (NOT
+// t.Parallel) because t.Setenv is incompatible with parallel
+// subtests per golang-testing Rule 4.
 func TestRemoveLibrary_HonorsConfigLibrary(t *testing.T) {
 	cfg := &config.Config{Library: "/from/cfg/path"}
 
@@ -713,8 +704,17 @@ func TestRemoveLibrary_HonorsConfigLibrary(t *testing.T) {
 	f.Config = func() (*config.Config, error) { return cfg, nil }
 	t.Setenv("GERMINATOR_LIBRARY", "")
 
-	loader := removeLibrary(f, "")
-	require.NotNil(t, loader)
+	// Mirror the RunE inline closure pattern (Phase 1).
+	var cfgPath string
+	if f.Config != nil {
+		if loaded, cfgErr := f.Config(); cfgErr == nil && loaded != nil {
+			cfgPath = loaded.Library
+		}
+	}
+	resolved := library.FindLibrary("", os.Getenv("GERMINATOR_LIBRARY"), cfgPath)
+	loader := cmdutil.OnceValuesFunc(func() (*library.Library, error) {
+		return library.LoadLibrary(context.Background(), resolved)
+	})
 
 	_, err := loader()
 	require.Error(t, err)
@@ -722,7 +722,7 @@ func TestRemoveLibrary_HonorsConfigLibrary(t *testing.T) {
 		"resolved library path MUST reflect cfg.Library when flag and env are unset")
 }
 
-// T23c — removeLibrary closure survives f.Config == nil without panicking.
+// T23c — inline closure survives f.Config == nil without panicking.
 // Sequential (NOT t.Parallel) because t.Setenv is incompatible with
 // parallel subtests per golang-testing Rule 4.
 func TestRemoveLibrary_FConfigIsNilFallsBack(t *testing.T) {
@@ -733,8 +733,17 @@ func TestRemoveLibrary_FConfigIsNilFallsBack(t *testing.T) {
 	}
 	t.Setenv("GERMINATOR_LIBRARY", "/from/env/path")
 
-	loader := removeLibrary(f, "")
-	require.NotNil(t, loader, "loader must be non-nil even when f.Config is nil")
+	// Mirror the RunE inline closure pattern (Phase 1).
+	var cfgPath string
+	if f.Config != nil {
+		if loaded, cfgErr := f.Config(); cfgErr == nil && loaded != nil {
+			cfgPath = loaded.Library
+		}
+	}
+	resolved := library.FindLibrary("", os.Getenv("GERMINATOR_LIBRARY"), cfgPath)
+	loader := cmdutil.OnceValuesFunc(func() (*library.Library, error) {
+		return library.LoadLibrary(context.Background(), resolved)
+	})
 
 	_, err := loader()
 	require.Error(t, err)

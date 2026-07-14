@@ -128,14 +128,10 @@ func BuildFactory(ctx context.Context, io *iostreams.IOStreams, appVersion, exec
 	// Activate debug logging based on the loaded config.
 	io.SetDebug(cfg.Debug)
 
-	// Library is wired here so the priority chain (flag > env > cfg >
-	// XDG default) is enforced at construction time. The closure
-	// captures the cached cfg pointer; later calls reuse it.
-	f.Library = OnceValuesFunc(func() (*library.Library, error) {
-		path := library.FindLibrary("", os.Getenv("GERMINATOR_LIBRARY"), cfg.Library)
-		return library.LoadLibrary(f.RootContext, path)
-	})
-
+	// Library is reserved for future per-Factory lazy loading; each
+	// RunE currently builds its own opts.Library closure from
+	// c.Context(). See cli-cli-factory/spec.md for the field-presence
+	// contract.
 	return f, nil
 }
 
