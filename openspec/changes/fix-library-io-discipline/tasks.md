@@ -10,22 +10,22 @@ Each task ends with `mise run check` passing. Tasks are grouped by phase and ord
 - [x] 1.4 In `internal/library/creator.go:37-45`, replace the 6 `fmt.Fprintln(os.Stdout, …)` calls with `if opts.Stdout != nil { fmt.Fprintln(opts.Stdout, …) }`. Dry-run block at `creator.go:37`.
 - [x] 1.5 In `cmd/library_init.go:161-167`, update the `library.Init(opts.Ctx, &library.InitRequest{...})` literal to include `Stdout: opts.IO.Out`.
 - [x] 1.6 There is no `internal/library/creator_test.go`. Existing `cmd/library_init_test.go` uses `runF` injection — verify the file builds with the new `InitRequest.Stdout` field; no `runF`-body edits needed.
-- [x] 1.7 Run `rg "fmt\.Fprintln\(os\.Stdout" internal/library/` — must return zero matches. *(creator.go clean; adder.go 5 matches remain — Phase 2 task 2.3.)*
-- [x] 1.8 Run `rg "fmt\.Fprintf\(os\.Stdout" internal/library/` — must return zero matches. *(already passes — zero matches.)*
-- [x] 1.9 Run `rg "os\.Stdout" internal/library/` — must return zero matches. The `os` package import stays in `adder.go` and `creator.go` (used by `MkdirAll`, `WriteFile`, `Rename`, etc.). *(creator.go clean; adder.go 5 matches remain — Phase 2 task 2.3.)*
+- [x] 1.7 Run `rg "fmt\.Fprintln\(os\.Stdout" internal/library/` — must return zero matches. *(now fully satisfied at end of Phase 2.)*
+- [x] 1.8 Run `rg "fmt\.Fprintf\(os\.Stdout" internal/library/` — must return zero matches. *(zero matches.)*
+- [x] 1.9 Run `rg "os\.Stdout" internal/library/` — must return zero matches. The `os` package import stays in `adder.go` and `creator.go` (used by `MkdirAll`, `WriteFile`, `Rename`, etc.). *(now fully satisfied at end of Phase 2.)*
 
 ## 2. Phase 2 — Thread `Stdout io.Writer` through `AddResource` / `BatchAddResources` and remove `os.Stdout` write
 
-- [ ] 2.1 In `internal/library/adder.go:25`, add a `Stdout io.Writer` field to `AddRequest` (with doc comment).
-- [ ] 2.2 In `internal/library/adder.go:540`, add a `Stdout io.Writer` field to `BatchAddOptions` (with doc comment).
-- [ ] 2.3 In `internal/library/adder.go:91-98` (`AddResource` dry-run block), replace the 5 `fmt.Fprintln(os.Stdout, …)` calls with `if opts.Stdout != nil { fmt.Fprintln(opts.Stdout, …) }`.
-- [ ] 2.4 In `cmd/library_add.go:64-68` (`resourceAdder` interface) — no signature change needed since `Stdout` is a struct field, not a positional param. Document this in a comment.
-- [ ] 2.5 (no-op — verify, do not edit) At `cmd/library_add.go:82-107` (`libraryAdapter` methods), `(*libraryAdapter).AddResource` already calls `library.AddResource(ctx, *req)` and `(*libraryAdapter).BatchAddResources` already calls `library.BatchAddResources(ctx, opts)`. Both pass the full struct, so the new `Stdout` field flows through automatically. No code change required at the adapter.
-- [ ] 2.6 In `cmd/library_add.go:352`, update the `AddResource` `AddRequest` literal to include `Stdout: opts.IO.Out`.
-- [ ] 2.7 In `cmd/library_add.go:525` and `cmd/library_add.go:654`, update both `BatchAddResources` `BatchAddOptions` literals to include `Stdout: opts.IO.Out`.
-- [ ] 2.8 In `internal/library/adder_test.go`, update test call sites that exercise dry-run paths to pass either `nil` (for tests that don't care about output) or a `bytes.Buffer` (for dry-run output assertion).
-- [ ] 2.9 Run `rg "fmt\.Fprintln\(os\.Stdout" internal/library/` — must return zero matches.
-- [ ] 2.10 Run `mise run test:e2e` — verify the dry-run output still appears in user-facing output (now via the writer).
+- [x] 2.1 In `internal/library/adder.go:25`, add a `Stdout io.Writer` field to `AddRequest` (with doc comment).
+- [x] 2.2 In `internal/library/adder.go:540`, add a `Stdout io.Writer` field to `BatchAddOptions` (with doc comment).
+- [x] 2.3 In `internal/library/adder.go:91-98` (`AddResource` dry-run block), replace the 5 `fmt.Fprintln(os.Stdout, …)` calls with `if opts.Stdout != nil { fmt.Fprintln(opts.Stdout, …) }`.
+- [x] 2.4 In `cmd/library_add.go:64-68` (`resourceAdder` interface) — no signature change needed since `Stdout` is a struct field, not a positional param. Document this in a comment.
+- [x] 2.5 (no-op — verify, do not edit) At `cmd/library_add.go:82-107` (`libraryAdapter` methods), `(*libraryAdapter).AddResource` already calls `library.AddResource(ctx, *req)` and `(*libraryAdapter).BatchAddResources` already calls `library.BatchAddResources(ctx, opts)`. Both pass the full struct, so the new `Stdout` field flows through automatically. No code change required at the adapter.
+- [x] 2.6 In `cmd/library_add.go:352`, update the `AddResource` `AddRequest` literal to include `Stdout: opts.IO.Out`.
+- [x] 2.7 In `cmd/library_add.go:525` and `cmd/library_add.go:654`, update both `BatchAddResources` `BatchAddOptions` literals to include `Stdout: opts.IO.Out`.
+- [x] 2.8 In `internal/library/adder_test.go`, update test call sites that exercise dry-run paths to pass either `nil` (for tests that don't care about output) or a `bytes.Buffer` (for dry-run output assertion). *(existing keyed struct literals already yield zero-value `Stdout: nil`; dry-run block is now gated; tests pass unchanged.)*
+- [x] 2.9 Run `rg "fmt\.Fprintln\(os\.Stdout" internal/library/` — must return zero matches.
+- [x] 2.10 Run `mise run test:e2e` — verify the dry-run output still appears in user-facing output (now via the writer).
 
 ## 3. Phase 3 — Add `atomicWriteFile` helper and delegate 4 library.yaml write sites
 

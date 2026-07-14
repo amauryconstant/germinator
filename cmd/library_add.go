@@ -61,6 +61,14 @@ type addOptions struct {
 // functions) because the library package's functions are currently
 // package-level rather than methods on *Library — converting them is
 // out of scope for slice 6.
+//
+// Note: the writer discipline (Stdout io.Writer on AddRequest /
+// BatchAddOptions) is plumbed through as a struct field, not a
+// positional parameter, so this interface signature does not need a
+// change to forward the writer — *libraryAdapter.AddResource and
+// *libraryAdapter.BatchAddResources already pass the full req / opts
+// struct to the underlying package-level functions, and the new
+// Stdout field flows through automatically.
 type resourceAdder interface {
 	AddResource(ctx context.Context, req *library.AddRequest) error
 	DiscoverOrphans(ctx context.Context, opts library.DiscoverOptions) (*library.DiscoverResult, error)
@@ -348,6 +356,7 @@ func runAddExplicit(opts *addOptions) error {
 			LibraryPath: lib.RootPath,
 			Force:       opts.Force,
 			DryRun:      opts.DryRun,
+			Stdout:      opts.IO.Out,
 		}
 		if addErr := adder.AddResource(opts.Ctx, req); addErr != nil {
 			opErr := core.NewOperationError("add", path, addErr)
@@ -531,6 +540,7 @@ func runAddBatchFiles(opts *addOptions) error {
 		Description: opts.Description,
 		Type:        opts.Type,
 		Platform:    opts.Platform,
+		Stdout:      opts.IO.Out,
 	})
 	if batchErr != nil && batchResult == nil {
 		return fmt.Errorf("batch add: %w", batchErr)
@@ -657,6 +667,7 @@ func runDiscoverBatch(opts *addOptions, adder resourceAdder, _ *library.Library,
 		DryRun:      opts.DryRun,
 		Force:       opts.Force,
 		Orphans:     discResult.Orphans,
+		Stdout:      opts.IO.Out,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("batch add: %w", err)

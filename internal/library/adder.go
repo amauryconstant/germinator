@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -37,6 +38,10 @@ type AddRequest struct {
 	Force bool
 	// DryRun previews changes without modifying the library.
 	DryRun bool
+	// Stdout receives dry-run output (typically opts.IO.Out from the
+	// cmd layer). Optional: nil means "no dry-run output" so tests
+	// can construct AddRequest{} without a writer.
+	Stdout io.Writer
 }
 
 // AddResource adds a resource from a source file to the library.
@@ -89,11 +94,13 @@ func AddResource(ctx context.Context, opts AddRequest) error {
 
 	// Dry-run mode - report what would happen
 	if opts.DryRun {
-		_, _ = fmt.Fprintln(os.Stdout, "Would add resource:", resourceKey)
-		_, _ = fmt.Fprintln(os.Stdout, "  Type:", docType)
-		_, _ = fmt.Fprintln(os.Stdout, "  Name:", name)
-		_, _ = fmt.Fprintln(os.Stdout, "  Description:", description)
-		_, _ = fmt.Fprintln(os.Stdout, "  Source:", opts.Source)
+		if opts.Stdout != nil {
+			_, _ = fmt.Fprintln(opts.Stdout, "Would add resource:", resourceKey)
+			_, _ = fmt.Fprintln(opts.Stdout, "  Type:", docType)
+			_, _ = fmt.Fprintln(opts.Stdout, "  Name:", name)
+			_, _ = fmt.Fprintln(opts.Stdout, "  Description:", description)
+			_, _ = fmt.Fprintln(opts.Stdout, "  Source:", opts.Source)
+		}
 		return nil
 	}
 
@@ -547,6 +554,11 @@ type BatchAddOptions struct {
 	Type        string   // Optional resource type override
 	Platform    string   // Optional platform override
 	Orphans     []Orphan // Orphan info for discovered resources (provides type/name)
+	// Stdout receives future batch dry-run output (cmd layer passes
+	// opts.IO.Out). Forward groundwork for any future batch dry-run
+	// surface so the writer discipline lives on the request struct,
+	// not as a positional parameter.
+	Stdout io.Writer
 }
 
 // BatchAddResources adds multiple resources to the library in batch mode.
