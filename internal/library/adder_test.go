@@ -1,10 +1,12 @@
 package library
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -1013,5 +1015,65 @@ func TestCheckNameConflict(t *testing.T) {
 				require.NoError(t, err)
 			}
 		})
+	}
+}
+
+// TestAddResource_DryRun_WritesToStdout verifies that the dry-run
+// preview writes to the Stdout field on AddRequest (gated on
+// opts.Stdout != nil) rather than to os.Stdout directly. The existing
+// TestAddResource_DryRun passes Stdout: nil so the writer path is
+// not exercised; this test closes the partial coverage on the
+// library-library-resource-import spec scenario "Dry-run shows what
+// would happen" by injecting a bytes.Buffer and asserting each
+// preview line is present in the captured output.
+func TestAddResource_DryRun_WritesToStdout(t *testing.T) {
+	tmpLibDir := t.TempDir()
+	createTestLibrary(t, tmpLibDir)
+
+	tmpSrcDir := t.TempDir()
+	srcPath := filepath.Join(tmpSrcDir, "skill-writer.md")
+	srcContent := `---
+name: writer-skill
+description: A skill for the writer test
+tools:
+  - bash
+---
+# Writer Skill
+`
+	if err := os.WriteFile(srcPath, []byte(srcContent), 0o644); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+
+	var buf bytes.Buffer
+	err := AddResource(context.Background(), AddRequest{
+		Source:      srcPath,
+		LibraryPath: tmpLibDir,
+		DryRun:      true,
+		Stdout:      &buf,
+	})
+	if err != nil {
+		t.Fatalf("AddResource() error = %v", err)
+	}
+
+	got := buf.String()
+	wantSubstrings := []string{
+		"Would add resource:",
+		"Type: skill",
+		"Name: writer-skill",
+		"Source: " + srcPath,
+	}
+	for _, s := range wantSubstrings {
+		if !strings.Contains(got, s) {
+			t.Errorf("dry-run Stdout missing %q; got:\n%s", s, got)
+		}
+	}
+
+	// Library must remain untouched after a dry-run.
+	lib, err := LoadLibrary(context.Background(), tmpLibDir)
+	if err != nil {
+		t.Fatalf("LoadLibrary() error = %v", err)
+	}
+	if _, exists := lib.Resources["skill"]["writer-skill"]; exists {
+		t.Error("dry-run should not have added resource to library")
 	}
 }

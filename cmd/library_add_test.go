@@ -407,6 +407,146 @@ func TestAddOptions_StructShape(t *testing.T) {
 		"addOptions must declare exactly the spec-named fields")
 }
 
+// T18b — Cmd layer populates Stdout on AddRequest. Verifies that
+// runAdd fills AddRequest.Stdout with opts.IO.Out (the cmd-side
+// writer discipline) instead of leaving it nil or, worse, writing
+// dry-run output to os.Stdout directly. Closes the
+// library-library-batch-add spec scenario "Cmd layer populates the
+// writer field" by stubbing defaultAdder and capturing the
+// *library.AddRequest passed to AddResource.
+//
+// Also covers library-library-resource-import by exercising the
+// same Stdout field on the AddRequest path (not just the
+// BatchAddOptions path covered below).
+//
+// This is the first runtime injection of defaultAdder in the
+// test suite; previously only the compile-time
+// `var _ resourceAdder = (*libraryAdapter)(nil)` assertion was
+// exercised. The injection is the cleanest way to assert the
+// writer field without running the full AddResource body
+// (which would mutate library.yaml on disk).
+func TestRunAdd_PopulatesStdoutOnAddRequest(t *testing.T) {
+	libDir := makeTestLibrary(t, map[string]map[string]library.Resource{})
+	srcDir := t.TempDir()
+	src := makeTestSkillFile(t, srcDir, "newskill", "New skill")
+
+	ios, _, _ := newAddTestIO()
+	opts := &addOptions{
+		IO:         ios,
+		Ctx:        context.Background(),
+		Output:     "plain",
+		InputPaths: []string{src},
+		Type:       "skill",
+		Name:       "newskill",
+		Library: func() (*library.Library, error) {
+			return library.LoadLibrary(context.Background(), libDir)
+		},
+	}
+
+	// Save and restore defaultAdder; the stub captures the
+	// *library.AddRequest that runAdd builds and short-circuits the
+	// real library.AddResource body (which would mutate library.yaml).
+	prev := defaultAdder
+	t.Cleanup(func() { defaultAdder = prev })
+
+	var captured *library.AddRequest
+	defaultAdder = captureAdder{
+		addResourceFn: func(_ context.Context, req *library.AddRequest) error {
+			captured = req
+			return nil
+		},
+	}
+
+	require.NoError(t, runAdd(opts))
+
+	if captured == nil {
+		t.Fatal("defaultAdder.AddResource was not called; runAdd did not reach runAddExplicit")
+	}
+	if captured.Stdout == nil {
+		t.Fatal("captured AddRequest.Stdout is nil; cmd layer must populate it from opts.IO.Out")
+	}
+	if captured.Stdout != ios.Out {
+		t.Errorf("captured AddRequest.Stdout = %p, want opts.IO.Out = %p "+
+			"(cmd/library_add.go AddRequest literal must include Stdout: opts.IO.Out)",
+			captured.Stdout, ios.Out)
+	}
+}
+
+// T18c — Cmd layer populates Stdout on BatchAddOptions (file
+// batch path). Verifies the runAddBatchFiles site
+// (cmd/library_add.go:534) populates Stdout: opts.IO.Out.
+func TestRunAddBatchFiles_PopulatesStdoutOnBatchAddOptions(t *testing.T) {
+	libDir := makeTestLibrary(t, map[string]map[string]library.Resource{})
+	srcDir := t.TempDir()
+	src := makeTestSkillFile(t, srcDir, "batchskill", "Batch skill")
+
+	ios, _, _ := newAddTestIO()
+	opts := &addOptions{
+		IO:         ios,
+		Ctx:        context.Background(),
+		Output:     "plain",
+		InputPaths: []string{src},
+		Batch:      true,
+		Library: func() (*library.Library, error) {
+			return library.LoadLibrary(context.Background(), libDir)
+		},
+	}
+
+	prev := defaultAdder
+	t.Cleanup(func() { defaultAdder = prev })
+
+	var captured library.BatchAddOptions
+	defaultAdder = captureAdder{
+		batchAddFn: func(_ context.Context, bo library.BatchAddOptions) (*library.BatchAddResult, error) {
+			captured = bo
+			return &library.BatchAddResult{Summary: library.BatchSummary{Added: 1}}, nil
+		},
+	}
+
+	require.NoError(t, runAdd(opts))
+
+	if captured.Stdout == nil {
+		t.Fatal("captured BatchAddOptions.Stdout is nil; cmd layer must populate it from opts.IO.Out")
+	}
+	if captured.Stdout != ios.Out {
+		t.Errorf("captured BatchAddOptions.Stdout = %p, want opts.IO.Out = %p "+
+			"(cmd/library_add.go BatchAddOptions literal must include Stdout: opts.IO.Out)",
+			captured.Stdout, ios.Out)
+	}
+}
+
+// captureAdder satisfies the resourceAdder interface. Each
+// method delegates to a function field (if set) so tests can
+// capture inputs and short-circuit the real library calls. Used
+// only by TestRunAdd_PopulatesStdout* tests; other tests use
+// defaultAdder directly.
+type captureAdder struct {
+	addResourceFn func(ctx context.Context, req *library.AddRequest) error
+	discoverFn    func(ctx context.Context, opts library.DiscoverOptions) (*library.DiscoverResult, error)
+	batchAddFn    func(ctx context.Context, opts library.BatchAddOptions) (*library.BatchAddResult, error)
+}
+
+func (c captureAdder) AddResource(ctx context.Context, req *library.AddRequest) error {
+	if c.addResourceFn == nil {
+		return nil
+	}
+	return c.addResourceFn(ctx, req)
+}
+
+func (c captureAdder) DiscoverOrphans(ctx context.Context, opts library.DiscoverOptions) (*library.DiscoverResult, error) {
+	if c.discoverFn == nil {
+		return &library.DiscoverResult{}, nil
+	}
+	return c.discoverFn(ctx, opts)
+}
+
+func (c captureAdder) BatchAddResources(ctx context.Context, opts library.BatchAddOptions) (*library.BatchAddResult, error) {
+	if c.batchAddFn == nil {
+		return &library.BatchAddResult{}, nil
+	}
+	return c.batchAddFn(ctx, opts)
+}
+
 // T12 — Sanity check on the resourceAdder / libraryAdapter compile-
 // time assertion. The check `var _ resourceAdder = (*libraryAdapter)(nil)`
 // runs at package init and is the same check exercised at runtime
