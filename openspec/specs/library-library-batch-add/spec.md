@@ -206,3 +206,20 @@ The system SHALL detect resource type and platform the same way as single-file a
 - **GIVEN** `unknown.md` has no type indication
 - **WHEN** `library add --batch --type skill unknown.md` is called
 - **THEN** type is `skill` regardless of detection
+
+### Requirement: Writer field on BatchAddOptions (forward groundwork)
+
+The system SHALL expose a `Stdout io.Writer` field on `BatchAddOptions` (populated by the cmd layer from `opts.IO.Out`). This wires the writer discipline into batch operations so that any future batch dry-run output (success listings, failure listings, summaries) respects the cmd-side I/O discipline. The library package SHALL NOT write to `os.Stdout` directly.
+
+#### Scenario: Library package does not write to os.Stdout in batch
+
+- **WHEN** the codebase is searched for `fmt.Fprintln(os.Stdout` or `fmt.Fprintf(os.Stdout` in `internal/library/`
+- **THEN** zero matches SHALL appear
+- **AND** any future batch dry-run output SHALL be written via the `Stdout io.Writer` field on `BatchAddOptions` (gated on `opts.Stdout != nil`)
+
+#### Scenario: Cmd layer populates the writer field
+
+- **GIVEN** the cmd layer (`cmd/library_add.go`) calls `BatchAddResources`
+- **WHEN** the call site constructs `library.BatchAddOptions{...}`
+- **THEN** the literal SHALL include `Stdout: opts.IO.Out`
+- **AND** tests MAY pass `nil` (no batch dry-run output is written today; the field is forward-only)

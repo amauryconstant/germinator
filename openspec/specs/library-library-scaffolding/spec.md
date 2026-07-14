@@ -54,13 +54,18 @@ The system SHALL return an error if a library already exists at the target path 
 
 ### Requirement: Support dry-run mode
 
-The system SHALL preview changes without creating files when `--dry-run` is specified.
+The system SHALL preview changes without creating files when `--dry-run` is specified. The dry-run preview SHALL be written to the `Stdout io.Writer` field on `CreateOptions` (populated by the cmd layer from `opts.IO.Out`). The library package SHALL NOT write to `os.Stdout` directly; the cmd layer is responsible for selecting the writer.
 
 #### Scenario: Dry-run does not create files
 - **GIVEN** no library exists at `/tmp/my-library`
 - **WHEN** `germinator library init --path /tmp/my-library --dry-run` is executed
 - **THEN** no files or directories are created
-- **AND** a message is printed indicating what would be created
+- **AND** a message is printed to `opts.IO.Out` (via the `Stdout` field on `CreateOptions`) indicating what would be created
+
+#### Scenario: Library package does not write to os.Stdout
+- **WHEN** the codebase is searched for `fmt.Fprintln(os.Stdout` or `fmt.Fprintf(os.Stdout` in `internal/library/`
+- **THEN** zero matches SHALL appear
+- **AND** the dry-run output SHALL be written via the `Stdout io.Writer` field on `CreateOptions` (gated on `opts.Stdout != nil`)
 
 ### Requirement: Create valid library.yaml content
 
