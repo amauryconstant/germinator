@@ -1,23 +1,24 @@
 # library-library-orphan-discovery Specification (delta)
 
-## MODIFIED Requirements
+## ADDED Requirements
 
-### Requirement: DiscoverOrphans forwards ctx to errgroup
+### Requirement: DiscoverOrphans respects ctx at every directory scan
 
-The `library.DiscoverOrphans` function SHALL accept `ctx context.Context` as the first parameter and SHALL forward it to the `errgroup.WithContext(ctx)` (per change `fix-library-io-discipline`). The errgroup-derived child `ctx` SHALL be checked at every directory scan. Cancellation of the parent `ctx` SHALL propagate to all goroutines within bounded time.
+The `library.DiscoverOrphans` function SHALL honor caller-supplied cancellation by checking `ctx.Err()` at every directory scan entry and between every per-file walker entry. The function SHALL return wrapped `ctx.Err()` (using `%w`) on cancellation. The function SHALL NOT synthesize `context.Background()` or `context.TODO()` in place of the caller's `ctx`.
 
-**Change**: CLARIFY the ctx propagation contract. The pre-change `DiscoverOrphans` accepted `ctx` but only checked it at the top of the directory loop (BCD-009 / C-018). The post-change errgroup path checks it per-directory.
+**Change**: CLARIFY the ctx propagation contract. The pre-change `DiscoverOrphans` already accepted `ctx` (per slice 7, see `internal/library/adder.go:785`) and performed sequential `ctx.Err()` checks per-directory and per-file (see `adder.go:803,819,834,863`). This delta codifies that pattern as the contract. Earlier wording referenced `errgroup.WithContext(ctx)`; that refactor is deferred because the sequential pattern is sufficient for the 4-directory scan (latency delta is sub-millisecond, not user-perceptible per `golang-cli-architecture/references/06-concurrency.md`).
 
-#### Scenario: DiscoverOrphans uses errgroup-derived ctx
+#### Scenario: DiscoverOrphans checks ctx before each directory
 
 - **WHEN** `library.DiscoverOrphans(ctx, opts)` is called
-- **THEN** the function SHALL use `errgroup.WithContext(ctx)` to derive a child context
-- **AND** the function SHALL check the child `ctx.Err()` before processing each directory
-- **AND** the function SHALL return the errgroup's `Wait()` error (which is `context.Canceled` or `context.DeadlineExceeded` if the parent `ctx` is cancelled)
+- **THEN** the function SHALL check `ctx.Err()` before processing each top-level directory (`skills`, `agents`, `commands`, `memory`)
+- **AND** the per-file recursive walker SHALL check `ctx.Err()` between file entries
+- **AND** the function SHALL return wrapped `ctx.Err()` (via `%w`) on cancellation
+- **AND** no `context.Background()` or `context.TODO()` synthesis SHALL appear in the call chain (verified by `rg --type=go -g '!*_test.go' "context\.(Background|TODO)\(\)" internal/library/adder.go`)
 
 #### Scenario: Cancellation during directory scan
 
 - **GIVEN** a `ctx` that is cancelled mid-scan
 - **WHEN** `library.DiscoverOrphans(ctx, opts)` is called
 - **THEN** the function SHALL return within bounded time (one directory's processing time, not the full scan)
-- **AND** the returned error SHALL wrap `context.Canceled`
+- **AND** the returned error SHALL wrap `context.Canceled` via `%w`
