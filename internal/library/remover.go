@@ -186,12 +186,9 @@ func removeResourceFromLibrary(libraryPath, typ, name string) error {
 		return gerrors.NewParseError(yamlPath, "failed to marshal library.yaml", err)
 	}
 
-	tmpPath := yamlPath + ".tmp"
-	if err := os.WriteFile(tmpPath, output, 0o600); err != nil {
-		return gerrors.NewFileError(tmpPath, "write", "failed to write library.yaml", err)
-	}
-	if err := os.Rename(tmpPath, yamlPath); err != nil {
-		return gerrors.NewFileError(yamlPath, "rename", "failed to update library.yaml", err)
+	// Write atomically via atomicWriteFile (temp+rename with EXDEV fallback).
+	if err := atomicWriteFile(yamlPath, output, 0o600); err != nil {
+		return err
 	}
 
 	return nil
@@ -219,12 +216,9 @@ func removePresetFromLibrary(libraryPath, name string) error {
 		return gerrors.NewParseError(yamlPath, "failed to marshal library.yaml", err)
 	}
 
-	tmpPath := yamlPath + ".tmp"
-	if err := os.WriteFile(tmpPath, output, 0o600); err != nil {
-		return gerrors.NewFileError(tmpPath, "write", "failed to write library.yaml", err)
-	}
-	if err := os.Rename(tmpPath, yamlPath); err != nil {
-		return gerrors.NewFileError(yamlPath, "rename", "failed to update library.yaml", err)
+	// Write atomically via atomicWriteFile (temp+rename with EXDEV fallback).
+	if err := atomicWriteFile(yamlPath, output, 0o600); err != nil {
+		return err
 	}
 
 	return nil

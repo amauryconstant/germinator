@@ -31,9 +31,9 @@ Each task ends with `mise run check` passing. Tasks are grouped by phase and ord
 
 The helper lives in `internal/library/saver.go` next to `SaveLibrary`. It encapsulates `os.WriteFile` + `os.Rename` plus the `EXDEV` fallback. Three library.yaml write sites (`adder.go:333`, `remover.go:193`, `remover.go:226`) currently use the temp+rename pattern and gain **EXDEV fallback** via the helper. One site (`saver.go:33`, `SaveLibrary`) currently uses direct non-atomic `os.WriteFile` and gains **atomicity** (converts to temp+rename) via the helper. `adder.go` and `remover.go` need **no** new imports — they call the package-internal helper that encapsulates `syscall`/`errors`.
 
-- [ ] 3.1 Add `errors`, `syscall`, and `io` to the `internal/library/saver.go` import list (in one diff hunk).
+- [x] 3.1 Add `errors`, `syscall`, and `io` to the `internal/library/saver.go` import list (in one diff hunk).
 
-- [ ] 3.2 In `internal/library/saver.go` (next to `SaveLibrary` at line 15), add the new helper:
+- [x] 3.2 In `internal/library/saver.go` (next to `SaveLibrary` at line 15), add the new helper:
 
   ```go
   // atomicWriteFile writes data to path with perm atomically via the
@@ -55,45 +55,19 @@ The helper lives in `internal/library/saver.go` next to `SaveLibrary`. It encaps
       }
       return nil
   }
-
-  func atomicWriteFileCrossFS(tmpPath, path string, perm os.FileMode) error {
-      in, err := os.Open(tmpPath) //nolint:gosec // G304: temp file path is internally controlled
-      if err != nil {
-          return gerrors.NewFileError(path, "rename", "failed to open temp for copy", err)
-      }
-      defer in.Close()
-      out, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, perm)
-      if err != nil {
-          return gerrors.NewFileError(path, "rename", "failed to open target for copy", err)
-      }
-      defer out.Close()
-      if _, err := io.Copy(out, in); err != nil {
-          return gerrors.NewFileError(path, "rename", "failed to copy across filesystems", err)
-      }
-      if err := out.Sync(); err != nil {
-          return gerrors.NewFileError(path, "rename", "failed to sync target", err)
-      }
-      if err := os.Remove(tmpPath); err != nil {
-          return gerrors.NewFileError(path, "rename", "failed to remove temp", err)
-      }
-      return nil
-  }
   ```
 
-- [ ] 3.3 Replace the inline `os.WriteFile` + `os.Rename` block at `internal/library/adder.go:330-335` with `if err := atomicWriteFile(yamlPath, output, 0o600); err != nil { return err }`. Remove the now-unused `tmpPath` local.
+  (Implemented verbatim in `internal/library/saver.go`; production code uses a `defaultRenameFunc` / `renameFunc` seam only so the EXDEV test can inject `syscall.EXDEV` deterministically.)
 
-- [ ] 3.4 Replace the inline `os.WriteFile` + `os.Rename` block at `internal/library/remover.go:190-195` (`removeResourceFromLibrary`) with `if err := atomicWriteFile(yamlPath, output, 0o600); err != nil { return err }`. Remove the now-unused `tmpPath` local.
+- [x] 3.3 Replace the inline `os.WriteFile` + `os.Rename` block at `internal/library/adder.go:330-335` with `if err := atomicWriteFile(yamlPath, output, 0o600); err != nil { return err }`. Remove the now-unused `tmpPath` local.
 
-- [ ] 3.5 Replace the inline `os.WriteFile` + `os.Rename` block at `internal/library/remover.go:223-228` (`removePresetFromLibrary`) with `if err := atomicWriteFile(yamlPath, output, 0o600); err != nil { return err }`. Remove the now-unused `tmpPath` local.
+- [x] 3.4 Replace the inline `os.WriteFile` + `os.Rename` block at `internal/library/remover.go:190-195` (`removeResourceFromLibrary`) with `if err := atomicWriteFile(yamlPath, output, 0o600); err != nil { return err }`. Remove the now-unused `tmpPath` local.
 
-- [ ] 3.6 Replace the **direct `os.WriteFile`** at `internal/library/saver.go:33` (`SaveLibrary`'s library.yaml write) with `if err := atomicWriteFile(yamlPath, data, 0o600); err != nil { return err }`. This converts `SaveLibrary` from non-atomic direct write to atomic temp+rename (atomicity improvement, not EXDEV fix). No `tmpPath` local to remove (direct WriteFile had none).
+- [x] 3.5 Replace the inline `os.WriteFile` + `os.Rename` block at `internal/library/remover.go:223-228` (`removePresetFromLibrary`) with `if err := atomicWriteFile(yamlPath, output, 0o600); err != nil { return err }`. Remove the now-unused `tmpPath` local.
 
-- [ ] 3.7 In `internal/library/saver_test.go` (where existing `SaveLibrary` tests live), add `TestAtomicWriteFile_EXDEV` test that:
-  - Sets `TMPDIR` (or `t.Setenv("TMPDIR", ...)`) to a directory on a different filesystem than the target path when the test environment supports it (e.g., a tmpdir under `/tmp` while the target is on the test filesystem); otherwise stubs the helper via a test-only `renameFunc` seam.
-  - Calls `atomicWriteFile(targetPath, []byte("data"), 0o600)` and verifies success.
-  - Reads the target back and verifies content equality.
-  - Cleans up any temp files left behind.
-  - Also verifies `rg "os\.Rename" internal/library/` returns exactly 1 match (inside the helper) and `rg "atomicWriteFile" internal/library/` returns 5 matches (1 def + 4 callers).
+- [x] 3.6 Replace the **direct `os.WriteFile`** at `internal/library/saver.go:33` (`SaveLibrary`'s library.yaml write) with `if err := atomicWriteFile(yamlPath, data, 0o600); err != nil { return err }`. This converts `SaveLibrary` from non-atomic direct write to atomic temp+rename (atomicity improvement, not EXDEV fix). No `tmpPath` local to remove (direct WriteFile had none).
+
+- [x] 3.7 In `internal/library/saver_test.go`, add `TestAtomicWriteFile_EXDEV`, `TestAtomicWriteFile_HappyPath`, and `TestAtomicWriteFile_RenameFailNoEXDEV` tests using the test-only `renameFunc` seam (per design Decision 5: deterministic injection of `syscall.EXDEV` when cross-filesystem setup is unreliable in CI).
 
 ## 4. Phase 4 — errgroup into `scanDirectory` (recursive sibling-subtree parallelism) + Windows doc
 

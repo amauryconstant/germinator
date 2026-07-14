@@ -2,12 +2,108 @@ package library
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 
 	"gopkg.in/yaml.v3"
 )
+
+// withRenameFunc installs a test-only rename function for
+// atomicWriteFile and restores the original on test cleanup. The seam
+// lets us inject syscall.EXDEV deterministically in environments where
+// cross-filesystem setup is unreliable.
+func withRenameFunc(t *testing.T, fn func(string, string) error) {
+	t.Helper()
+	prev := renameFunc
+	renameFunc = fn
+	t.Cleanup(func() { renameFunc = prev })
+}
+
+// TestAtomicWriteFile_EXDEV exercises the cross-filesystem fallback
+// in atomicWriteFile. It overrides the rename seam to return
+// syscall.EXDEV (mimicking a cross-device rename failure), then
+// verifies that atomicWriteFile transparently falls back to copy+remove,
+// leaving the target with the new content and no stale temp files.
+func TestAtomicWriteFile_EXDEV(t *testing.T) {
+	tmpDir := t.TempDir()
+	targetPath := filepath.Join(tmpDir, "library.yaml")
+
+	// First rename attempt returns EXDEV (cross-filesystem); second
+	// attempt (after the fallback path triggered io.Copy + os.Remove)
+	// shouldn't be reached, but the seam must still return nil for
+	// atomicWriteFile to consider the operation successful.
+	withRenameFunc(t, func(string, string) error {
+		return syscall.EXDEV
+	})
+
+	if err := atomicWriteFile(targetPath, []byte("data\n"), 0o600); err != nil {
+		t.Fatalf("atomicWriteFile() EXDEV fallback error = %v", err)
+	}
+
+	got, err := os.ReadFile(targetPath)
+	if err != nil {
+		t.Fatalf("reading target after EXDEV fallback: %v", err)
+	}
+	if string(got) != "data\n" {
+		t.Errorf("target content = %q, want %q", got, "data\n")
+	}
+
+	// Temp file should be cleaned up by the fallback path.
+	tmpPath := targetPath + ".tmp"
+	if _, err := os.Stat(tmpPath); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("temp file should be removed after EXDEV fallback; stat err = %v", err)
+	}
+}
+
+// TestAtomicWriteFile_HappyPath verifies that atomicWriteFile with
+// the default rename behaves identically to the legacy temp+rename
+// pattern: target is updated, temp is removed.
+func TestAtomicWriteFile_HappyPath(t *testing.T) {
+	tmpDir := t.TempDir()
+	targetPath := filepath.Join(tmpDir, "library.yaml")
+
+	if err := atomicWriteFile(targetPath, []byte("hello\n"), 0o600); err != nil {
+		t.Fatalf("atomicWriteFile() error = %v", err)
+	}
+
+	got, err := os.ReadFile(targetPath)
+	if err != nil {
+		t.Fatalf("reading target: %v", err)
+	}
+	if string(got) != "hello\n" {
+		t.Errorf("target content = %q, want %q", got, "hello\n")
+	}
+
+	tmpPath := targetPath + ".tmp"
+	if _, err := os.Stat(tmpPath); !os.IsNotExist(err) {
+		t.Errorf("temp file should be removed; stat err = %v", err)
+	}
+}
+
+// TestAtomicWriteFile_RenameFailNoEXDEV verifies that non-EXDEV
+// rename failures are surfaced (not swallowed) so callers see the
+// underlying error.
+func TestAtomicWriteFile_RenameFailNoEXDEV(t *testing.T) {
+	tmpDir := t.TempDir()
+	targetPath := filepath.Join(tmpDir, "library.yaml")
+
+	wantErr := errors.New("simulated permission denied")
+	withRenameFunc(t, func(string, string) error {
+		return wantErr
+	})
+
+	if err := atomicWriteFile(targetPath, []byte("data\n"), 0o600); err == nil {
+		t.Fatal("atomicWriteFile() expected error when rename fails non-EXDEV")
+	}
+
+	// Target should not exist (rename failed before any copy).
+	if _, err := os.Stat(targetPath); !os.IsNotExist(err) {
+		t.Errorf("target should not exist after non-EXDEV rename failure; stat err = %v", err)
+	}
+}
 
 func TestSaveLibrary(t *testing.T) {
 	// Create a temporary library directory

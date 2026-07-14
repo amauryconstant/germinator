@@ -332,13 +332,9 @@ func addResourceToLibrary(libraryPath, docType, name, filePath, description stri
 		return core.NewParseError(yamlPath, "failed to marshal library.yaml", err)
 	}
 
-	// Write atomically: write to temp file first, then rename
-	tmpPath := yamlPath + ".tmp"
-	if err := os.WriteFile(tmpPath, output, 0o644); err != nil { //nolint:gosec // G302: Creating new file with standard permissions
-		return core.NewFileError(tmpPath, "write", "failed to write library.yaml", err)
-	}
-	if err := os.Rename(tmpPath, yamlPath); err != nil {
-		return core.NewFileError(yamlPath, "rename", "failed to update library.yaml", err)
+	// Write atomically via atomicWriteFile (temp+rename with EXDEV fallback).
+	if err := atomicWriteFile(yamlPath, output, 0o600); err != nil {
+		return err
 	}
 
 	return nil
