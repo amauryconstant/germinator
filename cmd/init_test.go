@@ -280,7 +280,7 @@ func TestRunInit_PresetExpansion_PartialFail(t *testing.T) {
 }
 
 // §5.3.5 — Preset-not-found: --preset ghost returns
-// *core.NotFoundError{Entity:"preset", Name:"ghost"}; ExitCodeFor == 2.
+// *core.NotFoundError{Entity:"preset", Name:"ghost"}; ExitCodeFor == 1.
 func TestRunInit_PresetNotFound(t *testing.T) {
 	t.Parallel()
 

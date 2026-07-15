@@ -26,7 +26,7 @@ The `BatchFailureInfo` struct declared in `internal/library/adder.go:541-544` SH
 #### Scenario: ErrorType is the type name of the cause
 
 - **WHEN** a `BatchFailureInfo` is built from a typed error (e.g., `*gerrors.NotFoundError`)
-- **THEN** `ErrorType` SHALL be the canonical name of the cause's type, computed via a typed switch in `internal/library/adder.go` (e.g., `*gerrors.NotFoundError` → `"NotFoundError"`, `*gerrors.FileError` → `"FileError"`, `*gerrors.ValidationError` → `"ValidationError"`, `*gerrors.ParseError` → `"ParseError"`, `*gerrors.ConfigError` → `"ConfigError"`, `*gerrors.OperationError` → `"OperationError"`, `*gerrors.InitializeError` → `"InitializeError"`, `*gerrors.PartialSuccessError` → `"PartialSuccessError"`, `*gerrors.UsageError` → `"UsageError"`, `*gerrors.CobraUsageError` → `"CobraUsageError"`, `*os.PathError` → `"PathError"`, default → `fmt.Sprintf("%T", cause)`)
+- **THEN** `ErrorType` SHALL be the canonical name of the cause's outermost concrete type, computed via a direct `switch cause.(type)` in `internal/library/adder.go` (e.g., `*gerrors.NotFoundError` → `"NotFoundError"`, `*gerrors.FileError` → `"FileError"`, `*gerrors.ValidationError` → `"ValidationError"`, `*gerrors.ParseError` → `"ParseError"`, `*gerrors.ConfigError` → `"ConfigError"`, `*gerrors.OperationError` → `"OperationError"`, `*gerrors.InitializeError` → `"InitializeError"`, `*gerrors.PartialSuccessError` → `"PartialSuccessError"`, `*gerrors.UsageError` → `"UsageError"`, `*gerrors.CobraUsageError` → `"CobraUsageError"`, `*os.PathError` → `"PathError"`, default → `fmt.Sprintf("%T", cause)`). The dispatch is a direct type-switch (not `errors.As`), so the label reflects the cause's outermost concrete type — for a typed error that wraps another typed error via `fmt.Errorf("...: %w", inner)`, the label is the outermost type (`*OperationError`), not the wrapped cause (`*NotFoundError`); for a non-pointer value (none of `core.*Error` are addressed by value), `fmt.Sprintf("%T", cause)` returns the underlying struct name.
 - **AND** `Cause` SHALL be the original typed error
 - **AND** when `Cause` is nil, `ErrorType` SHALL be the empty string
 
@@ -42,6 +42,14 @@ The `BatchFailureInfo` struct declared in `internal/library/adder.go:541-544` SH
 - **THEN** the cause SHALL be a `*core.*Error` typed error (or any other type that implements `json.Marshaler`)
 - **AND** non-typed causes (e.g., `*os.PathError`, plain `errors.New(...)`) SHALL be wrapped in `*core.FileError` (or another typed error) at the population site BEFORE assignment to `f.Cause`
 - **AND** the JSON serialization contract above assumes typed causes — non-typed causes would marshal as `{}` per stdlib `json.Marshaler` precedence rules, which defeats the typed-error-chain preservation contract
+
+#### Scenario: Stdlib cancellation cause wrapped as typed cause
+
+- **WHEN** a `BatchFailureInfo.Cause` would otherwise be a stdlib `context.Canceled` (returned by `ctx.Err()` during `processBatchAddFile`'s pre-flight cancellation check at `internal/library/adder.go:667`)
+- **THEN** the population site SHALL wrap the stdlib error in `*core.FileError{path: source, op: "context", message: cerr.Error(), cause: cerr}` BEFORE assigning to `f.Cause`
+- **AND** `f.ErrorType` SHALL be `"FileError"` (the wrapped type, not `"*errors.errorString"` from the unwrapped stdlib default)
+- **AND** the original `cerr` SHALL remain reachable via `errors.Is(f.Cause.Unwrap(), context.Canceled)` so cancellation observability is preserved
+- **Rationale**: the `context.Canceled` value does not implement `json.Marshaler`; without wrapping, the JSON wire format for `cause` would marshal as `{}`, violating the typed-cause contract.
 
 #### Scenario: Cause supports errors.Is / errors.As
 

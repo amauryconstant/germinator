@@ -274,9 +274,10 @@ func TestRunRemove_Resource_Success(t *testing.T) {
 	}
 }
 
-// T6 — Resource removal tolerates a missing physical file (the
-// method's `os.IsNotExist` branch is the no-error path). The
-// library.yaml is still updated; the success line is still emitted.
+// T6 — Resource removal surfaces a missing physical file as a
+// typed NotFoundError (Phase 3.10, Design Decision #6: idempotent
+// removal becomes non-idempotent). The library.yaml is NOT
+// mutated; the error path emits no output.
 func TestRunRemove_Resource_MissingFile(t *testing.T) {
 	libDir := removeResourceFixture(t)
 

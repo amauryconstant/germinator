@@ -69,6 +69,13 @@ func TestResolveResource(t *testing.T) {
 			if !tt.wantErr && gotPath != tt.wantPath {
 				t.Errorf("ResolveResource() path = %v, want %v", gotPath, tt.wantPath)
 			}
+			if tt.wantErr && tt.name != "invalid ref format" {
+				var nf *gerrors.NotFoundError
+				require.True(t, errors.As(err, &nf),
+					"not-found path MUST surface as *core.NotFoundError; got %T (%v)", err, err)
+				assert.Equal(t, "resource", nf.Entity,
+					"resource-lookup misses MUST report entity 'resource'")
+			}
 		})
 	}
 }

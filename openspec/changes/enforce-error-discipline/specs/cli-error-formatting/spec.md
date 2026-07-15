@@ -14,30 +14,38 @@ The prior scenario *"NotFoundError maps to ExitCodeUsage"* (from `openspec/specs
 
 ### Requirement: Typed-error dispatch
 
-`output.FormatError(io, err)` SHALL dispatch on typed errors via `errors.As`:
+`output.FormatError(io, err)` SHALL dispatch on typed errors via `errors.As`, in the canonical order documented below (first matching case wins):
 
 - `*core.ParseError` → render: `Error: parse failed at <path>: <message>`
 - `*core.ValidationError` → render: `Error: validation failed: <message>` followed by per-error list
 - `*core.TransformError` → render: `Error: transform failed: <message>`
 - `*core.FileError` → render: `Error: <op> <path>: <message>`
 - `*core.ConfigError` → render: `Error: config: <message>`
-- `*core.PartialSuccessError` → render: `partial success: N succeeded, M failed` followed by per-error lines
+- `*core.PartialSuccessError` → render: `partial success: N succeeded, M failed` followed by per-error lines (**partial-success supersedes not-found for wrapped chains**; placed before NotFound in the canonical order)
 - `*core.NotFoundError` → render: `Error: not found: <key>`
 - `*core.OperationError` → render: `Error: <op> failed: <resource>: <message>`
 - `*core.InitializeError` → render: `Error: <e.Error()>` (NEW in change `enforce-error-discipline`; delegates to `InitializeError.Error()` which renders `initialize failed: <ref>: output: <outputPath>: <cause.Error()>` as a single colon-joined line per `internal/core/errors.go:670-687` — parts joined by `: `; `output` segment optional; cause optional; optional `(context)` suffix; optional `\n💡 <suggestions>` block)
 - `*core.UsageError` → render: `Error: <flag>: <reason>` (NEW in change `enforce-error-discipline`)
 - `*config.WriteError` → render: `Error: <op> <path>: <message>` (NEW in change `enforce-error-discipline`; `*config.WriteError` carries `op`, `path`, `cause` per `internal/config/errors.go`)
+- `*core.CobraUsageError` → render: `Error: <e.Error()>` (NEW in change `enforce-error-discipline`; delegates to the wrapped cause's `Error()`, e.g., `"Error: requires at least 1 arg(s), only received 0"`)
 - generic error → render: `Error: <err.Error()>`
 
-**Change**: ADDED `*core.InitializeError` and `*core.UsageError` cases. The pre-change switch handled only 8 of the 9 existing typed errors (missing `InitializeError`); `UsageError` is a new type introduced in this change. The dispatch set is now complete for all 11 core typed errors (9 existing + 2 new) plus 1 Imperative Shell typed error (`*config.WriteError`) — 12 arms + default fallback.
+**Change**: ADDED `*core.InitializeError`, `*core.UsageError`, and `*core.CobraUsageError` cases. The pre-change switch handled only 8 of the 9 existing typed errors (missing `InitializeError`); `UsageError` and `CobraUsageError` are new types introduced in this change. The dispatch set is now complete for all 11 core typed errors (9 existing + 2 new) plus 1 Imperative Shell typed error (`*config.WriteError`) — 13 arms + default fallback.
 
-The dispatch ordering matches the order above (full canonical order: Parse, Validation, Transform, File, Config, PartialSuccess, NotFound, Operation, Initialize, Usage, WriteError, default); the new cases sit after `OperationError` and before the generic-error fallback.
+The dispatch ordering matches the order above (full canonical order: Parse, Validation, Transform, File, Config, PartialSuccess, NotFound, Operation, Initialize, Usage, WriteError, CobraUsage, default). `PartialSuccess` intentionally precedes `NotFound` so that a `*core.PartialSuccessError` aggregated from per-resource `NotFoundError` failures dispatches to the partial-success renderer (which lists every per-resource line) rather than to the terse `not found:` renderer. The new `UsageError`, `WriteError`, and `CobraUsageError` cases sit after `OperationError` and before the generic-error fallback.
 
 #### Scenario: FormatError table-driven
 
 - **WHEN** `FormatError` is called with each error type from the list above
 - **THEN** it SHALL write the corresponding formatted string to `io.ErrOut`
 - **AND** `io.Styles.Error()` SHALL style the prefix
+
+#### Scenario: PartialSuccessError precedes NotFoundError in dispatch order
+
+- **WHEN** `output.FormatError(io, err)` is called with `errors.Join(PartialSuccessError, NotFoundError)` (or any other combination where both `*core.PartialSuccessError` and `*core.NotFoundError` are reachable via `errors.As`)
+- **THEN** the rendered output SHALL be the PartialSuccessError shape (`partial success: <N> succeeded, <M> failed\n…`), not the `Error: not found: <key>` shape
+- **AND** the canonical switch order at `internal/output/errors.go` SHALL keep `case *core.PartialSuccessError` before `case *core.NotFoundError`
+- **NOTE**: this scenario codifies the "PartialSuccess supersedes NotFound" dispatch order documented in the Requirement above; tests that consume `errors.Join` of both types assert the partial-success renderer wins.
 
 #### Scenario: InitializeError renders to stderr
 
@@ -98,3 +106,13 @@ The dispatch ordering matches the order above (full canonical order: Parse, Vali
 - **WHEN** `output.FormatError(io, err)` is called with `*core.UsageError`
 - **THEN** the dispatch SHALL match the `case *core.UsageError` arm
 - **AND** the rendered message SHALL be `"Error: <flag>: <reason>\n"` (where `<flag>` and `<reason>` come from the typed-error's accessors)
+
+### Requirement: CobraUsageError dispatch table member
+
+`output.FormatError` SHALL dispatch on `*core.CobraUsageError` and render the wrapped cause's user-facing message to stderr. The case is added per change `enforce-error-discipline` so the dispatch set covers every `core.*Error` type as the implementation comment claims (`internal/output/errors.go:19-22`).
+
+#### Scenario: CobraUsageError renders to stderr via dispatch
+
+- **WHEN** `output.FormatError(io, err)` is called with `*core.CobraUsageError`
+- **THEN** the dispatch SHALL match the `case *core.CobraUsageError` arm
+- **AND** the rendered message SHALL be `"Error: <wrapped.Error()>\n"` — the wrapped cause's `Error()` is the body; the dispatch delegates to the cause rather than prefixing or wrapping further.

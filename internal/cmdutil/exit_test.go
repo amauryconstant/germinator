@@ -2,6 +2,7 @@ package cmdutil
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/spf13/pflag"
@@ -83,6 +84,54 @@ func TestExitCodeFor(t *testing.T) {
 			assert.Equal(t, tt.want, ExitCodeFor(tt.err))
 		})
 	}
+
+	t.Run("typed dispatch traverses wrap chain", func(t *testing.T) {
+		t.Parallel()
+
+		tests := []struct {
+			name string
+			err  error
+			want ExitCode
+		}{
+			{"wrapped pflag NotExistError", fmt.Errorf("cobra: %w", pflagNotExist), ExitCodeUsage},
+			{"wrapped pflag ValueRequiredError", fmt.Errorf("cobra: %w", pflagValueRequired), ExitCodeUsage},
+			{"wrapped pflag InvalidValueError", fmt.Errorf("cobra: %w", pflagInvalidValue), ExitCodeUsage},
+			{"wrapped pflag InvalidSyntaxError", fmt.Errorf("cobra: %w", pflagInvalidSyntax), ExitCodeUsage},
+			{"wrapped core NotFoundError", fmt.Errorf("resolving resource: %w", core.NewNotFoundError("library ref", "missing")), ExitCodeError},
+			{"wrapped core UsageError", fmt.Errorf("validating flags: %w", core.NewUsageError("--resources", "must be non-empty list of refs")), ExitCodeUsage},
+			{"wrapped core CobraUsageError", fmt.Errorf("cobra: %w", core.MustNewCobraUsageError(errors.New("requires at least 1 arg(s)"))), ExitCodeUsage},
+			{"wrapped core WriteError", fmt.Errorf("saving: %w", config.NewWriteError("write", "/tmp/cfg.toml", errors.New("permission denied"))), ExitCodeError},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
+				assert.Equal(t, tt.want, ExitCodeFor(tt.err),
+					"typed-error dispatch must traverse %%w wraps via errors.As")
+			})
+		}
+	})
+
+	t.Run("no substring matching on legacy Cobra phrasing", func(t *testing.T) {
+		t.Parallel()
+
+		tests := []struct {
+			name string
+			err  error
+		}{
+			{"plain unknown flag", errors.New("unknown flag: --foo")},
+			{"plain flag needs argument", errors.New("flag needs an argument: --foo")},
+			{"plain accepts at most N", errors.New("accepts at most 1 arg(s), only received 2")},
+			{"plain requires at least", errors.New("requires at least 1 arg(s), only received 0")},
+			{"plain required flag(s)", errors.New(`required flag(s) "type" not set`)},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
+				assert.Equal(t, ExitCodeError, ExitCodeFor(tt.err),
+					"plain errors.New with legacy Cobra phrasing must fall through to ExitCodeError (1); the substring dispatch fallback was removed in change enforce-error-discipline")
+			})
+		}
+	})
 }
 
 func TestExitCodeForWrapped(t *testing.T) {

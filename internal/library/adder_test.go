@@ -3,14 +3,18 @@ package library
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/amoconst/germinator/internal/core"
 )
 
 func TestDetectType(t *testing.T) {
@@ -959,11 +963,9 @@ tools:
 }
 
 func TestBatchAddResources_InvalidFile(t *testing.T) {
-	// Create a temp library
 	tmpLibDir := t.TempDir()
 	createTestLibrary(t, tmpLibDir)
 
-	// Run BatchAddResources with nonexistent file
 	result, err := BatchAddResources(context.Background(), BatchAddOptions{
 		Sources:     []string{"/nonexistent/file.md"},
 		LibraryPath: tmpLibDir,
@@ -974,13 +976,17 @@ func TestBatchAddResources_InvalidFile(t *testing.T) {
 		t.Fatalf("BatchAddResources() error = %v", err)
 	}
 
-	// Verify failure
-	if result.Summary.Failed != 1 {
-		t.Errorf("Expected Failed=1 for nonexistent file, got %d", result.Summary.Failed)
-	}
-	if len(result.Failed) != 1 {
-		t.Errorf("Expected 1 failed entry, got %d", len(result.Failed))
-	}
+	assert.Equal(t, 1, result.Summary.Failed)
+	require.Len(t, result.Failed, 1)
+
+	bfi := result.Failed[0]
+	require.NotEmpty(t, bfi.ErrorType,
+		"ErrorType MUST be populated so JSON consumers can classify the failure")
+	require.NotNil(t, bfi.Cause,
+		"Cause MUST carry the typed error (preserves errors.Is/As chain downstream)")
+	caused := bfi.Cause.Error()
+	assert.NotEmpty(t, caused,
+		"the typed error MUST surface a non-empty Error() string for the JSON 'cause' field")
 }
 
 // TestCheckNameConflict exercises the renamed checkNameConflict helper
@@ -1108,4 +1114,198 @@ func TestBatchAddResources_CtxCancelled(t *testing.T) {
 	})
 	require.Error(t, err)
 	assert.ErrorIs(t, err, context.Canceled)
+}
+
+func TestErrorTypeName(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		cause error
+		want  string
+	}{
+		{name: "nil", cause: nil, want: ""},
+		{name: "ParseError", cause: core.NewParseError("a", "m", nil), want: "ParseError"},
+		{name: "ValidationError", cause: core.NewValidationError("a", "f", "v", "m"), want: "ValidationError"},
+		{name: "TransformError", cause: core.NewTransformError("o", "p", "m", nil), want: "TransformError"},
+		{name: "FileError", cause: core.NewFileError("/x", "op", "m", nil), want: "FileError"},
+		{name: "ConfigError", cause: core.NewConfigError("f", "v", "m"), want: "ConfigError"},
+		{name: "NotFoundError", cause: core.NewNotFoundError("r", "k"), want: "NotFoundError"},
+		{name: "OperationError", cause: core.NewOperationError("op", "r", nil), want: "OperationError"},
+		{name: "InitializeError", cause: core.NewInitializeError("r", "in", "out", nil), want: "InitializeError"},
+		{name: "PartialSuccessError", cause: core.NewPartialSuccessError(0, 1, nil), want: "PartialSuccessError"},
+		{name: "UsageError", cause: core.NewUsageError("--x", "reason"), want: "UsageError"},
+		{name: "CobraUsageError", cause: core.MustNewCobraUsageError(errors.New("requires at least 1 arg(s)")), want: "CobraUsageError"},
+		{name: "PathError", cause: &os.PathError{Op: "open", Path: "/x", Err: syscall.ENOENT}, want: "PathError"},
+		{name: "outermost-wins for wrapped typed chain",
+			cause: fmt.Errorf("outer: %w", core.NewNotFoundError("r", "k")),
+			want:  "*fmt.wrapError"},
+		{name: "default untyped", cause: errors.New("untyped"), want: "*errors.errorString"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tt.want, errorTypeName(tt.cause))
+		})
+	}
+}
+
+func TestBatchFailureInfo_JSON_OmitEmptyCause(t *testing.T) {
+	t.Parallel()
+
+	t.Run("nil Cause and empty ErrorType omits both keys", func(t *testing.T) {
+		t.Parallel()
+		bfi := BatchFailureInfo{Source: "/tmp/x.md", Error: "boom"}
+
+		b, err := json.Marshal(bfi)
+		require.NoError(t, err)
+		assert.Equal(t,
+			`{"source":"/tmp/x.md","error":"boom"}`,
+			string(b),
+			"nil Cause and empty ErrorType MUST NOT appear in the JSON wire format")
+	})
+
+	t.Run("typed Cause serializes as single-key shape", func(t *testing.T) {
+		t.Parallel()
+		cause := core.NewNotFoundError("library ref", "ghost")
+		bfi := BatchFailureInfo{
+			Source:    "/tmp/x.md",
+			Error:     cause.Error(),
+			ErrorType: errorTypeName(cause),
+			Cause:     cause,
+		}
+
+		b, err := json.Marshal(bfi)
+		require.NoError(t, err)
+		assert.Equal(t,
+			`{"source":"/tmp/x.md","error":"not found: ghost","errorType":"NotFoundError","cause":{"error":"not found: ghost"}}`,
+			string(b),
+			"typed Cause MUST serialize as the documented single-key shape")
+	})
+
+	t.Run("stdlib ContextCanceled wrapped in *core.FileError serializes clean", func(t *testing.T) {
+		t.Parallel()
+		cancelErr := context.Canceled
+		wrapped := core.NewFileError("/tmp/x.md", "context", cancelErr.Error(), cancelErr)
+		bfi := BatchFailureInfo{
+			Source:    "/tmp/x.md",
+			Error:     cancelErr.Error(),
+			ErrorType: errorTypeName(wrapped),
+			Cause:     wrapped,
+		}
+
+		b, err := json.Marshal(bfi)
+		require.NoError(t, err)
+
+		assert.Equal(t, "FileError", bfi.ErrorType,
+			"the cancellation population site wraps context.Canceled in *core.FileError so ErrorType is the typed-class name")
+
+		require.NotNil(t, bfi.Cause)
+		causeStr, ok := causeFromJSON(b)
+		require.True(t, ok, "cause key must be present in JSON when Cause is non-nil typed")
+		assert.Equal(t, wrapped.Error(), causeStr.Error,
+			"the wrapped *core.FileError MUST serialize as the documented single-key shape, not as the stdlib empty `{}`")
+		assert.True(t, errors.Is(bfi.Cause, context.Canceled),
+			"errors.Is MUST traverse the wrapped chain to the original context.Canceled")
+	})
+}
+
+// causeFromJSON pulls the nested `cause` object out of the raw BatchFailureInfo
+// JSON for assertion purposes only; not used outside this test.
+func causeFromJSON(b []byte) (struct {
+	Error string `json:"error"`
+}, bool) {
+	var aux struct {
+		Cause *struct {
+			Error string `json:"error"`
+		} `json:"cause,omitempty"`
+	}
+	if err := json.Unmarshal(b, &aux); err != nil {
+		return struct {
+			Error string `json:"error"`
+		}{}, false
+	}
+	if aux.Cause == nil {
+		return struct {
+			Error string `json:"error"`
+		}{}, false
+	}
+	return *aux.Cause, true
+}
+
+func TestBatchAddResources_CtxCancel_PopulatesTypedCause(t *testing.T) {
+	t.Parallel()
+
+	// Sub-test A: pre-cancelled ctx — the outer loop short-circuits via
+	// its own ctx.Err() check; no BatchFailureInfo is appended, the
+	// typed-cause contract is upheld by the outer error itself.
+	t.Run("pre-cancelled ctx surfaces via outer loop", func(t *testing.T) {
+		t.Parallel()
+		ctx, cancel := context.WithCancel(t.Context())
+		cancel()
+
+		srcFile := filepath.Join(t.TempDir(), "x.md")
+		require.NoError(t, os.WriteFile(srcFile, []byte("---\nname: x\n---\nbody"), 0o644))
+
+		result, err := BatchAddResources(ctx, BatchAddOptions{
+			Sources:     []string{srcFile},
+			LibraryPath: t.TempDir(),
+		})
+		require.Error(t, err)
+		assert.ErrorIs(t, err, context.Canceled,
+			"pre-cancelled ctx MUST surface context.Canceled via the outer loop's wrap")
+		if result != nil {
+			assert.Empty(t, result.Failed,
+				"pre-cancellation is a runtime state, not a per-file failure; no BatchFailureInfo should be added")
+		}
+	})
+
+	// Sub-test B: cancellation *during* processBatchAddFile — the
+	// in-process pre-flight wraps context.Canceled in *core.FileError
+	// before assigning to BatchFailureInfo.Cause so the JSON wire
+	// format preserves the typed-error chain.
+	t.Run("in-process cancellation wraps Cause as typed error", func(t *testing.T) {
+		t.Parallel()
+		srcFile := filepath.Join(t.TempDir(), "x.md")
+		require.NoError(t, os.WriteFile(srcFile, []byte("---\nname: x\n---\nbody"), 0o644))
+
+		ctx, cancel := context.WithCancel(t.Context())
+		cancel()
+
+		libDir := t.TempDir()
+		createTestLibrary(t, libDir)
+
+		// Inject the cancellation as the per-file pre-flight so
+		// processBatchAddFile hits its ctx.Err() branch. The outer
+		// loop in BatchAddResources would otherwise short-circuit;
+		// we drive processBatchAddFile directly to exercise the
+		// wrapping at the population site.
+		result := &BatchAddResult{}
+		err := processBatchAddFile(ctx, srcFile, BatchAddOptions{
+			LibraryPath: libDir,
+		}, result, Orphan{})
+		require.Error(t, err)
+		require.Len(t, result.Failed, 1,
+			"cancelled-context pre-flight MUST record exactly one BatchFailureInfo")
+
+		bfi := result.Failed[0]
+		assert.Equal(t, "FileError", bfi.ErrorType,
+			"context.Canceled MUST be wrapped in *core.FileError before assignment so ErrorType is typed")
+		require.NotNil(t, bfi.Cause)
+		var fe *core.FileError
+		require.True(t, errors.As(bfi.Cause, &fe))
+		assert.Equal(t, "context", fe.Operation(),
+			"the wrapping FileError MUST carry the canonical 'context' op for pre-flight cancellation")
+		assert.True(t, errors.Is(bfi.Cause, context.Canceled),
+			"errors.Is MUST traverse the wrapped chain to reach the original context.Canceled")
+
+		b, mErr := json.Marshal(bfi)
+		require.NoError(t, mErr)
+		causeStr, ok := causeFromJSON(b)
+		require.True(t, ok,
+			"cause key MUST appear in JSON when Cause is non-nil (the typed *core.FileError must serialize as a single-key object)")
+		assert.NotEmpty(t, causeStr.Error,
+			"wrapped *core.FileError MUST serialize as `{\"error\":\"...\"}`, NOT as the stdlib empty `{}`")
+	})
 }

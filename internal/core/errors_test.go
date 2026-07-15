@@ -1300,31 +1300,128 @@ func TestCobraUsageError(t *testing.T) {
 func TestTypedErrorsMarshalJSON(t *testing.T) {
 	t.Parallel()
 
-	t.Run("NotFoundError", func(t *testing.T) {
-		t.Parallel()
-		b, err := json.Marshal(NewNotFoundError("library ref", "ghost"))
-		require.NoError(t, err)
-		assert.JSONEq(t, `{"error": "not found: ghost"}`, string(b))
-	})
+	type buildError func() (e error)
 
-	t.Run("OperationError", func(t *testing.T) {
-		t.Parallel()
-		b, err := json.Marshal(NewOperationError("add", "skill/commit", nil))
-		require.NoError(t, err)
-		assert.JSONEq(t, `{"error": "add: skill/commit"}`, string(b))
-	})
+	tests := []struct {
+		name  string
+		build buildError
+	}{
+		{
+			name: "ParseError",
+			build: func() error {
+				return NewParseError("agent.md", "unrecognized document type", nil)
+			},
+		},
+		{
+			name: "ValidationError",
+			build: func() error {
+				return NewValidationError("adapt", "name", "", "name is required")
+			},
+		},
+		{
+			name: "TransformError",
+			build: func() error {
+				return NewTransformError("render", "opencode", "render failed", nil)
+			},
+		},
+		{
+			name: "FileError",
+			build: func() error {
+				return NewFileError("/tmp/x", "read", "permission denied", nil)
+			},
+		},
+		{
+			name: "ConfigError",
+			build: func() error {
+				return NewConfigError("platform", "foo", "invalid platform")
+			},
+		},
+		{
+			name: "NotFoundError",
+			build: func() error {
+				return NewNotFoundError("library ref", "ghost")
+			},
+		},
+		{
+			name: "OperationError",
+			build: func() error {
+				return NewOperationError("add", "skill/commit", nil)
+			},
+		},
+		{
+			name: "InitializeError",
+			build: func() error {
+				return NewInitializeError("skill/commit", "/lib/in.md", "/lib/out.md", nil)
+			},
+		},
+		{
+			name: "PartialSuccessError",
+			build: func() error {
+				return NewPartialSuccessError(3, 1, nil)
+			},
+		},
+		{
+			name: "UsageError",
+			build: func() error {
+				return NewUsageError("--resources", "must be non-empty list of refs")
+			},
+		},
+		{
+			name: "CobraUsageError",
+			build: func() error {
+				return MustNewCobraUsageError(errors.New("requires at least 1 arg(s), only received 0"))
+			},
+		},
+	}
 
-	t.Run("ParseError", func(t *testing.T) {
-		t.Parallel()
-		b, err := json.Marshal(NewParseError("agent.md", "unrecognized document type", nil))
-		require.NoError(t, err)
-		assert.JSONEq(t, `{"error": "parse error in agent.md: unrecognized document type"}`, string(b))
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			e := tt.build()
+			errorString := e.Error()
 
-	t.Run("FileError", func(t *testing.T) {
+			b, err := json.Marshal(e)
+			require.NoError(t, err)
+			assert.Equal(t, []byte(`{"error":"`+errorString+`"}`), b,
+				"%s MarshalJSON must return exact bytes %q", tt.name, `{"error":"`+errorString+`"}`)
+
+			var decoded struct {
+				Error string `json:"error"`
+			}
+			require.NoError(t, json.Unmarshal(b, &decoded))
+			assert.Equal(t, errorString, decoded.Error,
+				"decoded JSON error field must equal err.Error()")
+		})
+	}
+
+	t.Run("OperationError non-nil cause does not recurse", func(t *testing.T) {
 		t.Parallel()
-		b, err := json.Marshal(NewFileError("/tmp/x", "read", "permission denied", nil))
+		inner := NewNotFoundError("ref", "key")
+		wrapped := NewOperationError("add", "skill/commit", inner)
+
+		b, err := json.Marshal(wrapped)
 		require.NoError(t, err)
-		assert.JSONEq(t, `{"error": "file error (read /tmp/x): permission denied"}`, string(b))
+		assert.Equal(t, []byte(`{"error":"add: skill/commit"}`), b,
+			"cause chain must NOT be encoded into JSON; only err.Error() is serialized")
+
+		var decoded struct {
+			Error string `json:"error"`
+		}
+		require.NoError(t, json.Unmarshal(b, &decoded))
+		assert.Equal(t, wrapped.Error(), decoded.Error)
 	})
+}
+
+func TestUsageError_WithSuggestions_DefensiveInputCopy(t *testing.T) {
+	t.Parallel()
+
+	input := []string{"a", "b", "c"}
+	err := NewUsageError("--x", "reason").WithSuggestions(input)
+
+	input[0] = "MUTATED"
+
+	got := err.Suggestions()
+	require.Len(t, got, 3)
+	assert.Equal(t, "a", got[0],
+		"UsageError.WithSuggestions must clone the input slice so caller mutation cannot change the stored suggestions")
 }

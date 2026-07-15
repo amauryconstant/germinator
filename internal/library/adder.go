@@ -664,16 +664,20 @@ func collectSourceFiles(sources []string) ([]string, error) {
 // partial summary remains consistent.
 func processBatchAddFile(ctx context.Context, source string, opts BatchAddOptions, result *BatchAddResult, orphan Orphan) error {
 	// Pre-flight cancellation check so a cancelled context short-circuits
-	// the detect → load → add pipeline per file.
-	if err := ctx.Err(); err != nil {
+	// the detect → load → add pipeline per file. The cancellation cause
+	// is wrapped in *core.FileError before assignment so the JSON wire
+	// shape preserves the typed-error contract; context.Canceled has no
+	// MarshalJSON and would otherwise serialize as `{}`.
+	if cerr := ctx.Err(); cerr != nil {
+		typed := core.NewFileError(source, "context", cerr.Error(), cerr)
 		result.Failed = append(result.Failed, BatchFailureInfo{
 			Source:    source,
-			Error:     err.Error(),
-			ErrorType: errorTypeName(err),
-			Cause:     err,
+			Error:     cerr.Error(),
+			ErrorType: errorTypeName(typed),
+			Cause:     typed,
 		})
 		result.Summary.Failed++
-		return fmt.Errorf("processBatchAddFile: %w", err)
+		return fmt.Errorf("processBatchAddFile: %w", cerr)
 	}
 
 	// Detect resource type - use orphan type if available (from discover), otherwise detect
@@ -725,11 +729,12 @@ func processBatchAddFile(ctx context.Context, source string, opts BatchAddOption
 	// Load the library to check for existing resources
 	lib, err := LoadLibrary(ctx, opts.LibraryPath)
 	if err != nil {
+		typed := wrapAsTypedCause(err, opts.LibraryPath)
 		result.Failed = append(result.Failed, BatchFailureInfo{
 			Source:    source,
 			Error:     fmt.Sprintf("loading library: %v", err),
-			ErrorType: errorTypeName(err),
-			Cause:     err,
+			ErrorType: errorTypeName(typed),
+			Cause:     typed,
 		})
 		result.Summary.Failed++
 		return fmt.Errorf("loading library: %w", err)
@@ -1066,54 +1071,76 @@ func registerOrphan(libraryPath string, orphan Orphan) error {
 //
 // Returning "" for nil is required: BatchFailureInfo.ErrorType carries
 // `json:",omitempty"`, so the empty string is the wire-format sentinel
-// for "no typed cause was threaded". The dispatch uses errors.As so
-// wrapped error chains are still recognized (e.g., an
-// OperationError whose Cause is a NotFoundError reports "OperationError",
-// since the chain target is the outermost type).
+// for "no typed cause was threaded". The dispatch is a direct
+// type-switch so the label reflects the cause's outermost concrete
+// type — no chain walking — mirroring how downstream consumers key off
+// the cause's outermost class.
 func errorTypeName(cause error) string {
 	if cause == nil {
 		return ""
 	}
-	var (
-		pe    *core.ParseError
-		ve    *core.ValidationError
-		te    *core.TransformError
-		fe    *core.FileError
-		ce    *core.ConfigError
-		nf    *core.NotFoundError
-		oe    *core.OperationError
-		ie    *core.InitializeError
-		ps    *core.PartialSuccessError
-		ue    *core.UsageError
-		cue   *core.CobraUsageError
-		pathE *os.PathError
-	)
-	switch {
-	case errors.As(cause, &pe):
+	//nolint:errorlint // direct type switch is intentional: label the outermost concrete type per errors-enhanced-errors/spec.md
+	switch cause.(type) {
+	case *core.ParseError:
 		return "ParseError"
-	case errors.As(cause, &ve):
+	case *core.ValidationError:
 		return "ValidationError"
-	case errors.As(cause, &te):
+	case *core.TransformError:
 		return "TransformError"
-	case errors.As(cause, &fe):
+	case *core.FileError:
 		return "FileError"
-	case errors.As(cause, &ce):
+	case *core.ConfigError:
 		return "ConfigError"
-	case errors.As(cause, &nf):
+	case *core.NotFoundError:
 		return "NotFoundError"
-	case errors.As(cause, &oe):
+	case *core.OperationError:
 		return "OperationError"
-	case errors.As(cause, &ie):
+	case *core.InitializeError:
 		return "InitializeError"
-	case errors.As(cause, &ps):
+	case *core.PartialSuccessError:
 		return "PartialSuccessError"
-	case errors.As(cause, &ue):
+	case *core.UsageError:
 		return "UsageError"
-	case errors.As(cause, &cue):
+	case *core.CobraUsageError:
 		return "CobraUsageError"
-	case errors.As(cause, &pathE):
+	case *os.PathError:
 		return "PathError"
 	default:
 		return fmt.Sprintf("%T", cause)
 	}
+}
+
+// wrapAsTypedCause guarantees the BatchFailureInfo.Cause value
+// implements json.Marshaler with the canonical single-key shape.
+// Production sites that surface stdlib errors (e.g., context.Canceled
+// or *os.PathError) wrap the cause in *core.FileError before
+// assignment; the original cause is preserved via Unwrap so callers
+// retain errors.Is/errors.As chain traversal.
+//
+// The check is a direct switch on the outermost concrete type. A
+// wrapped typed chain (e.g., fmt.Errorf("...: %w", inner)) is treated
+// as "untyped" here — only *outermost* core.*Error / PathError values
+// are recognized; the fallback wraps the chain so downstream JSON
+// serialization falls back to the canonical single-key shape.
+func wrapAsTypedCause(err error, fallbackPath string) error {
+	if err == nil {
+		return nil
+	}
+	//nolint:errorlint // direct type switch is intentional: see doc comment above
+	switch err.(type) {
+	case *core.ParseError,
+		*core.ValidationError,
+		*core.TransformError,
+		*core.FileError,
+		*core.ConfigError,
+		*core.NotFoundError,
+		*core.OperationError,
+		*core.InitializeError,
+		*core.PartialSuccessError,
+		*core.UsageError,
+		*core.CobraUsageError,
+		*os.PathError:
+		return err
+	}
+	return core.NewFileError(fallbackPath, "load", err.Error(), err)
 }

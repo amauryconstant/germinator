@@ -129,6 +129,7 @@ var _ = Describe("Library Create Preset Command", func() {
 				"--resources", "",
 				"--library", libPath)
 			cli.ShouldFailWithExit(session, 2)
+			cli.ShouldErrorOutput(session, "Error: --resources: must be non-empty list of refs")
 		})
 
 		It("returns exit 1 when a ref has an invalid type", func() {

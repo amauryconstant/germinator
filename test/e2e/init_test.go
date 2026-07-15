@@ -115,7 +115,7 @@ var _ = Describe("Init Command", func() {
 			// to ExitCodeError (1) — a runtime lookup miss is an
 			// operational error, not a user-input validation error.
 			cli.ShouldFailWithExit(session, 1)
-			cli.ShouldErrorOutput(session, "nonexistent-preset")
+			cli.ShouldErrorOutput(session, "Error: not found: nonexistent-preset")
 		})
 	})
 

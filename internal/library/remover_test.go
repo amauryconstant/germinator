@@ -2,9 +2,14 @@ package library
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	gerrors "gitlab.com/amoconst/germinator/internal/core"
 )
 
 func TestRemoveResource_Success(t *testing.T) {
@@ -89,6 +94,12 @@ func TestRemoveResource_NotFound(t *testing.T) {
 	if err == nil {
 		t.Fatal("Expected error when resource not found")
 	}
+
+	var nf *gerrors.NotFoundError
+	require.True(t, errors.As(err, &nf),
+		"missing-resource removal MUST surface as *core.NotFoundError (Phase 3 migration)")
+	assert.Equal(t, "library ref", nf.Entity)
+	assert.Equal(t, "skill/nonexistent", nf.Key)
 }
 
 func TestRemoveResource_PresetReferenceConflict(t *testing.T) {
@@ -276,6 +287,12 @@ func TestRemovePreset_NotFound(t *testing.T) {
 	if err == nil {
 		t.Fatal("Expected error when preset not found")
 	}
+
+	var nf *gerrors.NotFoundError
+	require.True(t, errors.As(err, &nf),
+		"missing-preset removal MUST surface as *core.NotFoundError (Phase 3 migration)")
+	assert.Equal(t, "preset", nf.Entity)
+	assert.Equal(t, "nonexistent-preset", nf.Key)
 }
 
 func TestRemovePreset_EmptyName(t *testing.T) {

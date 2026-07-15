@@ -37,9 +37,9 @@ The system SHALL provide a `UsageError` type for CLI flag validation errors that
 #### Scenario: UsageError follows Go error-string convention
 
 - **WHEN** a `*UsageError` is constructed via `NewUsageError(flag, reason)` for any input
-- **THEN** the rendered `Error()` SHALL start with a lowercase flag segment (matching `^[a-z][a-z0-9-]*: `)
-- **AND** the reason segment SHALL be lowercase with no trailing punctuation (matching `[a-z][^.]*$`)
-- **AND** the godoc for `*UsageError` SHALL explicitly state: "the `flag` and `reason` parameters MUST be lowercase with no trailing punctuation (Go error-string convention per `golang-error-handling` rule 3 — `references/error-creation.md:32`)". Callers passing upper-case flag names violate the convention and are a programmer error.
+- **THEN** the rendered `Error()` SHALL be a single line in the form `<flag>: <reason>`, where `<flag>` starts with `--` and the rest of the flag segment is lowercase kebab-case (e.g. `--resources`), and `<reason>` starts with a lowercase letter, contains no trailing `.`, `!`, or `?`
+- **AND** the godoc for `*UsageError` SHALL explicitly state the convention: "the `flag` parameter MUST match `^--[a-z][a-z0-9-]*$`; the `reason` parameter MUST start with a lowercase letter and have no trailing punctuation (Go error-string convention per `golang-error-handling` rule 3 — `references/error-creation.md:32`)". The constructor does NOT validate the convention at runtime; callers passing upper-case or trailing punctuation violate the contract and are a programmer error.
+- **AND** the convention is enforced via godoc only; no test asserts upper-case or trailing-punctuation rejection (such an assertion would require either rejecting at the constructor or normalizing the input, neither of which is desired — the typed-error surface must round-trip the supplied bytes verbatim).
 
 #### Scenario: UsageError WithSuggestions builder returns a new instance
 

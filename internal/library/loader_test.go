@@ -2,9 +2,14 @@ package library
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"gitlab.com/amoconst/germinator/internal/core"
 )
 
 func TestLoadLibrary(t *testing.T) {
@@ -77,18 +82,28 @@ func TestLoadLibrary(t *testing.T) {
 func TestLoadLibrary_MissingDirectory(t *testing.T) {
 	_, err := LoadLibrary(context.Background(), "/nonexistent/path/to/library")
 	if err == nil {
-		t.Error("LoadLibrary() expected error for missing directory")
+		t.Fatal("LoadLibrary() expected error for missing directory")
 	}
+
+	var nf *core.NotFoundError
+	require.True(t, errors.As(err, &nf),
+		"missing-directory failure MUST surface as *core.NotFoundError (entity 'library')")
+	assert.Equal(t, "library", nf.Entity)
+	assert.Equal(t, "/nonexistent/path/to/library", nf.Key)
 }
 
 func TestLoadLibrary_MissingYAML(t *testing.T) {
-	// Create temp directory without library.yaml
 	tmpDir := t.TempDir()
 
 	_, err := LoadLibrary(context.Background(), tmpDir)
 	if err == nil {
-		t.Error("LoadLibrary() expected error for missing library.yaml")
+		t.Fatal("LoadLibrary() expected error for missing library.yaml")
 	}
+
+	var nf *core.NotFoundError
+	require.True(t, errors.As(err, &nf),
+		"missing-library.yaml failure MUST surface as *core.NotFoundError (entity 'library.yaml')")
+	assert.Equal(t, "library.yaml", nf.Entity)
 }
 
 func TestLoadLibrary_InvalidYAML(t *testing.T) {

@@ -3,6 +3,8 @@
 package e2e_test
 
 import (
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -40,6 +42,8 @@ var _ = Describe("Validate Command", func() {
 				ContainSubstring("required"),
 				ContainSubstring("platform"),
 			))
+			Expect(strings.Count(output, "Error:")).To(Equal(1),
+				"the single-handling rule MUST render the error exactly once; any duplicate would indicate an inline FormatError call in a runX body")
 		})
 	})
 

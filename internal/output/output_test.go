@@ -340,6 +340,106 @@ func TestFormatError_UsageError(t *testing.T) {
 		assert.Empty(t, stdout.String(),
 			"UsageError must NOT write to stdout (stream discipline)")
 	})
+
+	t.Run("wrapped UsageError renders via typed dispatch", func(t *testing.T) {
+		t.Parallel()
+		io := iostreams.Test()
+		err := fmt.Errorf("validating flags: %w",
+			core.NewUsageError("--resources", "must be non-empty list of refs"))
+
+		FormatError(io, err)
+
+		stderr, ok := io.ErrOut.(*bytes.Buffer)
+		require.True(t, ok)
+		assert.Equal(t,
+			"Error: --resources: must be non-empty list of refs\n",
+			stderr.String(),
+			"errors.As must traverse %w and dispatch to the UsageError arm; the outer 'validating flags:' prefix must NOT appear in the rendered output")
+	})
+}
+
+func TestFormatError_CobraUsageError(t *testing.T) {
+	t.Parallel()
+
+	t.Run("renders via wrapped-cause delegation", func(t *testing.T) {
+		t.Parallel()
+		io := iostreams.Test()
+		err := core.MustNewCobraUsageError(errors.New("requires at least 1 arg(s), only received 0"))
+
+		FormatError(io, err)
+
+		stderr, ok := io.ErrOut.(*bytes.Buffer)
+		require.True(t, ok)
+		assert.Equal(t,
+			"Error: requires at least 1 arg(s), only received 0\n",
+			stderr.String(),
+			"CobraUsageError must delegate to the wrapped cause's Error() and prefix 'Error: '")
+		stdout, okOut := io.Out.(*bytes.Buffer)
+		require.True(t, okOut)
+		assert.Empty(t, stdout.String(),
+			"CobraUsageError must NOT write to stdout (stream discipline)")
+	})
+}
+
+func TestFormatError_DispatchOrdering(t *testing.T) {
+	t.Parallel()
+
+	t.Run("wrapped InitializeError inside fmt.Errorf %%w", func(t *testing.T) {
+		t.Parallel()
+		io := iostreams.Test()
+		cause := errors.New("file not found")
+		inner := core.NewInitializeError("skill/missing", "/lib/in.md", "/lib/out.md", cause)
+		err := fmt.Errorf("loading library: %w", inner)
+
+		FormatError(io, err)
+
+		stderr, ok := io.ErrOut.(*bytes.Buffer)
+		require.True(t, ok)
+		assert.Equal(t,
+			"Error: initialize failed: skill/missing: output: /lib/out.md: file not found\n",
+			stderr.String(),
+			"errors.As must traverse %%w and dispatch on the typed InitializeError")
+		assert.NotContains(t, stderr.String(), "loading library",
+			"the outer wrapping prefix must NOT appear; the typed case wins over the generic fallback")
+	})
+
+	t.Run("OperationError carrying InitializeError (OperationError precedence)", func(t *testing.T) {
+		t.Parallel()
+		io := iostreams.Test()
+		cause := errors.New("file not found")
+		inner := core.NewInitializeError("skill/missing", "/lib/in.md", "/lib/out.md", cause)
+		err := core.NewOperationError("init", "skill/commit", inner)
+
+		FormatError(io, err)
+
+		stderr, ok := io.ErrOut.(*bytes.Buffer)
+		require.True(t, ok)
+		got := stderr.String()
+		assert.Contains(t, got, "Error: init: skill/commit\n",
+			"OperationError case precedes InitializeError; first matching case wins")
+		assert.Contains(t, got, "initialize failed: skill/missing: output: /lib/out.md: file not found",
+			"the wrapped InitializeError's body must appear as an indented cause line under the OperationError primary line")
+	})
+
+	t.Run("PartialSuccessError precedes NotFoundError", func(t *testing.T) {
+		t.Parallel()
+		io := iostreams.Test()
+		nf := core.NewNotFoundError("skill", "missing")
+		ie := core.NewInitializeError("skill/missing", "/in", "/out", nf)
+		ps := core.NewPartialSuccessError(0, 1, []core.InitializeError{*ie})
+
+		FormatError(io, ps)
+
+		stderr, ok := io.ErrOut.(*bytes.Buffer)
+		require.True(t, ok)
+		got := stderr.String()
+		assert.Contains(t, got, "partial success: 0 succeeded, 1 failed",
+			"PartialSuccessError arm must precede NotFoundError so the partial-success renderer wins over the terse not-found renderer")
+		assert.Contains(t, got, "skill/missing",
+			"the per-resource InitializeError must appear in the partial-success listing")
+		assert.NotContains(t, got, "Error: not found:",
+			"the NotFoundError arm must NOT win when the chain also contains PartialSuccessError")
+	})
 }
 
 func TestJSONExporter(t *testing.T) {

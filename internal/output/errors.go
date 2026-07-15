@@ -30,12 +30,13 @@ func FormatError(io *iostreams.IOStreams, err error) {
 		transform  *core.TransformError
 		file       *core.FileError
 		configErr  *core.ConfigError
-		notFound   *core.NotFoundError
 		partial    *core.PartialSuccessError
+		notFound   *core.NotFoundError
 		operation  *core.OperationError
 		initialize *core.InitializeError
 		usage      *core.UsageError
 		writeErr   *config.WriteError
+		cobraUsage *core.CobraUsageError
 	)
 	switch {
 	case errors.As(err, &parse):
@@ -48,10 +49,10 @@ func FormatError(io *iostreams.IOStreams, err error) {
 		writeErrOut(io, formatFileError(io, file))
 	case errors.As(err, &configErr):
 		writeErrOut(io, formatConfigError(io, configErr))
-	case errors.As(err, &notFound):
-		writeErrOut(io, formatNotFoundError(io, notFound))
 	case errors.As(err, &partial):
 		writeErrOut(io, formatPartialSuccessError(partial))
+	case errors.As(err, &notFound):
+		writeErrOut(io, formatNotFoundError(io, notFound))
 	case errors.As(err, &operation):
 		writeErrOut(io, formatOperationError(io, operation))
 	case errors.As(err, &initialize):
@@ -60,6 +61,8 @@ func FormatError(io *iostreams.IOStreams, err error) {
 		writeErrOut(io, formatUsageError(io, usage))
 	case errors.As(err, &writeErr):
 		writeErrOut(io, formatWriteError(io, writeErr))
+	case errors.As(err, &cobraUsage):
+		writeErrOut(io, formatCobraUsageError(io, cobraUsage))
 	default:
 		writeErrOut(io, io.Styles.Error("Error: "+err.Error())+"\n")
 	}
@@ -156,5 +159,9 @@ func formatUsageError(io *iostreams.IOStreams, e *core.UsageError) string {
 }
 
 func formatWriteError(io *iostreams.IOStreams, e *config.WriteError) string {
+	return io.Styles.Error("Error: ") + e.Error() + "\n"
+}
+
+func formatCobraUsageError(io *iostreams.IOStreams, e *core.CobraUsageError) string {
 	return io.Styles.Error("Error: ") + e.Error() + "\n"
 }
