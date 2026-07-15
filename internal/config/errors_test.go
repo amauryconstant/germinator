@@ -55,4 +55,55 @@ func TestWriteError(t *testing.T) {
 		require.True(t, errors.As(err, &target))
 		assert.Same(t, err, target)
 	})
+
+	t.Run("NewWriteErrorWithMessage stores fields", func(t *testing.T) {
+		t.Parallel()
+		cause := errors.New("permission denied")
+		err := NewWriteErrorWithMessage(
+			"create", "/tmp/cfg.toml",
+			"config file already exists (use --force to overwrite)", cause,
+		)
+		assert.Equal(t, "create", err.Op())
+		assert.Equal(t, "/tmp/cfg.toml", err.Path())
+		assert.Equal(t, "config file already exists (use --force to overwrite)", err.Message())
+		assert.Same(t, cause, err.Cause())
+	})
+
+	t.Run("Message returns empty string when not set", func(t *testing.T) {
+		t.Parallel()
+		err := NewWriteError("write", "/tmp/out.toml", errors.New("disk full"))
+		assert.Equal(t, "", err.Message(),
+			"plain NewWriteError must leave message empty")
+	})
+
+	t.Run("Error format with message and cause", func(t *testing.T) {
+		t.Parallel()
+		cause := errors.New("permission denied")
+		err := NewWriteErrorWithMessage(
+			"create", "/etc/cfg.toml",
+			"file already exists", cause,
+		)
+		assert.Equal(t,
+			"create /etc/cfg.toml: file already exists: permission denied",
+			err.Error())
+	})
+
+	t.Run("Error format with message but no cause", func(t *testing.T) {
+		t.Parallel()
+		err := NewWriteErrorWithMessage(
+			"create", "/tmp/cfg.toml",
+			"config file already exists (use --force to overwrite)", nil,
+		)
+		assert.Equal(t,
+			"create /tmp/cfg.toml: config file already exists (use --force to overwrite)",
+			err.Error())
+	})
+
+	t.Run("Error format with empty message and cause behaves like NewWriteError", func(t *testing.T) {
+		t.Parallel()
+		cause := errors.New("disk full")
+		err := NewWriteErrorWithMessage("write", "/tmp/out.toml", "", cause)
+		assert.Equal(t, "write /tmp/out.toml: disk full", err.Error(),
+			"empty message must collapse to the NewWriteError shape")
+	})
 }

@@ -13,11 +13,15 @@ Loads Germinator's TOML configuration from disk using koanf, with XDG path resol
 | File | Purpose |
 |------|---------|
 | `config.go` | `Config`, `CompletionConfig`, `DefaultConfig`, `Validate`, `ExpandPaths` (delegates tilde expansion to `internal/paths`) |
-| `manager.go` | `Manager` interface, `koanfConfigManager`, `NewConfigManager`, `Load`, `resolveConfigPath`, `GetConfigPath` |
+| `errors.go` | `WriteError` typed error (private `op`, `path`, optional `message`, `cause` fields with `Error()` / `Unwrap()` / `Op()` / `Path()` / `Message()` / `Cause()` accessors); constructors `NewWriteError` (cause-only) and `NewWriteErrorWithMessage` (user-facing context) |
 | `load.go` | Top-level `Load()` wrapper with `loadFn` test-injection seam (mutex-protected) |
+| `manager.go` | `Manager` interface, `koanfConfigManager`, `NewConfigManager`, `Load`, `resolveConfigPath`, `GetConfigPath` |
+| `scaffold.go` | `DefaultTOML` const (scaffolded config content) + `WriteDefault(path, force)` helper (writes default config, creates parent dirs, returns `*WriteError` on I/O failure or the `"already exists"` precondition violation) |
 | `config_test.go` | `Config` / `Validate` / `ExpandPaths` tests |
+| `errors_test.go` | `WriteError` constructor + accessor + `Error()` rendering tests |
 | `manager_test.go` | `Load` + env-provider + path resolution tests |
 | `manager_xdg_test.go` | `//go:build !windows` — XDG resolution tests |
+| `scaffold_test.go` | `WriteDefault` happy-path / force / parent-dir / permissions / golden-file pinning |
 
 ## Public Surface
 

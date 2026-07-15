@@ -156,5 +156,5 @@ func formatUsageError(io *iostreams.IOStreams, e *core.UsageError) string {
 }
 
 func formatWriteError(io *iostreams.IOStreams, e *config.WriteError) string {
-	return io.Styles.Error("Error: ") + e.Op() + " " + e.Path() + ": " + e.Error() + "\n"
+	return io.Styles.Error("Error: ") + e.Error() + "\n"
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/amoconst/germinator/internal/config"
 	"gitlab.com/amoconst/germinator/internal/core"
 	"gitlab.com/amoconst/germinator/internal/iostreams"
 	"gitlab.com/amoconst/germinator/internal/library"
@@ -188,6 +189,159 @@ func TestFormatError_OperationError(t *testing.T) {
 	})
 }
 
+func TestFormatError_WriteError(t *testing.T) {
+	t.Parallel()
+
+	t.Run("NewWriteError with cause", func(t *testing.T) {
+		t.Parallel()
+		io := iostreams.Test()
+		err := config.NewWriteError("write", "/tmp/out.toml", errors.New("disk full"))
+
+		FormatError(io, err)
+
+		stderr, ok := io.ErrOut.(*bytes.Buffer)
+		require.True(t, ok)
+		got := stderr.String()
+		assert.Equal(t,
+			"Error: write /tmp/out.toml: disk full\n",
+			got,
+			"WriteError must render canonical message to stderr (no duplicated op/path prefix)")
+		stdout, okOut := io.Out.(*bytes.Buffer)
+		require.True(t, okOut)
+		assert.Empty(t, stdout.String(),
+			"WriteError must NOT write to stdout (stream discipline)")
+	})
+
+	t.Run("NewWriteErrorWithMessage no cause (already-exists path)", func(t *testing.T) {
+		t.Parallel()
+		io := iostreams.Test()
+		err := config.NewWriteErrorWithMessage(
+			"create", "/tmp/cfg.toml",
+			"config file already exists (use --force to overwrite)", nil,
+		)
+
+		FormatError(io, err)
+
+		stderr, ok := io.ErrOut.(*bytes.Buffer)
+		require.True(t, ok)
+		assert.Equal(t,
+			"Error: create /tmp/cfg.toml: config file already exists (use --force to overwrite)\n",
+			stderr.String(),
+			"already-exists path must render the user-friendly message verbatim")
+	})
+}
+
+// TestFormatError_ObscureBranches covers the lower-frequency dispatch
+// arms that Phase 1 added but never tested directly: ValidationError
+// with suggestions + field, TransformError with cause, FileError with
+// cause. Phase 4 added this to bring internal/output coverage above
+// the 90% target in Phase 5 task 5.3.
+func TestFormatError_ObscureBranches(t *testing.T) {
+	t.Parallel()
+
+	t.Run("ValidationError with suggestions and field", func(t *testing.T) {
+		t.Parallel()
+		io := iostreams.Test()
+		err := core.NewValidationError("adapt", "name", "Agent",
+			"name must be unique").
+			WithSuggestions([]string{"try a different name"})
+
+		FormatError(io, err)
+
+		stderr, ok := io.ErrOut.(*bytes.Buffer)
+		require.True(t, ok)
+		got := stderr.String()
+		assert.Contains(t, got, "Error: validation failed: name must be unique")
+		assert.Contains(t, got, "(field: name)",
+			"field must be rendered in parentheses after the message")
+		assert.Contains(t, got, "Hint: try a different name",
+			"suggestions must be rendered as 'Hint: ...' lines")
+	})
+
+	t.Run("TransformError with platform and cause", func(t *testing.T) {
+		t.Parallel()
+		io := iostreams.Test()
+		cause := errors.New("template parse failed")
+		err := core.NewTransformError("render", "opencode", "render failed", cause)
+
+		FormatError(io, err)
+
+		stderr, ok := io.ErrOut.(*bytes.Buffer)
+		require.True(t, ok)
+		got := stderr.String()
+		assert.Contains(t, got,
+			"transform failed (render for opencode): render failed: template parse failed",
+			"op + platform + message + cause must all appear in order")
+	})
+
+	t.Run("FileError with cause", func(t *testing.T) {
+		t.Parallel()
+		io := iostreams.Test()
+		cause := errors.New("EACCES")
+		err := core.NewFileError("/tmp/out.md", "write", "permission denied", cause)
+
+		FormatError(io, err)
+
+		stderr, ok := io.ErrOut.(*bytes.Buffer)
+		require.True(t, ok)
+		got := stderr.String()
+		assert.Contains(t, got,
+			"write /tmp/out.md: permission denied: EACCES",
+			"op + path + message + cause must all appear in order")
+	})
+}
+
+func TestFormatError_InitializeError(t *testing.T) {
+	t.Parallel()
+
+	t.Run("renders via InitializeError.Error() delegation", func(t *testing.T) {
+		t.Parallel()
+		io := iostreams.Test()
+		cause := errors.New("file not found")
+		err := core.NewInitializeError("skill/missing", "/lib/in.md", "/lib/out.md", cause)
+
+		FormatError(io, err)
+
+		stderr, ok := io.ErrOut.(*bytes.Buffer)
+		require.True(t, ok)
+		got := stderr.String()
+		assert.Equal(t,
+			"Error: initialize failed: skill/missing: output: /lib/out.md: file not found\n",
+			got,
+			"InitializeError must render its own Error() string prefixed by 'Error: '")
+		stdout, okOut := io.Out.(*bytes.Buffer)
+		require.True(t, okOut)
+		assert.Empty(t, stdout.String(),
+			"InitializeError must NOT write to stdout (stream discipline)")
+	})
+}
+
+func TestFormatError_UsageError(t *testing.T) {
+	t.Parallel()
+
+	t.Run("clean-break wording via Flag()/Reason()", func(t *testing.T) {
+		t.Parallel()
+		io := iostreams.Test()
+		err := core.NewUsageError("--resources", "must be non-empty list of refs")
+
+		FormatError(io, err)
+
+		stderr, ok := io.ErrOut.(*bytes.Buffer)
+		require.True(t, ok)
+		got := stderr.String()
+		assert.Equal(t,
+			"Error: --resources: must be non-empty list of refs\n",
+			got,
+			"UsageError must render via the clean-break wording (no 'flag needs an argument' prefix)")
+		assert.NotContains(t, got, "flag needs an argument",
+			"UsageError renderer MUST NOT contain the legacy Cobra-encoded phrasing")
+		stdout, okOut := io.Out.(*bytes.Buffer)
+		require.True(t, okOut)
+		assert.Empty(t, stdout.String(),
+			"UsageError must NOT write to stdout (stream discipline)")
+	})
+}
+
 func TestJSONExporter(t *testing.T) {
 	t.Parallel()
 
@@ -279,6 +433,93 @@ func TestTableExporterNonSlice(t *testing.T) {
 	exp := NewTableExporter()
 	err := exp.Write(io, "not a slice")
 	assert.Error(t, err)
+}
+
+func TestTableExporterFormatsAllKinds(t *testing.T) {
+	t.Parallel()
+
+	// Covers the formatCell switch arms (Bool, Int, Uint, Float,
+	// String, struct) and indirectValue's non-pointer path. Phase 4
+	// added this test to close the coverage gap introduced by
+	// pre-existing table-exporter branches not exercised by
+	// TestTableExporter (which only used string + int).
+	type inner struct {
+		X int `json:"x"`
+	}
+	type row struct {
+		Str    string  `tab:"STR"`
+		B      bool    `tab:"B"`
+		I      int     `tab:"I"`
+		U      uint64  `tab:"U"`
+		F      float64 `tab:"F"`
+		Nested inner   `tab:"NESTED"`
+	}
+
+	data := []row{
+		{
+			Str:    "hello",
+			B:      true,
+			I:      -42,
+			U:      7,
+			F:      3.14,
+			Nested: inner{X: 99},
+		},
+	}
+
+	io := iostreams.Test()
+	exp := NewTableExporter()
+	require.NoError(t, exp.Write(io, data))
+
+	buf, ok := io.Out.(*bytes.Buffer)
+	require.True(t, ok)
+	got := buf.String()
+	// tabwriter pads columns with spaces (default 2-wide); we assert on
+	// column content rather than raw tab separators because the writer
+	// rewrites the tabbing for human readability.
+	assert.Contains(t, got, "STR")
+	assert.Contains(t, got, "B")
+	assert.Contains(t, got, "I")
+	assert.Contains(t, got, "U")
+	assert.Contains(t, got, "F")
+	assert.Contains(t, got, "NESTED",
+		"all headers must be rendered in struct order")
+	assert.Contains(t, got, "hello")
+	assert.Contains(t, got, "true")
+	assert.Contains(t, got, "-42")
+	assert.Contains(t, got, "3.14")
+	assert.Contains(t, got, `{"x":99}`,
+		"nested struct must JSON-compact to its single-line form")
+}
+
+func TestTableExporterNilPointerField(t *testing.T) {
+	t.Parallel()
+
+	// Covers formatCell's pointer-nil branch (returns empty string).
+	type row struct {
+		Name  string  `tab:"NAME"`
+		Extra *string `tab:"EXTRA"`
+	}
+
+	val := "hello"
+	data := []row{
+		{Name: "alpha", Extra: &val},
+		{Name: "beta", Extra: nil},
+	}
+
+	io := iostreams.Test()
+	exp := NewTableExporter()
+	require.NoError(t, exp.Write(io, data))
+
+	buf, ok := io.Out.(*bytes.Buffer)
+	require.True(t, ok)
+	got := buf.String()
+	lines := strings.Split(strings.TrimRight(got, "\n"), "\n")
+	require.GreaterOrEqual(t, len(lines), 3)
+	assert.Contains(t, lines[1], "alpha")
+	assert.Contains(t, lines[1], "hello",
+		"non-nil pointer must dereference to its value")
+	assert.Contains(t, lines[2], "beta",
+		"nil pointer must render as empty cell; only the name field is non-empty")
 }
 
 func TestAddOutputFlags(t *testing.T) {

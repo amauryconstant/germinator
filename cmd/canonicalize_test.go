@@ -125,6 +125,52 @@ func TestRunCanonicalize_InvalidPlatformValue(t *testing.T) {
 	assert.Equal(t, 0, fake.calls)
 }
 
+func TestRunCanonicalize_InvalidDocType_ReturnsValidationError(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		docType string
+	}{
+		{name: "plural form", docType: "skills"},
+		{name: "unknown type", docType: "bot"},
+		{name: "empty string", docType: ""},
+		{name: "uppercase", docType: "Agent"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			io, _, _ := newCanonicalizeTestIO()
+			fake := &fakeCanonicalizer{}
+			opts := &canonicalizeOptions{
+				IO:            io,
+				Canonicalizer: func() (Canonicalizer, error) { return fake, nil },
+				Ctx:           context.Background(),
+				InputPath:     "/tmp/in.md",
+				OutputPath:    "/tmp/out.yaml",
+				Platform:      core.PlatformOpenCode,
+				DocType:       tt.docType,
+			}
+
+			err := runCanonicalize(opts)
+			require.Error(t, err,
+				"unknown --type must fail before any canonicalizer call")
+
+			var verr *core.ValidationError
+			require.True(t, errors.As(err, &verr),
+				"error must wrap *core.ValidationError")
+			assert.Equal(t, "type", verr.Field(),
+				"ValidationError.Field() must be 'type' so the rendered error identifies the offending flag")
+			assert.Equal(t, tt.docType, verr.Value())
+			assert.NotEmpty(t, verr.Suggestions(),
+				"unknown --type must carry suggestions listing the canonical types")
+			assert.Equal(t, 0, fake.calls,
+				"canonicalizer must NOT be called when --type is invalid")
+		})
+	}
+}
+
 func TestRunCanonicalize_ParseError_Propagates(t *testing.T) {
 	t.Parallel()
 

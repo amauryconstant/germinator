@@ -2,6 +2,7 @@ package core
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -169,4 +170,104 @@ func TestValidResourceTypesContainsAllExpected(t *testing.T) {
 		"validResourceTypes must not contain the empty string")
 	assert.Len(t, validResourceTypes, len(expected),
 		"validResourceTypes should contain exactly 4 entries")
+}
+
+func TestValidateDocumentType(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name            string
+		docType         string
+		wantErr         bool
+		wantMsgContains string
+		wantSuggestions bool
+	}{
+		{
+			name:    "skill",
+			docType: "skill",
+		},
+		{
+			name:    "agent",
+			docType: "agent",
+		},
+		{
+			name:    "command",
+			docType: "command",
+		},
+		{
+			name:    "memory",
+			docType: "memory",
+		},
+		{
+			name:            "plural form (skills)",
+			docType:         "skills",
+			wantErr:         true,
+			wantMsgContains: "type must be one of",
+			wantSuggestions: true,
+		},
+		{
+			name:            "unknown type",
+			docType:         "bot",
+			wantErr:         true,
+			wantMsgContains: "type must be one of",
+			wantSuggestions: true,
+		},
+		{
+			name:            "empty string",
+			docType:         "",
+			wantErr:         true,
+			wantMsgContains: "type must be one of",
+			wantSuggestions: true,
+		},
+		{
+			name:            "uppercase",
+			docType:         "Agent",
+			wantErr:         true,
+			wantMsgContains: "type must be one of",
+			wantSuggestions: true,
+		},
+		{
+			name:            "type with trailing slash",
+			docType:         "skill/",
+			wantErr:         true,
+			wantMsgContains: "type must be one of",
+			wantSuggestions: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := ValidateDocumentType(tt.docType)
+			if !tt.wantErr {
+				require.NoError(t, err)
+				return
+			}
+			var ve *ValidationError
+			require.ErrorAs(t, err, &ve)
+			assert.Contains(t, ve.Message(), tt.wantMsgContains)
+			assert.Equal(t, "type", ve.Field(),
+				"ValidationError.Field() must be 'type' so renderers identify the offending flag")
+			assert.Equal(t, tt.docType, ve.Value())
+			if tt.wantSuggestions {
+				assert.NotEmpty(t, ve.Suggestions(),
+					"ValidateDocumentType must attach suggestions listing the canonical types")
+				// Spot-check that the suggestion text is actionable.
+				suggestions := ve.Suggestions()
+				found := false
+				for _, s := range suggestions {
+					if strings.Contains(s, "skill") &&
+						strings.Contains(s, "agent") &&
+						strings.Contains(s, "command") &&
+						strings.Contains(s, "memory") {
+						found = true
+						break
+					}
+				}
+				assert.True(t, found,
+					"at least one suggestion must enumerate all 4 canonical types, got %v",
+					suggestions)
+			}
+		})
+	}
 }

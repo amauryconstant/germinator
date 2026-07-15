@@ -3,53 +3,13 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 
 	"gitlab.com/amoconst/germinator/internal/cmdutil"
 	"gitlab.com/amoconst/germinator/internal/config"
-	"gitlab.com/amoconst/germinator/internal/core"
 	"gitlab.com/amoconst/germinator/internal/iostreams"
 )
-
-// scaffoldedConfig is the default config file content with
-// explanatory comments. All settings are commented out by default,
-// requiring users to explicitly uncomment and configure only the
-// settings they want to override.
-const scaffoldedConfig = `# Germinator configuration
-# https://github.com/anomalyco/germinator
-#
-# This file configures germinator's global behavior.
-# All settings are optional - defaults are used if omitted.
-# Settings below are commented out; uncomment and customize as needed.
-
-# Path to your library directory containing skills, agents, commands, and presets.
-# The library must contain a library.yaml index file.
-# Supports ~ expansion for home directory.
-# Default: ~/.local/share/germinator/library (or $XDG_DATA_HOME/germinator/library if set)
-# library = "~/.local/share/germinator/library"
-
-# Default platform when --platform is not specified.
-# Options: "opencode" (default), "claude-code"
-# Leave empty to require --platform on every command.
-# Default: "" (none)
-# platform = ""
-
-# Shell completion configuration
-[completion]
-
-# Maximum time to wait for library loading during completion suggestions.
-# Lower values = faster but may timeout on large libraries.
-# Default: "500ms"
-# timeout = "500ms"
-
-# How long to cache library data for completion performance.
-# Higher values = faster completions but may show stale results.
-# Default: "5s"
-# cache_ttl = "5s"
-`
 
 // configInitOptions holds the runtime state for a `config init`
 // invocation. IO and Ctx come from the Factory; OutputPath and Force
@@ -124,12 +84,12 @@ Use --force to overwrite an existing config file.`,
 // production wiring for NewCmdConfigInit's runF parameter.
 //
 // Path resolution: opts.OutputPath is honored when set; otherwise the
-// XDG-resolved default (config.GetConfigPath) is used. Parent
-// directories are created (0750) if missing, and the file is written
-// with 0600 permissions.
-//
-// Errors are wrapped via core.NewFileError so output.FormatError (in
-// main.go) renders them once through the typed-error dispatcher.
+// XDG-resolved default (config.GetConfigPath) is used. The actual
+// file scaffolding (parent-directory creation + write with 0600
+// permissions + force-precondition check) is delegated to
+// config.WriteDefault, which returns *config.WriteError for I/O
+// failures and the "already exists" precondition violation. The
+// cmdutil.ExitCodeFor dispatch maps *WriteError to ExitCodeError (1).
 func runConfigInit(opts *configInitOptions) error {
 	path := opts.OutputPath
 	if path == "" {
@@ -140,22 +100,8 @@ func runConfigInit(opts *configInitOptions) error {
 		path = defaultPath
 	}
 
-	if !opts.Force {
-		if _, err := os.Stat(path); err == nil {
-			return core.NewFileError(path, "create",
-				"config file already exists (use --force to overwrite)", nil)
-		}
-	}
-
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o750); err != nil {
-		return core.NewFileError(dir, "create directory",
-			"failed to create parent directories", err)
-	}
-
-	if err := os.WriteFile(path, []byte(scaffoldedConfig), 0o600); err != nil {
-		return core.NewFileError(path, "write",
-			"failed to write config file", err)
+	if err := config.WriteDefault(path, opts.Force); err != nil {
+		return err //nolint:wrapcheck // typed *config.WriteError chain traversal (Phase 4.2)
 	}
 
 	_, _ = fmt.Fprintf(opts.IO.Out, "Successfully created config file: %s\n", path)

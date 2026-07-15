@@ -95,3 +95,36 @@ func CanInstallResource(ref string) error {
 	}
 	return nil
 }
+
+// ValidateDocumentType validates a bare document type against the
+// canonical resource-type set {skill, agent, command, memory}. It is
+// the canonical guardrail for command-line --type validation
+// (e.g., `germinator canonicalize --type <docType>`) where the input
+// is a single type segment rather than a "type/name" ref.
+//
+// Returns nil if docType is one of the canonical types. Otherwise
+// returns *core.ValidationError describing the unknown type and
+// listing the valid alternatives via WithSuggestions.
+//
+// Why a separate helper:
+//   - CanInstallResource validates the "type/name" ref shape and
+//     would reject every valid bare type ("skill" alone is missing
+//     the name).
+//   - MarkFlagRequired only catches the missing-flag case; an
+//     unknown type (e.g., the plural "skills" or "bot") passes the
+//     required-flag check and reaches the canonicalizer, which then
+//     fails with a generic parser error.
+//
+// The Field() is set to "type" so the rendered error identifies the
+// offending flag.
+func ValidateDocumentType(docType string) error {
+	if slices.Contains(validResourceTypes, docType) {
+		return nil
+	}
+	return NewValidationError(
+		"canonicalize", "type", docType,
+		"type must be one of skill, agent, command, memory",
+	).WithSuggestions([]string{
+		"use one of: skill, agent, command, memory",
+	})
+}

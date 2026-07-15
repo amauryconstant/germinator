@@ -107,6 +107,14 @@ Example:
 // resolved options. It is the production wiring for
 // NewCmdCanonicalize's runF parameter.
 //
+// Pre-flight validation: ValidatePlatform guards the platform
+// segment; ValidateDocumentType guards the --type flag value.
+// Both produce *core.ValidationError dispatched via output.FormatError
+// → ExitCodeError (1). ValidateDocumentType catches the case where
+// --type is provided but has an unknown value (e.g., the plural
+// "skills" or empty string); MarkFlagRequired only catches the
+// missing-flag case.
+//
 // Canonicalizer resolution: production wires opts.Canonicalizer to a
 // closure that calls cmd.NewCanonicalizer(); tests may inject a fake
 // via the same field. A nil opts.Canonicalizer falls back to the
@@ -114,6 +122,9 @@ Example:
 func runCanonicalize(opts *canonicalizeOptions) error {
 	if err := core.ValidatePlatform(opts.Platform); err != nil {
 		return fmt.Errorf("validating platform: %w", err)
+	}
+	if err := core.ValidateDocumentType(opts.DocType); err != nil {
+		return fmt.Errorf("validating document type: %w", err)
 	}
 
 	opts.IO.Verbosef("canonicalizing %s → %s (platform: %s, type: %s)",

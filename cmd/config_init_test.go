@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/amoconst/germinator/internal/cmdutil"
-	"gitlab.com/amoconst/germinator/internal/core"
+	"gitlab.com/amoconst/germinator/internal/config"
 	"gitlab.com/amoconst/germinator/internal/iostreams"
 )
 
@@ -137,9 +137,13 @@ func TestRunConfigInit_ForceOverwrite(t *testing.T) {
 		"--force must overwrite with the scaffolded content")
 }
 
-// T5 — Existing file without --force returns a typed *core.FileError
+// T5 — Existing file without --force returns a typed *config.WriteError
 // (spec scenario "Init refuses to overwrite without force").
-// cmdutil.ExitCodeFor maps it to ExitCodeError (1).
+// cmdutil.ExitCodeFor maps *config.WriteError to ExitCodeError (1).
+// Phase 4 task 4.2 migrated the inline os.Stat/MkdirAll/WriteFile
+// block into config.WriteDefault, which surfaces the "already exists"
+// precondition as a *config.WriteError with the user-friendly
+// "use --force to overwrite" message attached.
 func TestRunConfigInit_ExistingWithoutForceFails(t *testing.T) {
 	tmp := t.TempDir()
 	path := filepath.Join(tmp, "config.toml")
@@ -150,9 +154,16 @@ func TestRunConfigInit_ExistingWithoutForceFails(t *testing.T) {
 	}))
 	require.Error(t, err)
 
-	var fileErr *core.FileError
-	require.True(t, errors.As(err, &fileErr), "expected *core.FileError in chain")
-	assert.Contains(t, fileErr.Message(), "already exists")
+	var writeErr *config.WriteError
+	require.True(t, errors.As(err, &writeErr),
+		"expected *config.WriteError in chain (from config.WriteDefault)")
+	assert.Equal(t, "create", writeErr.Op(),
+		"WriteError.Op() must be 'create' for the already-exists precondition")
+	assert.Equal(t, path, writeErr.Path())
+	assert.Contains(t, writeErr.Message(), "already exists",
+		"WriteError.Message() must carry the user-friendly 'already exists' hint")
+	assert.Contains(t, writeErr.Message(), "use --force to overwrite",
+		"WriteError.Message() must mention --force so users know how to proceed")
 	assert.Equal(t, cmdutil.ExitCodeError, cmdutil.ExitCodeFor(err),
 		"existing-file failure must map to ExitCodeError (1)")
 }
