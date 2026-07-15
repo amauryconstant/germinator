@@ -14,17 +14,16 @@ import (
 	"gitlab.com/amoconst/germinator/internal/cmdutil"
 	"gitlab.com/amoconst/germinator/internal/core"
 	"gitlab.com/amoconst/germinator/internal/iostreams"
+	"gitlab.com/amoconst/germinator/internal/parser"
+	"gitlab.com/amoconst/germinator/internal/renderer"
+	"gitlab.com/amoconst/germinator/internal/transform"
 	"gitlab.com/amoconst/germinator/internal/validate"
 )
 
 // TestAdaptCommand exercises the production Transformer adapter via
-// NewTransformer().Transform end-to-end. Replaces the legacy
-// TestAdaptCommand that routed through bridge.Services.Transformer.
-//
-// NOTE: cmd.NewTransformer is removed in stage 3 of extract-io-adapters.
-// Until stage 3 lands, this test still uses cmd.NewTransformer; after
-// stage 3 the call site will switch to transform.NewService(...) and
-// this docstring will be updated as part of the stage 3 doc sweep.
+// transform.NewService(parser.NewParser(), renderer.NewSerializer()).Transform
+// end-to-end. Replaces the legacy TestAdaptCommand that routed through
+// bridge.Services.Transformer.
 func TestAdaptCommand(t *testing.T) {
 	tmpDir := t.TempDir()
 	inputFile := tmpDir + "/input-agent.md"
@@ -54,7 +53,7 @@ This is test content`
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewTransformer().Transform(context.Background(), &TransformRequest{
+			_, err := transform.NewService(parser.NewParser(), renderer.NewSerializer()).Transform(context.Background(), &transform.Request{
 				InputPath:  inputFile,
 				OutputPath: outputFile,
 				Platform:   tt.platform,

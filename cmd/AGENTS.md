@@ -72,14 +72,11 @@ Command-side interfaces live in `cmd/`, next to the consumer — not in `interna
 
 ```go
 type Transformer interface {
-    Transform(ctx context.Context, req *TransformRequest) (*core.TransformResult, error)
+    Transform(ctx context.Context, req *transform.Request) (*core.TransformResult, error)
 }
 
-type TransformRequest struct {
-    InputPath  string
-    OutputPath string
-    Platform   string
-}
+// Request type lives in internal/transform/ (slice-8 stage 3).
+// The cmd-side Transformer interface imports it via the shared import.
 ```
 
 ## 3. Constructor: `NewCmdAdapt(f, runF) *cobra.Command`
@@ -130,13 +127,15 @@ func runAdapt(opts *adaptOptions) error {
 
     resolve := opts.Transformer
     if resolve == nil {
-        resolve = func() (Transformer, error) { return NewTransformer(), nil }
+        resolve = func() (Transformer, error) {
+            return transform.NewService(parser.NewParser(), renderer.NewSerializer()), nil
+        }
     }
     t, err := resolve()
     if err != nil {
         return fmt.Errorf("resolving transformer: %w", err)
     }
-    if _, err := t.Transform(opts.Ctx, &TransformRequest{
+    if _, err := t.Transform(opts.Ctx, &transform.Request{
         InputPath:  opts.InputPath,
         OutputPath: opts.OutputPath,
         Platform:   opts.Platform,

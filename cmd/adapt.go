@@ -10,30 +10,27 @@ import (
 	"gitlab.com/amoconst/germinator/internal/cmdutil"
 	"gitlab.com/amoconst/germinator/internal/core"
 	"gitlab.com/amoconst/germinator/internal/iostreams"
+	"gitlab.com/amoconst/germinator/internal/parser"
+	"gitlab.com/amoconst/germinator/internal/renderer"
+	"gitlab.com/amoconst/germinator/internal/transform"
 )
 
 // Transformer is the local command-side contract for document
 // transformation. Defined in cmd/ per the target architecture
 // (interfaces are declared where consumed; see the
-// golang-cli-architecture skill).
+// golang-cli-architecture skill). The method signature matches
+// *transform.Service exactly so *transformService satisfies the
+// contract via structural typing — no adapter shim is required.
 type Transformer interface {
-	Transform(ctx context.Context, req *TransformRequest) (*core.TransformResult, error)
-}
-
-// TransformRequest carries the inputs for a document transformation.
-// Local to this package since the cross-package type alias was
-// removed when the legacy shell was deleted.
-type TransformRequest struct {
-	InputPath  string
-	OutputPath string
-	Platform   string
+	Transform(ctx context.Context, req *transform.Request) (*core.TransformResult, error)
 }
 
 // adaptOptions holds the runtime state for an `adapt` invocation. IO
 // and Ctx come from the Factory; the rest come from parsed flags and
 // positional args. The Transformer lazy field is the per-call
 // injection seam for tests — production wires it to a closure that
-// invokes cmd.NewTransformer(); tests substitute a fake.
+// invokes transform.NewService(parser.NewParser(),
+// renderer.NewSerializer()); tests substitute a fake.
 type adaptOptions struct {
 	IO          *iostreams.IOStreams
 	Transformer func() (Transformer, error)
@@ -90,10 +87,11 @@ Example:
 // It is the production wiring for NewCmdAdapt's runF parameter.
 //
 // Transformer resolution: production wires opts.Transformer to a
-// closure that calls cmd.NewTransformer(); tests may inject a fake
-// via the same field. A nil opts.Transformer falls back to the
-// production constructor so callers that don't populate the field
-// still get correct behavior.
+// closure that calls transform.NewService(parser.NewParser(),
+// renderer.NewSerializer()); tests may inject a fake via the same
+// field. A nil opts.Transformer falls back to the production
+// constructor so callers that don't populate the field still get
+// correct behavior.
 func runAdapt(opts *adaptOptions) error {
 	if err := core.ValidatePlatform(opts.Platform); err != nil {
 		return fmt.Errorf("validating platform: %w", err)
@@ -103,14 +101,16 @@ func runAdapt(opts *adaptOptions) error {
 
 	resolve := opts.Transformer
 	if resolve == nil {
-		resolve = func() (Transformer, error) { return NewTransformer(), nil }
+		resolve = func() (Transformer, error) {
+			return transform.NewService(parser.NewParser(), renderer.NewSerializer()), nil
+		}
 	}
 	t, err := resolve()
 	if err != nil {
 		return fmt.Errorf("resolving transformer: %w", err)
 	}
 
-	if _, err := t.Transform(opts.Ctx, &TransformRequest{
+	if _, err := t.Transform(opts.Ctx, &transform.Request{
 		InputPath:  opts.InputPath,
 		OutputPath: opts.OutputPath,
 		Platform:   opts.Platform,

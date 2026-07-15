@@ -14,26 +14,28 @@ import (
 
 	"gitlab.com/amoconst/germinator/internal/cmdutil"
 	"gitlab.com/amoconst/germinator/internal/core"
+	"gitlab.com/amoconst/germinator/internal/install"
 	"gitlab.com/amoconst/germinator/internal/iostreams"
 	"gitlab.com/amoconst/germinator/internal/library"
 	"gitlab.com/amoconst/germinator/internal/output"
 )
 
 // fakeInitializer is a hand-rolled fake satisfying the local
-// cmd.Initializer interface. Slice 7 deleted the application-package
-// type alias; the local interface (cmd/initializer.go) keeps this
-// fake alive for callers that want to substitute the Initializer at
-// the adapter boundary. Tests in this file exercise the production
-// cmd.NewInitializer() pipeline via real fixtures instead of
-// injecting this fake through runInit.
+// cmd.Initializer interface (declared in cmd/init.go). The Initializer
+// signature matches *install.Service exactly (per cmd/init.go), so the
+// fake also satisfies *install.Service by structural typing. Tests in
+// this file exercise the production
+// install.NewService(parser.NewParser(), renderer.NewSerializer())
+// pipeline via real fixtures instead of injecting this fake through
+// runInit.
 type fakeInitializer struct {
 	calls   int
 	results []core.InitializeResult
 	err     error
-	lastReq *InitializeRequest
+	lastReq *install.Request
 }
 
-func (f *fakeInitializer) Initialize(ctx context.Context, req *InitializeRequest) ([]core.InitializeResult, error) {
+func (f *fakeInitializer) Initialize(ctx context.Context, req *install.Request) ([]core.InitializeResult, error) {
 	_ = ctx // accept-and-may-ignore: fake records the request only
 	f.calls++
 	f.lastReq = req
@@ -604,7 +606,8 @@ func TestInitLibrary_HonorsExplicitPath(t *testing.T) {
 
 // slice-7 removed the Factory.Initializer lazy field and the
 // `initInitializer(f)` factory helper. The Initializer is now
-// constructed inside runInit via cmd.NewInitializer().
+// constructed inside runInit via
+// install.NewService(parser.NewParser(), renderer.NewSerializer()).
 
 // T1 — Spec scenario "init command signature": --help output SHALL
 // list --platform, --output-dir, --library, --resources, --preset,
@@ -697,8 +700,8 @@ func TestRunInit_DryRunRendersWouldWrite(t *testing.T) {
 
 // T4 — Spec scenario "Force overwrite": --force SHALL cause existing
 // files to be overwritten. The runInit body plumbs Force into
-// (*InitializeRequest).Force; the actual overwrite behavior lives in
-// the Initializer implementation (production service layer). This
+// (*install.Request).Force; the actual overwrite behavior lives in
+// the install.Service implementation (production service layer). This
 // test asserts the plumb-through, not the side effect.
 func TestRunInit_ForcePropagatesToRequest(t *testing.T) {
 	t.Parallel()
@@ -714,7 +717,7 @@ func TestRunInit_ForcePropagatesToRequest(t *testing.T) {
 			},
 		},
 	}
-	req := &InitializeRequest{
+	req := &install.Request{
 		Library:   &library.Library{Version: "1", RootPath: "/lib"},
 		Platform:  core.PlatformOpenCode,
 		OutputDir: "/tmp/out",
@@ -726,5 +729,5 @@ func TestRunInit_ForcePropagatesToRequest(t *testing.T) {
 	require.Equal(t, 1, init.calls)
 	require.NotNil(t, init.lastReq)
 	assert.True(t, init.lastReq.Force,
-		"Force flag must propagate to InitializeRequest.Force")
+		"Force flag must propagate to install.Request.Force")
 }

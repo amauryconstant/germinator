@@ -671,7 +671,9 @@ func TestLibrary_BatchAddResources(t *testing.T) {
 				}
 				return sources
 			},
-			opts:      func(libDir string, sources []string) *BatchAddOptions { return &BatchAddOptions{Sources: sources, LibraryPath: libDir} },
+			opts: func(libDir string, sources []string) *BatchAddOptions {
+				return &BatchAddOptions{Sources: sources, LibraryPath: libDir}
+			},
 			wantAdded: 2,
 		},
 		{
@@ -742,18 +744,18 @@ func TestLibrary_BatchAddResources_CtxCancelled(t *testing.T) {
 
 func TestLibrary_DiscoverOrphans(t *testing.T) {
 	tests := []struct {
-		name      string
-		prepare   func(t *testing.T, libDir string)
-		opts      *DiscoverOptions
-		wantErr   bool
-		wantOrph  int
+		name     string
+		prepare  func(t *testing.T, libDir string)
+		opts     *DiscoverOptions
+		wantErr  bool
+		wantOrph int
 	}{
 		{
 			name: "success: empty library, no orphans",
 			prepare: func(t *testing.T, libDir string) {
 				createTestLibrary(t, libDir)
 			},
-			opts:    &DiscoverOptions{},
+			opts:     &DiscoverOptions{},
 			wantOrph: 0,
 		},
 		{

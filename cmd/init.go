@@ -11,23 +11,21 @@ import (
 
 	"gitlab.com/amoconst/germinator/internal/cmdutil"
 	"gitlab.com/amoconst/germinator/internal/core"
+	"gitlab.com/amoconst/germinator/internal/install"
 	"gitlab.com/amoconst/germinator/internal/iostreams"
 	"gitlab.com/amoconst/germinator/internal/library"
+	"gitlab.com/amoconst/germinator/internal/parser"
+	"gitlab.com/amoconst/germinator/internal/renderer"
 )
 
-// InitializeRequest carries the inputs for resource installation.
-// Local to this package since the cross-package type alias was
-// removed when the legacy shell was deleted. The Library field
-// carries a fully-loaded *library.Library (its RootPath feeds the
-// loader steps inside the initializer adapter); output-path
-// derivation uses OutputDir as the base directory.
-type InitializeRequest struct {
-	Library   *library.Library
-	Platform  string
-	OutputDir string
-	Refs      []string
-	DryRun    bool
-	Force     bool
+// Initializer is the local command-side contract for resource
+// installation. Defined in cmd/ per the target architecture
+// (interfaces are declared where consumed; see the
+// golang-cli-architecture skill). The method signature matches
+// *install.Service exactly so *installService satisfies the contract
+// via structural typing — no adapter shim is required.
+type Initializer interface {
+	Initialize(ctx context.Context, req *install.Request) ([]core.InitializeResult, error)
 }
 
 // initOptions holds the runtime state for an `init` invocation. IO,
@@ -146,7 +144,9 @@ Examples:
 //     (*Library).ResolvePreset returns *core.NotFoundError directly
 //     (Phase 3.3 migration); runInit returns it as-is so
 //     cmdutil.ExitCodeFor maps it to ExitCodeError (1).
-//  4. Build InitializeRequest; invoke NewInitializer().Initialize.
+//  4. Build *install.Request; invoke
+//     install.NewService(parser.NewParser(),
+//     renderer.NewSerializer()).Initialize.
 //  5. Count successes/failures from the result slice.
 //  6. Render per-resource status; return nil or *core.PartialSuccessError.
 func runInit(opts *initOptions) error {
@@ -182,7 +182,8 @@ func runInit(opts *initOptions) error {
 
 	opts.IO.Verbosef("installing resources: %s", strings.Join(refs, ", "))
 
-	results, err := NewInitializer().Initialize(opts.Ctx, &InitializeRequest{
+	svc := install.NewService(parser.NewParser(), renderer.NewSerializer())
+	results, err := svc.Initialize(opts.Ctx, &install.Request{
 		Library:   lib,
 		Platform:  opts.Platform,
 		OutputDir: opts.OutputDir,
