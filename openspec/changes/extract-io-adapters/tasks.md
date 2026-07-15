@@ -77,4 +77,3 @@ The change ships in **3 sequential stages**. Each stage ends with `mise run chec
   - `germinator init --platform opencode --resources skill/commit`
   - `germinator library add <file> --type skill --name test`
   - `germinator library add --discover --batch --force`
-- [ ] 4.10 Run `git status` — verify only the expected files are modified (no accidental edits).

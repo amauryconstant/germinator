@@ -15,6 +15,7 @@ import (
 	"gitlab.com/amoconst/germinator/internal/core"
 	"gitlab.com/amoconst/germinator/internal/iostreams"
 	"gitlab.com/amoconst/germinator/internal/output"
+	"gitlab.com/amoconst/germinator/internal/validate"
 )
 
 // fakeValidator is a hand-rolled fake satisfying the local cmd.Validator
@@ -22,7 +23,7 @@ import (
 // it received and returns the configured result or error.
 type fakeValidator struct {
 	calls   int
-	lastReq *ValidateRequest
+	lastReq *validate.Request
 	result  *core.ValidateResult
 	err     error
 }
@@ -30,7 +31,7 @@ type fakeValidator struct {
 // Compile-time interface satisfaction check.
 var _ Validator = (*fakeValidator)(nil)
 
-func (f *fakeValidator) Validate(ctx context.Context, req *ValidateRequest) (*core.ValidateResult, error) {
+func (f *fakeValidator) Validate(ctx context.Context, req *validate.Request) (*core.ValidateResult, error) {
 	_ = ctx // accept-and-may-ignore: fake records the request only
 	f.calls++
 	f.lastReq = req
@@ -278,54 +279,33 @@ func TestNewCmdValidate_RequiresPlatformFlag(t *testing.T) {
 	require.Error(t, err, "missing required --platform flag must fail")
 }
 
-func TestNewCmdValidate_NilRunFFallsBackToProduction(t *testing.T) {
-	io, out, errOut := newValidateTestIO()
-	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
-
-	// slice-7: NewCmdValidate's production wiring constructs the
-	// Validator lazily inside runValidate (cmd.NewValidator()). The
-	// nil-runF path therefore exercises the full runValidate →
-	// parse → validate pipeline. With a valid platform but a missing
-	// input file, parse fails and the error surfaces through
-	// cmdutil.ExitCodeFor → ExitCodeError (1).
-	cmd := NewCmdValidate(f, nil)
-	cmd.SetArgs([]string{"/nonexistent.md", "--platform", "opencode"})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
-
-	err := cmd.Execute()
-	require.Error(t, err, "missing input file must surface as an error")
-	assert.Empty(t, out.String())
-	assert.Empty(t, errOut.String())
-}
-
 // slice-7 removed the Factory.Validator lazy field and the
 // `validateValidator(f)` factory helper. The Validator is now
-// constructed inside runValidate via cmd.NewValidator(); test
+// constructed inside runValidate via validate.NewService(); test
 // fakes are injected via runValidate directly (see fakeValidator
 // at the top of this file).
 
-func TestNewValidator_AdapterSatisfiesInterface(t *testing.T) {
+func TestValidateService_AdapterSatisfiesInterface(t *testing.T) {
 	t.Parallel()
 
-	// Compile-time interface check is already in validate.go
-	// (var _ Validator = (*validatorAdapter)(nil)).
+	// Compile-time interface check lives in
+	// internal/validate/validate.go (var _ Service = (*validateService)(nil)).
 	// This test verifies the runtime contract: a value returned by
-	// NewValidator() must accept the Validate call shape that the
-	// local Validator interface defines.
-	result, err := NewValidator().Validate(context.Background(), &ValidateRequest{
+	// validate.NewService() must accept the Validate call shape that
+	// the local Validator interface defines (structural typing).
+	result, err := validate.NewService().Validate(context.Background(), &validate.Request{
 		InputPath: "/nonexistent.md",
 		Platform:  core.PlatformClaudeCode,
 	})
 	require.Error(t, err,
-		"validateDocument must return a fatal error for unrecognizable file")
+		"validateService must return a fatal error for unrecognizable file")
 	assert.Nil(t, result)
 	var perr *core.ParseError
 	require.True(t, errors.As(err, &perr),
 		"fatal error must wrap *core.ParseError")
 }
 
-func TestValidateDocument_HappyPath(t *testing.T) {
+func TestValidateService_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
@@ -337,7 +317,7 @@ description: A test agent
 Body`
 	require.NoError(t, os.WriteFile(inputPath, []byte(content), 0o600))
 
-	result, err := validateDocument(context.Background(), &ValidateRequest{
+	result, err := validate.NewService().Validate(context.Background(), &validate.Request{
 		InputPath: inputPath,
 		Platform:  core.PlatformClaudeCode,
 	})
@@ -345,27 +325,4 @@ Body`
 	require.NotNil(t, result)
 	assert.True(t, result.Valid(), "expected valid result")
 	assert.Empty(t, result.Errors)
-}
-
-func TestUnwrapErrors(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name    string
-		err     error
-		wantLen int
-	}{
-		{name: "nil error returns nil", err: nil, wantLen: 0},
-		{name: "single error", err: errors.New("boom"), wantLen: 1},
-		{name: "two joined errors", err: errors.Join(errors.New("a"), errors.New("b")), wantLen: 2},
-		{name: "three joined errors", err: errors.Join(errors.New("x"), errors.New("y"), errors.New("z")), wantLen: 3},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			errs := unwrapErrors(tt.err)
-			assert.Len(t, errs, tt.wantLen)
-		})
-	}
 }

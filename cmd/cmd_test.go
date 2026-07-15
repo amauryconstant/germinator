@@ -10,14 +10,21 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/amoconst/germinator/internal/canonicalize"
 	"gitlab.com/amoconst/germinator/internal/cmdutil"
 	"gitlab.com/amoconst/germinator/internal/core"
 	"gitlab.com/amoconst/germinator/internal/iostreams"
+	"gitlab.com/amoconst/germinator/internal/validate"
 )
 
 // TestAdaptCommand exercises the production Transformer adapter via
-// cmd.NewTransformer().Transform end-to-end. Replaces the legacy
+// NewTransformer().Transform end-to-end. Replaces the legacy
 // TestAdaptCommand that routed through bridge.Services.Transformer.
+//
+// NOTE: cmd.NewTransformer is removed in stage 3 of extract-io-adapters.
+// Until stage 3 lands, this test still uses cmd.NewTransformer; after
+// stage 3 the call site will switch to transform.NewService(...) and
+// this docstring will be updated as part of the stage 3 doc sweep.
 func TestAdaptCommand(t *testing.T) {
 	tmpDir := t.TempDir()
 	inputFile := tmpDir + "/input-agent.md"
@@ -65,7 +72,7 @@ This is test content`
 }
 
 // TestValidateCommandWithPlatformVariants exercises the production
-// Validator adapter via cmd.NewValidator().Validate for both
+// Validator adapter via validate.NewService().Validate for both
 // supported platforms. Replaces the legacy
 // TestValidateCommandWithPlatformVariants that routed through
 // bridge.Services.Validator.
@@ -92,7 +99,7 @@ Command content`
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := NewValidator().Validate(context.Background(), &ValidateRequest{
+			result, err := validate.NewService().Validate(context.Background(), &validate.Request{
 				InputPath: validFile,
 				Platform:  tt.platform,
 			})
@@ -142,7 +149,7 @@ Agent content`
 
 	require.NoError(t, os.WriteFile(inputFile, []byte(content), 0o644))
 
-	_, err := NewCanonicalizer().Canonicalize(context.Background(), &CanonicalizeRequest{
+	_, err := canonicalize.NewService().Canonicalize(context.Background(), &canonicalize.Request{
 		InputPath:  inputFile,
 		OutputPath: outputFile,
 		Platform:   "claude-code",
@@ -161,10 +168,9 @@ Agent content`
 // The four Canonicalize error-path tests below mirror the legacy
 // TestCanonicalizeCommand{Missing,Invalid}{Platform,Type} shapes.
 // Each asserts the right core error class is surfaced for the
-// corresponding invalid input. The production Canonicalize adapter
-// returns typed core errors via errors.As; the legacy test routes
-// (bridge.Services.Canonicalizer) are replaced by direct calls to
-// cmd.NewCanonicalizer().
+// corresponding invalid input. The production Canonicalize service
+// returns typed core errors via errors.As; tests invoke the public
+// canonicalize.NewService().Canonicalize entry point directly.
 
 func TestCanonicalizeCommandMissingPlatform(t *testing.T) {
 	tmpDir := t.TempDir()
@@ -175,7 +181,7 @@ description: A test agent
 ---
 Body`), 0o644))
 
-	_, err := NewCanonicalizer().Canonicalize(context.Background(), &CanonicalizeRequest{
+	_, err := canonicalize.NewService().Canonicalize(context.Background(), &canonicalize.Request{
 		InputPath:  inputFile,
 		OutputPath: tmpDir + "/out.yaml",
 		Platform:   "",
@@ -194,7 +200,7 @@ description: A test agent
 ---
 Body`), 0o644))
 
-	_, err := NewCanonicalizer().Canonicalize(context.Background(), &CanonicalizeRequest{
+	_, err := canonicalize.NewService().Canonicalize(context.Background(), &canonicalize.Request{
 		InputPath:  inputFile,
 		OutputPath: tmpDir + "/out.yaml",
 		Platform:   "invalid-platform",
@@ -213,7 +219,7 @@ description: A test agent
 ---
 Body`), 0o644))
 
-	_, err := NewCanonicalizer().Canonicalize(context.Background(), &CanonicalizeRequest{
+	_, err := canonicalize.NewService().Canonicalize(context.Background(), &canonicalize.Request{
 		InputPath:  inputFile,
 		OutputPath: tmpDir + "/out.yaml",
 		Platform:   "claude-code",
@@ -225,7 +231,7 @@ Body`), 0o644))
 
 func TestCanonicalizeCommandFileNotFound(t *testing.T) {
 	tmpDir := t.TempDir()
-	_, err := NewCanonicalizer().Canonicalize(context.Background(), &CanonicalizeRequest{
+	_, err := canonicalize.NewService().Canonicalize(context.Background(), &canonicalize.Request{
 		InputPath:  tmpDir + "/non-existent-file.md",
 		OutputPath: tmpDir + "/out.yaml",
 		Platform:   "claude-code",
@@ -300,7 +306,7 @@ func TestHandleErrorWithNilError(t *testing.T) {
 // - TestValidateCommandWithActualServices — exercised the
 //   bridge.Services.Validator plumbing; equivalent behavior is now
 //   covered by cmd/validate_test.go's TestValidateDocument_HappyPath
-//   and TestNewValidator_AdapterSatisfiesInterface.
+//   and TestValidateService_AdapterSatisfiesInterface.
 // - TestValidateCommandValidDocument — duplicate of the new
 //   TestValidateCommandWithPlatformVariants shape.
 // - TestCLIPlatformFlagValidation — platform validation moved to
@@ -311,7 +317,7 @@ func TestHandleErrorWithNilError(t *testing.T) {
 // - TestCLIAdaptEndToEnd, TestCLIValidateEndToEnd — end-to-end
 //   integration tests that drove the production transformer/validator
 //   directly through bridge.Services; replaced by the
-//   cmd.NewTransformer / cmd.NewValidator call sites in
+//   transform.NewService() / validate.NewService() call sites in
 //   TestAdaptCommand / TestValidateCommandWithPlatformVariants.
 // - TestCanonicalizeCommandMissingType — duplicate of
 //   TestCanonicalizeCommandInvalidType (both assert "unknown

@@ -9,13 +9,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/amoconst/germinator/internal/canonicalize"
 	"gitlab.com/amoconst/germinator/internal/cmdutil"
 	"gitlab.com/amoconst/germinator/internal/core"
 	"gitlab.com/amoconst/germinator/internal/iostreams"
 )
 
 // Compile-time check: fakeCanonicalizer must satisfy the local
-// cmd.Canicalizer interface. Mirrors the pattern in cmd/adapt_test.go.
+// cmd.Canonicalizer interface. Mirrors the pattern in cmd/adapt_test.go.
 var _ Canonicalizer = (*fakeCanonicalizer)(nil)
 
 // fakeCanonicalizer is a hand-rolled fake satisfying the local
@@ -24,12 +25,12 @@ var _ Canonicalizer = (*fakeCanonicalizer)(nil)
 // result or error. Mirrors fakeTransformer in cmd/adapt_test.go.
 type fakeCanonicalizer struct {
 	calls   int
-	lastReq *CanonicalizeRequest
+	lastReq *canonicalize.Request
 	result  *core.CanonicalizeResult
 	err     error
 }
 
-func (f *fakeCanonicalizer) Canonicalize(ctx context.Context, req *CanonicalizeRequest) (*core.CanonicalizeResult, error) {
+func (f *fakeCanonicalizer) Canonicalize(ctx context.Context, req *canonicalize.Request) (*core.CanonicalizeResult, error) {
 	_ = ctx // accept-and-may-ignore: fake records the request only
 	f.calls++
 	f.lastReq = req
@@ -367,30 +368,31 @@ func TestNewCmdCanonicalize_RequiresTypeFlag(t *testing.T) {
 
 // slice-7 removed the Factory.Canonicalizer lazy field and the
 // `canonicalizeCanonicalizer(f)` factory helper. The Canonicalizer is
-// now constructed inside runCanonicalize via cmd.NewCanonicalizer();
+// now constructed inside runCanonicalize via canonicalize.NewService();
 // test fakes are injected via runCanonicalize directly (see
 // fakeCanonicalizer at the top of this file).
 
-func TestNewCanonicalizer_AdapterSatisfiesInterface(t *testing.T) {
+func TestCanonicalizeService_AdapterSatisfiesInterface(t *testing.T) {
 	t.Parallel()
 
-	// Compile-time interface check is already in canonicalize.go
-	// (var _ Canonicalizer = (*canonicalizerAdapter)(nil)).
+	// Compile-time interface check lives in
+	// internal/canonicalize/canonicalize.go
+	// (var _ Service = (*canonicalizeService)(nil)).
 	// This test verifies the runtime contract: a value returned by
-	// NewCanonicalizer() must accept the Canonicalize call shape that
-	// the local Canonicalizer interface defines, and must propagate
-	// the underlying typed error from canonicalizeDocument so callers
-	// can errors.As their way to the right exit code.
-	result, err := NewCanonicalizer().Canonicalize(context.Background(), &CanonicalizeRequest{
+	// canonicalize.NewService() must accept the Canonicalize call
+	// shape that the local Canonicalizer interface defines
+	// (structural typing), and must propagate the underlying typed
+	// error so callers can errors.As their way to the right exit code.
+	result, err := canonicalize.NewService().Canonicalize(context.Background(), &canonicalize.Request{
 		InputPath:  "/nonexistent/agent.md",
 		OutputPath: t.TempDir() + "/out.yaml",
 		Platform:   core.PlatformClaudeCode,
 		DocType:    "agent",
 	})
 	require.Error(t, err,
-		"canonicalizeDocument must return a fatal error for unrecognizable input")
+		"canonicalizeService must return a fatal error for unrecognizable input")
 	assert.Nil(t, result,
-		"canonicalizeDocument must return a nil result on error")
+		"canonicalizeService must return a nil result on error")
 	var perr *core.ParseError
 	require.True(t, errors.As(err, &perr),
 		"fatal error must wrap *core.ParseError")

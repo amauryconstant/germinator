@@ -36,8 +36,11 @@ func main() {
 	// The four service interfaces (Transformer/Validator/Canonicalizer/
 	// Initializer) were removed from the Factory in slice 7.5 — their
 	// concrete adapters are now constructed lazily inside the per-command
-	// run functions (cmd.NewTransformer, cmd.NewValidator, etc.), so
-	// main.go has nothing to wire for those.
+	// run functions. Stage 1 of extract-io-adapters moved the
+	// Validator and Canonicalizer adapters to internal/{validate,
+	// canonicalize}/; stage 3 moves Transformer and Initializer to
+	// internal/{transform,install}/. main.go has nothing to wire for
+	// any of these.
 
 	rootCmd := cmd.NewRootCommand(f)
 	rootCmd.SetContext(ctx)

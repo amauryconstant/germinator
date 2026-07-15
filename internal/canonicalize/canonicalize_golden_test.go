@@ -1,6 +1,6 @@
 //go:build golden
 
-package cmd
+package canonicalize_test
 
 import (
 	"bytes"
@@ -9,26 +9,30 @@ import (
 	"path/filepath"
 	"testing"
 
+	"gitlab.com/amoconst/germinator/internal/canonicalize"
 	"gitlab.com/amoconst/germinator/internal/core"
 )
 
-// TestCanonicalizeGoldenFiles runs the canonicalize command against
+// TestCanonicalizeGoldenFiles runs the canonicalize service against
 // every fixture in test/fixtures/{claude-code,opencode}/ and the
 // generic fixtures, comparing the output byte-for-byte against
 // test/golden/canonical/*.yaml.golden.
 //
-// Moved from the deleted legacy canonicalizer golden test to
-// cmd/canonicalize_golden_test.go in slice 3 so the golden file
-// tests live alongside the implementation (cmd/canonicalize.go).
-// package cmd (white-box) so the test can call the unexported
-// canonicalizeDocument helper directly.
+// Moved from cmd/canonicalize_golden_test.go as part of
+// extract-io-adapters so the golden file tests live alongside the
+// shell-package implementation (internal/canonicalize/canonicalize.go).
+// Black-box test (`canonicalize_test` package) — invokes the public
+// canonicalize.NewService().Canonicalize(...) entry point instead
+// of the legacy unexported canonicalizeDocument helper.
 func TestCanonicalizeGoldenFiles(t *testing.T) {
-	if _, err := os.Stat("../test/fixtures/canonical"); os.IsNotExist(err) {
+	if _, err := os.Stat("../../test/fixtures/canonical"); os.IsNotExist(err) {
 		t.Skip("Golden file tests require running from project root")
 	}
 
-	fixturesDir := filepath.Join("..", "test", "fixtures")
-	goldenDir := filepath.Join("..", "test", "golden", "canonical")
+	fixturesDir := filepath.Join("..", "..", "test", "fixtures")
+	goldenDir := filepath.Join("..", "..", "test", "golden", "canonical")
+
+	svc := canonicalize.NewService()
 
 	tests := []struct {
 		name     string
@@ -128,7 +132,7 @@ func TestCanonicalizeGoldenFiles(t *testing.T) {
 			tmpDir := t.TempDir()
 			outputPath := filepath.Join(tmpDir, "output.yaml")
 
-			_, err := canonicalizeDocument(context.Background(), &CanonicalizeRequest{
+			_, err := svc.Canonicalize(context.Background(), &canonicalize.Request{
 				InputPath:  tt.fixture,
 				OutputPath: outputPath,
 				Platform:   tt.platform,
