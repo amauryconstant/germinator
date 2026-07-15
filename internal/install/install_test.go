@@ -45,6 +45,8 @@ func newInstallTestService() Service {
 }
 
 func TestService_Initialize_HappyPath(t *testing.T) {
+	t.Parallel()
+
 	libDir := installFixtureLibrary(t, "commit")
 	lib, err := library.LoadLibrary(context.Background(), libDir)
 	require.NoError(t, err)
@@ -72,6 +74,8 @@ func TestService_Initialize_HappyPath(t *testing.T) {
 }
 
 func TestService_Initialize_DryRunSkipsWrites(t *testing.T) {
+	t.Parallel()
+
 	libDir := installFixtureLibrary(t, "dryrunskill")
 	lib, err := library.LoadLibrary(context.Background(), libDir)
 	require.NoError(t, err)
@@ -97,6 +101,8 @@ func TestService_Initialize_DryRunSkipsWrites(t *testing.T) {
 }
 
 func TestService_Initialize_NoForceRejectsExisting(t *testing.T) {
+	t.Parallel()
+
 	libDir := installFixtureLibrary(t, "existing")
 	lib, err := library.LoadLibrary(context.Background(), libDir)
 	require.NoError(t, err)
@@ -125,6 +131,8 @@ func TestService_Initialize_NoForceRejectsExisting(t *testing.T) {
 }
 
 func TestService_Initialize_ForceOverwrites(t *testing.T) {
+	t.Parallel()
+
 	libDir := installFixtureLibrary(t, "forcey")
 	lib, err := library.LoadLibrary(context.Background(), libDir)
 	require.NoError(t, err)
@@ -154,6 +162,8 @@ func TestService_Initialize_ForceOverwrites(t *testing.T) {
 }
 
 func TestService_Initialize_MissingRef(t *testing.T) {
+	t.Parallel()
+
 	libDir := installFixtureLibrary(t, "lonely")
 	lib, err := library.LoadLibrary(context.Background(), libDir)
 	require.NoError(t, err)
@@ -172,6 +182,8 @@ func TestService_Initialize_MissingRef(t *testing.T) {
 }
 
 func TestService_Initialize_PartialSuccess(t *testing.T) {
+	t.Parallel()
+
 	libDir := installFixtureLibrary(t, "present")
 	lib, err := library.LoadLibrary(context.Background(), libDir)
 	require.NoError(t, err)
@@ -191,6 +203,8 @@ func TestService_Initialize_PartialSuccess(t *testing.T) {
 }
 
 func TestService_Initialize_CtxCancelled(t *testing.T) {
+	t.Parallel()
+
 	libDir := installFixtureLibrary(t, "cancel")
 	lib, err := library.LoadLibrary(context.Background(), libDir)
 	require.NoError(t, err)
@@ -216,6 +230,8 @@ func TestService_Initialize_CtxCancelled(t *testing.T) {
 }
 
 func TestService_Initialize_NilRequest(t *testing.T) {
+	t.Parallel()
+
 	svc := newInstallTestService()
 	_, err := svc.Initialize(context.Background(), nil)
 	require.Error(t, err)
@@ -224,6 +240,8 @@ func TestService_Initialize_NilRequest(t *testing.T) {
 }
 
 func TestService_Initialize_NilLibrary(t *testing.T) {
+	t.Parallel()
+
 	svc := newInstallTestService()
 	_, err := svc.Initialize(context.Background(), &Request{
 		Platform:  core.PlatformOpenCode,

@@ -48,3 +48,16 @@ Service-style I/O adapters (Transformer, Validator, Canonicalizer, Initializer, 
 - **AND** it SHALL return `core.*` types (not package-local types)
 - **AND** it SHALL take `ctx context.Context` as the first parameter of each public method
 - **AND** it SHALL have an `AGENTS.md` following the `internal/library/AGENTS.md` template (Files table + Key Surface + skill reference)
+
+## Coverage Note
+
+The scenarios above codify **structural invariants** (placement, naming, package conventions) enforced primarily by compile-time checks (`var _ X = (*Y)(nil)`), `go build ./...`, and `rg` patterns from `tasks.md` Task 4.1.
+
+**Behavioral coverage** for the same architectural surface lives in:
+
+- `internal/{validate,canonicalize,transform,install}/*_test.go` — direct exercise of each shell-package `Service` interface
+- `internal/library/methods_test.go` — table-driven coverage of the new `(*Library).Add` / `(*Library).BatchAddResources` / `(*Library).DiscoverOrphans` methods
+- `cmd/library_add_test.go` — runtime mirror of the `var _ adderLibrary = (*library.Library)(nil)` contract assertion
+- `cmd/{adapt,validate,canonicalize,init}_test.go` and `cmd/cmd_test.go` — `runF` injection and direct `xxx.NewService()` calls exercise the cmd→shell wiring
+
+The `mise run test:coverage` threshold (70% per `openspec/config.yaml`) gates the new packages.

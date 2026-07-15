@@ -31,6 +31,8 @@ func newTestService() Service {
 }
 
 func TestService_Transform_HappyPath(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		platform string
@@ -40,6 +42,8 @@ func TestService_Transform_HappyPath(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			tmp := t.TempDir()
 			src := writeCanonicalAgent(t, tmp, "reviewer", "Reviews things")
 			out := filepath.Join(tmp, "out.md")
@@ -63,6 +67,8 @@ func TestService_Transform_HappyPath(t *testing.T) {
 }
 
 func TestService_Transform_MissingInputFile(t *testing.T) {
+	t.Parallel()
+
 	tmp := t.TempDir()
 	missing := filepath.Join(tmp, "no-such-agent.md")
 	out := filepath.Join(tmp, "out.md")
@@ -81,6 +87,8 @@ func TestService_Transform_MissingInputFile(t *testing.T) {
 }
 
 func TestService_Transform_WriteError(t *testing.T) {
+	t.Parallel()
+
 	tmp := t.TempDir()
 	src := writeCanonicalAgent(t, tmp, "x", "x")
 	// Output path inside a directory that cannot exist (parent is a
@@ -104,6 +112,8 @@ func TestService_Transform_WriteError(t *testing.T) {
 }
 
 func TestService_Transform_NilRequest(t *testing.T) {
+	t.Parallel()
+
 	svc := newTestService()
 	_, err := svc.Transform(context.Background(), nil)
 	require.Error(t, err)
@@ -113,6 +123,8 @@ func TestService_Transform_NilRequest(t *testing.T) {
 }
 
 func TestService_Transform_PlatformAssumedValid(t *testing.T) {
+	t.Parallel()
+
 	// The Service does not pre-validate Platform; that is the cmd
 	// layer's job. We exercise an unsupported platform to confirm
 	// the Service forwards the responsibility. The parser's
