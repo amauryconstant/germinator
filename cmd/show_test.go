@@ -161,10 +161,17 @@ func TestRunShow(t *testing.T) {
 		err := runShow(opts)
 		require.Error(t, err)
 
+		// Phase 3.20: the lookup now delegates to
+		// library.ResolvePresetEntry which carries the preset *name*
+		// in NotFoundError.Key (semantically: the user asked for
+		// preset "ghost"), not the full ref string.
 		var notFound *core.NotFoundError
 		require.ErrorAs(t, err, &notFound,
 			"error must be a *core.NotFoundError")
-		assert.Equal(t, "preset/ghost", notFound.Key)
+		assert.Equal(t, "preset", notFound.Entity)
+		assert.Equal(t, "ghost", notFound.Key)
+		assert.Equal(t, cmdutil.ExitCodeError, cmdutil.ExitCodeFor(err),
+			"missing-preset NotFoundError must map to ExitCodeError (1)")
 	})
 
 	t.Run("empty ref", func(t *testing.T) {
@@ -174,14 +181,13 @@ func TestRunShow(t *testing.T) {
 		err := runShow(opts)
 		require.Error(t, err)
 
-		var notFound *core.NotFoundError
-		require.ErrorAs(t, err, &notFound,
-			"empty ref must produce NotFoundError")
-		assert.Equal(t, "", notFound.Key)
-		// Per enforce-error-discipline (Phase 1.1): *core.NotFoundError
-		// now maps to ExitCodeError (1).
-		assert.Equal(t, cmdutil.ExitCodeError, cmdutil.ExitCodeFor(err),
-			"empty-ref NotFoundError must map to ExitCodeError (1)")
+		// Phase 3.20: an unparseable ref surfaces as *core.ConfigError
+		// (the ref is malformed, not "missing" — NotFoundError is
+		// reserved for runtime lookup misses).
+		var cfgErr *core.ConfigError
+		require.ErrorAs(t, err, &cfgErr,
+			"empty ref must surface a *core.ConfigError (parse error)")
+		assert.Equal(t, "reference", cfgErr.Field())
 	})
 
 	t.Run("no-slash ref", func(t *testing.T) {
@@ -191,10 +197,12 @@ func TestRunShow(t *testing.T) {
 		err := runShow(opts)
 		require.Error(t, err)
 
-		var notFound *core.NotFoundError
-		require.ErrorAs(t, err, &notFound,
-			"no-slash ref must produce NotFoundError")
-		assert.Equal(t, "no-slash", notFound.Key)
+		// Phase 3.20: an unparseable ref surfaces as *core.ConfigError;
+		// see "empty ref" subtest for rationale.
+		var cfgErr *core.ConfigError
+		require.ErrorAs(t, err, &cfgErr,
+			"no-slash ref must surface a *core.ConfigError (parse error)")
+		assert.Equal(t, "reference", cfgErr.Field())
 	})
 
 	t.Run("preset prefix with empty name", func(t *testing.T) {
@@ -204,10 +212,15 @@ func TestRunShow(t *testing.T) {
 		err := runShow(opts)
 		require.Error(t, err)
 
+		// Phase 3.20: the lookup now delegates to
+		// library.ResolvePresetEntry which carries the *trimmed* preset
+		// name in NotFoundError.Key — for "preset/" the trimmed name
+		// is "".
 		var notFound *core.NotFoundError
 		require.ErrorAs(t, err, &notFound,
 			"preset/ with empty name must produce NotFoundError")
-		assert.Equal(t, "preset/", notFound.Key)
+		assert.Equal(t, "preset", notFound.Entity)
+		assert.Equal(t, "", notFound.Key)
 	})
 
 	t.Run("agent ref plain", func(t *testing.T) {

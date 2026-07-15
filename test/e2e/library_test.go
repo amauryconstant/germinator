@@ -69,11 +69,15 @@ var _ = Describe("Library Command", func() {
 		})
 	})
 
-	Describe("showing a missing reference", func() {
-		It("should fail with not-found error (ExitCodeError=1 per enforce-error-discipline Phase 1.1)", func() {
+	Describe("showing a malformed reference", func() {
+		It("should fail with config error (parse error → ExitCodeError=1)", func() {
+			// Phase 3.20: a malformed ref (no "/" separator) now
+			// surfaces as *core.ConfigError via library.ParseRef —
+			// the ref is malformed, not "missing". NotFoundError is
+			// reserved for runtime lookup misses (e.g. "skill/missing").
 			session := cli.Run("library", "show", "invalid-format", "--library", fixtures.LibraryDir())
 			cli.ShouldFailWithExit(session, 1)
-			cli.ShouldErrorOutput(session, "not found: invalid-format")
+			cli.ShouldErrorOutput(session, "config (reference): invalid resource reference format")
 		})
 	})
 

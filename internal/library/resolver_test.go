@@ -143,9 +143,12 @@ func TestLibraryResolvePreset_NotFound(t *testing.T) {
 	if err == nil {
 		t.Fatal("ResolvePreset() expected error for missing preset")
 	}
-	var cfgErr *gerrors.ConfigError
-	if !errors.As(err, &cfgErr) {
-		t.Errorf("ResolvePreset() expected *core.ConfigError, got %T (%v)", err, err)
+	var nf *gerrors.NotFoundError
+	if !errors.As(err, &nf) {
+		t.Errorf("ResolvePreset() expected *core.NotFoundError, got %T (%v)", err, err)
+	}
+	if nf.Entity != "preset" || nf.Key != "ghost" {
+		t.Errorf("ResolvePreset() NotFoundError = %+v, want Entity=preset Key=ghost", nf)
 	}
 }
 

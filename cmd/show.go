@@ -10,7 +10,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"gitlab.com/amoconst/germinator/internal/cmdutil"
-	"gitlab.com/amoconst/germinator/internal/core"
 	"gitlab.com/amoconst/germinator/internal/iostreams"
 	"gitlab.com/amoconst/germinator/internal/library"
 	"gitlab.com/amoconst/germinator/internal/output"
@@ -128,20 +127,14 @@ func runShow(opts *showOptions) error {
 }
 
 // renderResource resolves a resource ref against the library and
-// renders it. On miss returns *core.NotFoundError.
+// renders it. The lookup delegates to library.ResolveResourceEntry
+// (Phase 3.20) so the resolver owns the map-walk; the cmd layer only
+// formats. On miss the resolver returns *core.NotFoundError, which
+// cmdutil.ExitCodeFor maps to ExitCodeError (1).
 func renderResource(opts *showOptions, lib *library.Library, ref string) error {
-	typ, name, err := library.ParseRef(ref)
+	res, err := library.ResolveResourceEntry(lib, opts.Ref)
 	if err != nil {
-		return core.NewNotFoundError("library ref", opts.Ref)
-	}
-
-	resources, ok := lib.Resources[typ]
-	if !ok {
-		return core.NewNotFoundError("library ref", opts.Ref)
-	}
-	res, ok := resources[name]
-	if !ok {
-		return core.NewNotFoundError("library ref", opts.Ref)
+		return err //nolint:wrapcheck // typed *core.NotFoundError chain traversal (Phase 3.20)
 	}
 
 	switch opts.Output {
@@ -158,7 +151,7 @@ func renderResource(opts *showOptions, lib *library.Library, ref string) error {
 		}
 		return nil
 	default:
-		out := formatResourceDetails(ref, res)
+		out := formatResourceDetails(ref, *res)
 		if _, err := fmt.Fprint(opts.IO.Out, out); err != nil {
 			return fmt.Errorf("writing plain output: %w", err)
 		}
@@ -167,11 +160,14 @@ func renderResource(opts *showOptions, lib *library.Library, ref string) error {
 }
 
 // renderPreset resolves a preset name against the library and renders
-// it. On miss returns *core.NotFoundError.
+// it. The lookup delegates to library.ResolvePresetEntry (Phase 3.20)
+// so the resolver owns the map-walk; the cmd layer only formats. On
+// miss the resolver returns *core.NotFoundError, which
+// cmdutil.ExitCodeFor maps to ExitCodeError (1).
 func renderPreset(opts *showOptions, lib *library.Library, presetName string) error {
-	preset, ok := lib.Presets[presetName]
-	if !ok {
-		return core.NewNotFoundError("library ref", opts.Ref)
+	preset, err := library.ResolvePresetEntry(lib, presetName)
+	if err != nil {
+		return err //nolint:wrapcheck // typed *core.NotFoundError chain traversal (Phase 3.20)
 	}
 
 	switch opts.Output {
@@ -196,7 +192,7 @@ func renderPreset(opts *showOptions, lib *library.Library, presetName string) er
 		}
 		return nil
 	default:
-		out := formatPresetDetails(presetName, preset)
+		out := formatPresetDetails(presetName, *preset)
 		if _, err := fmt.Fprint(opts.IO.Out, out); err != nil {
 			return fmt.Errorf("writing plain output: %w", err)
 		}

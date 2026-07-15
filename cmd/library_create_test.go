@@ -147,8 +147,12 @@ func TestRunCreatePreset_InvalidRef(t *testing.T) {
 }
 
 // T4 — Spec scenario "Empty resources flag fails pre-flight validation":
-// `--resources ""` produces a wrapped cobraUsagePrefixes-style
-// message so cmdutil.ExitCodeFor maps it to ExitCodeUsage (2).
+// `--resources ""` produces a *core.UsageError so cmdutil.ExitCodeFor
+// maps it to ExitCodeUsage (2) per the typed-error dispatch introduced
+// in enforce-error-discipline Phase 3.12. Prior to Phase 3.12 the
+// branch used a string-encoded errors.New; the cobra-substring
+// fallback was removed in Phase 1 and the typed-error constructor
+// landed in Phase 3.12.
 func TestRunCreatePreset_EmptyResourcesValue(t *testing.T) {
 	libDir := makePresetTestLibrary(t, presetTestResources())
 
@@ -164,15 +168,16 @@ func TestRunCreatePreset_EmptyResourcesValue(t *testing.T) {
 
 	err := runCreatePreset(opts, "dev-setup")
 	require.Error(t, err)
-	// Per enforce-error-discipline (Phase 3.12, pending): the empty
-	// --resources branch uses a plain errors.New which does not match
-	// any typed-error branch after the substring fallback was removed.
-	// Phase 3 will migrate errEmptyResources to *core.UsageError →
-	// ExitCodeUsage (2); for Phase 1 the default ExitCodeError (1) is
-	// the contract.
-	assert.Equal(t, cmdutil.ExitCodeError, cmdutil.ExitCodeFor(err),
-		"empty --resources value falls through to ExitCodeError (1) until Phase 3.12 migrates to *core.UsageError")
-	assert.Contains(t, err.Error(), "flag needs an argument")
+
+	var ue *core.UsageError
+	require.True(t, errors.As(err, &ue),
+		"expected *core.UsageError from empty --resources pre-flight, got %T: %v", err, err)
+	assert.Equal(t, "--resources", ue.Flag(),
+		"UsageError.Flag must carry the cobra --resources spelling")
+	assert.Equal(t, cmdutil.ExitCodeUsage, cmdutil.ExitCodeFor(err),
+		"empty --resources must map to ExitCodeUsage (2) via *core.UsageError dispatch")
+	assert.Equal(t, "--resources: must be non-empty list of refs", err.Error(),
+		"UsageError.Error() must render the clean-break \"<flag>: <reason>\" wording")
 }
 
 // T5 — Constructor requires --resources: passing a preset name

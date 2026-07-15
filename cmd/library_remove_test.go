@@ -297,10 +297,30 @@ func TestRunRemove_Resource_MissingFile(t *testing.T) {
 		},
 	}
 
-	require.NoError(t, runRemove(opts),
-		"missing physical file must NOT be an error (os.IsNotExist branch)")
-	assert.Contains(t, out.String(), "Removed resource: skill/commit")
-	assert.Empty(t, errOut.String())
+	// Phase 3.10 (Design Decision #6): idempotent removal becomes
+	// non-idempotent — a missing physical file now surfaces as
+	// *core.NotFoundError (entity "library file", key = path) so the
+	// caller can distinguish "already gone" from "I removed it". The
+	// prior silent os.IsNotExist swallow was the B-014 review finding.
+	err := runRemove(opts)
+	require.Error(t, err, "missing physical file must surface *core.NotFoundError (Phase 3.10)")
+
+	var nf *core.NotFoundError
+	require.True(t, errors.As(err, &nf),
+		"error must be *core.NotFoundError, got %T: %v", err, err)
+	assert.Equal(t, "library file", nf.Entity)
+	assert.Equal(t, physical, nf.Key)
+	assert.Equal(t, cmdutil.ExitCodeError, cmdutil.ExitCodeFor(err),
+		"missing physical file must map to ExitCodeError (1) via NotFoundError branch")
+
+	// The library.yaml entry is still present — the missing-file
+	// surface happens before any state mutation.
+	lib, lerr := library.LoadLibrary(context.Background(), libDir)
+	require.NoError(t, lerr)
+	_, exists := lib.Resources["skill"]["commit"]
+	assert.True(t, exists, "library.yaml entry must NOT be removed on missing-physical-file")
+	assert.Empty(t, out.String(), "stdout must be empty on error path")
+	assert.Empty(t, errOut.String(), "stderr must be empty — single-handling rule")
 }
 
 // T7 — Resource removal where a preset references the resource

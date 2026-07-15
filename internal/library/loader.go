@@ -33,7 +33,7 @@ func LoadLibrary(ctx context.Context, path string) (*Library, error) {
 	info, err := os.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, gerrors.NewFileError(path, "access", "library not found", nil)
+			return nil, gerrors.NewNotFoundError("library", path)
 		}
 		return nil, gerrors.NewFileError(path, "access", "failed to access library", err)
 	}
@@ -50,7 +50,7 @@ func LoadLibrary(ctx context.Context, path string) (*Library, error) {
 	yamlContent, err := os.ReadFile(yamlPath) //nolint:gosec // G304: User provides library path, must read fixed library.yaml from it
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, gerrors.NewFileError(yamlPath, "read", "library.yaml not found", nil)
+			return nil, gerrors.NewNotFoundError("library.yaml", yamlPath)
 		}
 		return nil, gerrors.NewFileError(yamlPath, "read", "failed to read library.yaml", err)
 	}

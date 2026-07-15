@@ -154,7 +154,7 @@ func validateSourceExists(source string) error {
 	info, err := os.Stat(source)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return core.NewFileError(source, "access", "source file not found", nil)
+			return core.NewNotFoundError("source file", source)
 		}
 		return core.NewFileError(source, "access", "failed to access source file", err)
 	}

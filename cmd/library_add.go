@@ -82,34 +82,26 @@ type resourceAdder interface {
 // mechanical rename.
 type libraryAdapter struct{}
 
-// AddResource delegates to library.AddResource, wrapping the cause
-// to satisfy wrapcheck (return errors from external packages must be
-// wrapped, not propagated naked).
+// AddResource delegates to library.AddResource. The returned error is
+// a typed *core.*Error (Phase 2 thread guarantees the cause is
+// typed); errors.As traverses via the typed-error chain without an
+// extra %w wrap prefix, so the wrap is noise (Phase 3.19).
 func (a *libraryAdapter) AddResource(ctx context.Context, req *library.AddRequest) error {
-	if err := library.AddResource(ctx, *req); err != nil {
-		return fmt.Errorf("libraryAdapter.AddResource: %w", err)
-	}
-	return nil
+	return library.AddResource(ctx, *req) //nolint:wrapcheck // typed-error chain traversal (Phase 3.19)
 }
 
-// DiscoverOrphans delegates to library.DiscoverOrphans, wrapping the
-// cause to satisfy wrapcheck.
+// DiscoverOrphans delegates to library.DiscoverOrphans. The returned
+// error is a typed *core.*Error; see AddResource for rationale
+// (Phase 3.19).
 func (a *libraryAdapter) DiscoverOrphans(ctx context.Context, opts library.DiscoverOptions) (*library.DiscoverResult, error) {
-	res, err := library.DiscoverOrphans(ctx, opts)
-	if err != nil {
-		return nil, fmt.Errorf("libraryAdapter.DiscoverOrphans: %w", err)
-	}
-	return res, nil
+	return library.DiscoverOrphans(ctx, opts) //nolint:wrapcheck // typed-error chain traversal (Phase 3.19)
 }
 
-// BatchAddResources delegates to library.BatchAddResources, wrapping
-// the cause to satisfy wrapcheck.
+// BatchAddResources delegates to library.BatchAddResources. The
+// returned error is a typed *core.*Error; see AddResource for
+// rationale (Phase 3.19).
 func (a *libraryAdapter) BatchAddResources(ctx context.Context, opts library.BatchAddOptions) (*library.BatchAddResult, error) {
-	res, err := library.BatchAddResources(ctx, opts)
-	if err != nil {
-		return nil, fmt.Errorf("libraryAdapter.BatchAddResources: %w", err)
-	}
-	return res, nil
+	return library.BatchAddResources(ctx, opts) //nolint:wrapcheck // typed-error chain traversal (Phase 3.19)
 }
 
 // Compile-time confirmation that libraryAdapter satisfies the

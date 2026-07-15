@@ -98,10 +98,13 @@ func TestLibraryCommand_InvalidRef(t *testing.T) {
 	err = cmd.Execute()
 	require.Error(t, err, "invalid ref must produce an error")
 
-	var notFound *core.NotFoundError
-	require.True(t, errors.As(err, &notFound),
-		"error must be a *core.NotFoundError, got %T: %v", err, err)
-	assert.Equal(t, "invalidformat", notFound.Key)
+	// Phase 3.20: an unparseable ref (no "/" separator) now surfaces
+	// as *core.ConfigError — the ref is malformed, not "missing".
+	// NotFoundError is reserved for runtime lookup misses.
+	var cfgErr *core.ConfigError
+	require.True(t, errors.As(err, &cfgErr),
+		"error must be a *core.ConfigError (parse error), got %T: %v", err, err)
+	assert.Equal(t, "reference", cfgErr.Field())
 }
 
 // Legacy TestInitCommand_* tests were removed in slice 5; they used

@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -57,15 +56,18 @@ type presetWriter interface {
 var _ presetWriter = (*library.Library)(nil)
 
 // errEmptyResources is returned by runCreatePreset when --resources
-// is present but empty. The message is crafted to contain the
-// "flag needs an argument" substring so cmdutil.ExitCodeFor's
-// cobraUsagePrefixes branch maps it to ExitCodeUsage (2) per the
-// spec scenario "Empty resources flag fails pre-flight validation".
+// is present but empty. Migrated to *core.UsageError in
+// enforce-error-discipline Phase 3.12 so cmdutil.ExitCodeFor's
+// typed-error dispatch maps it to ExitCodeUsage (2) per the spec
+// scenario "Empty resources flag fails pre-flight validation". The
+// flag string matches the cobra --resources spelling; the reason
+// omits the flag prefix (FormatError renders the prefix from the
+// typed error's Flag() getter).
 //
 // errEmptyResources is package-level (rather than a fmt.Errorf
-// inline) to satisfy perfsprint: there are no format arguments
-// and the message is stable across runs.
-var errEmptyResources = errors.New("flag needs an argument: --resources (must be non-empty list of refs)")
+// inline) so the value is stable across runs and equal-by-identity
+// comparisons in tests remain meaningful.
+var errEmptyResources = core.NewUsageError("--resources", "must be non-empty list of refs")
 
 // NewCmdCreatePreset creates the `library create preset` command via
 // the canonical NewCmdXxx(f, libraryPath, runF) pattern. Migrated in
@@ -151,9 +153,10 @@ Examples:
 //  2. opts.Resources non-empty check. Cobra's MarkFlagRequired emits
 //     a "required flag(s) \"resources\" not set" message when
 //     --resources is absent; this branch handles the "flag present but
-//     empty" case ("flag needs an argument" style) so
-//     cmdutil.ExitCodeFor's cobraUsagePrefixes branch maps it to
-//     exit 2.
+//     empty" case via errEmptyResources, a *core.UsageError mapped to
+//     ExitCodeUsage (2) by the typed-error dispatch in
+//     cmdutil.ExitCodeFor (Phase 3.12 migration; the prior
+//     cobraUsagePrefixes substring fallback was dropped in Phase 1).
 //  3. For each ref, core.CanInstallResource pre-flight check. The
 //     first malformed ref short-circuits the loop with a
 //     *core.ValidationError (exit 1 via default-error case).

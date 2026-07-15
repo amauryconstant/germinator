@@ -117,19 +117,18 @@ var _ = Describe("Library Create Preset Command", func() {
 			cli.ShouldFailWithExit(session, 1)
 		})
 
-		It("returns exit 1 when --resources is an empty string", func() {
+		It("returns exit 2 when --resources is an empty string (UsageError → ExitCodeUsage)", func() {
 			libPath := seedLibrary(cli, tmpDir)
 
-			// Per enforce-error-discipline (Phase 3.12, pending): the empty
-			// --resources branch uses a plain errors.New which does not
-			// match any typed-error branch after the substring fallback
-			// was removed. Phase 3 will migrate errEmptyResources to
-			// *core.UsageError → ExitCodeUsage (2); for Phase 1 the
-			// default ExitCodeError (1) is the contract.
+			// Per enforce-error-discipline (Phase 3.12): errEmptyResources
+			// is now a *core.UsageError (the cobra-substring fallback was
+			// removed in Phase 1). cmdutil.ExitCodeFor maps *core.UsageError
+			// to ExitCodeUsage (2) — the invocation itself was wrong, not
+			// a runtime lookup miss.
 			session := cli.Run("library", "create", "preset", "empty-resources",
 				"--resources", "",
 				"--library", libPath)
-			cli.ShouldFailWithExit(session, 1)
+			cli.ShouldFailWithExit(session, 2)
 		})
 
 		It("returns exit 1 when a ref has an invalid type", func() {

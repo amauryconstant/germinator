@@ -9,7 +9,11 @@ import (
 )
 
 // ResolveResource resolves a resource reference to an absolute file path.
-// The ref must be in "type/name" format (e.g., "skill/commit").
+// The ref must be in "type/name" format (e.g., "skill/commit"). On a
+// miss (unknown type or unknown name), returns *core.NotFoundError so
+// cmdutil.ExitCodeFor maps the failure to ExitCodeError (1) — a
+// runtime lookup miss is an operational error, not a user-input
+// validation error.
 func ResolveResource(lib *Library, ref string) (string, error) {
 	typ, name, err := ParseRef(ref)
 	if err != nil {
@@ -18,15 +22,48 @@ func ResolveResource(lib *Library, ref string) (string, error) {
 
 	resources, ok := lib.Resources[typ]
 	if !ok {
-		return "", gerrors.NewFileError(ref, "resolve", "resource not found", nil)
+		return "", gerrors.NewNotFoundError("resource", ref)
 	}
 
 	res, ok := resources[name]
 	if !ok {
-		return "", gerrors.NewFileError(ref, "resolve", "resource not found", nil)
+		return "", gerrors.NewNotFoundError("resource", ref)
 	}
 
 	return filepath.Join(lib.RootPath, res.Path), nil
+}
+
+// ResolveResourceEntry resolves a resource reference to the canonical
+// *Resource entry, returning *core.NotFoundError on miss (entity
+// "resource", key = ref). This is the entry-point shape used by
+// callers that need the full Resource struct (description, path)
+// rather than the joined filesystem path returned by ResolveResource.
+// The ref must be in "type/name" format (e.g., "skill/commit").
+//
+// This helper coexists with ResolveResource by design: the path-only
+// form is the right tool for callers that only need a filesystem
+// destination, while the entry form is the right tool for callers
+// that need to render the resource's metadata. Returning the
+// *Resource directly avoids leaking the dual map-lookup into every
+// cmd-layer consumer (the resolver owns the lookup; the cmd layer
+// renders).
+func ResolveResourceEntry(lib *Library, ref string) (*Resource, error) {
+	typ, name, err := ParseRef(ref)
+	if err != nil {
+		return nil, err
+	}
+
+	resources, ok := lib.Resources[typ]
+	if !ok {
+		return nil, gerrors.NewNotFoundError("resource", ref)
+	}
+
+	res, ok := resources[name]
+	if !ok {
+		return nil, gerrors.NewNotFoundError("resource", ref)
+	}
+
+	return &res, nil
 }
 
 // ResolveResources resolves multiple resource references to absolute file paths.
@@ -52,16 +89,38 @@ func ResolveResources(lib *Library, refs []string) ([]string, error) {
 // future, ctx SHALL be forwarded to that I/O (per cli-framework/spec.md
 // accept-and-may-ignore pattern).
 //
-// On miss, returns *core.ConfigError("preset", name, "preset not
-// found"); the cmd/init runInit wrapper translates this into the
-// *core.NotFoundError expected by ExitCodeFor.
+// On miss, returns *core.NotFoundError{Entity: "preset", Key: name} so
+// cmdutil.ExitCodeFor maps the failure to ExitCodeError (1) — a
+// runtime lookup miss is an operational error, not a user-input
+// validation error. cmd/init's runInit pass-through uses this typed
+// error directly without re-wrap.
 func (lib *Library) ResolvePreset(ctx context.Context, name string) ([]string, error) {
 	_ = ctx // accept-and-may-ignore: pure in-memory lookup, no I/O to forward to today
 	preset, ok := lib.Presets[name]
 	if !ok {
-		return nil, gerrors.NewConfigError("preset", name, "preset not found")
+		return nil, gerrors.NewNotFoundError("preset", name)
 	}
 	return preset.Resources, nil
+}
+
+// ResolvePresetEntry resolves a preset name to the canonical *Preset
+// entry, returning *core.NotFoundError on miss (entity "preset",
+// key = name). This is the entry-point shape used by callers that
+// need the full Preset struct (description, resource list) rather
+// than the bare resource-ref slice returned by ResolvePreset.
+//
+// This helper coexists with (*Library).ResolvePreset by design: the
+// ref-slice form is the right tool for callers that only need to
+// iterate refs (init), while the entry form is the right tool for
+// callers that need to render the preset's metadata (show). Returning
+// the *Preset directly avoids leaking the dual map-lookup into every
+// cmd-layer consumer.
+func ResolvePresetEntry(lib *Library, name string) (*Preset, error) {
+	preset, ok := lib.Presets[name]
+	if !ok {
+		return nil, gerrors.NewNotFoundError("preset", name)
+	}
+	return &preset, nil
 }
 
 // OutputPathConfig holds configuration for output path derivation.

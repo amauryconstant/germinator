@@ -4,6 +4,7 @@ package library
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -79,13 +80,11 @@ func RemoveResource(ctx context.Context, opts RemoveResourceOptions) (*RemoveRes
 
 	typeMap, typeExists := lib.Resources[typ]
 	if !typeExists {
-		return nil, gerrors.NewFileError(opts.LibraryPath, "access",
-			fmt.Sprintf("resource %s not found", opts.Ref), nil)
+		return nil, gerrors.NewNotFoundError("library ref", opts.Ref)
 	}
 	resource, nameExists := typeMap[name]
 	if !nameExists {
-		return nil, gerrors.NewFileError(opts.LibraryPath, "access",
-			fmt.Sprintf("resource %s not found", opts.Ref), nil)
+		return nil, gerrors.NewNotFoundError("library ref", opts.Ref)
 	}
 
 	for presetName, preset := range lib.Presets {
@@ -100,9 +99,16 @@ func RemoveResource(ctx context.Context, opts RemoveResourceOptions) (*RemoveRes
 	physicalPath := filepath.Join(opts.LibraryPath, resource.Path)
 
 	if err := os.Remove(physicalPath); err != nil {
-		if !os.IsNotExist(err) {
-			return nil, gerrors.NewFileError(physicalPath, "remove", "failed to delete resource file", err)
+		if errors.Is(err, os.ErrNotExist) {
+			// The physical file was already gone (e.g., a prior
+			// partial delete or external cleanup). Surface the
+			// state to the caller rather than swallowing it
+			// silently; idempotent removal becomes non-idempotent
+			// (per enforce-error-discipline Design Decision #6,
+			// CHANGELOG ### Changed).
+			return nil, gerrors.NewNotFoundError("library file", physicalPath)
 		}
+		return nil, gerrors.NewFileError(physicalPath, "remove", "failed to delete resource file", err)
 	}
 
 	if err := removeResourceFromLibrary(opts.LibraryPath, typ, name); err != nil {
@@ -137,8 +143,7 @@ func RemovePreset(ctx context.Context, opts RemovePresetOptions) (*RemovePresetO
 
 	preset, exists := lib.Presets[opts.Name]
 	if !exists {
-		return nil, gerrors.NewFileError(opts.LibraryPath, "access",
-			fmt.Sprintf("preset %s not found", opts.Name), nil)
+		return nil, gerrors.NewNotFoundError("preset", opts.Name)
 	}
 
 	resourcesRemoved := make([]string, len(preset.Resources))

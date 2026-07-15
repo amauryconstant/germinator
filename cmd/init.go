@@ -143,7 +143,9 @@ Examples:
 //  1. Refs XOR Preset (mutex per base spec).
 //  2. Platform validated via core.ValidatePlatform.
 //  3. If Preset != "", expand via (*Library).ResolvePreset; on miss
-//     wrap as *core.NotFoundError so ExitCodeFor returns 2.
+//     (*Library).ResolvePreset returns *core.NotFoundError directly
+//     (Phase 3.3 migration); runInit returns it as-is so
+//     cmdutil.ExitCodeFor maps it to ExitCodeError (1).
 //  4. Build InitializeRequest; invoke NewInitializer().Initialize.
 //  5. Count successes/failures from the result slice.
 //  6. Render per-resource status; return nil or *core.PartialSuccessError.
@@ -170,7 +172,10 @@ func runInit(opts *initOptions) error {
 	if hasPreset {
 		expanded, rerr := lib.ResolvePreset(opts.Ctx, opts.Preset)
 		if rerr != nil {
-			return core.NewNotFoundError("preset", opts.Preset)
+			// (*Library).ResolvePreset returns *core.NotFoundError
+			// directly (Phase 3.3 migration); no re-wrap needed.
+			// cmdutil.ExitCodeFor maps it to ExitCodeError (1).
+			return rerr //nolint:wrapcheck // typed *core.NotFoundError chain traversal (Phase 3.17)
 		}
 		refs = expanded
 	}
