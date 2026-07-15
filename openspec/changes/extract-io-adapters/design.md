@@ -5,10 +5,10 @@
 The current state has five I/O adapters living in `cmd/`:
 
 - **`transformerAdapter`** at `cmd/transformer.go:33-36` — composes `parser.NewParser()` + `renderer.NewSerializer()`; implements the cmd-side `Transformer` interface (`cmd/adapt.go:19-21`).
-- **`validatorAdapter`** at `cmd/validate.go:214` (zero-size type) — delegates to `validateDocument` (lines 134-184) and `unwrapErrors` (lines 188-202). Implements the cmd-side `Validator` interface (`cmd/validate.go:22-24`).
-- **`canonicalizerAdapter`** at `cmd/canonicalize.go:221` (zero-size type) — delegates to `canonicalizeDocument` (lines 147-167), `validateCanonicalDoc` (lines 171-193), `unwrapCanonicalErrors` (lines 198-209). Implements the cmd-side `Canonicalizer` interface (`cmd/canonicalize.go:22-24`).
+- **`validatorAdapter`** at `cmd/validate.go:214` (zero-size type) — delegates to `validateDocument` (L130-183) and `unwrapErrors` (L184-197). Implements the cmd-side `Validator` interface (`cmd/validate.go:21`).
+- **`canonicalizerAdapter`** at `cmd/canonicalize.go:232` (zero-size type) — delegates to `canonicalizeDocument` (L158-177), `validateCanonicalDoc` (L182-207), `unwrapCanonicalErrors` (L209-220). Implements the cmd-side `Canonicalizer` interface (`cmd/canonicalize.go:22`).
 - **`initializerAdapter`** at `cmd/initializer.go:38-41` — 126 lines of per-ref orchestration (load → render → write). Implements the cmd-side `Initializer` interface (`cmd/initializer.go:18-20`).
-- **`libraryAdapter`** at `cmd/library_add.go:77` (zero-state) — wraps the package-level `library.AddResource`, `library.DiscoverOrphans`, `library.BatchAddResources` functions to expose them as interface methods. Implements the cmd-side `resourceAdder` interface (`cmd/library_add.go:64-68`).
+- **`libraryAdapter`** at `cmd/library_add.go:83` (zero-state) — wraps the package-level `library.AddResource`, `library.DiscoverOrphans`, `library.BatchAddResources` functions to expose them as interface methods. Implements the cmd-side `adderLibrary` interface (`cmd/library_add.go:70`; renamed from `resourceAdder` as part of this change).
 
 The cmd-side **interfaces** are correctly co-located with their consumers per the skill's "interfaces where consumed" principle (`SKILL.md:1316`). The deviation is the **concrete production adapters** living in `cmd/` rather than in `internal/<x>/`.
 
@@ -40,7 +40,7 @@ The skill's "When to Extract" guidance (`SKILL.md:1051-1061`) is a **heuristic**
 - Re-introducing `Factory.Transformer`/`Validator`/`Canonicalizer`/`Initializer` lazy fields. The slice-7 deletion is preserved; the per-options field remains the only injection point.
 - Refactoring `internal/parser` or `internal/renderer`. The new shell packages consume them; their internals are unchanged.
 - Adding `internal/<x>/<x>_test.go` golden file tests. Stage 1 considers moving `cmd/canonicalize_golden_test.go`; other stages inherit existing test files (the cmd-side tests use `runF` injection and continue to pass).
-- Removing the cmd-side `Transformer`/`Validator`/`Canonicalizer`/`Initializer`/`resourceAdder` interfaces. They stay per "interfaces where consumed".
+- Removing the cmd-side `Transformer`/`Validator`/`Canonicalizer`/`Initializer`/`adderLibrary` interfaces. They stay per "interfaces where consumed".
 - Changing the dependency direction between `internal/library` and other packages. `library` continues to be a leaf; the new shell packages depend on `library` but not vice versa.
 
 ## Decisions
@@ -76,7 +76,7 @@ internal/validate/
 
 **Choice**: Stage 2 converts `library.AddResource`, `library.BatchAddResources`, `library.DiscoverOrphans` from package-level functions to methods on `*library.Library`. Existing package-level functions delegate to the methods (slice-7 decision 6 precedent).
 
-**Rationale**: The slice-7 design rationale explicitly committed to this pattern for `Refresh`, `RemoveResource`, `Validate`, `Fix`. The remaining three (`Add`, `BatchAdd`, `DiscoverOrphans`) complete the migration. The `libraryAdapter` becomes unnecessary because `*library.Library` directly satisfies the cmd-side `resourceAdder` interface (via `var _ resourceAdder = (*library.Library)(nil)` compile-time check).
+**Rationale**: The slice-7 design rationale explicitly committed to this pattern for `Refresh`, `RemoveResource`, `Validate`, `Fix`. The remaining three (`Add`, `BatchAdd`, `DiscoverOrphans`) complete the migration. The adapter shim becomes unnecessary because `*library.Library` directly satisfies the cmd-side `adderLibrary` interface (via `var _ adderLibrary = (*library.Library)(nil)` compile-time check).
 
 **Alternatives considered**:
 - *Keep `libraryAdapter`, add a `ResourceAdder` interface to `internal/library`*: rejected; this re-creates the "parallel type" anti-pattern that slice 7 deleted (per `openspec/changes/archive/2026-07-01-migrate-library-rest/design.md:92`).
@@ -155,7 +155,7 @@ if resolve == nil {
 
 ### 7. Single mega-change with 4 internal stages
 
-**Choice**: All 4 stages ship as a single OpenSpec change (`extract-io-adapters`) for archival cohesion. The internal stages are documented as numbered sections in `tasks.md` (1.0, 2.0, 3.0, 4.0).
+**Choice**: All 3 stages ship as a single OpenSpec change (`extract-io-adapters`) for archival cohesion. The internal stages are documented as numbered sections in `tasks.md` (1.0, 2.0, 3.0).
 
 **Rationale**: The stages share a single architectural theme ("extract cmd-resident adapters to internal/<x>/"). Splitting into 4 separate changes adds 4× the OpenSpec ceremony for a coherent refactor. The user approved this approach: *"One mega-change per priority tier (Recommended)"*.
 
@@ -164,24 +164,23 @@ if resolve == nil {
 
 ## Risks / Trade-offs
 
-- **Stage 2 method conversion: package-level functions must continue to work.** Existing tests (`internal/library/adder_test.go`, `cmd/library_add_test.go`) may use `library.AddResource` as a function value or pass it as a callback. **Mitigation**: Stage 2 task `2.4.3` keeps the package-level functions as thin wrappers (`func AddResource(ctx, req) error { return defaultLibrary.Add(ctx, &req) }`) so all existing call sites compile unchanged. The new methods are the canonical implementation; the package functions are the convenience layer.
-- **Stage 3 import cycles.** If `internal/install` imports `internal/library` for `ResolveResource` / `ParseRef` / `GetOutputPath`, and `internal/library` ever needs `internal/install` for any reason, a cycle forms. **Mitigation**: design Decision 4 codifies the dependency direction; `depguard` does not enforce this directly, but the next lint run will fail with a clear error if a regression occurs. Stage 3 task `3.4.5` verifies `go build ./...` succeeds.
-- **Golden file tests in `cmd/canonicalize_golden_test.go`** may depend on cmd-side state (the `NewCmdCanonicalize` constructor) for fixture setup. **Mitigation**: Stage 1 task `1.4.3` moves the golden test to `internal/canonicalize/canonicalize_golden_test.go` and uses `validate.NewService()` directly; existing fixtures are byte-identical and move with the test.
-- **`libraryAdapter` docstring at `cmd/library_add.go:60-63` becomes stale** after Stage 2 (the adapter no longer exists). **Mitigation**: Stage 2 task `2.4.4` deletes the docstring along with the adapter.
-- **The 4 new shell packages add 4 new AGENTS.md files** that must follow the project convention. **Mitigation**: Stage 4 task `4.4.1` uses the `internal/library/AGENTS.md` template as the starting point; each file is ~30 lines and follows the established Files + Key Surface structure.
-- **`internal/AGENTS.md` package dependency diagram** must include the 4 new packages. **Mitigation**: Stage 4 task `4.4.2` updates the diagram; the existing diagram (`internal/AGENTS.md:14-28`) is a simple text-block update.
-- **Test coverage may dip briefly** during the refactor. **Mitigation**: each stage ends with `mise run check`; the new shell-package tests are additive (existing cmd tests still cover the command layer via `runF` injection). Stage 4 task `4.7.3` confirms coverage for the new packages ≥ 70%.
+- **Stage 2 method conversion: package-level functions must continue to work.** Existing tests (`internal/library/adder_test.go`, `cmd/library_add_test.go`) may use `library.AddResource` as a function value or pass it as a callback. **Mitigation**: Stage 2 task 2.2 keeps the package-level functions as thin wrappers (`func AddResource(ctx, req) error { return defaultLibrary.Add(ctx, &req) }`) so all existing call sites compile unchanged. The new methods are the canonical implementation; the package functions are the convenience layer.
+- **Stage 3 import cycles.** If `internal/install` imports `internal/library` for `ResolveResource` / `ParseRef` / `GetOutputPath`, and `internal/library` ever needs `internal/install` for any reason, a cycle forms. **Mitigation**: design Decision 4 codifies the dependency direction; `depguard` does not enforce this directly, but the next lint run will fail with a clear error if a regression occurs. Stage 3 task 3.11 verifies `go build ./...` succeeds.
+- **Golden file tests in `cmd/canonicalize_golden_test.go`** may depend on cmd-side state (the `NewCmdCanonicalize` constructor) for fixture setup. **Mitigation**: Stage 1 task 1.9 moves the golden test to `internal/canonicalize/canonicalize_golden_test.go` and uses `canonicalize.NewService()` directly; existing fixtures are byte-identical and move with the test.
+- **`libraryAdapter` docstring at `cmd/library_add.go:60-63` becomes stale** after Stage 2 (the adapter no longer exists). **Mitigation**: Stage 2 task 2.8 deletes the docstring along with the adapter.
+- **The 4 new shell packages add 4 new AGENTS.md files** that must follow the project convention. **Mitigation**: each follows the `internal/library/AGENTS.md` template as the starting point; ~30 lines; handled as part of the separate doc phase.
+- **`internal/AGENTS.md` package dependency diagram** must include the 4 new packages. **Mitigation**: handled as part of the separate doc phase; the existing diagram (`internal/AGENTS.md:14-28`) is a simple text-block update.
+- **Test coverage may dip briefly** during the refactor. **Mitigation**: each stage ends with `mise run check`; the new shell-package tests are additive (existing cmd tests still cover the command layer via `runF` injection). Final verification task 4.7 confirms coverage for the new packages ≥ 70%.
 - **`gocyclo` / `gocognit` thresholds** (set to 25 and 30 respectively in `.golangci.yml`) may flag the larger shell-package method bodies. **Mitigation**: each method follows the existing `cmd/initializer.go:Initialize` pattern, which currently passes lint; if a method exceeds the threshold, extract a helper into the same package (no impact on the public API).
 
 ## Migration Plan
 
-The change ships in **4 sequential stages**, each producing independently-mergeable commits:
+The change ships in **3 sequential stages**, each producing independently-mergeable commits:
 
 1. **Stage 1** — Extract validator + canonicalizer (~3 hours). New packages: `internal/validate/`, `internal/canonicalize/`. No public API change. End state: `cmd/validate.go` and `cmd/canonicalize.go` are ~70 lines shorter.
-2. **Stage 2** — Convert library adders to `*library.Library` methods (~2 hours). `libraryAdapter` deleted; `*library.Library` directly satisfies the cmd-side `resourceAdder` interface. End state: `cmd/library_add.go` loses 60 LOC of adapter code.
+2. **Stage 2** — Convert library adders to `*library.Library` methods (~2 hours). `libraryAdapter` deleted; `*library.Library` directly satisfies the cmd-side `adderLibrary` interface. End state: `cmd/library_add.go` loses 60 LOC of adapter code.
 3. **Stage 3** — Extract transformer + initializer (~4 hours). New packages: `internal/transform/`, `internal/install/`. End state: `cmd/transformer.go` and `cmd/initializer.go` are deleted; `cmd/adapt.go` and `cmd/init.go` import the new packages.
-4. **Stage 4** — Document the convention (~1 hour). AGENTS.md updates across `internal/AGENTS.md`, `cmd/AGENTS.md`, `cmd/commands/AGENTS.md`. Spec delta applied via `osc-sync-specs`.
 
-**Rollback strategy**: revert each stage commit independently. Stages 1, 3 are additive (new packages); Stage 2 is a method addition + adapter deletion (revert by restoring the adapter); Stage 4 is doc-only.
+**Rollback strategy**: revert each stage commit independently. Stages 1, 3 are additive (new packages); Stage 2 is a method addition + adapter deletion (revert by restoring the adapter).
 
 **Sequencing rationale**: Stage 1 first because the slice-3 rationale applies most directly to validator/canonicalizer (smallest, simplest). Stage 2 second because it retires the explicit `libraryAdapter` debt documented at `cmd/library_add.go:60-63`. Stage 3 last because it touches the largest volume of code (transformer + initializer).

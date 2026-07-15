@@ -6,10 +6,10 @@ Five cross-command I/O adapters currently live in `cmd/` rather than in dedicate
 
 | Adapter | File | LOC | Consumer |
 |---|---|---|---|
-| `validatorAdapter` | `cmd/validate.go:204-222` (+ helpers at 134-202) | ~90 | `cmd/validate` |
-| `canonicalizerAdapter` | `cmd/canonicalize.go:211-229` (+ helpers at 144-209) | ~85 | `cmd/canonicalize` |
-| `transformerAdapter` | `cmd/transformer.go` | 60 | `cmd/adapt` |
-| `initializerAdapter` | `cmd/initializer.go` | 126 | `cmd/init` |
+| `validatorAdapter` | `cmd/validate.go:210-218` (+ helpers at 130-198) | ~90 | `cmd/validate` |
+| `canonicalizerAdapter` | `cmd/canonicalize.go:232-240` (+ helpers at 158-220) | ~85 | `cmd/canonicalize` |
+| `transformerAdapter` | `cmd/transformer.go:33-60` | 60 | `cmd/adapt` |
+| `initializerAdapter` | `cmd/initializer.go:38-125` | 126 | `cmd/init` |
 | `libraryAdapter` | `cmd/library_add.go:64-120` | ~60 | `cmd/library add` |
 
 The `golang-cli-architecture` skill's decision trigger (`SKILL.md:1236-1250`) states: *"3+ commands sharing the same I/O adapter → Extract adapter to its own package."* This trigger does not strictly fire (each adapter has exactly one consumer). However, the secondary "When to Extract" guidance (`SKILL.md:1051-1061`) lists two additional criteria — *"an I/O boundary you want to test independently"* and *"a distinct external dependency (a specific tool, API, or library)"* — which clearly fire for all five adapters. The body of `cmd/transformer.go:44-60` does filesystem I/O (`os.WriteFile`) and composes two existing shell packages (`internal/parser` + `internal/renderer`); `cmd/initializer.go:53-125` does filesystem I/O across 73 lines of orchestration; the other three follow the same pattern.
@@ -24,14 +24,14 @@ Extracting these adapters aligns germinator with the rest of its `internal/<x>/`
 
 ## What Changes
 
-The change is structured as **four internal stages**, all under this single OpenSpec change for archival purposes. Each stage is independently mergeable and revertable.
+The change is structured as **three internal stages**, all under this single OpenSpec change for archival purposes. Each stage is independently mergeable and revertable. Documentation (AGENTS.md updates, spec sync) and archive are handled separately.
 
 ### Stage 1 — Extract validator + canonicalizer
 
-- **NEW** `internal/validate/validate.go` (~90 LOC + AGENTS.md): move `validateDocument` and `unwrapErrors` from `cmd/validate.go:132-202`. Define `Service` interface, `Request`/`Result` types, and `transformerAdapter`-style implementation.
-- **NEW** `internal/canonicalize/canonicalize.go` (~85 LOC + AGENTS.md): move `canonicalizeDocument`, `validateCanonicalDoc`, `unwrapCanonicalErrors` from `cmd/canonicalize.go:144-209`.
-- **MODIFY** `cmd/validate.go`: delete `validateDocument`, `unwrapErrors`, `validatorAdapter` (lines 132-222). Import `internal/validate`. The cmd-side `Validator` interface at `cmd/validate.go:22-24` stays (per "interfaces where consumed").
-- **MODIFY** `cmd/canonicalize.go`: delete `canonicalizeDocument`, `validateCanonicalDoc`, `unwrapCanonicalErrors`, `canonicalizerAdapter` (lines 144-229). Import `internal/canonicalize`. The cmd-side `Canonicalizer` interface at `cmd/canonicalize.go:22-24` stays.
+- **NEW** `internal/validate/validate.go` (~90 LOC + AGENTS.md): move `validateDocument` and `unwrapErrors` from `cmd/validate.go:130-198`. Define `Service` interface, `Request`/`Result` types, and `transformerAdapter`-style implementation.
+- **NEW** `internal/canonicalize/canonicalize.go` (~85 LOC + AGENTS.md): move `canonicalizeDocument` (L158-177), `validateCanonicalDoc` (L182-207), `unwrapCanonicalErrors` (L209-220) from `cmd/canonicalize.go`.
+- **MODIFY** `cmd/validate.go`: delete `validateDocument`, `unwrapErrors`, `validatorAdapter` (lines 130-218). Import `internal/validate`. The cmd-side `Validator` interface at `cmd/validate.go:21` stays (per "interfaces where consumed").
+- **MODIFY** `cmd/canonicalize.go`: delete `canonicalizeDocument`, `validateCanonicalDoc`, `unwrapCanonicalErrors`, `canonicalizerAdapter` (lines 158-240). Import `internal/canonicalize`. The cmd-side `Canonicalizer` interface at `cmd/canonicalize.go:22` stays.
 
 ### Stage 2 — Convert library adders to `*library.Library` methods
 
@@ -42,7 +42,7 @@ The change is structured as **four internal stages**, all under this single Open
   - Existing package-level functions (`library.AddResource`, `library.BatchAddResources`, `library.DiscoverOrphans`) delegate to the methods (slice-7 decision 6 precedent — keeps public API stable).
 - **MODIFY** `internal/library/adder.go`: rewrite as methods on `*Library` (per slice-7 decision 6).
 - **MODIFY** `internal/library/discovery.go`: rewrite `DiscoverOrphans` as a method on `*Library`.
-- **MODIFY** `cmd/library_add.go`: delete `resourceAdder` interface, `libraryAdapter`, `defaultAdder` (lines 64-120). Replace `var _ resourceAdder = (*libraryAdapter)(nil)` with `var _ adderLibrary = (*library.Library)(nil)`. Update `runAdd*` bodies to use `lib.Add`, `lib.BatchAddResources`, `lib.DiscoverOrphans` directly.
+- **MODIFY** `cmd/library_add.go`: delete `resourceAdder` interface (L70), `libraryAdapter` (L83-120), `defaultAdder` (L118), and the compile-time check (L113). Replace `var _ resourceAdder = (*libraryAdapter)(nil)` with `var _ adderLibrary = (*library.Library)(nil)`. Update `runAdd*` bodies to use `lib.Add`, `lib.BatchAddResources`, `lib.DiscoverOrphans` directly.
 
 ### Stage 3 — Extract transformer + initializer
 
@@ -51,12 +51,6 @@ The change is structured as **four internal stages**, all under this single Open
 - **MODIFY** `cmd/adapt.go`: import `internal/transform`. The `Transformer` interface at `cmd/adapt.go:19-21` stays. Update `runAdapt` to construct via `transform.NewService(parser.NewParser(), renderer.NewSerializer())`.
 - **MODIFY** `cmd/init.go`: import `internal/install`. The `Initializer` interface at `cmd/initializer.go:18-20` (kept in `cmd/init.go` after `cmd/initializer.go` deletion) stays. Update `runInit` to construct via `install.NewService(parser.NewParser(), renderer.NewSerializer())`.
 - **DELETE** `cmd/transformer.go`, `cmd/initializer.go` (entire files).
-
-### Stage 4 — Document the convention
-
-- **MODIFY** `internal/AGENTS.md`: add `internal/validate/`, `internal/canonicalize/`, `internal/transform/`, `internal/install/` to the package list and the package dependency diagram. Update the bullet for `internal/{claude-code,opencode}/` to reflect that pure validators live in `internal/core/<platform>/` and I/O-bound transformation lives in `internal/<platform>/` (cross-package clarification).
-- **MODIFY** `cmd/AGENTS.md`: replace the "Adapter Placement" wording in the canonical `adapt` example. Update the Foundation Units table to remove `cmd/transformer.go` and `cmd/initializer.go` references.
-- **MODIFY** `cmd/commands/AGENTS.md`: update the table to remove references to deleted cmd files where applicable.
 
 ## Capabilities
 
@@ -73,7 +67,6 @@ The change is structured as **four internal stages**, all under this single Open
 | 1 | `internal/validate/validate.go` + AGENTS.md, `internal/canonicalize/canonicalize.go` + AGENTS.md | `cmd/validate.go`, `cmd/canonicalize.go` | — | -175 |
 | 2 | — | `internal/library/library.go`, `internal/library/adder.go`, `internal/library/discovery.go`, `cmd/library_add.go` | `cmd/library_add.go:64-120` (delete adapter + interface) | -60 / +100 |
 | 3 | `internal/transform/transform.go` + AGENTS.md, `internal/install/install.go` + AGENTS.md | `cmd/adapt.go`, `cmd/init.go` | `cmd/transformer.go`, `cmd/initializer.go` | -186 / +186 |
-| 4 | — | `internal/AGENTS.md`, `cmd/AGENTS.md`, `cmd/commands/AGENTS.md` | — | +60 doc |
 | **Net** | **+8 files** (4 .go + 4 AGENTS.md) | **8 files** | **3 files** | **-421 cmd / +461 internal** |
 
 ### Affected systems
@@ -93,9 +86,9 @@ The change is structured as **four internal stages**, all under this single Open
 
 ## Risks
 
-- **Stage 2 method conversion breaks callers that pass package-level functions as values.** Currently, `library.AddResource` is used as a top-level function value in some test files (`internal/library/adder_test.go` likely has direct references). **Mitigation**: the package-level functions continue to exist as thin wrappers around the methods, so existing callers keep working. Stage 2 tasks include grep verification that all call sites compile post-refactor.
+- **Stage 2 method conversion breaks callers that pass package-level functions as values.** `library.AddResource` may be used as a top-level function value in test files. **Mitigation**: verify via `rg "^\s*library\.(AddResource|BatchAddResources|DiscoverOrphans)" internal/library/adder_test.go cmd/library_add_test.go` before implementing; the package-level functions continue to exist as thin wrappers around the methods so existing callers keep working.
 - **Stage 3 import cycles if `internal/install` imports `internal/library` AND `internal/library` ever imports `internal/install`.** Currently, `internal/library` does not import `internal/install` (the dependency flows one way: `install` → `library` for resource resolution). **Mitigation**: design Decision 4 enforces the import direction; `depguard` will catch a regression on the next lint run.
-- **Golden file tests in `cmd/canonicalize_golden_test.go` may need relocation** if the golden file fixtures depend on cmd-side state. **Mitigation**: Stage 1 task `4.1.3` moves the golden test to `internal/canonicalize/canonicalize_golden_test.go` (per the shell-package convention); the existing fixtures are byte-identical and move with the test.
-- **The 4 new shell packages add 4 new `AGENTS.md` files** that must be kept in sync with the project conventions. **Mitigation**: Stage 4 task `4.4.1` follows the `internal/library/AGENTS.md` template as a starting point; each AGENTS.md is ~30 lines following the established Files + Key Surface structure.
-- **`internal/AGENTS.md` package dependency diagram must be updated** to include the 4 new packages. **Mitigation**: Stage 4 task `4.4.2` regenerates the diagram per the existing convention; the diagram is verified by `depguard` (which already passes for the existing packages).
-- **The `libraryAdapter` docstring at `cmd/library_add.go:60-63` becomes stale** after Stage 2. **Mitigation**: Stage 2 task `2.4.4` deletes the docstring along with the adapter.
+- **Golden file tests in `cmd/canonicalize_golden_test.go` may need relocation** if the golden file fixtures depend on cmd-side state. **Mitigation**: Stage 1 task 1.9 moves the golden test to `internal/canonicalize/canonicalize_golden_test.go` (per the shell-package convention); the existing fixtures are byte-identical and move with the test.
+- **The 4 new shell packages add 4 new `AGENTS.md` files** that must be kept in sync with the project conventions. **Mitigation**: each AGENTS.md follows the `internal/library/AGENTS.md` template as a starting point; ~30 lines following the established Files + Key Surface structure; handled as part of the separate doc phase.
+- **`internal/AGENTS.md` package dependency diagram must be updated** to include the 4 new packages. **Mitigation**: handled as part of the separate doc phase; the diagram is verified by `depguard` (which already passes for the existing packages).
+- **The `libraryAdapter` docstring at `cmd/library_add.go:60-63` becomes stale** after Stage 2. **Mitigation**: Stage 2 task 2.8 deletes the docstring along with the adapter.

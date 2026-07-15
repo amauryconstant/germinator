@@ -27,6 +27,13 @@ Service-style I/O adapters (Transformer, Validator, Canonicalizer, Initializer, 
 - **AND** each constructor SHALL return the cmd-side interface type (the package implements the interface, the consumer declares it)
 - **AND** `cmd/` SHALL import the shell package only to call the constructor; the cmd file does NOT re-implement the adapter
 
+#### Scenario: Package name `install` (not `init`) avoids Go identifier collision
+
+- **WHEN** a shell package for the init/initialize logic is created
+- **THEN** the package SHALL be named `install`, not `init`
+- **AND** the `Initializer` interface (the cmd-side contract) remains in `cmd/init.go`; only the implementation moves to `internal/install/`
+- **Rationale**: `init` is a reserved Go package name; using it causes issues with Go tooling (`go test ./init/...` triggers linter warnings). `install` is semantically equivalent and avoids the collision (per design Decision 1).
+
 #### Scenario: Library package methods replace the libraryAdapter
 
 - **WHEN** the codebase is searched for `libraryAdapter`
