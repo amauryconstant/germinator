@@ -60,13 +60,15 @@ depguard:
 | OperationError | Per-operation failure (carries `Op`, `Resource`, `Cause`); `output.FormatError` renders `Error: <op>: <resource>` to stderr |
 | InitializeError | Per-resource install failure (carries `Ref`, `InputPath`, `OutputPath`, `Cause`); builder `WithSuggestions`/`WithContext` |
 | PartialSuccessError | Aggregated install outcome (`Succeeded`, `Failed`, `[]InitializeError`); `cmdutil.ExitCodeFor` returns 0 when `Succeeded > 0` |
+| UsageError | CLI flag validation failure (carries `Flag`, `Reason`, optional `Suggestions`); `output.FormatError` renders `Error: <flag>: <reason>` to stderr; maps to exit 2 |
+| CobraUsageError | Sentinel wrapping Cobra arg-validation errors (`MustNewCobraUsageError` panics on nil cause); maps to exit 2 |
 
 ## Builder Pattern
 
 ```go
-err := NewParseError("invalid YAML").
-    WithSuggestion("Check YAML syntax").
-    WithContext(map[string]any{"line": 42})
+err := NewParseError("invalid YAML", "msg", nil).
+    WithSuggestions([]string{"Check YAML syntax"}).
+    WithContext("line 42")
 ```
 
 Features:

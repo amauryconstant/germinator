@@ -12,7 +12,7 @@ Shared error formatting, output-format flags, and exporters (JSON, table) for re
 
 | File | Purpose |
 |------|---------|
-| `errors.go` | `FormatError(io, err)` — dispatches via `errors.As` on `*core.{Parse,Validation,Transform,File,Config,NotFound,PartialSuccess,Operation}Error` |
+| `errors.go` | `FormatError(io, err)` — dispatches via `errors.As` on `*core.{Parse,Validation,Transform,File,Config,NotFound,PartialSuccess,Operation,Initialize,Usage}Error` and `*config.WriteError` (12-arm switch per `openspec/specs/cli-error-formatting/spec.md`) |
 | `exporter.go` | `Exporter` interface; `JSONExporter` (2-space indent, trailing newline); `TableExporter` (`tab:"HEADER"` struct tag) |
 | `output_flags.go` | `AddOutputFlags(cmd, *string)` — wires `--output` with completion for `json`/`table`/`plain` |
 | `library.go` | `FormatResourcesList(lib)` — human-readable rendering of `library resources` |

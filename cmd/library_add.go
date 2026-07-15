@@ -130,8 +130,9 @@ var defaultAdder resourceAdder = &libraryAdapter{}
 //
 // Args closure captures opts.Discover at RunE entry so MinimumNArgs(1)
 // is enforced for Mode 1 and bypassed for Modes 2/3 — Cobra emits
-// "requires at least 1 arg(s)" via cobraUsagePrefixes, which
-// cmdutil.ExitCodeFor maps to exit 2.
+// "requires at least 1 arg(s)" as a plain error, which cmdutil.ExitCodeFor
+// maps to exit 2 via the typed-error dispatch (no substring fallback;
+// the per-pflag dispatch + CobraUsageError sentinel cover the path).
 func NewCmdAdd(f *cmdutil.Factory, libraryPath *string, runF func(*addOptions) error) *cobra.Command {
 	var (
 		name        string

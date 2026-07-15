@@ -353,8 +353,9 @@ func TestRunCreatePreset_MultipleResources(t *testing.T) {
 // but the library must also have the resource registered. A
 // syntactically-valid ref pointing to a non-existent resource
 // surfaces from lib.CreatePreset as *core.NotFoundError; cmdutil.ExitCodeFor
-// maps NotFoundError to ExitCodeUsage (2) per its explicit
-// `errors.As(notFound)` branch. The preset is NOT created.
+// maps NotFoundError to ExitCodeError (1) per its explicit
+// `errors.As(notFound)` branch (corrected from ExitCodeUsage (2)
+// in enforce-error-discipline Phase 1.1). The preset is NOT created.
 func TestRunCreatePreset_RefReferencesMissingResource(t *testing.T) {
 	libDir := makePresetTestLibrary(t, presetTestResources())
 

@@ -14,7 +14,7 @@ Lazy DI (`Factory`), per-Factory completion cache, exit-code mapping, and shared
 |------|---------|
 | `factory.go` | `Factory` struct (eager `IOStreams`/`AppVersion`/`Executable`/`RootContext`/`CompletionCache`; lazy `func() (T, error)` fields for `Config`/`Library`); `NewFactory(ctx, io, ver, exe)`; `Close()`; `OnceValuesFunc[T]` helper |
 | `completion_cache.go` | `CompletionCache` type — per-Factory TTL cache for shell-completion library snapshots; `Get`/`Set`/`Reset`/`Invalidate` (concurrency-safe) |
-| `exit.go` | `ExitCode` (`int`), `ExitCodeSuccess=0`/`ExitCodeError=1`/`ExitCodeUsage=2`; `ExitCodeFor(err)` via `errors.As` on pflag typed errors + Cobra string-prefix fallback + `*core.NotFoundError` (2) + `*core.PartialSuccessError` (0 if `Succeeded>0`, else 1) |
+| `exit.go` | `ExitCode` (`int`), `ExitCodeSuccess=0`/`ExitCodeError=1`/`ExitCodeUsage=2`; `ExitCodeFor(err)` via typed `errors.As` dispatch on `*pflag.{NotExist,ValueRequired,InvalidValue,InvalidSyntax}Error`, `*core.{Usage,CobraUsage}Error` (both → 2), `*core.NotFoundError` (1), `*core.PartialSuccessError` (0 if `Succeeded>0`, else 1), `*config.WriteError` (1); default `ExitCodeError` |
 | `factory_test.go` | Lazy caching, cross-field caching, concurrent first-call, transient-error caching |
 | `completion_cache_test.go` | Get/Set/Reset/Invalidate, TTL expiry, concurrency |
 | `exit_test.go` | Table-driven: nil/pflag/Cobra/typed core errors/PartialSuccess/NotFound |

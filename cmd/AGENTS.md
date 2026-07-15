@@ -185,7 +185,7 @@ Three-value scheme:
 
 - `0` (Success) — command completed; also returned for `*core.PartialSuccessError` with `Succeeded > 0`
 - `1` (Error) — general errors (transform, file, unexpected)
-- `2` (Usage) — Cobra argument/validation errors (invalid flags, missing args) detected via `cmdutil.cobraUsagePrefixes`
+- `2` (Usage) — Cobra argument/validation errors (invalid flags, missing args) detected via typed dispatch against `*pflag.{NotExist,ValueRequired,InvalidValue,InvalidSyntax}Error` and `*core.{Usage,CobraUsage}Error` (per `internal/cmdutil/exit.go`)
 
 Mapping: `cmdutil.ExitCodeFor(err)` inspects the error chain with `errors.As` and returns the code. `main.go` calls it from a deferred handler — never call `os.Exit` directly (enforced by `forbidigo`).
 

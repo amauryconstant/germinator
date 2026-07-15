@@ -17,7 +17,7 @@ Library management for canonical resources (skills, agents, commands, memory).
 | `creator.go` | `CreateLibrary()` - scaffolds new library directories |
 | `discovery.go` | `FindLibrary()`, `DefaultLibraryPath()` |
 | `lister.go` | `ListResources()` - groups resources by type |
-| `resolver.go` | `ResolveResource()` - resolves refs to full paths |
+| `resolver.go` | `ResolveResource()`, `ResolveResourceEntry()`, `ResolvePresetEntry()`; `(*Library).ResolvePreset` — resolve refs/names to typed results with `*core.NotFoundError` on miss |
 | `adder.go` | `AddResource()` - imports resources; `BatchAddResources()` for batch operations; `DiscoverOrphans()` for orphan discovery |
 | `refresher.go` | `RefreshLibrary()` - syncs metadata from resource files into library.yaml |
 | `saver.go` | `SaveLibrary()`, `AddPreset()`, `PresetExists()` |
