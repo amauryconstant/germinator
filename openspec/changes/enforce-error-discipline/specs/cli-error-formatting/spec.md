@@ -29,7 +29,7 @@ The prior scenario *"NotFoundError maps to ExitCodeUsage"* (from `openspec/specs
 - `*config.WriteError` → render: `Error: <op> <path>: <message>` (NEW in change `enforce-error-discipline`; `*config.WriteError` carries `op`, `path`, `cause` per `internal/config/errors.go`)
 - generic error → render: `Error: <err.Error()>`
 
-**Change**: ADDED `*core.InitializeError` and `*core.UsageError` cases. The pre-change switch handled only 8 of the 9 existing typed errors (missing `InitializeError`); `UsageError` is a new type introduced in this change. The dispatch set is now complete for all 11 typed errors (9 existing + 2 new).
+**Change**: ADDED `*core.InitializeError` and `*core.UsageError` cases. The pre-change switch handled only 8 of the 9 existing typed errors (missing `InitializeError`); `UsageError` is a new type introduced in this change. The dispatch set is now complete for all 11 core typed errors (9 existing + 2 new) plus 1 Imperative Shell typed error (`*config.WriteError`) — 12 arms + default fallback.
 
 The dispatch ordering matches the order above (full canonical order: Parse, Validation, Transform, File, Config, PartialSuccess, NotFound, Operation, Initialize, Usage, WriteError, default); the new cases sit after `OperationError` and before the generic-error fallback.
 
