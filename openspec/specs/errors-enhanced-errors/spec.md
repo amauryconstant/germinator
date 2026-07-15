@@ -1,3 +1,5 @@
+> **Cross-references:** this change also modifies `errors-typed-errors`, `cli-error-formatting`, `cli-exit-codes`. See those delta specs.
+
 ## Purpose
 
 Apply the immutable builder pattern (private fields, getters, WithSuggestions(), WithContext()) from ValidationError to all error types (ParseError, TransformError, FileError, ConfigError) for complete API alignment.
@@ -301,3 +303,51 @@ The system SHALL provide an `Unwrap() error` method on ValidationError that retu
 - **WHEN** `err.Unwrap()` is called on a ValidationError
 - **THEN** it SHALL return nil
 - **AND** this SHALL provide API consistency with ParseError, TransformError, and FileError
+
+### Requirement: BatchFailureInfo carries typed-error chain
+
+The `BatchFailureInfo` struct declared in `internal/library/adder.go:541-544` SHALL expose `ErrorType` and `Cause` fields in addition to the existing `Source` and `Error` fields. The new fields preserve the typed-error chain so downstream code can use `errors.Is` / `errors.As` against the original error rather than matching the stringified `Error` field.
+
+#### Scenario: BatchFailureInfo has four fields
+
+- **WHEN** a `BatchFailureInfo` is constructed
+- **THEN** it SHALL have the following fields:
+  - `Source string` — the file path that failed (existing field).
+  - `Error string` — the stringified error message (preserved for JSON consumers, existing field).
+  - `ErrorType string` — the type name of the typed error (e.g., `"FileError"`, `"NotFoundError"`, `"ParseError"`), the `*core.` prefix is stripped, empty string when no cause.
+  - `Cause error` — the original typed error; `omitempty` in JSON ensures it does not appear when nil.
+
+#### Scenario: ErrorType is the type name of the cause
+
+- **WHEN** a `BatchFailureInfo` is built from a typed error (e.g., `*core.NotFoundError`)
+- **THEN** `ErrorType` SHALL be the canonical name of the cause's outermost concrete type (e.g., `*core.NotFoundError` → `"NotFoundError"`, `*core.FileError` → `"FileError"`, `*core.ValidationError` → `"ValidationError"`, `*core.ParseError` → `"ParseError"`, `*core.ConfigError` → `"ConfigError"`, `*core.OperationError` → `"OperationError"`, `*core.InitializeError` → `"InitializeError"`, `*core.PartialSuccessError` → `"PartialSuccessError"`, `*core.UsageError` → `"UsageError"`, `*core.CobraUsageError` → `"CobraUsageError"`, `*os.PathError` → `"PathError"`, default → `fmt.Sprintf("%T", cause)`). The dispatch is a direct type-switch, so the label reflects the outermost type.
+- **AND** `Cause` SHALL be the original typed error
+- **AND** when `Cause` is nil, `ErrorType` SHALL be the empty string
+
+#### Scenario: Cause is omitempty in JSON output
+
+- **WHEN** `BatchFailureInfo` is serialized to JSON via `output.NewJSONExporter`
+- **THEN** a `Cause` field with a nil value SHALL NOT appear in the JSON output
+- **AND** a `Cause` field with a non-nil `*core.*Error` value SHALL appear as `{"error": "<Error()>"}`
+
+#### Scenario: Cause MUST be a typed error that implements `json.Marshaler`
+
+- **WHEN** a `BatchFailureInfo.Cause` is assigned at any of the 5 population sites in `internal/library/adder.go`
+- **THEN** the cause SHALL be a `*core.*Error` typed error (or any other type that implements `json.Marshaler`)
+- **AND** non-typed causes (e.g., `*os.PathError`, plain `errors.New(...)`) SHALL be wrapped in `*core.FileError` at the population site BEFORE assignment to `f.Cause`
+
+#### Scenario: Cause supports errors.Is / errors.As
+
+- **WHEN** a downstream caller calls `errors.Is(failure.Cause, sentinel)` or `errors.As(failure.Cause, &target)`
+- **THEN** the call SHALL succeed against the original typed error
+- **AND** the call SHALL match the chain if the original error was wrapped via `fmt.Errorf("...: %w", inner)`
+
+### Requirement: BatchFailureInfo JSON wire-format compatibility
+
+The additive `ErrorType` and `Cause` fields SHALL preserve backward compatibility with JSON consumers that parse the legacy 2-field shape (`source`, `error`).
+
+#### Scenario: Legacy consumer sees no breaking change
+
+- **WHEN** a downstream JSON consumer reads the `source` and `error` fields from a serialized `BatchFailureInfo`
+- **THEN** the consumer SHALL observe the same values as before the change
+- **AND** the consumer SHALL ignore the new `errorType` and `cause` fields

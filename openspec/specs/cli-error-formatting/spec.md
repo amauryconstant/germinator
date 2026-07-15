@@ -1,5 +1,7 @@
 # error-formatting Specification
 
+> **Cross-references:** this change also modifies `errors-typed-errors`, `cli-exit-codes`, `errors-enhanced-errors`. See those delta specs.
+
 ## Purpose
 
 Provide typed-error formatting with a single centralized `output.FormatError` entry point. Errors are dispatched to private per-type helpers via `errors.As`, so the rendering rules live next to the error type itself and the command layer never branches on error type.
@@ -19,22 +21,74 @@ Error formatting SHALL be centralized in `output.FormatError(io *iostreams.IOStr
 
 ### Requirement: Typed-error dispatch
 
-`output.FormatError(io, err)` SHALL dispatch on typed errors via `errors.As`:
+`output.FormatError(io, err)` SHALL dispatch on typed errors via `errors.As`, in the canonical order documented below (first matching case wins):
 
 - `*core.ParseError` → render: `Error: parse failed at <path>: <message>`
 - `*core.ValidationError` → render: `Error: validation failed: <message>` followed by per-error list
 - `*core.TransformError` → render: `Error: transform failed: <message>`
 - `*core.FileError` → render: `Error: <op> <path>: <message>`
 - `*core.ConfigError` → render: `Error: config: <message>`
-- `*core.PartialSuccessError` → render: `partial success: N succeeded, M failed` followed by per-error lines
+- `*core.PartialSuccessError` → render: `partial success: N succeeded, M failed` followed by per-error lines (**partial-success supersedes not-found for wrapped chains**; placed before NotFound in the canonical order)
 - `*core.NotFoundError` → render: `Error: not found: <key>`
+- `*core.OperationError` → render: `Error: <op> failed: <resource>: <message>`
+- `*core.InitializeError` → render: `Error: <e.Error()>` (delegates to `InitializeError.Error()` which renders `initialize failed: <ref>: output: <outputPath>: <cause.Error()>` as a single colon-joined line per `internal/core/errors.go:670-687` — parts joined by `: `; `output` segment optional; cause optional; optional `(context)` suffix; optional `\n💡 <suggestions>` block)
+- `*core.UsageError` → render: `Error: <flag>: <reason>`
+- `*config.WriteError` → render: `Error: <op> <path>: <message>`
+- `*core.CobraUsageError` → render: `Error: <e.Error()>` (delegates to the wrapped cause's `Error()`, e.g., `"Error: requires at least 1 arg(s), only received 0"`)
 - generic error → render: `Error: <err.Error()>`
+
+The dispatch ordering matches the order above (full canonical order: Parse, Validation, Transform, File, Config, PartialSuccess, NotFound, Operation, Initialize, Usage, WriteError, CobraUsage, default). `PartialSuccess` intentionally precedes `NotFound` so that a `*core.PartialSuccessError` aggregated from per-resource `NotFoundError` failures dispatches to the partial-success renderer (which lists every per-resource line) rather than to the terse `not found:` renderer. The new `UsageError`, `WriteError`, and `CobraUsageError` cases sit after `OperationError` and before the generic-error fallback.
 
 #### Scenario: FormatError table-driven
 
 - **WHEN** `FormatError` is called with each error type from the list above
 - **THEN** it SHALL write the corresponding formatted string to `io.ErrOut`
 - **AND** `io.Styles.Error()` SHALL style the prefix
+
+#### Scenario: PartialSuccessError precedes NotFoundError in dispatch order
+
+- **WHEN** `output.FormatError(io, err)` is called with `errors.Join(PartialSuccessError, NotFoundError)` (or any other combination where both `*core.PartialSuccessError` and `*core.NotFoundError` are reachable via `errors.As`)
+- **THEN** the rendered output SHALL be the PartialSuccessError shape (`partial success: <N> succeeded, <M> failed\n…`), not the `Error: not found: <key>` shape
+- **AND** the canonical switch order at `internal/output/errors.go` SHALL keep `case *core.PartialSuccessError` before `case *core.NotFoundError`
+- **NOTE**: this scenario codifies the "PartialSuccess supersedes NotFound" dispatch order documented in the Requirement above; tests that consume `errors.Join` of both types assert the partial-success renderer wins.
+
+#### Scenario: InitializeError renders to stderr
+
+- **WHEN** `output.FormatError(io, err)` is called and `err` is (or wraps) a `*core.InitializeError`
+- **THEN** the message SHALL be written to `io.ErrOut`
+- **AND** the message SHALL be `io.Styles.Error("Error: ") + e.Error() + "\n"` (delegates to `InitializeError.Error()`; the dispatch case MUST NOT manually concatenate the segments — `e.Error()` is the single source of truth per `internal/core/errors.go`)
+
+#### Scenario: InitializeError with cause and outputPath renders the chain
+
+- **WHEN** `*core.InitializeError` carries a non-nil `Cause` and a non-empty `OutputPath()`
+- **THEN** the rendered message SHALL be `io.Styles.Error("Error: ") + e.Error() + "\n"` — delegating to `InitializeError.Error()` (which renders `initialize failed: <ref>: output: <outputPath>: <cause.Error()` as a single colon-joined line per `InitializeError.Error()` declaration in `internal/core/errors.go`). The dispatch case MUST NOT manually concatenate the segments; `e.Error()` is the single source of truth.
+
+#### Scenario: UsageError renders to stderr
+
+- **WHEN** `output.FormatError(io, err)` is called and `err` is (or wraps) a `*core.UsageError`
+- **THEN** the message SHALL be written to `io.ErrOut`
+- **AND** the message SHALL be `io.Styles.Error("Error: ") + e.Flag() + ": " + e.Reason() + "\n"`
+
+#### Scenario: UsageError renders via the new clean-break wording
+
+- **WHEN** `output.FormatError(io, err)` is called with `*core.UsageError{Flag: "--resources", Reason: "must be non-empty list of refs"}`
+- **THEN** the message SHALL be `io.Styles.Error("Error: ") + "--resources: must be non-empty list of refs\n"`
+- **AND** the message SHALL NOT contain the string `"flag needs an argument"` (the prior Cobra-encoded phrasing is dropped)
+
+#### Scenario: Dispatch ordering — wrapped OperationError carries an InitializeError
+
+- **WHEN** `output.FormatError(io, err)` is called with `*core.OperationError{Op: "init", Resource: "skill/commit", Cause: innerErr}` where `innerErr` is or wraps `*core.InitializeError`
+- **THEN** the message SHALL be rendered via the `OperationError` dispatch case (first matching case in the switch order at line 87 wins; OperationError is case 8, InitializeError is case 9)
+- **AND** the primary body SHALL be `<Op>: <Resource>` (per `formatOperationError` in `internal/output/errors.go:120-132`)
+- **AND** when `Cause` is non-nil, the InitializeError's `Error()` SHALL appear as an indented sub-line (per the existing `Cause` rendering block in `formatOperationError`)
+- **AND** the message SHALL NOT use InitializeError's colon-joined single-line body as the primary message
+- **NOTE**: the rule "first matching case in switch order wins" is the documented dispatch contract; the scenario below ("wrapped InitializeError inside fmt.Errorf %w") demonstrates the rule for the non-OperationError case where InitializeError wins because no other typed case appears before it in the switch.
+
+#### Scenario: Dispatch ordering — wrapped InitializeError inside fmt.Errorf %w
+
+- **WHEN** `output.FormatError(io, err)` is called with `fmt.Errorf("loading library: %w", core.NewInitializeError("skill/commit", "/in", "/out", underlyingErr))`
+- **THEN** the message SHALL be rendered via the `InitializeError` dispatch case (errors.As traverses the wrap chain)
+- **AND** the message SHALL be `io.Styles.Error("Error: ") + e.Error() + "\n"` (delegate to `InitializeError.Error()`; the outer `loading library:` prefix is not part of the typed error and is NOT rendered because the `InitializeError` case wins over the generic fallback that would otherwise include the outer text via `err.Error()`).
 
 ### Requirement: Type-specific formatters are private
 
@@ -82,10 +136,35 @@ The system SHALL include the wrapped cause in the output for debugging, indented
 - **WHEN** `errors.As(err, &target)` is called with `var target *core.NotFoundError`
 - **THEN** the call SHALL return `true` for any error (or wrapped error) of type `*core.NotFoundError`
 
-#### Scenario: NotFoundError maps to ExitCodeUsage
+### Requirement: InitializeError dispatch table member
 
-- **WHEN** `cmdutil.ExitCodeFor(err)` is called with `*core.NotFoundError`
-- **THEN** it SHALL return `cmdutil.ExitCodeUsage` (2) via the `errors.As(err, &notFound)` branch at `internal/cmdutil/exit.go:73-75`
+`output.FormatError` SHALL dispatch on `*core.InitializeError` and render the user-facing message to stderr. The pre-change switch missed this case; the case is added in `internal/output/errors.go` (the switch spans lines 31-50; the new `case *core.InitializeError` arm sits after `OperationError` and before the generic-error fallback).
+
+#### Scenario: InitializeError renders to stderr via dispatch
+
+- **WHEN** `output.FormatError(io, err)` is called with `*core.InitializeError`
+- **THEN** the dispatch SHALL match the `case *core.InitializeError` arm
+- **AND** no other case shall match first (the case order in the switch is: Parse, Validation, Transform, File, Config, PartialSuccess, NotFound, Operation, **Initialize**, Usage, WriteError, default)
+
+### Requirement: UsageError dispatch table member
+
+`output.FormatError` SHALL dispatch on `*core.UsageError` and render the user-facing message to stderr.
+
+#### Scenario: UsageError renders to stderr via dispatch
+
+- **WHEN** `output.FormatError(io, err)` is called with `*core.UsageError`
+- **THEN** the dispatch SHALL match the `case *core.UsageError` arm
+- **AND** the rendered message SHALL be `"Error: <flag>: <reason>\n"` (where `<flag>` and `<reason>` come from the typed-error's accessors)
+
+### Requirement: CobraUsageError dispatch table member
+
+`output.FormatError` SHALL dispatch on `*core.CobraUsageError` and render the wrapped cause's user-facing message to stderr. The case is added so the dispatch set covers every `core.*Error` type as the implementation comment claims (`internal/output/errors.go:19-22`).
+
+#### Scenario: CobraUsageError renders to stderr via dispatch
+
+- **WHEN** `output.FormatError(io, err)` is called with `*core.CobraUsageError`
+- **THEN** the dispatch SHALL match the `case *core.CobraUsageError` arm
+- **AND** the rendered message SHALL be `"Error: <wrapped.Error()>\n"` — the wrapped cause's `Error()` is the body; the dispatch delegates to the cause rather than prefixing or wrapping further.
 
 ### Requirement: core.NotFoundError type and constructor
 
@@ -100,8 +179,6 @@ The system SHALL include the wrapped cause in the output for debugging, indented
 
 - **WHEN** a `*core.NotFoundError` is constructed with `NewNotFoundError(entity, key)`
 - **THEN** the struct SHALL expose the `Entity` and `Key` fields for programmatic inspection (via accessor methods or exported fields)
-
-> **Status:** `core.NotFoundError` and the `FormatError` dispatch branch are introduced in task group 4.0 of `migrate-library-readonly`. No other commands in the slice consume the type directly, but downstream slices (5: `init`, 6: `library add`/`library create`, 7: remaining library commands) may use it for additional not-found scenarios.
 
 ## Fulfilled
 

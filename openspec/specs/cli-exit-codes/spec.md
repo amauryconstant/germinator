@@ -1,5 +1,7 @@
 # exit-codes Specification
 
+> **Cross-references:** this change also modifies `errors-typed-errors`, `cli-error-formatting`, `errors-enhanced-errors`. See those delta specs.
+
 ## Purpose
 
 Define semantic exit codes for germinator CLI to enable programmatic error handling by scripts and tools. The CLI uses a small, fixed set of exit codes; semantic meaning lives in typed errors (`core.ParseError`, `core.ValidationError`, etc.) and is dispatched in `output.FormatError` via `errors.As`.
@@ -28,63 +30,80 @@ The four removed codes (`3, 4, 5, 6`) and their semantic meaning SHALL be **remo
 The `cmdutil.ExitCodeFor(err error) ExitCode` function SHALL map an error to an exit code:
 
 - `nil` → `ExitCodeSuccess` (0)
-- `*pflag.NotExistError`, `*pflag.ValueRequiredError`, `*pflag.InvalidValueError`, `*pflag.InvalidSyntaxError` (typed errors that exist in pflag v1.0.10) → `ExitCodeUsage` (2)
-- `*core.NotFoundError` → `ExitCodeUsage` (2) (the lookup miss is treated as user input that did not resolve, not an operational error)
-- Cobra usage errors not wrapped by pflag (detected via `strings.Contains` on the error message against any of the 12 known substrings: `"unknown flag"`, `"flag needs an argument"`, `"invalid argument"`, `"bad flag syntax"`, `"no such flag"`, `"invalid syntax"`, `"unknown shorthand flag"`, `"required flag"`, `"requires at least"`, `"requires exactly"`, `"accepts at most"`, `"requires at most"`) → `ExitCodeUsage` (2)
+- `*pflag.NotExistError`, `*pflag.ValueRequiredError`, `*pflag.InvalidValueError`, `*pflag.InvalidSyntaxError` (typed errors that exist in pflag `v1.0.10`) → `ExitCodeUsage` (2)
+- `*core.NotFoundError` → `ExitCodeError` (1) (CORRECTED — was `ExitCodeUsage` (2); a lookup miss is a runtime state, not a user-input validation error)
+- `*core.UsageError` → `ExitCodeUsage` (2) (`UsageError` is introduced for CLI flag validation errors; CLI flag validation maps to usage exit code)
+- `*core.CobraUsageError` → `ExitCodeUsage` (2) (sentinel for Cobra arg-validation errors that the typed pflag dispatch does not cover; `cobra.ExactArgs`/`MinimumNArgs`/`MaximumNArgs`/`RangeArgs` failures and `required flag(s) "..."` errors)
 - `*core.PartialSuccessError` with `Succeeded > 0` → `ExitCodeSuccess` (0)
 - `*core.PartialSuccessError` with `Succeeded == 0` → `ExitCodeError` (1)
+- `*config.WriteError` → `ExitCodeError` (1) (`*config.WriteError` carries `op`, `path`, `cause`; an I/O failure during config scaffolding is an operational error, not a user-input validation error)
 - All other errors → `ExitCodeError` (1)
+
+The four `*pflag.*Error` types are verified stable in pflag `v1.0.10` (`pflag/errors.go:21-149`); if a future pflag version drops or renames any of them, dispatch falls through to `ExitCodeError` (1) and the corresponding test row in `internal/cmdutil/exit_test.go` fails fast.
 
 #### Scenario: ExitCodeFor table-driven
 
 - **WHEN** `cmdutil.ExitCodeFor` is called with each error type from the list above
 - **THEN** it SHALL return the corresponding exit code
 
-### Requirement: Exit code deprecation canary
+#### Scenario: NotFoundError returns ExitCodeError (1)
 
-The `germinator` post-`Execute` error path SHALL emit a one-time deprecation warning to stderr when the resolved exit code is `1` AND at least one of the following conditions holds:
+- **WHEN** `cmdutil.ExitCodeFor(err)` is called with `*core.NotFoundError`
+- **THEN** it SHALL return `ExitCodeError` (1) — the prior mapping (2) was a semantic error. This is a BREAKING change for any script that special-cases `exit 2` for not-found scenarios; the CHANGELOG calls it out.
 
-- The `EXIT_CODE_LEGACY` environment variable is set to a non-empty value, OR
-- stderr is a TTY (per `IOStreams.IsStderrTTY()`).
+#### Scenario: UsageError returns ExitCodeUsage
 
-The warning SHALL be emitted at most once per process via `sync.Once` and SHALL be suppressed in non-TTY, non-`EXIT_CODE_LEGACY` environments (typical CI). The helper is exposed as `internal/warning.MaybeWarnLegacyExitCode(io *iostreams.IOStreams)` and is invoked from `main.go` immediately before `os.Exit(int(cmdutil.ExitCodeFor(err)))`. The warning is written to `io.ErrOut` via `io.Warnf(...)` (a method on `IOStreams` that wraps `Styles.Warning`); it does NOT depend on `IOStreams.Logger` (which is gated on `GERMINATOR_DEBUG`). `cmdutil.ExitCodeFor` remains a pure function with no side effects and no logger parameter.
+- **WHEN** `cmdutil.ExitCodeFor(err)` is called with `*core.UsageError`
+- **THEN** it SHALL return `ExitCodeUsage` (2) — `UsageError` is a CLI flag validation error and maps to the usage exit code.
 
-#### Scenario: Canary fires in interactive session
+#### Scenario: CobraUsageError returns ExitCodeUsage
 
-- **WHEN** the process exits with code `1` AND (stderr is a TTY OR `EXIT_CODE_LEGACY` is set to a non-empty value)
-- **THEN** the deprecation warning SHALL be written to stderr exactly once
+- **WHEN** `cmdutil.ExitCodeFor(err)` is called with `*core.CobraUsageError`
+- **THEN** it SHALL return `ExitCodeUsage` (2) — the sentinel wraps Cobra arg-validation errors emitted as `fmt.Errorf` strings, which historically landed on the substring fallback.
 
-#### Scenario: Canary suppressed in non-interactive, non-env-var invocation
+#### Scenario: Typed-error dispatch takes precedence over generic fallback
 
-- **WHEN** the process exits with code `1` AND stderr is not a TTY AND `EXIT_CODE_LEGACY` is unset
-- **THEN** no deprecation warning SHALL be emitted
+- **WHEN** `cmdutil.ExitCodeFor(err)` is called with an error that wraps `*pflag.NotExistError` (or one of the other three `*pflag.*Error` types)
+- **THEN** it SHALL return `ExitCodeUsage` (2) via the `errors.As` dispatch
+- **AND** the dispatch SHALL NOT rely on substring matching (the substring fallback is dropped)
 
-#### Scenario: Canary fires when explicitly requested
+### Requirement: UsageError exit-code mapping
 
-- **WHEN** `EXIT_CODE_LEGACY=1` is set AND the process exits with code `1`
-- **THEN** the deprecation warning SHALL be written to stderr exactly once
+`*core.UsageError` SHALL map to `ExitCodeUsage` (2) in `cmdutil.ExitCodeFor`. Consistent with the existing mapping for `*pflag.{NotExist,ValueRequired,InvalidValue,InvalidSyntax}Error` and `*core.CobraUsageError` — CLI flag validation errors are user-input problems and produce exit code 2.
 
-#### Scenario: Single emission per process
+#### Scenario: UsageError returns ExitCodeUsage
 
-- **GIVEN** `MaybeWarnLegacyExitCode` has already been called once during the current process
-- **WHEN** any subsequent exit code is `1`
-- **THEN** the deprecation warning SHALL NOT be emitted again
+- **WHEN** `cmdutil.ExitCodeFor(err)` is called with `*core.UsageError`
+- **THEN** it SHALL return `ExitCodeUsage` (2)
 
-#### Scenario: ResetCanaryForTest resets once-state
+### Requirement: CobraUsageError exit-code mapping
 
-- **GIVEN** `MaybeWarnLegacyExitCode` has been called once during the current process
-- **WHEN** `ResetCanaryForTest()` is invoked
-- **THEN** the next call to `MaybeWarnLegacyExitCode` SHALL be permitted to emit the warning (subject to gate conditions)
+`*core.CobraUsageError` SHALL map to `ExitCodeUsage` (2) in `cmdutil.ExitCodeFor`. Replaces the substring-prefix dispatch fallback that previously mapped errors emitted by `cobra.ExactArgs`, `cobra.MinimumNArgs`, `cobra.MaximumNArgs`, `cobra.RangeArgs`, and `cobra.MarkFlagRequired`-derived `"required flag(s) \"...\" not set"` strings.
 
-#### Scenario: Warning emission is independent of Logger
+#### Scenario: CobraUsageError returns ExitCodeUsage
 
-- **WHEN** `MaybeWarnLegacyExitCode` is called with an `IOStreams` whose `Logger` field is nil
-- **THEN** the function SHALL still write the warning to `io.ErrOut` (the canary does not depend on the Logger)
+- **WHEN** `cmdutil.ExitCodeFor(err)` is called with `*core.CobraUsageError`
+- **THEN** it SHALL return `ExitCodeUsage` (2)
 
-#### Scenario: Exit code 2 does not trigger the canary
+### Requirement: WriteError exit-code mapping
 
-- **WHEN** the process exits with code `2` (`ExitCodeUsage`) under any TTY or env-var conditions
-- **THEN** no deprecation warning SHALL be emitted (the canary is gated on exit code `1` only)
+`*config.WriteError` SHALL map to `ExitCodeError` (1) in `cmdutil.ExitCodeFor`. An I/O failure during config scaffolding (e.g., `WriteDefault` path) is an operational error, not a user-input validation error; the error wraps the underlying `*os.PathError` via `cause` for inspection.
+
+#### Scenario: WriteError returns ExitCodeError (1)
+
+- **WHEN** `cmdutil.ExitCodeFor(err)` is called with `*config.WriteError`
+- **THEN** it SHALL return `ExitCodeError` (1) — a config I/O failure is an operational error, not a CLI usage error.
+
+### Requirement: Substring dispatch fallback removal
+
+`cmdutil.ExitCodeFor` SHALL NOT use substring-prefix matching against Cobra error messages. The pre-change implementation used a 12-prefix substring-match list; the post-change implementation uses typed dispatch via `errors.As` against `*pflag.{NotExist,ValueRequired,InvalidValue,InvalidSyntax}Error` plus the new `*core.CobraUsageError` sentinel.
+
+#### Scenario: No substring matching in ExitCodeFor
+
+- **WHEN** `cmdutil.ExitCodeFor` is inspected
+- **THEN** it SHALL NOT contain a `cobraUsagePrefixes` slice
+- **AND** it SHALL NOT contain a `hasCobraUsagePrefix` helper
+- **AND** the dispatch SHALL rely on `errors.As` against the typed errors listed above
 
 ## Fulfilled
 
