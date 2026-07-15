@@ -20,6 +20,10 @@ internal/
 ├── library/             ← Library I/O (loader, resolver, saver, validator, refresher)
 ├── parser/              ← Platform-agnostic document parsing (frontmatter + body)
 ├── renderer/            ← Template-driven rendering to platform output
+├── transform/           ← `Transformer` I/O adapter (parse → render → write)
+├── validate/            ← `Validator` I/O adapter (parse → core + platform validators)
+├── canonicalize/        ← `Canonicalizer` I/O adapter (parse-platform-doc → marshal → write)
+├── install/             ← `Initializer` I/O adapter (per-ref parse → render → write loop)
 ├── claude-code/         ← Claude Code platform adapter
 ├── opencode/            ← OpenCode platform adapter
 ├── permission/          ← Permission-rule mapping for platform output
@@ -97,12 +101,27 @@ cmd/ ───────────► internal/output/
   │
   ├───────────► internal/config/    ─────► internal/core/  (optional)
   │
-  └───────────► internal/library/   ─────► internal/core/
+  ├───────────► internal/library/   ─────► internal/core/
+  │
+  ├───────────► internal/transform/     ─────► internal/core/
+  │                  ├────────────► internal/parser/   ─────► internal/core/
+  │                  └────────────► internal/renderer/ ─────► internal/core/
+  ├───────────► internal/validate/      ─────► internal/core/
+  │                  └────────────► internal/parser/   ─────► internal/core/
+  ├───────────► internal/canonicalize/  ─────► internal/core/
+  │                  ├────────────► internal/parser/   ─────► internal/core/
+  │                  └────────────► internal/renderer/ ─────► internal/core/
+  └───────────► internal/install/       ─────► internal/core/
+                     ├────────────► internal/library/  ─────► internal/core/
+                     ├────────────► internal/parser/   ─────► internal/core/
+                     └────────────► internal/renderer/ ─────► internal/core/
 ```
 
 - `cmd/` imports everything (composition root)
 - `internal/core/` imports nothing (stdlib + `lo` only)
 - Adapter packages (`claude-code/`, `opencode/`) depend on `core/` and return core types
+- Service-style I/O adapters (`transform/`, `validate/`, `canonicalize/`, `install/`) depend on `core/` plus `parser/`, `renderer/`, and (for `install/`) `library/`
+- `internal/install/` depends on `internal/library/` for resource resolution; `library/` does **not** depend on `install/` (one-way dependency, enforced by `go build ./...`)
 - `internal/output/` imports `core/` (formats core errors)
 - `internal/library/`, `internal/config/` are independent (or import `core/` for shared types)
 

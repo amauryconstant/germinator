@@ -29,6 +29,10 @@ graph LR
         OC[opencode/]
         PAR[parser/]
         REN[renderer/]
+        TRA[transform/]
+        VAL[validate/]
+        CAN[canonicalize/]
+        INS[install/]
         VERP[version/]
     end
 
@@ -37,19 +41,23 @@ graph LR
     end
 
     AD --> CU
+    AD --> TRA
     AD --> PAR
     AD --> REN
     AD --> CC
     AD --> OC
     AD --> COR
     VA --> CU
+    VA --> VAL
     VA --> PAR
     VA --> COR
     CA --> CU
+    CA --> CAN
     CA --> PAR
     CA --> REN
     CA --> COR
     IN --> CU
+    IN --> INS
     IN --> PAR
     IN --> REN
     IN --> COR
@@ -67,10 +75,11 @@ graph LR
     OC --> COR
     CU --> IO
     CU --> OUT
+    INS --> LIBL
     COR -.->|no I/O| SHELL
 ```
 
-The target architecture is **golang-cli-architecture** (Functional Core / Imperative Shell). All I/O lives in shell packages (`iostreams/`, `output/`, `cmdutil/`, `config/`, `library/`, `claude-code/`, `opencode/`, `parser/`, `renderer/`, `version/`); `core/` is pure logic with stdlib + samber/lo only. `cmd/` uses a **flat layout** — one `.go` file per command, with multi-word commands as sibling files (`library.go`, `library_add.go`, `config_init.go`), not subdirectories.
+The target architecture is **golang-cli-architecture** (Functional Core / Imperative Shell). All I/O lives in shell packages (`iostreams/`, `output/`, `cmdutil/`, `config/`, `library/`, `claude-code/`, `opencode/`, `parser/`, `renderer/`, `transform/`, `validate/`, `canonicalize/`, `install/`, `version/`); `core/` is pure logic with stdlib + samber/lo only. The service-style I/O adapters (`Transformer`, `Validator`, `Canonicalizer`, `Initializer`) live in dedicated `internal/<x>/` shell packages (per `openspec/specs/cli-framework/spec.md` "I/O adapter placement"); cmd-side interfaces remain in `cmd/` next to the consumer. `cmd/` uses a **flat layout** — one `.go` file per command, with multi-word commands as sibling files (`library.go`, `library_add.go`, `config_init.go`), not subdirectories.
 
 ## Reference Skills
 
@@ -465,6 +474,10 @@ graph TB
 | [internal/cmdutil/AGENTS.md](internal/cmdutil/AGENTS.md)   | Factory (lazy fn fields), ExitCode mapping, cmd helpers     |
 | [internal/config/AGENTS.md](internal/config/AGENTS.md)     | Configuration loading, XDG paths, TOML parsing               |
 | [internal/library/AGENTS.md](internal/library/AGENTS.md)   | Library system, resource management, preset grouping         |
+| [internal/transform/AGENTS.md](internal/transform/AGENTS.md) | Document transformation shell package (`transform.NewService`) |
+| [internal/validate/AGENTS.md](internal/validate/AGENTS.md) | Document validation shell package (`validate.NewService`)      |
+| [internal/canonicalize/AGENTS.md](internal/canonicalize/AGENTS.md) | Document canonicalization shell package (`canonicalize.NewService`) |
+| [internal/install/AGENTS.md](internal/install/AGENTS.md) | Resource installation shell package (`install.NewService`)    |
 | [internal/claude-code/AGENTS.md](internal/claude-code/AGENTS.md) | Claude Code platform adapter                              |
 | [internal/opencode/AGENTS.md](internal/opencode/AGENTS.md) | OpenCode platform adapter                                    |
 | [internal/AGENTS.md](internal/AGENTS.md)                   | Internal package patterns                                    |

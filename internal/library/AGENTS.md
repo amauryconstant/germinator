@@ -398,12 +398,15 @@ func (lib *Library) RemovePreset(ctx context.Context, req *RemovePresetRequest) 
 func (lib *Library) Validate(ctx context.Context, req *ValidateRequest) (*ValidationResult, error)
 func (lib *Library) Fix(ctx context.Context, _ *FixRequest) (*FixResult, error)
 func (lib *Library) ResolvePreset(ctx context.Context, name string) ([]string, error) // ctx accept-and-may-ignore (pure in-memory lookup)
+func (lib *Library) Add(ctx context.Context, req *AddRequest) error
+func (lib *Library) BatchAddResources(ctx context.Context, opts *BatchAddOptions) (*BatchAddResult, error)
+func (lib *Library) DiscoverOrphans(ctx context.Context, opts *DiscoverOptions) (*DiscoverResult, error)
 
 // Init is a package function (no pre-existing *Library to receive a method)
 func Init(ctx context.Context, req *InitRequest) error
 ```
 
-All methods assert `lib != nil && lib.RootPath != ""` at entry. See `methods_test.go` for table-driven coverage. The package-level functions `RefreshLibrary(ctx, opts)`, `RemoveResource(ctx, opts)`, `RemovePreset(ctx, opts)`, and `CreateLibrary(ctx, opts, stdout)` accept `ctx context.Context` as the first parameter (per the cli-framework/spec.md ctx-propagation contract) and forward it to internal `LoadLibrary` calls; `ValidateLibrary(lib)` and `FixLibrary(lib)` are pure in-memory operations and do not take ctx. The methods delegate to the package-level forms, passing the receiver's ctx through.
+All methods assert `lib != nil && lib.RootPath != ""` at entry. See `methods_test.go` for table-driven coverage. The package-level functions `RefreshLibrary(ctx, opts)`, `RemoveResource(ctx, opts)`, `RemovePreset(ctx, opts)`, `AddResource(ctx, req)`, `BatchAddResources(ctx, opts)`, `DiscoverOrphans(ctx, opts)`, and `CreateLibrary(ctx, opts, stdout)` accept `ctx context.Context` as the first parameter (per the cli-framework/spec.md ctx-propagation contract) and forward it to internal `LoadLibrary` calls; `ValidateLibrary(lib)` and `FixLibrary(lib)` are pure in-memory operations and do not take ctx. The methods delegate to the package-level forms, passing the receiver's ctx through. The `*Library` methods satisfy the cmd-side `adderLibrary` interface in `cmd/library_add.go` directly (no adapter shim — the `libraryAdapter` debt was retired by `extract-io-adapters`).
 
 ## Orphan Discovery
 
