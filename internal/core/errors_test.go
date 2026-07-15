@@ -1,11 +1,13 @@
 package core
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestParseError(t *testing.T) {
@@ -1189,5 +1191,140 @@ func TestPartialSuccessError(t *testing.T) {
 		ps := NewPartialSuccessError(1, 1, nil)
 		got := ps.Errors()
 		assert.Nil(t, got)
+	})
+}
+
+func TestUsageError(t *testing.T) {
+	t.Parallel()
+
+	t.Run("constructor stores flag and reason", func(t *testing.T) {
+		t.Parallel()
+		err := NewUsageError("--resources", "must be non-empty list of refs")
+		assert.Equal(t, "--resources", err.Flag())
+		assert.Equal(t, "must be non-empty list of refs", err.Reason())
+		assert.Nil(t, err.Suggestions())
+	})
+
+	t.Run("Error format", func(t *testing.T) {
+		t.Parallel()
+		err := NewUsageError("--resources", "must be non-empty list of refs")
+		assert.Equal(t, "--resources: must be non-empty list of refs", err.Error())
+	})
+
+	t.Run("Unwrap returns nil (leaf error)", func(t *testing.T) {
+		t.Parallel()
+		err := NewUsageError("--resources", "must be non-empty list of refs")
+		assert.Nil(t, err.Unwrap())
+	})
+
+	t.Run("WithSuggestions returns new instance", func(t *testing.T) {
+		t.Parallel()
+		err1 := NewUsageError("--type", "must be non-empty")
+		err2 := err1.WithSuggestions([]string{"skill", "agent", "command", "memory"})
+
+		assert.NotSame(t, err1, err2, "WithSuggestions must return a new instance")
+		assert.Equal(t, err1.Flag(), err2.Flag(), "flag must be preserved")
+		assert.Equal(t, err1.Reason(), err2.Reason(), "reason must be preserved")
+		assert.Empty(t, err1.Suggestions(), "original Suggestions must be empty")
+		assert.Equal(t, []string{"skill", "agent", "command", "memory"}, err2.Suggestions())
+	})
+
+	t.Run("Suggestions returns a defensive copy", func(t *testing.T) {
+		t.Parallel()
+		err := NewUsageError("--type", "x").WithSuggestions([]string{"a", "b"})
+		got := err.Suggestions()
+		assert.Equal(t, []string{"a", "b"}, got)
+		got[0] = "modified"
+		assert.Equal(t, "a", err.Suggestions()[0],
+			"mutating the returned slice must NOT affect the receiver")
+	})
+
+	t.Run("errors.As detects type", func(t *testing.T) {
+		t.Parallel()
+		err := NewUsageError("--resources", "must be non-empty list of refs")
+		var target *UsageError
+		require.True(t, errors.As(err, &target))
+		assert.Equal(t, "--resources", target.Flag())
+	})
+
+	t.Run("MarshalJSON returns structured shape", func(t *testing.T) {
+		t.Parallel()
+		err := NewUsageError("--resources", "must be non-empty list of refs")
+		b, marshalErr := json.Marshal(err)
+		require.NoError(t, marshalErr)
+		assert.JSONEq(t, `{"error": "--resources: must be non-empty list of refs"}`, string(b))
+	})
+}
+
+func TestCobraUsageError(t *testing.T) {
+	t.Parallel()
+
+	t.Run("MustNewCobraUsageError panics on nil cause", func(t *testing.T) {
+		t.Parallel()
+		assert.PanicsWithValue(t,
+			"MustNewCobraUsageError: cause is required (programmer error)",
+			func() { MustNewCobraUsageError(nil) }, //nolint:errcheck // panic captured by assert.PanicsWithValue
+			"nil cause must panic with the documented message")
+	})
+
+	t.Run("MustNewCobraUsageError wraps a non-nil cause", func(t *testing.T) {
+		t.Parallel()
+		cause := errors.New("requires at least 1 arg(s), only received 0")
+		err := MustNewCobraUsageError(cause)
+		require.NotNil(t, err)
+		assert.Equal(t, "requires at least 1 arg(s), only received 0", err.Error(),
+			"Error() must return the wrapped cause's message verbatim")
+		assert.Same(t, cause, err.Unwrap(),
+			"Unwrap() must return the wrapped cause")
+	})
+
+	t.Run("errors.As detects CobraUsageError", func(t *testing.T) {
+		t.Parallel()
+		cause := errors.New("required flag(s) \"type\" not set")
+		err := MustNewCobraUsageError(cause)
+		var target *CobraUsageError
+		require.True(t, errors.As(err, &target))
+		assert.Same(t, cause, target.Unwrap())
+	})
+
+	t.Run("MarshalJSON delegates to cause", func(t *testing.T) {
+		t.Parallel()
+		cause := errors.New("requires at least 2 arg(s)")
+		err := MustNewCobraUsageError(cause)
+		b, marshalErr := json.Marshal(err)
+		require.NoError(t, marshalErr)
+		assert.JSONEq(t, `{"error": "requires at least 2 arg(s)"}`, string(b))
+	})
+}
+
+func TestTypedErrorsMarshalJSON(t *testing.T) {
+	t.Parallel()
+
+	t.Run("NotFoundError", func(t *testing.T) {
+		t.Parallel()
+		b, err := json.Marshal(NewNotFoundError("library ref", "ghost"))
+		require.NoError(t, err)
+		assert.JSONEq(t, `{"error": "not found: ghost"}`, string(b))
+	})
+
+	t.Run("OperationError", func(t *testing.T) {
+		t.Parallel()
+		b, err := json.Marshal(NewOperationError("add", "skill/commit", nil))
+		require.NoError(t, err)
+		assert.JSONEq(t, `{"error": "add: skill/commit"}`, string(b))
+	})
+
+	t.Run("ParseError", func(t *testing.T) {
+		t.Parallel()
+		b, err := json.Marshal(NewParseError("agent.md", "unrecognized document type", nil))
+		require.NoError(t, err)
+		assert.JSONEq(t, `{"error": "parse error in agent.md: unrecognized document type"}`, string(b))
+	})
+
+	t.Run("FileError", func(t *testing.T) {
+		t.Parallel()
+		b, err := json.Marshal(NewFileError("/tmp/x", "read", "permission denied", nil))
+		require.NoError(t, err)
+		assert.JSONEq(t, `{"error": "file error (read /tmp/x): permission denied"}`, string(b))
 	})
 }

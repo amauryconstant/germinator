@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"gitlab.com/amoconst/germinator/internal/config"
 	"gitlab.com/amoconst/germinator/internal/core"
 	"gitlab.com/amoconst/germinator/internal/iostreams"
 )
@@ -14,19 +15,27 @@ import (
 // FormatError writes a formatted representation of err to io.ErrOut.
 // It dispatches on typed errors via errors.As so each error type
 // produces a category-specific render.
+//
+// The dispatch set covers all 11 core typed errors (9 existing + 2
+// new: UsageError, CobraUsageError) plus the Imperative Shell typed
+// error *config.WriteError. InitializeError, UsageError, and
+// WriteError were added by change enforce-error-discipline (Phase 1).
 func FormatError(io *iostreams.IOStreams, err error) {
 	if err == nil || io == nil {
 		return
 	}
 	var (
-		parse     *core.ParseError
-		valid     *core.ValidationError
-		transform *core.TransformError
-		file      *core.FileError
-		config    *core.ConfigError
-		notFound  *core.NotFoundError
-		partial   *core.PartialSuccessError
-		operation *core.OperationError
+		parse      *core.ParseError
+		valid      *core.ValidationError
+		transform  *core.TransformError
+		file       *core.FileError
+		configErr  *core.ConfigError
+		notFound   *core.NotFoundError
+		partial    *core.PartialSuccessError
+		operation  *core.OperationError
+		initialize *core.InitializeError
+		usage      *core.UsageError
+		writeErr   *config.WriteError
 	)
 	switch {
 	case errors.As(err, &parse):
@@ -37,14 +46,20 @@ func FormatError(io *iostreams.IOStreams, err error) {
 		writeErrOut(io, formatTransformError(io, transform))
 	case errors.As(err, &file):
 		writeErrOut(io, formatFileError(io, file))
-	case errors.As(err, &config):
-		writeErrOut(io, formatConfigError(io, config))
+	case errors.As(err, &configErr):
+		writeErrOut(io, formatConfigError(io, configErr))
 	case errors.As(err, &notFound):
 		writeErrOut(io, formatNotFoundError(io, notFound))
 	case errors.As(err, &partial):
 		writeErrOut(io, formatPartialSuccessError(partial))
 	case errors.As(err, &operation):
 		writeErrOut(io, formatOperationError(io, operation))
+	case errors.As(err, &initialize):
+		writeErrOut(io, formatInitializeError(io, initialize))
+	case errors.As(err, &usage):
+		writeErrOut(io, formatUsageError(io, usage))
+	case errors.As(err, &writeErr):
+		writeErrOut(io, formatWriteError(io, writeErr))
 	default:
 		writeErrOut(io, io.Styles.Error("Error: "+err.Error())+"\n")
 	}
@@ -130,4 +145,16 @@ func formatOperationError(io *iostreams.IOStreams, e *core.OperationError) strin
 		sb.WriteString("\n")
 	}
 	return sb.String()
+}
+
+func formatInitializeError(io *iostreams.IOStreams, e *core.InitializeError) string {
+	return io.Styles.Error("Error: ") + e.Error() + "\n"
+}
+
+func formatUsageError(io *iostreams.IOStreams, e *core.UsageError) string {
+	return io.Styles.Error("Error: ") + e.Flag() + ": " + e.Reason() + "\n"
+}
+
+func formatWriteError(io *iostreams.IOStreams, e *config.WriteError) string {
+	return io.Styles.Error("Error: ") + e.Op() + " " + e.Path() + ": " + e.Error() + "\n"
 }

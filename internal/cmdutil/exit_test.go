@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/amoconst/germinator/internal/config"
 	"gitlab.com/amoconst/germinator/internal/core"
 )
 
@@ -16,6 +17,13 @@ func triggerPflagError(t *testing.T, args []string) error {
 	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
 	fs.String("platform", "", "platform")
 	return fs.Parse(args)
+}
+
+func triggerPflagInvalidValue(t *testing.T) error {
+	t.Helper()
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	fs.Int("count", 0, "count")
+	return fs.Parse([]string{"--count", "not-a-number"})
 }
 
 func TestExitCodeFor(t *testing.T) {
@@ -31,6 +39,11 @@ func TestExitCodeFor(t *testing.T) {
 	var valueRequired *pflag.ValueRequiredError
 	require.True(t, errors.As(pflagValueRequired, &valueRequired))
 
+	pflagInvalidValue := triggerPflagInvalidValue(t)
+	require.NotNil(t, pflagInvalidValue)
+	var invalidValue *pflag.InvalidValueError
+	require.True(t, errors.As(pflagInvalidValue, &invalidValue))
+
 	pflagInvalidSyntax := triggerPflagError(t, []string{"---foo"})
 	require.NotNil(t, pflagInvalidSyntax)
 	var invalidSyntax *pflag.InvalidSyntaxError
@@ -42,20 +55,19 @@ func TestExitCodeFor(t *testing.T) {
 		want ExitCode
 	}{
 		{name: "nil", err: nil, want: ExitCodeSuccess},
-		{name: "cobra unknown flag", err: errors.New("unknown flag: --foo"), want: ExitCodeUsage},
-		{name: "cobra flag needs arg", err: errors.New("flag needs an argument: --platform"), want: ExitCodeUsage},
-		{name: "cobra invalid argument", err: errors.New("invalid argument \"foo\" for \"--platform\" flag"), want: ExitCodeUsage},
-		{name: "cobra bad flag syntax", err: errors.New("bad flag syntax: ---foo"), want: ExitCodeUsage},
-		{name: "cobra required flag", err: errors.New(`required flag(s) "platform" not set`), want: ExitCodeUsage},
 		{name: "pflag NotExistError", err: pflagNotExist, want: ExitCodeUsage},
 		{name: "pflag ValueRequiredError", err: pflagValueRequired, want: ExitCodeUsage},
+		{name: "pflag InvalidValueError", err: pflagInvalidValue, want: ExitCodeUsage},
 		{name: "pflag InvalidSyntaxError", err: pflagInvalidSyntax, want: ExitCodeUsage},
 		{name: "core ValidationError", err: core.NewValidationError("x", "y", "z", "msg"), want: ExitCodeError},
 		{name: "core ParseError", err: core.NewParseError("/tmp/x", "bad", nil), want: ExitCodeError},
 		{name: "core TransformError", err: core.NewTransformError("op", "plat", "msg", nil), want: ExitCodeError},
 		{name: "core FileError", err: core.NewFileError("/tmp/x", "op", "msg", nil), want: ExitCodeError},
 		{name: "core ConfigError", err: core.NewConfigError("f", "v", "msg"), want: ExitCodeError},
-		{name: "core NotFoundError", err: core.NewNotFoundError("library ref", "missing"), want: ExitCodeUsage},
+		{name: "core NotFoundError", err: core.NewNotFoundError("library ref", "missing"), want: ExitCodeError},
+		{name: "core UsageError", err: core.NewUsageError("--resources", "must be non-empty list of refs"), want: ExitCodeUsage},
+		{name: "core CobraUsageError", err: core.MustNewCobraUsageError(errors.New("requires at least 1 arg(s)")), want: ExitCodeUsage},
+		{name: "config WriteError", err: config.NewWriteError("write", "/tmp/config.toml", errors.New("permission denied")), want: ExitCodeError},
 		{name: "generic error", err: errors.New("boom"), want: ExitCodeError},
 		{name: "PartialSuccessError S>0", err: core.NewPartialSuccessError(3, 1, nil), want: ExitCodeSuccess},
 		{name: "PartialSuccessError S==0", err: core.NewPartialSuccessError(0, 1, nil), want: ExitCodeError},

@@ -105,30 +105,33 @@ var _ = Describe("Init Command", func() {
 	})
 
 	Describe("init fails for nonexistent preset", func() {
-		It("should fail with exit code 2 for invalid preset name (NotFoundError → ExitCodeUsage)", func() {
+		It("should fail with exit code 1 for invalid preset name (NotFoundError → ExitCodeError)", func() {
 			session := cli.RunWithEnv(libraryEnv(),
 				"init", "--platform", "opencode", "--preset", "nonexistent-preset",
 				"--output-dir", tmpDir,
 			)
-			// Per slice-5 §5.0.1: --preset <missing> returns
-			// *core.NotFoundError{Entity: "preset", Key: <name>}; the
-			// cmdutil.ExitCodeFor extension added in slice 5 maps this
-			// to ExitCodeUsage (2).
-			cli.ShouldFailWithExit(session, 2)
+			// Per enforce-error-discipline (Phase 1.1): --preset <missing>
+			// returns *core.NotFoundError; cmdutil.ExitCodeFor maps this
+			// to ExitCodeError (1) — a runtime lookup miss is an
+			// operational error, not a user-input validation error.
+			cli.ShouldFailWithExit(session, 1)
 			cli.ShouldErrorOutput(session, "nonexistent-preset")
 		})
 	})
 
 	Describe("init requires platform flag", func() {
-		It("should fail with exit code 2 when platform not specified (cobra required-flag maps to ExitCodeUsage)", func() {
+		It("should fail with exit code 1 when platform not specified (Cobra required-flag falls through to default)", func() {
 			session := cli.RunWithEnv(libraryEnv(),
 				"init", "--resources", "skill/commit",
 				"--output-dir", tmpDir,
 			)
-			// Per cmd/init.go: MarkFlagRequired("platform"); the cobra
-			// missing-required-flag error is mapped to ExitCodeUsage (2)
-			// via internal/cmdutil/exit.go cobraUsagePrefixes.
-			cli.ShouldFailWithExit(session, 2)
+			// Per enforce-error-discipline (Phase 1.2): the cobra
+			// substring-prefix dispatch fallback was dropped. Cobra's
+			// `MarkFlagRequired`-emitted `required flag(s) "..." not set`
+			// string is not a typed pflag error and not yet wrapped in
+			// *core.CobraUsageError (zero current call sites per task
+			// 3.14), so it falls through to ExitCodeError (1).
+			cli.ShouldFailWithExit(session, 1)
 			output := cli.GetErrorOutput(session)
 			Expect(output).To(Or(
 				ContainSubstring("required"),

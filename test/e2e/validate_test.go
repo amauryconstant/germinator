@@ -26,11 +26,15 @@ var _ = Describe("Validate Command", func() {
 	})
 
 	Describe("validating without platform flag", func() {
-		It("should fail with exit code 2 and show required flag error", func() {
+		It("should fail with exit code 1 and show required flag error", func() {
 			session := cli.Run("validate", fixtures.ValidDocument())
-			// Cobra's MarkFlagRequired enforcement maps to ExitCodeUsage (2)
-			// via internal/cmdutil/exit.go cobraUsagePrefixes.
-			cli.ShouldFailWithExit(session, 2)
+			// Per enforce-error-discipline (Phase 1.2): the cobra
+			// substring-prefix dispatch fallback was dropped. The
+			// `required flag(s) "platform" not set` string is not a typed
+			// pflag error and is not yet wrapped in *core.CobraUsageError
+			// (zero current call sites per task 3.14), so it falls through
+			// to ExitCodeError (1).
+			cli.ShouldFailWithExit(session, 1)
 			output := cli.GetErrorOutput(session)
 			Expect(output).To(Or(
 				ContainSubstring("required"),

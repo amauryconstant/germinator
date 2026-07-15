@@ -66,10 +66,12 @@ var _ = Describe("Library Remove Resource Command", func() {
 			cli.ShouldSucceed(session)
 
 			// Try to remove nonexistent resource. Slice-7: runRemoveResource
-			// returns *core.NotFoundError (typed), which cmdutil.ExitCodeFor
-			// maps to ExitCodeUsage (2).
+			// returns *core.NotFoundError (typed); per
+			// enforce-error-discipline (Phase 1.1) cmdutil.ExitCodeFor maps
+			// this to ExitCodeError (1) — a runtime lookup miss is an
+			// operational error, not a user-input validation error.
 			session = cli.Run("library", "remove", "resource", "skill/nonexistent", "--library", libPath)
-			cli.ShouldFailWithExit(session, 2)
+			cli.ShouldFailWithExit(session, 1)
 			cli.ShouldErrorOutput(session, "not found")
 		})
 	})
@@ -182,10 +184,12 @@ var _ = Describe("Library Remove Preset Command", func() {
 			cli.ShouldSucceed(session)
 
 			// Try to remove nonexistent preset. Slice-7: runRemovePreset
-			// returns *core.NotFoundError (typed), which cmdutil.ExitCodeFor
-			// maps to ExitCodeUsage (2).
+			// returns *core.NotFoundError (typed); per
+			// enforce-error-discipline (Phase 1.1) cmdutil.ExitCodeFor maps
+			// this to ExitCodeError (1) — a runtime lookup miss is an
+			// operational error, not a user-input validation error.
 			session = cli.Run("library", "remove", "preset", "nonexistent", "--library", libPath)
-			cli.ShouldFailWithExit(session, 2)
+			cli.ShouldFailWithExit(session, 1)
 			cli.ShouldErrorOutput(session, "not found")
 		})
 	})

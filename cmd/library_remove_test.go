@@ -393,8 +393,11 @@ func TestRunRemove_Preset_NotFound(t *testing.T) {
 		"expected *core.NotFoundError, got %T: %v", err, err)
 	assert.Equal(t, "preset", notFound.Entity)
 	assert.Equal(t, "ghost", notFound.Key)
-	assert.Equal(t, cmdutil.ExitCodeUsage, cmdutil.ExitCodeFor(err),
-		"missing preset must map to ExitCodeUsage (2) via NotFoundError branch")
+	// Per enforce-error-discipline (Phase 1.1): *core.NotFoundError now
+	// maps to ExitCodeError (1) — a runtime lookup miss is an
+	// operational error, not a user-input validation error.
+	assert.Equal(t, cmdutil.ExitCodeError, cmdutil.ExitCodeFor(err),
+		"missing preset must map to ExitCodeError (1) via NotFoundError branch")
 }
 
 // T10 — Resource removal --output json produces a JSON payload with

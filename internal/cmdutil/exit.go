@@ -2,10 +2,10 @@ package cmdutil
 
 import (
 	"errors"
-	"strings"
 
 	"github.com/spf13/pflag"
 
+	"gitlab.com/amoconst/germinator/internal/config"
 	"gitlab.com/amoconst/germinator/internal/core"
 )
 
@@ -19,36 +19,25 @@ const (
 	ExitCodeUsage   ExitCode = 2
 )
 
-// cobraUsagePrefixes are the substrings used to detect Cobra-emitted
-// usage errors that pflag does not wrap in a typed error.
-var cobraUsagePrefixes = []string{
-	"unknown flag",
-	"flag needs an argument",
-	"invalid argument",
-	"bad flag syntax",
-	"no such flag",
-	"invalid syntax",
-	"unknown shorthand flag",
-	"required flag",
-	"requires at least",
-	"requires exactly",
-	"accepts at most",
-	"requires at most",
-}
-
 // ExitCodeFor maps an error to an ExitCode.
 //
-//	nil                                   -> 0
-//	*pflag.NotExistError                  -> 2
-//	*pflag.ValueRequiredError             -> 2
-//	*pflag.InvalidValueError              -> 2
-//	*pflag.InvalidSyntaxError             -> 2
-//	Cobra string-prefix match             -> 2
-//	*core.NotFoundError                   -> 2
-//	*core.PartialSuccessError (S>0)       -> 0
-//	*core.PartialSuccessError (S==0)      -> 1
-//	*core.OperationError                  -> 1 (default-error case)
-//	all other errors                      -> 1
+// The dispatch set is intentionally typed (errors.As) — no substring
+// matching against Cobra/pflag error text. Substring matching is brittle
+// to upstream wording drift; typed dispatch matches the user's intent
+// without depending on Cobra's wording.
+//
+//	nil                                            -> 0
+//	*pflag.NotExistError                           -> 2
+//	*pflag.ValueRequiredError                      -> 2
+//	*pflag.InvalidValueError                       -> 2
+//	*pflag.InvalidSyntaxError                      -> 2
+//	*core.UsageError                               -> 2
+//	*core.CobraUsageError                          -> 2
+//	*core.NotFoundError                            -> 1 (CORRECTED — was 2 prior to enforce-error-discipline)
+//	*core.PartialSuccessError (S>0)                -> 0
+//	*core.PartialSuccessError (S==0)               -> 1
+//	*config.WriteError                             -> 1
+//	all other errors                               -> 1
 func ExitCodeFor(err error) ExitCode {
 	if err == nil {
 		return ExitCodeSuccess
@@ -58,8 +47,11 @@ func ExitCodeFor(err error) ExitCode {
 		valueReq   *pflag.ValueRequiredError
 		invalidVal *pflag.InvalidValueError
 		invalidSyn *pflag.InvalidSyntaxError
+		usage      *core.UsageError
+		cobraUsage *core.CobraUsageError
 		notFound   *core.NotFoundError
 		partial    *core.PartialSuccessError
+		writeErr   *config.WriteError
 	)
 	if errors.As(err, &notExist) ||
 		errors.As(err, &valueReq) ||
@@ -67,11 +59,14 @@ func ExitCodeFor(err error) ExitCode {
 		errors.As(err, &invalidSyn) {
 		return ExitCodeUsage
 	}
-	if hasCobraUsagePrefix(err) {
+	if errors.As(err, &usage) {
+		return ExitCodeUsage
+	}
+	if errors.As(err, &cobraUsage) {
 		return ExitCodeUsage
 	}
 	if errors.As(err, &notFound) {
-		return ExitCodeUsage
+		return ExitCodeError
 	}
 	if errors.As(err, &partial) {
 		if partial.Succeeded() > 0 {
@@ -79,15 +74,8 @@ func ExitCodeFor(err error) ExitCode {
 		}
 		return ExitCodeError
 	}
-	return ExitCodeError
-}
-
-func hasCobraUsagePrefix(err error) bool {
-	msg := err.Error()
-	for _, p := range cobraUsagePrefixes {
-		if strings.Contains(msg, p) {
-			return true
-		}
+	if errors.As(err, &writeErr) {
+		return ExitCodeError
 	}
-	return false
+	return ExitCodeError
 }

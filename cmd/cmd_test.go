@@ -3,7 +3,6 @@ package cmd
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"testing"
@@ -284,41 +283,6 @@ func TestExitCodeForTypedErrors(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.want, cmdutil.ExitCodeFor(tt.err))
-		})
-	}
-}
-
-// TestExitCodeForUsageErrorsDoNotTriggerCanary pins the slice-2
-// regression scenario "Exit code 2 does not trigger the canary". The
-// canary gate in main.go is:
-//
-//	if cmdutil.ExitCodeFor(err) == cmdutil.ExitCodeError {
-//	    warning.MaybeWarnLegacyExitCode(f.IOStreams)
-//	}
-//
-// For Cobra/pflag usage errors, cmdutil.ExitCodeFor maps to
-// ExitCodeUsage (2), so the predicate is false and the canary is
-// suppressed. This test pins down the mapping for the well-known
-// usage-error shapes so a future refactor of the mapper cannot
-// silently break the contract.
-func TestExitCodeForUsageErrorsDoNotTriggerCanary(t *testing.T) {
-	tests := []struct {
-		name string
-		err  error
-	}{
-		{name: "cobra unknown flag", err: errors.New("unknown flag: --foo")},
-		{name: "cobra flag needs arg", err: errors.New("flag needs an argument: --platform")},
-		{name: "cobra invalid argument", err: errors.New(`invalid argument "foo" for "--platform" flag`)},
-		{name: "cobra bad flag syntax", err: errors.New("bad flag syntax: ---foo")},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			code := cmdutil.ExitCodeFor(tt.err)
-			assert.Equal(t, cmdutil.ExitCodeUsage, code,
-				"usage error must map to ExitCodeUsage (2)")
-			assert.NotEqual(t, cmdutil.ExitCodeError, code,
-				"canary gate predicate must be FALSE for exit-code-2 errors "+
-					"(main.go guards warning.MaybeWarnLegacyExitCode on ExitCodeError only)")
 		})
 	}
 }

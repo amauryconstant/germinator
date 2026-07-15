@@ -70,9 +70,9 @@ var _ = Describe("Library Command", func() {
 	})
 
 	Describe("showing a missing reference", func() {
-		It("should fail with not-found error (ExitCodeUsage=2 per slice-5 §5.0.1)", func() {
+		It("should fail with not-found error (ExitCodeError=1 per enforce-error-discipline Phase 1.1)", func() {
 			session := cli.Run("library", "show", "invalid-format", "--library", fixtures.LibraryDir())
-			cli.ShouldFailWithExit(session, 2)
+			cli.ShouldFailWithExit(session, 1)
 			cli.ShouldErrorOutput(session, "not found: invalid-format")
 		})
 	})

@@ -164,15 +164,23 @@ func TestRunCreatePreset_EmptyResourcesValue(t *testing.T) {
 
 	err := runCreatePreset(opts, "dev-setup")
 	require.Error(t, err)
-	assert.Equal(t, cmdutil.ExitCodeUsage, cmdutil.ExitCodeFor(err),
-		"empty --resources value must map to ExitCodeUsage (2)")
+	// Per enforce-error-discipline (Phase 3.12, pending): the empty
+	// --resources branch uses a plain errors.New which does not match
+	// any typed-error branch after the substring fallback was removed.
+	// Phase 3 will migrate errEmptyResources to *core.UsageError →
+	// ExitCodeUsage (2); for Phase 1 the default ExitCodeError (1) is
+	// the contract.
+	assert.Equal(t, cmdutil.ExitCodeError, cmdutil.ExitCodeFor(err),
+		"empty --resources value falls through to ExitCodeError (1) until Phase 3.12 migrates to *core.UsageError")
 	assert.Contains(t, err.Error(), "flag needs an argument")
 }
 
 // T5 — Constructor requires --resources: passing a preset name
 // without --resources triggers Cobra's MarkFlagRequired check,
-// which emits "required flag(s) \"resources\" not set"; this is
-// mapped to exit 2 by cobraUsagePrefixes.
+// which emits "required flag(s) \"resources\" not set". Per
+// enforce-error-discipline (Phase 1.2), the cobra substring-prefix
+// dispatch fallback was dropped, so this falls through to
+// ExitCodeError (1).
 func TestNewCmdCreatePreset_RequiresResources(t *testing.T) {
 	ios, _, _ := newCreatePresetTestIO()
 	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
@@ -184,8 +192,8 @@ func TestNewCmdCreatePreset_RequiresResources(t *testing.T) {
 
 	err := cmd.Execute()
 	require.Error(t, err, "missing --resources flag must fail")
-	assert.Equal(t, cmdutil.ExitCodeUsage, cmdutil.ExitCodeFor(err),
-		"missing required --resources must map to ExitCodeUsage (2)")
+	assert.Equal(t, cmdutil.ExitCodeError, cmdutil.ExitCodeFor(err),
+		"missing required --resources falls through to ExitCodeError (1) after Phase 1.2")
 	assert.Contains(t, err.Error(), "required flag")
 }
 
@@ -361,8 +369,11 @@ func TestRunCreatePreset_RefReferencesMissingResource(t *testing.T) {
 	var nf *core.NotFoundError
 	require.True(t, errors.As(err, &nf), "expected *core.NotFoundError from lib.CreatePreset")
 	assert.Equal(t, "resource", nf.Entity)
-	assert.Equal(t, cmdutil.ExitCodeUsage, cmdutil.ExitCodeFor(err),
-		"missing-resource error maps to ExitCodeUsage (2) via NotFoundError branch")
+	// Per enforce-error-discipline (Phase 1.1): *core.NotFoundError now
+	// maps to ExitCodeError (1) — a runtime lookup miss is an
+	// operational error, not a user-input validation error.
+	assert.Equal(t, cmdutil.ExitCodeError, cmdutil.ExitCodeFor(err),
+		"missing-resource error maps to ExitCodeError (1) via NotFoundError branch")
 
 	lib, lerr := library.LoadLibrary(context.Background(), libDir)
 	require.NoError(t, lerr)

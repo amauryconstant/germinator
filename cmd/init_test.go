@@ -304,8 +304,11 @@ func TestRunInit_PresetNotFound(t *testing.T) {
 	require.ErrorAs(t, err, &nf)
 	assert.Equal(t, "preset", nf.Entity)
 	assert.Equal(t, "ghost", nf.Key)
-	assert.Equal(t, cmdutil.ExitCodeUsage, cmdutil.ExitCodeFor(err),
-		"preset-not-found must map to ExitCodeUsage (2)")
+	// Per enforce-error-discipline (Phase 1.1): *core.NotFoundError now
+	// maps to ExitCodeError (1) — a runtime lookup miss is an
+	// operational error, not a user-input validation error.
+	assert.Equal(t, cmdutil.ExitCodeError, cmdutil.ExitCodeFor(err),
+		"preset-not-found must map to ExitCodeError (1)")
 }
 
 // Validation: missing --platform.

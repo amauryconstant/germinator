@@ -13,7 +13,6 @@ import (
 	"gitlab.com/amoconst/germinator/internal/iostreams"
 	"gitlab.com/amoconst/germinator/internal/output"
 	"gitlab.com/amoconst/germinator/internal/version"
-	"gitlab.com/amoconst/germinator/internal/warning"
 )
 
 func main() {
@@ -44,13 +43,6 @@ func main() {
 	rootCmd.SetContext(ctx)
 	if err := rootCmd.Execute(); err != nil {
 		output.FormatError(io, err)
-		// Per the cli-exit-codes ADDED requirement, the canary fires
-		// only when the resolved exit code is 1 (ExitCodeError).
-		// Exit code 2 (ExitCodeUsage, from Cobra/pflag usage errors)
-		// MUST NOT trigger the canary.
-		if cmdutil.ExitCodeFor(err) == cmdutil.ExitCodeError {
-			warning.MaybeWarnLegacyExitCode(io)
-		}
 		os.Exit(int(cmdutil.ExitCodeFor(err)))
 	}
 }

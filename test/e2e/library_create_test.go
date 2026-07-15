@@ -103,21 +103,33 @@ var _ = Describe("Library Create Preset Command", func() {
 	})
 
 	Describe("library create preset failure paths", func() {
-		It("returns exit 2 when --resources is missing (Cobra required-flag)", func() {
+		It("returns exit 1 when --resources is missing (Cobra required-flag falls through to default)", func() {
 			libPath := seedLibrary(cli, tmpDir)
 
+			// Per enforce-error-discipline (Phase 1.2): the cobra
+			// substring-prefix dispatch fallback was dropped. The
+			// `required flag(s) "resources" not set` string is not a typed
+			// pflag error and is not yet wrapped in *core.CobraUsageError
+			// (zero current call sites per task 3.14), so it falls through
+			// to ExitCodeError (1).
 			session := cli.Run("library", "create", "preset", "missing-flags",
 				"--library", libPath)
-			cli.ShouldFailWithExit(session, 2)
+			cli.ShouldFailWithExit(session, 1)
 		})
 
-		It("returns exit 2 when --resources is an empty string", func() {
+		It("returns exit 1 when --resources is an empty string", func() {
 			libPath := seedLibrary(cli, tmpDir)
 
+			// Per enforce-error-discipline (Phase 3.12, pending): the empty
+			// --resources branch uses a plain errors.New which does not
+			// match any typed-error branch after the substring fallback
+			// was removed. Phase 3 will migrate errEmptyResources to
+			// *core.UsageError → ExitCodeUsage (2); for Phase 1 the
+			// default ExitCodeError (1) is the contract.
 			session := cli.Run("library", "create", "preset", "empty-resources",
 				"--resources", "",
 				"--library", libPath)
-			cli.ShouldFailWithExit(session, 2)
+			cli.ShouldFailWithExit(session, 1)
 		})
 
 		It("returns exit 1 when a ref has an invalid type", func() {

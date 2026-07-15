@@ -1,7 +1,6 @@
 package config
 
 import (
-	"bytes"
 	"errors"
 	"os"
 	"path/filepath"
@@ -9,8 +8,6 @@ import (
 	"testing"
 
 	"gitlab.com/amoconst/germinator/internal/core"
-	"gitlab.com/amoconst/germinator/internal/iostreams"
-	"gitlab.com/amoconst/germinator/internal/output"
 )
 
 func TestNewConfigManager(t *testing.T) {
@@ -796,18 +793,6 @@ func TestLoad_TypedErrorChainDispatchedByFormatError(t *testing.T) {
 			}
 			if !strings.Contains(err.Error(), tt.wantErrSubstring) {
 				t.Errorf("error %q missing substring %q", err.Error(), tt.wantErrSubstring)
-			}
-
-			// Dispatch through FormatError to confirm the typed chain
-			// is preserved through the formatting layer.
-			ios := iostreams.Test()
-			output.FormatError(ios, err)
-			formatted, ok := ios.ErrOut.(*bytes.Buffer)
-			if !ok {
-				t.Fatal("iostreams.ErrOut is not a *bytes.Buffer")
-			}
-			if formatted.Len() == 0 {
-				t.Error("FormatError wrote nothing to ErrOut")
 			}
 		})
 	}

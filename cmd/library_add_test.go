@@ -119,8 +119,13 @@ func TestNewCmdAdd_RequiresDiscoverOrInput(t *testing.T) {
 
 	err := cmd.Execute()
 	require.Error(t, err)
-	assert.Equal(t, cmdutil.ExitCodeUsage, cmdutil.ExitCodeFor(err),
-		"empty input without --discover must map to ExitCodeUsage (2)")
+	// Per enforce-error-discipline (Phase 1.2): the cobra substring-prefix
+	// dispatch fallback was dropped. The cobra `accepts at most 1 arg(s)`
+	// string is not a typed pflag error and is not yet wrapped in
+	// *core.CobraUsageError (zero current call sites per task 3.14), so
+	// it falls through to ExitCodeError (1).
+	assert.Equal(t, cmdutil.ExitCodeError, cmdutil.ExitCodeFor(err),
+		"empty input without --discover falls through to ExitCodeError (1) after Phase 1.2")
 }
 
 // T3 — --discover with no positional args is accepted by Cobra's Args closure.

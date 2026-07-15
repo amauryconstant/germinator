@@ -23,8 +23,7 @@ internal/
 ├── claude-code/         ← Claude Code platform adapter
 ├── opencode/            ← OpenCode platform adapter
 ├── permission/          ← Permission-rule mapping for platform output
-├── version/             ← Build-time version metadata (ldflags injection point)
-└── warning/             ← Exit-code deprecation canary
+└── version/             ← Build-time version metadata (ldflags injection point)
 ```
 
 ### Functional Core (`internal/core/`)

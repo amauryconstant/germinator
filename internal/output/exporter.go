@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"reflect"
 	"strconv"
 	"strings"
@@ -168,5 +167,3 @@ func formatCell(v reflect.Value) string {
 		return buf.String()
 	}
 }
-
-var _ = io.EOF

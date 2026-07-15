@@ -1,7 +1,9 @@
 package core
 
 import (
+	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -757,3 +759,261 @@ func (e *OperationError) Error() string {
 // Unwrap returns the wrapped cause so errors.Is and errors.As traverse
 // the chain.
 func (e *OperationError) Unwrap() error { return e.Cause }
+
+// UsageError represents a CLI flag validation error that is not caught
+// by Cobra's MarkFlagRequired or Args validators, nor by pflag's typed
+// errors. It carries the flag name, the reason, and optional suggestions
+// following the project's typed-error builder pattern (matching
+// ParseError, ValidationError, TransformError, FileError, ConfigError,
+// InitializeError). It maps to ExitCodeUsage (2) via cmdutil.ExitCodeFor.
+//
+// The flag and reason parameters MUST be lowercase with no trailing
+// punctuation (Go error-string convention per golang-error-handling
+// rule 3 — references/error-creation.md:32). Callers passing upper-case
+// flag names violate the convention and are a programmer error.
+type UsageError struct {
+	flag        string
+	reason      string
+	suggestions []string
+}
+
+// NewUsageError creates a new UsageError with the given flag name and
+// reason. Suggestions are initially nil; use WithSuggestions to add
+// remediation hints.
+func NewUsageError(flag, reason string) *UsageError {
+	return &UsageError{flag: flag, reason: reason, suggestions: nil}
+}
+
+// Flag returns the flag name that triggered the usage error.
+func (e *UsageError) Flag() string { return e.flag }
+
+// Reason returns the human-readable reason for the usage error.
+func (e *UsageError) Reason() string { return e.reason }
+
+// Suggestions returns a defensive copy of the suggestions slice via
+// slices.Clone (Go 1.21+) so callers cannot mutate the receiver's
+// internal slice. Returns nil when no suggestions are set.
+func (e *UsageError) Suggestions() []string { return slices.Clone(e.suggestions) }
+
+// WithSuggestions returns a NEW *UsageError with the same flag and
+// reason and a freshly-allocated suggestions slice (immutable builder).
+// The input slice is defensive-copied via slices.Clone to prevent
+// caller mutation.
+func (e *UsageError) WithSuggestions(suggestions []string) *UsageError {
+	return &UsageError{
+		flag:        e.flag,
+		reason:      e.reason,
+		suggestions: slices.Clone(suggestions),
+	}
+}
+
+// Error formats the usage error as "<flag>: <reason>".
+func (e *UsageError) Error() string { return e.flag + ": " + e.reason }
+
+// Unwrap returns nil (UsageError is a leaf error; it does not wrap an
+// underlying cause). The godoc on the type explicitly notes this so
+// future maintainers do not add a cause field and break the contract.
+func (e *UsageError) Unwrap() error { return nil }
+
+// CobraUsageError is a sentinel that wraps a Cobra arg-validation
+// error (emitted by cobra.ExactArgs, MinimumNArgs, MaximumNArgs,
+// RangeArgs, and MarkFlagRequired-derived "required flag(s) ..." strings)
+// so cmdutil.ExitCodeFor can match the typed error and return
+// ExitCodeUsage (2). The Must* prefix telegraphs the panic on nil
+// cause (a violated invariant), mirroring regexp.MustCompile and
+// template.Must.
+type CobraUsageError struct {
+	err error
+}
+
+// MustNewCobraUsageError creates a new CobraUsageError wrapping err.
+// It panics if err is nil — a nil cause is a programmer error, not a
+// recoverable state. The Must* prefix telegraphs the panic to callers,
+// matching regexp.MustCompile and template.Must. No nil-guard fallback
+// is provided; callers requiring nil-safety must use a try/recv pattern
+// or a separate New* constructor (not provided in this change).
+func MustNewCobraUsageError(err error) *CobraUsageError {
+	if err == nil {
+		panic("MustNewCobraUsageError: cause is required (programmer error)")
+	}
+	return &CobraUsageError{err: err}
+}
+
+// Error returns the wrapped error's Error() string verbatim.
+func (e *CobraUsageError) Error() string { return e.err.Error() }
+
+// Unwrap returns the wrapped cause so errors.Is and errors.As traverse
+// the chain.
+func (e *CobraUsageError) Unwrap() error { return e.err }
+
+// MarshalJSON implementations.
+//
+// Each MarshalJSON returns the JSON bytes {"error": "<Error()>"}. The
+// shape is the only sensible JSON projection of a Go error interface
+// (stdlib's default would marshal as {}). Any future exported struct
+// fields on these typed errors must be exposed via MarshalJSON to
+// appear in JSON output — json.Marshaler precedence in stdlib means
+// MarshalJSON wins over struct-field marshaling.
+
+// MarshalJSON renders the typed error as {"error": "<Error()>"}.
+// See the package-level MarshalJSON block for the rationale.
+func (e *ParseError) MarshalJSON() ([]byte, error) {
+	b, err := json.Marshal(struct {
+		Error string `json:"error"`
+	}{Error: e.Error()})
+	if err != nil {
+		return nil, fmt.Errorf("marshal ParseError: %w", err)
+	}
+	return b, nil
+}
+
+// MarshalJSON renders the typed error as {"error": "<Error()>"}.
+// See the package-level MarshalJSON block for the rationale.
+func (e *ValidationError) MarshalJSON() ([]byte, error) {
+	b, err := json.Marshal(struct {
+		Error string `json:"error"`
+	}{Error: e.Error()})
+	if err != nil {
+		return nil, fmt.Errorf("marshal ValidationError: %w", err)
+	}
+	return b, nil
+}
+
+// MarshalJSON renders the typed error as {"error": "<Error()>"}.
+// See the package-level MarshalJSON block for the rationale.
+func (e *TransformError) MarshalJSON() ([]byte, error) {
+	b, err := json.Marshal(struct {
+		Error string `json:"error"`
+	}{Error: e.Error()})
+	if err != nil {
+		return nil, fmt.Errorf("marshal TransformError: %w", err)
+	}
+	return b, nil
+}
+
+// MarshalJSON renders the typed error as {"error": "<Error()>"}.
+// See the package-level MarshalJSON block for the rationale.
+func (e *FileError) MarshalJSON() ([]byte, error) {
+	b, err := json.Marshal(struct {
+		Error string `json:"error"`
+	}{Error: e.Error()})
+	if err != nil {
+		return nil, fmt.Errorf("marshal FileError: %w", err)
+	}
+	return b, nil
+}
+
+// MarshalJSON renders the typed error as {"error": "<Error()>"}.
+// See the package-level MarshalJSON block for the rationale.
+func (e *ConfigError) MarshalJSON() ([]byte, error) {
+	b, err := json.Marshal(struct {
+		Error string `json:"error"`
+	}{Error: e.Error()})
+	if err != nil {
+		return nil, fmt.Errorf("marshal ConfigError: %w", err)
+	}
+	return b, nil
+}
+
+// MarshalJSON renders the typed error as {"error": "<Error()>"}.
+// See the package-level MarshalJSON block for the rationale.
+func (e *NotFoundError) MarshalJSON() ([]byte, error) {
+	b, err := json.Marshal(struct {
+		Error string `json:"error"`
+	}{Error: e.Error()})
+	if err != nil {
+		return nil, fmt.Errorf("marshal NotFoundError: %w", err)
+	}
+	return b, nil
+}
+
+// MarshalJSON renders the typed error as {"error": "<Error()>"}.
+// See the package-level MarshalJSON block for the rationale.
+func (e *OperationError) MarshalJSON() ([]byte, error) {
+	b, err := json.Marshal(struct {
+		Error string `json:"error"`
+	}{Error: e.Error()})
+	if err != nil {
+		return nil, fmt.Errorf("marshal OperationError: %w", err)
+	}
+	return b, nil
+}
+
+// MarshalJSON renders the typed error as {"error": "<Error()>"}.
+// See the package-level MarshalJSON block for the rationale.
+func (e *InitializeError) MarshalJSON() ([]byte, error) {
+	b, err := json.Marshal(struct {
+		Error string `json:"error"`
+	}{Error: e.Error()})
+	if err != nil {
+		return nil, fmt.Errorf("marshal InitializeError: %w", err)
+	}
+	return b, nil
+}
+
+// MarshalJSON renders the typed error as {"error": "<Error()>"}.
+// See the package-level MarshalJSON block for the rationale.
+func (e *PartialSuccessError) MarshalJSON() ([]byte, error) {
+	b, err := json.Marshal(struct {
+		Error string `json:"error"`
+	}{Error: e.Error()})
+	if err != nil {
+		return nil, fmt.Errorf("marshal PartialSuccessError: %w", err)
+	}
+	return b, nil
+}
+
+// MarshalJSON renders the typed error as {"error": "<Error()>"}.
+// See the package-level MarshalJSON block for the rationale.
+func (e *UsageError) MarshalJSON() ([]byte, error) {
+	b, err := json.Marshal(struct {
+		Error string `json:"error"`
+	}{Error: e.Error()})
+	if err != nil {
+		return nil, fmt.Errorf("marshal UsageError: %w", err)
+	}
+	return b, nil
+}
+
+// MarshalJSON renders the typed error as {"error": "<Error()>"}.
+// See the package-level MarshalJSON block for the rationale.
+func (e *CobraUsageError) MarshalJSON() ([]byte, error) {
+	b, err := json.Marshal(struct {
+		Error string `json:"error"`
+	}{Error: e.Error()})
+	if err != nil {
+		return nil, fmt.Errorf("marshal CobraUsageError: %w", err)
+	}
+	return b, nil
+}
+
+// Compile-time interface checks. Catches method-signature typos at
+// build time (per golang-design-patterns rule 19).
+
+var (
+	_ error = (*ParseError)(nil)
+	_ error = (*ValidationError)(nil)
+	_ error = (*TransformError)(nil)
+	_ error = (*FileError)(nil)
+	_ error = (*ConfigError)(nil)
+	_ error = (*NotFoundError)(nil)
+	_ error = (*OperationError)(nil)
+	_ error = (*InitializeError)(nil)
+	_ error = (*PartialSuccessError)(nil)
+	_ error = (*UsageError)(nil)
+	_ error = (*CobraUsageError)(nil)
+)
+
+var (
+	_ json.Marshaler = (*ParseError)(nil)
+	_ json.Marshaler = (*ValidationError)(nil)
+	_ json.Marshaler = (*TransformError)(nil)
+	_ json.Marshaler = (*FileError)(nil)
+	_ json.Marshaler = (*ConfigError)(nil)
+	_ json.Marshaler = (*NotFoundError)(nil)
+	_ json.Marshaler = (*OperationError)(nil)
+	_ json.Marshaler = (*InitializeError)(nil)
+	_ json.Marshaler = (*PartialSuccessError)(nil)
+	_ json.Marshaler = (*UsageError)(nil)
+	_ json.Marshaler = (*CobraUsageError)(nil)
+)
