@@ -13,7 +13,6 @@ import (
 	"gitlab.com/amoconst/germinator/internal/core"
 	"gitlab.com/amoconst/germinator/internal/iostreams"
 	"gitlab.com/amoconst/germinator/internal/library"
-	"gitlab.com/amoconst/germinator/internal/output"
 )
 
 // InitializeRequest carries the inputs for resource installation.
@@ -198,13 +197,9 @@ func runInit(opts *initOptions) error {
 	case failed == 0:
 		return nil
 	case succeeded == 0:
-		partialErr := core.NewPartialSuccessError(0, failed, initErrs)
-		output.FormatError(opts.IO, partialErr)
-		return partialErr
+		return core.NewPartialSuccessError(0, failed, initErrs)
 	default:
-		partialErr := core.NewPartialSuccessError(succeeded, failed, initErrs)
-		output.FormatError(opts.IO, partialErr)
-		return partialErr
+		return core.NewPartialSuccessError(succeeded, failed, initErrs)
 	}
 }
 
@@ -226,9 +221,11 @@ func classifyResults(results []core.InitializeResult) (succeeded, failed int, er
 }
 
 // renderResults writes per-resource status to IO: successes to Out,
-// failures to ErrOut via output.FormatError. The overall command
-// exit code is determined by runInit's error return, not by what is
-// rendered here.
+// failures are accumulated into initErrs by classifyResults. The
+// overall command exit code is determined by runInit's error
+// return; main.go renders the returned *core.PartialSuccessError
+// once via output.FormatError (single-handling rule per
+// cmd/AGENTS.md).
 func renderResults(opts *initOptions, results []core.InitializeResult) {
 	for _, r := range results {
 		if r.Error == nil {
@@ -237,9 +234,7 @@ func renderResults(opts *initOptions, results []core.InitializeResult) {
 				continue
 			}
 			_, _ = fmt.Fprintf(opts.IO.Out, "Installed: %s -> %s\n", r.Ref, r.OutputPath)
-			continue
 		}
-		output.FormatError(opts.IO, core.NewInitializeError(r.Ref, r.InputPath, r.OutputPath, r.Error))
 	}
 	if opts.DryRun && len(results) > 0 {
 		_, _ = fmt.Fprintln(opts.IO.Out, "Dry run complete. No files were written.")

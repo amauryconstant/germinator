@@ -274,8 +274,10 @@ func runAdd(opts *addOptions) error {
 // For each path it calls library.AddResource (via the resourceAdder
 // interface) and aggregates failures into a
 // *core.PartialSuccessError. The full success path ("Added: <ref>")
-// is written to opts.IO.Out; per-file failures are rendered to
-// opts.IO.ErrOut via output.FormatError.
+// is written to opts.IO.Out; per-file failures are accumulated into
+// initErrs and bubble up to main.go where output.FormatError
+// renders the returned *core.PartialSuccessError once (single-
+// handling rule per cmd/AGENTS.md).
 //
 // Pre-flight: core.ValidatePlatform + core.CanInstallResource ensure
 // malformed refs short-circuit before any I/O. The library load is
@@ -332,7 +334,6 @@ func runAddExplicit(opts *addOptions) error {
 		if addErr := adder.AddResource(opts.Ctx, req); addErr != nil {
 			opErr := core.NewOperationError("add", path, addErr)
 			initErrs = append(initErrs, *core.NewInitializeError(path, path, "", opErr))
-			output.FormatError(opts.IO, opErr)
 			continue
 		}
 		succeeded++
@@ -481,9 +482,9 @@ func quietPlainOnAllFailure(succeeded int, initErrs []core.InitializeError) bool
 // input files: each path is processed via library.BatchAddResources
 // which handles type/name auto-detection per file and records
 // per-file skip / fail outcomes. The added list drives the success
-// line on plain output; failed / skipped entries are surfaced as
-// typed *core.OperationError via output.FormatError and collected
-// into a *core.PartialSuccessError aggregate.
+// line on plain output; failed entries are aggregated into a
+// *core.PartialSuccessError that main.go renders once via
+// output.FormatError (single-handling rule per cmd/AGENTS.md).
 //
 // Behavior matches the pre-change runBatchAdd so e2e tests that
 // exercise "library add --batch a.md b.md" keep working.
@@ -524,11 +525,9 @@ func runAddBatchFiles(opts *addOptions) error {
 	if batchResult != nil {
 		succeeded = batchResult.Summary.Added
 		for _, f := range batchResult.Failed {
-			opErr := core.NewOperationError("add", f.Source, errors.New(f.Error))
+			opErr := core.NewOperationError("add", f.Source, nil)
+			opErr.Cause = f.Cause
 			initErrs = append(initErrs, *core.NewInitializeError(f.Source, f.Source, "", opErr))
-			if isPlainOutput(opts.Output) {
-				output.FormatError(opts.IO, opErr)
-			}
 		}
 		// Skipped entries (Issue="already_exists" or "conflict") are
 		// rendered to stdout (per the legacy FormatBatchAddSummary
@@ -570,8 +569,9 @@ func runAddBatchFiles(opts *addOptions) error {
 // Mode 3 (--discover --batch --force): additionally runs
 // BatchAddResources over discResult.Orphans so registration is
 // continuous and per-file failures are summarized in BatchResult.
-// Per-failed-file entries are surfaced as *core.OperationError via
-// output.FormatError and collected into a *core.PartialSuccessError.
+// Per-failed-file entries are aggregated into a *core.PartialSuccessError
+// that main.go renders once via output.FormatError (single-handling
+// rule per cmd/AGENTS.md).
 //
 // Output dispatch:
 //   - "json": single discoverJSONPayload via NewJSONExporter.
@@ -671,9 +671,6 @@ func collectDiscoverFailures(opts *addOptions, discResult *library.DiscoverResul
 			cause = errors.New(c.Issue)
 		}
 		opErr := core.NewOperationError("register", ref, cause)
-		if isPlainOutput(opts.Output) {
-			output.FormatError(opts.IO, opErr)
-		}
 		if opts.Batch {
 			initErrs = append(initErrs, *core.NewInitializeError(ref, c.Orphan.Path, "", opErr))
 		}
@@ -682,11 +679,9 @@ func collectDiscoverFailures(opts *addOptions, discResult *library.DiscoverResul
 	succeeded := 0
 	if batchResult != nil {
 		for _, f := range batchResult.Failed {
-			opErr := core.NewOperationError("add", f.Source, errors.New(f.Error))
+			opErr := core.NewOperationError("add", f.Source, nil)
+			opErr.Cause = f.Cause
 			initErrs = append(initErrs, *core.NewInitializeError(f.Source, f.Source, "", opErr))
-			if isPlainOutput(opts.Output) {
-				output.FormatError(opts.IO, opErr)
-			}
 		}
 		// Skipped entries (Issue="already_exists", "conflict")
 		// are deliberate skips, not failures — mirror the legacy
@@ -723,10 +718,10 @@ func collectDiscoverFailures(opts *addOptions, discResult *library.DiscoverResul
 //	Summary: scanned=N, orphans=N, added=N, skipped=N, failed=N
 //	Added N, skipped N, failed N
 //
-// JSON / table use the net-new payload structs. Per-file errors
-// already render via output.FormatError during the failure
-// collection pass (collectDiscoverFailures); this function only
-// writes the human-readable summary block.
+// JSON / table use the net-new payload structs. Per-file errors are
+// accumulated into initErrs during collectDiscoverFailures and
+// bubble up to main.go via the returned *core.PartialSuccessError;
+// this function only writes the human-readable summary block.
 func renderDiscoverResult(opts *addOptions, discResult *library.DiscoverResult, succeeded int, initErrs []core.InitializeError) error {
 	switch opts.Output {
 	case "json":

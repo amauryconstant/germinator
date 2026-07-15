@@ -15,6 +15,7 @@ import (
 	"gitlab.com/amoconst/germinator/internal/cmdutil"
 	"gitlab.com/amoconst/germinator/internal/iostreams"
 	"gitlab.com/amoconst/germinator/internal/library"
+	"gitlab.com/amoconst/germinator/internal/output"
 )
 
 // newLibraryValidateTestIO returns an iostreams.IOStreams backed by
@@ -569,9 +570,11 @@ presets:
 }
 
 // TestRunLibraryValidate_LibraryLoadError verifies the error path:
-// opts.Library returning an error surfaces via output.FormatError
-// (stderr) AND is wrapped and returned (so cmdutil.ExitCodeFor
-// returns 1). The stdout buffer stays empty (scriptability).
+// opts.Library returning an error is wrapped and returned (so
+// cmdutil.ExitCodeFor returns 1); runLibraryValidate itself does
+// NOT render to ErrOut (single-handling rule per cmd/AGENTS.md) —
+// main.go renders the returned error once via output.FormatError.
+// The stdout buffer stays empty (scriptability).
 func TestRunLibraryValidate_LibraryLoadError(t *testing.T) {
 	t.Parallel()
 
@@ -590,10 +593,15 @@ func TestRunLibraryValidate_LibraryLoadError(t *testing.T) {
 	assert.Contains(t, err.Error(), "loading library")
 	assert.Contains(t, err.Error(), "assert.AnError",
 		"original cause must be preserved in the chain")
-	assert.NotEmpty(t, errOut.String(),
-		"load failure must render to stderr via output.FormatError")
+	assert.Empty(t, errOut.String(),
+		"runLibraryValidate must NOT render to ErrOut (single-handling rule); "+
+			"main.go renders the returned error once via output.FormatError")
 	assert.Empty(t, out.String(),
 		"stdout must stay empty on the error path")
+
+	output.FormatError(io, err)
+	assert.NotEmpty(t, errOut.String(),
+		"central handler must render the wrapped error to stderr")
 }
 
 // TestNewCmdLibraryValidate_OldJSONFlagIsRejected verifies the

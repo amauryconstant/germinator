@@ -20,6 +20,7 @@ import (
 	"gitlab.com/amoconst/germinator/internal/core"
 	"gitlab.com/amoconst/germinator/internal/iostreams"
 	"gitlab.com/amoconst/germinator/internal/library"
+	"gitlab.com/amoconst/germinator/internal/output"
 )
 
 // newAddTestIO returns the buffer-backed IOStreams that tests use to
@@ -335,10 +336,20 @@ func TestRunAdd_BatchMode_NameConflict(t *testing.T) {
 	var ps *core.PartialSuccessError
 	require.True(t, errors.As(err, &ps), "expected *core.PartialSuccessError")
 
-	// Conflict must appear as an OperationError on stderr.
-	require.NotEmpty(t, errOut.String(), "stderr must contain per-file error rendering")
-	assert.Contains(t, errOut.String(), "register",
-		"per-file error must use the 'register' operation tag")
+	// runAdd must NOT render to ErrOut (single-handling rule per
+	// cmd/AGENTS.md) — main.go renders the returned error once via
+	// output.FormatError.
+	assert.Empty(t, errOut.String(),
+		"runAdd must NOT render per-file errors (single-handling rule)")
+
+	output.FormatError(ios, err)
+	// Central handler renders *core.PartialSuccessError as
+	// `partial success: N succeeded, M failed\n  - initialize failed: <ref>: <opErr>\n`.
+	// The OperationError.Error() returns "<op>: <resource>" (the Op tag
+	// "register" is what flows through the chain here; the underlying
+	// ErrNameConflict is reachable via errors.Is for programmatic checks).
+	assert.Contains(t, errOut.String(), "register: agent/clash",
+		"per-file error must surface the OperationError.Op+Resource through the typed-error chain")
 }
 
 // T10 — Cancellation test: cancel opts.Ctx mid-batch, verify that
@@ -749,7 +760,14 @@ func TestRunAdd_BatchFiles_PartialFailure(t *testing.T) {
 	require.True(t, errors.As(err, &ps), "expected *core.PartialSuccessError")
 	assert.Equal(t, 1, ps.Succeeded(), "one file succeeded")
 	assert.Equal(t, 1, ps.Failed(), "one file failed")
-	assert.NotEmpty(t, errOut.String(), "stderr must carry per-file OperationError rendering")
+	// runAdd must NOT render to ErrOut (single-handling rule) — main.go
+	// renders the returned *core.PartialSuccessError once via FormatError.
+	assert.Empty(t, errOut.String(),
+		"runAdd must NOT render per-file errors (single-handling rule)")
+
+	output.FormatError(ios, err)
+	assert.Contains(t, errOut.String(), "partial success: 1 succeeded, 1 failed",
+		"central handler must render the partial-success aggregate")
 }
 
 // T17 — Batch-with-files rejects an invalid --platform value up
@@ -1079,8 +1097,9 @@ func TestRunAdd_NoSlashAbortsBeforeIO(t *testing.T) {
 // T26 — Spec scenario "All conflicts returns exit 1": when every
 // orphan collides, the partial-success aggregate has Succeeded==0
 // and Failed==N. `cmdutil.ExitCodeFor(err)` returns
-// `ExitCodeError` (1); stderr carries per-file `Error: register:`
-// lines; stdout is empty (no data leakage on error paths).
+// `ExitCodeError` (1); the central handler (main.go) renders the
+// returned *core.PartialSuccessError once via output.FormatError;
+// stdout is empty (no data leakage on error paths).
 func TestRunAdd_DiscoverMode_AllConflicts(t *testing.T) {
 	libDir := makeTestLibrary(t, map[string]map[string]library.Resource{
 		"skill": {
@@ -1121,11 +1140,17 @@ func TestRunAdd_DiscoverMode_AllConflicts(t *testing.T) {
 	assert.Equal(t, cmdutil.ExitCodeError, cmdutil.ExitCodeFor(err),
 		"all-failures aggregate must map to ExitCodeError (1)")
 	assert.Empty(t, out.String(), "stdout must be empty on all-failure paths")
+	// runAdd must NOT render per-file errors directly to ErrOut
+	// (single-handling rule) — main.go renders the returned error once.
+	assert.Empty(t, errOut.String(),
+		"runAdd must NOT render per-file errors (single-handling rule)")
+
+	output.FormatError(ios, err)
 	gotErr := errOut.String()
-	assert.Contains(t, gotErr, "Error: register: agent/clash1",
-		"stderr must carry per-file rendering for first conflict")
-	assert.Contains(t, gotErr, "Error: register: agent/clash2",
-		"stderr must carry per-file rendering for second conflict")
+	assert.Contains(t, gotErr, "initialize failed: agent/clash1",
+		"central handler must enumerate per-resource InitializeError for first conflict")
+	assert.Contains(t, gotErr, "initialize failed: agent/clash2",
+		"central handler must enumerate per-resource InitializeError for second conflict")
 }
 
 // T27 — Spec scenario "Name conflict counts as failure, not success":
@@ -1174,8 +1199,15 @@ func TestRunAdd_DiscoverMode_MixedSuccessAndConflict(t *testing.T) {
 		"partial-success with Succeeded>0 must map to ExitCodeSuccess (0)")
 	assert.Contains(t, out.String(), "Added resource: skill/fresh",
 		"stdout must carry the success line for the valid orphan")
-	assert.Contains(t, errOut.String(), "Error: register: agent/clash",
-		"stderr must carry the per-file OperationError for the conflict")
+	// runAdd must NOT render per-file errors directly to ErrOut
+	// (single-handling rule) — main.go renders the returned
+	// *core.PartialSuccessError once via output.FormatError.
+	assert.Empty(t, errOut.String(),
+		"runAdd must NOT render per-file errors (single-handling rule)")
+
+	output.FormatError(ios, err)
+	assert.Contains(t, errOut.String(), "initialize failed: agent/clash",
+		"central handler must enumerate the per-resource InitializeError for the conflict")
 }
 
 // T28 — Spec scenario "OperationError preserves wrapped cause":

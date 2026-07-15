@@ -14,6 +14,7 @@ import (
 	"gitlab.com/amoconst/germinator/internal/cmdutil"
 	"gitlab.com/amoconst/germinator/internal/core"
 	"gitlab.com/amoconst/germinator/internal/iostreams"
+	"gitlab.com/amoconst/germinator/internal/output"
 )
 
 // fakeValidator is a hand-rolled fake satisfying the local cmd.Validator
@@ -100,7 +101,13 @@ func TestRunValidate_SingleError_RendersViaFormatError(t *testing.T) {
 	require.Error(t, err)
 	assert.ErrorIs(t, err, parseErr,
 		"first error must propagate through the chain")
-	assert.Empty(t, out.String(), "stdout must be empty on validation failure")
+	assert.Empty(t, out.String(),
+		"runValidate must NOT render to stdout (single-handling rule)")
+	assert.Empty(t, errOut.String(),
+		"runValidate must NOT render to ErrOut (single-handling rule); "+
+			"main.go renders the returned error once via output.FormatError")
+
+	output.FormatError(io, err)
 	assert.Contains(t, errOut.String(), "Error:",
 		"FormatError must render the error to stderr")
 	assert.Contains(t, errOut.String(), "unrecognizable filename",
@@ -127,16 +134,18 @@ func TestRunValidate_MultiErrors_RendersAll(t *testing.T) {
 	err := runValidate(opts)
 	require.Error(t, err)
 	assert.ErrorIs(t, err, err1, "first error must propagate")
-	assert.Empty(t, out.String(), "stdout must be empty on validation failure")
+	assert.Empty(t, out.String(),
+		"runValidate must NOT render to stdout (single-handling rule)")
+	assert.Empty(t, errOut.String(),
+		"runValidate must NOT render to ErrOut (single-handling rule); "+
+			"main.go renders the returned error once via output.FormatError")
 
+	output.FormatError(io, err)
 	stderr := errOut.String()
 	assert.Contains(t, stderr, "name is required",
-		"first error must be rendered to stderr")
-	assert.Contains(t, stderr, "description is required",
-		"second error must be rendered to stderr")
-
-	count := strings.Count(stderr, "Error:")
-	assert.Equal(t, 2, count, "each error must be rendered once via FormatError")
+		"first error must be rendered via the central FormatError handler")
+	assert.Equal(t, 1, strings.Count(stderr, "Error:"),
+		"only the returned error is rendered (single-handling rule)")
 }
 
 func TestRunValidate_InvalidPlatform_ReturnsValidationError(t *testing.T) {

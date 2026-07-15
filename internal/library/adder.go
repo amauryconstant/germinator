@@ -539,8 +539,10 @@ type BatchSkipInfo struct {
 
 // BatchFailureInfo represents a failed resource add in batch mode.
 type BatchFailureInfo struct {
-	Source string `json:"source"` // Original source path
-	Error  string `json:"error"`  // Error message
+	Source    string `json:"source"`
+	Error     string `json:"error"`
+	ErrorType string `json:"errorType,omitempty"` // canonical typed name (e.g., "NotFoundError"); empty when cause is nil
+	Cause     error  `json:"cause,omitempty"`     // original typed error; preserves errors.Is/As chain downstream
 }
 
 // BatchSummary contains statistics from a batch add operation.
@@ -665,8 +667,10 @@ func processBatchAddFile(ctx context.Context, source string, opts BatchAddOption
 	// the detect → load → add pipeline per file.
 	if err := ctx.Err(); err != nil {
 		result.Failed = append(result.Failed, BatchFailureInfo{
-			Source: source,
-			Error:  err.Error(),
+			Source:    source,
+			Error:     err.Error(),
+			ErrorType: errorTypeName(err),
+			Cause:     err,
 		})
 		result.Summary.Failed++
 		return fmt.Errorf("processBatchAddFile: %w", err)
@@ -682,8 +686,10 @@ func processBatchAddFile(ctx context.Context, source string, opts BatchAddOption
 		docType, err = detectType(source, opts.Type)
 		if err != nil {
 			result.Failed = append(result.Failed, BatchFailureInfo{
-				Source: source,
-				Error:  err.Error(),
+				Source:    source,
+				Error:     err.Error(),
+				ErrorType: errorTypeName(err),
+				Cause:     err,
 			})
 			result.Summary.Failed++
 			return err
@@ -700,8 +706,10 @@ func processBatchAddFile(ctx context.Context, source string, opts BatchAddOption
 		name, err = detectName(source, opts.Name)
 		if err != nil {
 			result.Failed = append(result.Failed, BatchFailureInfo{
-				Source: source,
-				Error:  err.Error(),
+				Source:    source,
+				Error:     err.Error(),
+				ErrorType: errorTypeName(err),
+				Cause:     err,
 			})
 			result.Summary.Failed++
 			return err
@@ -718,8 +726,10 @@ func processBatchAddFile(ctx context.Context, source string, opts BatchAddOption
 	lib, err := LoadLibrary(ctx, opts.LibraryPath)
 	if err != nil {
 		result.Failed = append(result.Failed, BatchFailureInfo{
-			Source: source,
-			Error:  fmt.Sprintf("loading library: %v", err),
+			Source:    source,
+			Error:     fmt.Sprintf("loading library: %v", err),
+			ErrorType: errorTypeName(err),
+			Cause:     err,
 		})
 		result.Summary.Failed++
 		return fmt.Errorf("loading library: %w", err)
@@ -782,8 +792,10 @@ func processBatchAddFile(ctx context.Context, source string, opts BatchAddOption
 
 	if addErr != nil {
 		result.Failed = append(result.Failed, BatchFailureInfo{
-			Source: source,
-			Error:  addErr.Error(),
+			Source:    source,
+			Error:     addErr.Error(),
+			ErrorType: errorTypeName(addErr),
+			Cause:     addErr,
 		})
 		result.Summary.Failed++
 		return addErr
@@ -1042,4 +1054,66 @@ func registerOrphan(libraryPath string, orphan Orphan) error {
 	}
 
 	return nil
+}
+
+// errorTypeName returns a stable canonical name for a typed error so
+// BatchFailureInfo.ErrorType carries a human-meaningful tag (e.g.,
+// "NotFoundError") rather than an opaque Go type string. The dispatch
+// covers every typed error introduced by enforce-error-discipline (11
+// core typed errors + os.PathError for stdlib filesystem failures);
+// unknown types fall through to fmt.Sprintf("%T", cause) so the field
+// is never empty for a non-nil cause.
+//
+// Returning "" for nil is required: BatchFailureInfo.ErrorType carries
+// `json:",omitempty"`, so the empty string is the wire-format sentinel
+// for "no typed cause was threaded". The dispatch uses errors.As so
+// wrapped error chains are still recognized (e.g., an
+// OperationError whose Cause is a NotFoundError reports "OperationError",
+// since the chain target is the outermost type).
+func errorTypeName(cause error) string {
+	if cause == nil {
+		return ""
+	}
+	var (
+		pe    *core.ParseError
+		ve    *core.ValidationError
+		te    *core.TransformError
+		fe    *core.FileError
+		ce    *core.ConfigError
+		nf    *core.NotFoundError
+		oe    *core.OperationError
+		ie    *core.InitializeError
+		ps    *core.PartialSuccessError
+		ue    *core.UsageError
+		cue   *core.CobraUsageError
+		pathE *os.PathError
+	)
+	switch {
+	case errors.As(cause, &pe):
+		return "ParseError"
+	case errors.As(cause, &ve):
+		return "ValidationError"
+	case errors.As(cause, &te):
+		return "TransformError"
+	case errors.As(cause, &fe):
+		return "FileError"
+	case errors.As(cause, &ce):
+		return "ConfigError"
+	case errors.As(cause, &nf):
+		return "NotFoundError"
+	case errors.As(cause, &oe):
+		return "OperationError"
+	case errors.As(cause, &ie):
+		return "InitializeError"
+	case errors.As(cause, &ps):
+		return "PartialSuccessError"
+	case errors.As(cause, &ue):
+		return "UsageError"
+	case errors.As(cause, &cue):
+		return "CobraUsageError"
+	case errors.As(cause, &pathE):
+		return "PathError"
+	default:
+		return fmt.Sprintf("%T", cause)
+	}
 }

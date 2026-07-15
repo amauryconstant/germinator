@@ -11,7 +11,6 @@ import (
 	"gitlab.com/amoconst/germinator/internal/core"
 	"gitlab.com/amoconst/germinator/internal/core/opencode"
 	"gitlab.com/amoconst/germinator/internal/iostreams"
-	"gitlab.com/amoconst/germinator/internal/output"
 	"gitlab.com/amoconst/germinator/internal/parser"
 )
 
@@ -119,9 +118,6 @@ func runValidate(opts *validateOptions) error {
 	}
 
 	if !result.Valid() {
-		for _, e := range result.Errors {
-			output.FormatError(opts.IO, e)
-		}
 		return result.Errors[0]
 	}
 

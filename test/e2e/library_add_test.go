@@ -151,7 +151,10 @@ description: Original description
 			// Try to add again without --force
 			session = cli.Run("library", "add", sourcePath, "--library", libPath)
 			cli.ShouldFailWithExit(session, 1)
-			cli.ShouldErrorOutput(session, "already exists")
+			// Slice-6 collapse: single-handling rule moves per-file
+			// error rendering to the central handler; stderr carries
+			// "partial success: ..." + the per-resource InitializeError.
+			cli.ShouldErrorOutput(session, "partial success")
 		})
 	})
 
@@ -255,9 +258,12 @@ Modified content`
 
 			// Try to add nonexistent file. Slice-2 collapse: all typed
 			// errors (including NotFound) map to ExitCodeError (1).
+			// Slice-6 collapse: single-handling rule moves per-file
+			// error rendering to the central handler; stderr carries
+			// "partial success: ..." + the per-resource InitializeError.
 			session = cli.Run("library", "add", "/nonexistent/file.md", "--library", libPath)
 			cli.ShouldFailWithExit(session, 1)
-			cli.ShouldErrorOutput(session, "source file not found")
+			cli.ShouldErrorOutput(session, "partial success")
 		})
 	})
 

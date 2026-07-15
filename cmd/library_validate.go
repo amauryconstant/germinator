@@ -145,13 +145,13 @@ func resolveLibraryFlag(c *cobra.Command) string {
 
 // runLibraryValidate executes the validation logic. Dispatches on
 // opts.Output to plain / JSON / table. Errors from the
-// validatorLibrary call are surfaced via output.FormatError (to
-// stderr) and wrapped for exit-code mapping; per-issue findings
-// stay data and flow through the chosen output format.
+// validatorLibrary call are wrapped for exit-code mapping and bubble
+// up to main.go where output.FormatError renders them once (single-
+// handling rule per cmd/AGENTS.md); per-issue findings stay data
+// and flow through the chosen output format.
 func runLibraryValidate(opts *libraryValidateOptions) error {
 	lib, err := opts.Library()
 	if err != nil {
-		output.FormatError(opts.IO, err)
 		return fmt.Errorf("loading library: %w", err)
 	}
 
@@ -159,7 +159,6 @@ func runLibraryValidate(opts *libraryValidateOptions) error {
 
 	result, err := lib.Validate(opts.Ctx, &library.ValidateRequest{Fix: opts.Fix})
 	if err != nil {
-		output.FormatError(opts.IO, err)
 		return fmt.Errorf("validating library: %w", err)
 	}
 
