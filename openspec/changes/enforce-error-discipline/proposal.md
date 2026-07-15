@@ -49,40 +49,44 @@ None.
 
 ### Affected code
 
+> **Phase 0 reconciliation (verified 2026-07-15):** all `file:line` references below have been verified against the current tree. Line shifts are noted in parentheses where they diverge from the proposal's pre-Phase-0 estimates. The total `LOC impact` column reflects the verified line numbers, not the original estimates.
+
 | File | Change | LOC impact | Task |
 |---|---|---|---|
-| `internal/cmdutil/exit.go:73` | Exit code mapping | -1 / +1 | 1.1 |
-| `internal/cmdutil/exit.go:24` | Drop prefix list; add `CobraUsageError` branch | -14 / +6 | 1.2-1.3 |
-| `internal/cmdutil/exit_test.go:58` | Flip expectation; add new rows | +12 | 1.4 |
-| `internal/output/errors.go:21-50` | Add `InitializeError`, `UsageError`, `WriteError` cases | +13 | 1.5, 1.5b |
-| `internal/output/exporter.go:172,7` | Delete dead code | -2 | 1.6 |
-| `internal/core/errors.go` | New `UsageError` + `CobraUsageError` + 9 `MarshalJSON`s | +90 | 1.7 |
-| `cmd/library_add.go:355,549,693,706` | Delete inline `FormatError` | -4 | 2.1-2.4 |
-| `cmd/library_validate.go:182,190` | Delete inline `FormatError` | -2 | 2.5-2.6 |
+| `internal/cmdutil/exit.go:73-74` | Exit code mapping | -1 / +1 | 1.1 |
+| `internal/cmdutil/exit.go:22-37, 70` | Drop prefix list (slice); remove `hasCobraUsagePrefix` call | -14 / +6 | 1.2-1.3 |
+| `internal/cmdutil/exit_test.go:45-49, 58` | Flip expectation; delete cobra-substring rows; add new rows | +12 | 1.4 |
+| `internal/output/errors.go:21-50` (vars + switch) | Add `InitializeError`, `UsageError`, `WriteError` cases | +13 | 1.5, 1.5b |
+| `internal/output/exporter.go:172` + imports (line 3) | Delete dead code | -2 | 1.6 |
+| `internal/core/errors.go` | New `UsageError` + `CobraUsageError` + 11 `MarshalJSON`s | +95 | 1.7 |
+| `cmd/library_add.go:335, 530, 675, 688` (shift: −20, −19, −18, −18) | Delete inline `FormatError` | -4 | 2.1-2.4 |
+| `cmd/library_validate.go:154, 162` (shift: −28) | Delete inline `FormatError` | -2 | 2.5-2.6 |
 | `cmd/validate.go:123` | Delete inline `FormatError` | -1 | 2.7 |
-| `cmd/init.go:218,222,258` | Delete inline `FormatError` | -3 | 2.8-2.10 |
-| `cmd/library_add.go:546-549,703-706` | Lift typed cause into `BatchFailureInfo.Cause` | +0 / +6 | 3.11 |
+| `cmd/init.go:202, 206, 242` (shift: −16) | Delete inline `FormatError` | -3 | 2.8-2.10 |
+| `cmd/library_add.go:527, 685` (the `opErr := core.NewOperationError(...)` lines above the deleted `FormatError` calls) | Lift typed cause into `BatchFailureInfo.Cause` | +0 / +6 | 3.11 |
 | `cmd/init.go:188-191` | Drop redundant `NotFoundError` translation | -3 | 3.17 |
-| `internal/library/resolver.go:21,26,70` | Lookups → `NotFoundError` (3 sites) | -6 / +9 | 3.1-3.3 |
-| `internal/library/loader.go:36,53` | Lookups → `NotFoundError` (2 sites) | -4 / +6 | 3.4-3.5 |
-| `internal/library/adder.go:146` | Lookups → `NotFoundError` (1 site) | -1 | 3.6 |
-| `internal/library/remover.go:83,88,142` | Lookups → `NotFoundError` (3 sites) | -6 / +9 | 3.7-3.9 |
-| `internal/library/remover.go:104` | Surface `os.IsNotExist` | -2 / +4 | 3.10 |
-| `internal/library/adder.go:526-529` | Extend `BatchFailureInfo` | +4 | 3.11 |
-| `internal/library/adder.go:647-651,664-668,682-686,700-704,764-768` | Populate new fields via typed switch | +5 sites × 2 lines | 3.11 |
-| `cmd/library_create.go:70,203` | Migrate `errEmptyResources` | -1 / +2 | 3.12 |
+| `internal/library/resolver.go:21, 26, 62` (third site shift: −8) | Lookups → `NotFoundError` (3 sites) | -6 / +9 | 3.1-3.3 |
+| `internal/library/loader.go:36, 53` | Lookups → `NotFoundError` (2 sites) | -4 / +6 | 3.4-3.5 |
+| `internal/library/adder.go:157` (shift: +11) | Lookups → `NotFoundError` (1 site) | -1 | 3.6 |
+| `internal/library/remover.go:82, 87, 140` (shift: −1, −1, −2) | Lookups → `NotFoundError` (3 sites) | -6 / +9 | 3.7-3.9 |
+| `internal/library/remover.go:103` (shift: −1) | Surface `os.ErrNotExist` (was silent `os.IsNotExist` swallow) | -2 / +4 | 3.10 |
+| `internal/library/adder.go:541-544` (shift: +16) | Extend `BatchFailureInfo` (struct) | +4 | 3.11 |
+| `internal/library/adder.go:667, 684, 702, 720, 784` (shift: +20) | Populate new fields via typed switch (`errorTypeName` helper) | +5 sites × 2 lines | 3.11 |
+| `cmd/library_create.go:68, 173` (shift: −2, −30) | Migrate `errEmptyResources` | -1 / +2 | 3.12 |
 | `internal/config/errors.go` (new) | `WriteError` domain type | +25 | 4.1 |
 | `internal/config/scaffold.go` (new) | `WriteDefault` helper (returns `*config.WriteError`) | +30 | 4.1 |
-| `cmd/config_init.go:144-156` | Use new helper | -12 | 4.2 |
+| `cmd/config_init.go:144-158` (range) | Use new helper | -12 | 4.2 |
 | `cmd/canonicalize.go:96` | Keep `MarkFlagRequired("type")` unchanged | 0 | 4.4 |
-| `cmd/canonicalize.go` `runCanonicalize` | Add `core.ValidateDocumentType` defense-in-depth | +5 | 4.4 |
-| `cmd/library_init.go:161-165` | Set `InitRequest.Stdout` field | +1 | 4.5 |
-| `cmd/library.go:11`, `cmd/resources.go:48`, `cmd/library_test.go:30,52,76,95`, `cmd/root.go:35` | **Deferred** — `runF` parameter removal deferred to follow-up change. No edits in this PR. | 0 | — |
+| `cmd/canonicalize.go` `runCanonicalize` | Add `core.ValidateDocumentType` defense-in-depth pre-flight | +5 | 4.4 |
+| `internal/core/rules.go` | New `ValidateDocumentType(docType) error` helper | +12 | 4.4a |
+| `cmd/library_init.go:161-165` | **NO-OP per Phase 0 reconciliation** — `InitRequest.Stdout` field does not exist; `library.Init(ctx, req, stdout)` already takes `stdout` as a separate parameter, and `cmd/library_init.go:162-166` already passes `opts.IO.Out` correctly. No code change required. | 0 | 4.5 |
+| `cmd/show.go:138, 142, 172` (migration) + new `internal/library/resolver.go` helpers `ResolveResourceEntry`, `ResolvePresetEntry` | Migrate lookup branches from cmd layer to resolver | +0 / +20 | 3.20 |
+| `cmd/library.go:11`, `cmd/resources.go:48`, `cmd/library_test.go:30,52,76,95`, `cmd/root.go:35` | **Deferred** — `runF` parameter removal deferred to follow-up change. No edits in this PR. | 0 | 4.3 |
 | `internal/warning/canary.go` | **Delete file** (canary removal) | -50 | 1.7a |
 | `internal/warning/canary_test.go` | **Delete file** (canary removal) | -180 | 1.7a |
-| `internal/warning/AGENTS.md` | **Delete or shrink** (canary removal) | -20 | 1.7a |
-| `main.go:51-53` | **Delete canary call block** (canary removal) | -3 | 1.7a |
-| `main.go` imports | Remove `internal/warning` import | -1 | 1.7a |
+| `internal/warning/AGENTS.md` | **Delete file** (canary removal) | -20 | 1.7a |
+| `main.go:47-53` (the canary call block) | **Delete canary call block** (canary removal) | -7 | 1.7a |
+| `main.go` imports | Remove `internal/warning` import (line 16) | -1 | 1.7a |
 
 ### Affected systems
 

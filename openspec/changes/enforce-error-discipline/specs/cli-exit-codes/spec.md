@@ -36,7 +36,7 @@ The `cmdutil.ExitCodeFor(err error) ExitCode` function SHALL map an error to an 
 
 **Change**: corrected the `NotFoundError` mapping (1 instead of 2); added `UsageError` and `CobraUsageError` mappings; replaced substring matching with `errors.As`-based typed dispatch against `*pflag.{NotExist,ValueRequired,InvalidValue,InvalidSyntax}Error` plus the new `*core.CobraUsageError` sentinel. The prior mapping was semantically wrong per the 2026-07-08 review.
 
-The four `*pflag.*Error` types are verified stable in pflag `v1.0.10` (`pflag/errors.go:21-149`); if a future pflag version drops or renames any of them, dispatch falls through to `ExitCodeError` (1) and the corresponding test row in `internal/cmdutil/exit_test.go` fails fast.
+The four `*pflag.*Error` types are verified stable in pflag `v1.0.10` (`pflag/errors.go:21-149`); if a future pflag version drops or renames any of them, dispatch falls through to `ExitCodeError` (1) and the corresponding test row in `internal/cmdutil/exit_test.go` fails fast. Note: a fourth `*pflag.InvalidValueError` row is added to `exit_test.go` in Phase 1.4 (alongside the existing `NotExistError`, `ValueRequiredError`, and `InvalidSyntaxError` rows at lines 50-52) to widen coverage to all four pflag types.
 
 #### Scenario: ExitCodeFor table-driven
 

@@ -81,7 +81,7 @@ The dispatch ordering matches the order above (full canonical order: Parse, Vali
 
 ### Requirement: InitializeError dispatch table member
 
-`output.FormatError` SHALL dispatch on `*core.InitializeError` and render the user-facing message to stderr. The pre-change switch missed this case; the case is added in `internal/output/errors.go:21-50` per change `enforce-error-discipline`.
+`output.FormatError` SHALL dispatch on `*core.InitializeError` and render the user-facing message to stderr. The pre-change switch missed this case; the case is added in `internal/output/errors.go` per change `enforce-error-discipline` (the switch spans lines 31-50; the new `case *core.InitializeError` arm sits after `OperationError` and before the generic-error fallback).
 
 #### Scenario: InitializeError renders to stderr via dispatch
 

@@ -10,9 +10,9 @@ None.
 
 ### Requirement: BatchFailureInfo carries typed-error chain
 
-The `BatchFailureInfo` struct declared in `internal/library/adder.go:525-529` SHALL expose `ErrorType` and `Cause` fields in addition to the existing `Source` and `Error` fields. The new fields preserve the typed-error chain so downstream code can use `errors.Is` / `errors.As` against the original error rather than matching the stringified `Error` field.
+The `BatchFailureInfo` struct declared in `internal/library/adder.go:541-544` SHALL expose `ErrorType` and `Cause` fields in addition to the existing `Source` and `Error` fields. The new fields preserve the typed-error chain so downstream code can use `errors.Is` / `errors.As` against the original error rather than matching the stringified `Error` field.
 
-**Change**: NEW requirement. The pre-change `BatchFailureInfo` had only `Source string` and `Error string` fields; the new fields are added in change `enforce-error-discipline` to fix the typed-error chain loss in the prior `opErr := core.NewOperationError("add", f.Source, errors.New(f.Error))` pattern at `cmd/library_add.go:546-549` and `cmd/library_add.go:703-706` (which discarded the typed cause).
+**Change**: NEW requirement. The pre-change `BatchFailureInfo` had only `Source string` and `Error string` fields; the new fields are added in change `enforce-error-discipline` to fix the typed-error chain loss in the prior `opErr := core.NewOperationError("add", f.Source, errors.New(f.Error))` pattern at `cmd/library_add.go:527` (`runAddBatchFiles` failure path) and `cmd/library_add.go:685` (`collectDiscoverFailures` batch failure path) — which discarded the typed cause.
 
 #### Scenario: BatchFailureInfo has four fields
 
@@ -26,7 +26,7 @@ The `BatchFailureInfo` struct declared in `internal/library/adder.go:525-529` SH
 #### Scenario: ErrorType is the type name of the cause
 
 - **WHEN** a `BatchFailureInfo` is built from a typed error (e.g., `*gerrors.NotFoundError`)
-- **THEN** `ErrorType` SHALL be the canonical name of the cause's type, computed via a typed switch in `internal/library/adder.go` (e.g., `*gerrors.NotFoundError` → `"NotFoundError"`, `*gerrors.FileError` → `"FileError"`, `*gerrors.ValidationError` → `"ValidationError"`, `*gerrors.ParseError` → `"ParseError"`, `*gerrors.ConfigError` → `"ConfigError"`, `*gerrors.OperationError` → `"OperationError"`, `*gerrors.InitializeError` → `"InitializeError"`, `*gerrors.PartialSuccessError` → `"PartialSuccessError"`, `*os.PathError` → `"PathError"`, default → `fmt.Sprintf("%T", cause)`)
+- **THEN** `ErrorType` SHALL be the canonical name of the cause's type, computed via a typed switch in `internal/library/adder.go` (e.g., `*gerrors.NotFoundError` → `"NotFoundError"`, `*gerrors.FileError` → `"FileError"`, `*gerrors.ValidationError` → `"ValidationError"`, `*gerrors.ParseError` → `"ParseError"`, `*gerrors.ConfigError` → `"ConfigError"`, `*gerrors.OperationError` → `"OperationError"`, `*gerrors.InitializeError` → `"InitializeError"`, `*gerrors.PartialSuccessError` → `"PartialSuccessError"`, `*gerrors.UsageError` → `"UsageError"`, `*gerrors.CobraUsageError` → `"CobraUsageError"`, `*os.PathError` → `"PathError"`, default → `fmt.Sprintf("%T", cause)`)
 - **AND** `Cause` SHALL be the original typed error
 - **AND** when `Cause` is nil, `ErrorType` SHALL be the empty string
 
@@ -52,7 +52,7 @@ The `BatchFailureInfo` struct declared in `internal/library/adder.go:525-529` SH
 #### Scenario: Population sites cover all BatchFailureInfo literals
 
 - **WHEN** the change `enforce-error-discipline` lands
-- **THEN** every `BatchFailureInfo{...}` literal at `internal/library/adder.go:647-651, 664-668, 682-686, 700-704, 764-768` SHALL populate `ErrorType` (via the typed switch in `adder.go`) and `Cause` (when the cause is known) in addition to `Source` and `Error`
+- **THEN** every `BatchFailureInfo{...}` literal at `internal/library/adder.go:667, :684, :702, :720, :784` SHALL populate `ErrorType` (via the typed switch in `adder.go`) and `Cause` (when the cause is known) in addition to `Source` and `Error`
 
 ### Requirement: BatchFailureInfo JSON wire-format compatibility
 

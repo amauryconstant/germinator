@@ -135,9 +135,9 @@ Each `MarshalJSON()` SHALL return the JSON bytes `{"error": "<Error()>"}`.
 
 The system SHALL provide a `NotFoundError` type for missing-entity lookups (library refs, presets, library.yaml, source files, library files). It carries `Entity` and `Key` as exported fields and maps to exit code 1 (operational error) via `cmdutil.ExitCodeFor`.
 
-**Change**: clarify that `NotFoundError` maps to `ExitCodeError` (1), not `ExitCodeUsage` (2). The prior mapping (2) was semantically wrong per the 2026-07-08 review: "not found" is a runtime state, not a user-input validation error. The change `enforce-error-discipline` updates `internal/cmdutil/exit.go:73` and `internal/cmdutil/exit_test.go:58` accordingly.
+**Change**: clarify that `NotFoundError` maps to `ExitCodeError` (1), not `ExitCodeUsage` (2). The prior mapping (2) was semantically wrong per the 2026-07-08 review: "not found" is a runtime state, not a user-input validation error. The change `enforce-error-discipline` updates `internal/cmdutil/exit.go:73-74` and `internal/cmdutil/exit_test.go:58` accordingly.
 
-The migration also widens the type swap from `cmd/library_add.go` lookup branches to all 7 production sites: `internal/library/resolver.go:21,26,70`, `internal/library/loader.go:36,53`, `internal/library/adder.go:146`, `internal/library/remover.go:83,88,142`.
+The migration also widens the type swap from `cmd/library_add.go` lookup branches to all 9 production sites: `internal/library/resolver.go:21, 26, 62`, `internal/library/loader.go:36, 53`, `internal/library/adder.go:157`, `internal/library/remover.go:82, 87, 140`.
 
 #### Scenario: NewNotFoundError constructor
 
