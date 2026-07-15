@@ -1282,7 +1282,9 @@ func TestBatchAddResources_CtxCancel_PopulatesTypedCause(t *testing.T) {
 		// we drive processBatchAddFile directly to exercise the
 		// wrapping at the population site.
 		result := &BatchAddResult{}
-		err := processBatchAddFile(ctx, srcFile, BatchAddOptions{
+		lib, err := LoadLibrary(context.Background(), libDir)
+		require.NoError(t, err)
+		err = processBatchAddFile(ctx, lib, srcFile, &BatchAddOptions{
 			LibraryPath: libDir,
 		}, result, Orphan{})
 		require.Error(t, err)

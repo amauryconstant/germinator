@@ -50,10 +50,9 @@ type removeOptions struct {
 // mutation so the JSON / table payloads can be rendered after the
 // call returns.
 //
-// Unlike the slice-6 resourceAdder / libraryAdapter pattern, no
-// stateless adapter shim is needed: RemoveResource and RemovePreset
-// are real methods on *Library (introduced in 7.0), so
-// *library.Library satisfies removerLibrary directly.
+// RemoveResource and RemovePreset are real methods on *Library
+// (introduced in slice 7.0), so *library.Library satisfies
+// removerLibrary directly with no adapter shim.
 type removerLibrary interface {
 	RemoveResource(ctx context.Context, req *library.RemoveResourceRequest) error
 	RemovePreset(ctx context.Context, req *library.RemovePresetRequest) error

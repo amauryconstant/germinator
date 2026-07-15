@@ -34,10 +34,8 @@ type refreshOptions struct {
 // (mirroring the slice-6 (*Library).CreatePreset precedent at
 // internal/library/creator.go:176).
 //
-// Unlike the slice-6 resourceAdder / libraryAdapter pattern (which
-// wraps stateless package functions into a method-bearing wrapper),
 // refresherLibrary is satisfied directly by *library.Library because
-// Refresh is now a method on *Library. This removes the need for a
+// Refresh is a method on *Library. This removes the need for a
 // stateless adapter and keeps the cmd layer free of indirection.
 type refresherLibrary interface {
 	Refresh(ctx context.Context, req *library.RefreshRequest) (*library.RefreshResult, error)

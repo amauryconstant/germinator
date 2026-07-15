@@ -557,6 +557,268 @@ func TestInit_CtxCancelled(t *testing.T) {
 	assert.ErrorIs(t, err, context.Canceled)
 }
 
+func TestLibrary_Add(t *testing.T) {
+	tests := []struct {
+		name     string
+		prepare  func(t *testing.T, libDir string)
+		req      *AddRequest
+		wantErr  bool
+		errMatch string
+	}{
+		{
+			name: "success: writes file and updates lib.Resources",
+			prepare: func(t *testing.T, libDir string) {
+				createTestLibrary(t, libDir)
+			},
+			req:     &AddRequest{Name: "added", Type: "skill"},
+			wantErr: false,
+		},
+		{
+			name:    "error: nil request",
+			prepare: func(_ *testing.T, _ string) {},
+			req:     nil,
+			wantErr: true,
+		},
+		{
+			name:    "error: empty RootPath",
+			prepare: func(_ *testing.T, _ string) {},
+			req:     &AddRequest{Name: "x", Type: "skill"},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			libDir := t.TempDir()
+			tt.prepare(t, libDir)
+
+			// Build a real source file for the happy path.
+			if tt.name == "success: writes file and updates lib.Resources" {
+				srcDir := t.TempDir()
+				src := filepath.Join(srcDir, "skill-added.md")
+				body := "---\nname: added\ndescription: added skill\ntype: skill\ntools:\n  - bash\n---\n# Added\n"
+				if err := os.WriteFile(src, []byte(body), 0o600); err != nil {
+					t.Fatalf("write src: %v", err)
+				}
+				tt.req.Source = src
+				tt.req.LibraryPath = libDir
+			}
+
+			if tt.name == "error: empty RootPath" {
+				err := (&Library{}).Add(context.Background(), tt.req)
+				if err == nil {
+					t.Fatal("expected error from empty RootPath, got nil")
+				}
+				return
+			}
+			if tt.name == "error: nil request" {
+				lib := &Library{RootPath: t.TempDir()}
+				err := lib.Add(context.Background(), nil)
+				if err == nil {
+					t.Fatal("expected error from nil request, got nil")
+				}
+				return
+			}
+
+			lib, err := LoadLibrary(context.Background(), libDir)
+			if err != nil {
+				t.Fatalf("LoadLibrary: %v", err)
+			}
+			if addErr := lib.Add(context.Background(), tt.req); (addErr != nil) != tt.wantErr {
+				t.Fatalf("Add() error = %v, wantErr %v", addErr, tt.wantErr)
+			}
+			if tt.wantErr {
+				return
+			}
+			if _, exists := lib.Resources["skill"]["added"]; !exists {
+				t.Error("lib.Resources must contain skill/added after Add")
+			}
+		})
+	}
+}
+
+func TestLibrary_Add_CtxCancelled(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	lib := &Library{RootPath: t.TempDir()}
+	err := lib.Add(ctx, &AddRequest{Name: "x", Type: "skill"})
+	require.Error(t, err)
+	assert.ErrorIs(t, err, context.Canceled)
+}
+
+func TestLibrary_BatchAddResources(t *testing.T) {
+	tests := []struct {
+		name      string
+		prepare   func(t *testing.T, libDir string) []string
+		opts      func(libDir string, sources []string) *BatchAddOptions
+		wantErr   bool
+		errMatch  string
+		wantAdded int
+	}{
+		{
+			name: "success: registers valid sources",
+			prepare: func(t *testing.T, libDir string) []string {
+				createTestLibrary(t, libDir)
+				srcDir := t.TempDir()
+				var sources []string
+				for _, name := range []string{"ba1", "ba2"} {
+					p := filepath.Join(srcDir, "skill-"+name+".md")
+					body := "---\nname: " + name + "\ndescription: " + name + "\ntype: skill\ntools:\n  - bash\n---\n# " + name + "\n"
+					if err := os.WriteFile(p, []byte(body), 0o600); err != nil {
+						t.Fatalf("write src: %v", err)
+					}
+					sources = append(sources, p)
+				}
+				return sources
+			},
+			opts:      func(libDir string, sources []string) *BatchAddOptions { return &BatchAddOptions{Sources: sources, LibraryPath: libDir} },
+			wantAdded: 2,
+		},
+		{
+			name:    "error: nil options",
+			prepare: func(_ *testing.T, _ string) []string { return nil },
+			opts:    func(_ string, _ []string) *BatchAddOptions { return nil },
+			wantErr: true,
+		},
+		{
+			name:    "error: empty RootPath",
+			prepare: func(_ *testing.T, _ string) []string { return nil },
+			opts:    func(_ string, _ []string) *BatchAddOptions { return &BatchAddOptions{} },
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			libDir := t.TempDir()
+			sources := tt.prepare(t, libDir)
+			opts := tt.opts(libDir, sources)
+
+			if tt.name == "error: empty RootPath" {
+				_, err := (&Library{}).BatchAddResources(context.Background(), opts)
+				if err == nil {
+					t.Fatal("expected error from empty RootPath, got nil")
+				}
+				return
+			}
+			if tt.name == "error: nil options" {
+				lib := &Library{RootPath: t.TempDir()}
+				_, err := lib.BatchAddResources(context.Background(), nil)
+				if err == nil {
+					t.Fatal("expected error from nil options, got nil")
+				}
+				return
+			}
+
+			lib, err := LoadLibrary(context.Background(), libDir)
+			if err != nil {
+				t.Fatalf("LoadLibrary: %v", err)
+			}
+			result, batchErr := lib.BatchAddResources(context.Background(), opts)
+			if (batchErr != nil) != tt.wantErr {
+				t.Fatalf("BatchAddResources() error = %v, wantErr %v", batchErr, tt.wantErr)
+			}
+			if tt.wantErr {
+				return
+			}
+			if result == nil {
+				t.Fatal("expected non-nil result")
+			}
+			if result.Summary.Added != tt.wantAdded {
+				t.Errorf("Summary.Added = %d, want %d", result.Summary.Added, tt.wantAdded)
+			}
+		})
+	}
+}
+
+func TestLibrary_BatchAddResources_CtxCancelled(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	lib := &Library{RootPath: t.TempDir()}
+	_, err := lib.BatchAddResources(ctx, &BatchAddOptions{})
+	require.Error(t, err)
+	assert.ErrorIs(t, err, context.Canceled)
+}
+
+func TestLibrary_DiscoverOrphans(t *testing.T) {
+	tests := []struct {
+		name      string
+		prepare   func(t *testing.T, libDir string)
+		opts      *DiscoverOptions
+		wantErr   bool
+		wantOrph  int
+	}{
+		{
+			name: "success: empty library, no orphans",
+			prepare: func(t *testing.T, libDir string) {
+				createTestLibrary(t, libDir)
+			},
+			opts:    &DiscoverOptions{},
+			wantOrph: 0,
+		},
+		{
+			name:    "error: nil options",
+			prepare: func(_ *testing.T, _ string) {},
+			opts:    nil,
+			wantErr: true,
+		},
+		{
+			name:    "error: empty RootPath",
+			prepare: func(_ *testing.T, _ string) {},
+			opts:    &DiscoverOptions{},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			libDir := t.TempDir()
+			tt.prepare(t, libDir)
+
+			if tt.name == "error: empty RootPath" {
+				_, err := (&Library{}).DiscoverOrphans(context.Background(), tt.opts)
+				if err == nil {
+					t.Fatal("expected error from empty RootPath, got nil")
+				}
+				return
+			}
+			if tt.name == "error: nil options" {
+				lib := &Library{RootPath: t.TempDir()}
+				_, err := lib.DiscoverOrphans(context.Background(), nil)
+				if err == nil {
+					t.Fatal("expected error from nil options, got nil")
+				}
+				return
+			}
+
+			lib, err := LoadLibrary(context.Background(), libDir)
+			if err != nil {
+				t.Fatalf("LoadLibrary: %v", err)
+			}
+			tt.opts.LibraryPath = libDir
+			result, discErr := lib.DiscoverOrphans(context.Background(), tt.opts)
+			if (discErr != nil) != tt.wantErr {
+				t.Fatalf("DiscoverOrphans() error = %v, wantErr %v", discErr, tt.wantErr)
+			}
+			if tt.wantErr {
+				return
+			}
+			if len(result.Orphans) != tt.wantOrph {
+				t.Errorf("len(Orphans) = %d, want %d", len(result.Orphans), tt.wantOrph)
+			}
+		})
+	}
+}
+
+func TestLibrary_DiscoverOrphans_CtxCancelled(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	lib := &Library{RootPath: t.TempDir()}
+	_, err := lib.DiscoverOrphans(ctx, &DiscoverOptions{})
+	require.Error(t, err)
+	assert.ErrorIs(t, err, context.Canceled)
+}
+
 // stringSlicesEqualUnordered reports whether two string slices contain
 // the same elements regardless of order. Used by the Unchanged test
 // to avoid being order-sensitive (lib.Resources iteration order is

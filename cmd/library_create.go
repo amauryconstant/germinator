@@ -34,14 +34,11 @@ type createPresetOptions struct {
 
 // presetWriter is the cmd-side contract for preset creation. It is
 // intentionally distinct from `Library` (which would shadow the
-// library.Library struct) and from the slice-6 resourceAdder
-// interface. The method signature matches the (*library.Library).CreatePreset
-// method introduced in this slice.
+// library.Library struct). The method signature matches the
+// (*library.Library).CreatePreset method introduced in slice 6.
 //
-// Unlike the slice-6 resourceAdder / libraryAdapter pattern (which
-// wraps stateless package functions into a method-bearing wrapper),
 // presetWriter is satisfied directly by *library.Library because
-// CreatePreset is now a method on *Library (mirroring the slice-5
+// CreatePreset is a method on *Library (mirroring the slice-5
 // ResolvePreset dual form). This removes the need for a stateless
 // adapter and keeps the cmd layer free of indirection.
 type presetWriter interface {

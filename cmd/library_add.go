@@ -21,10 +21,14 @@ import (
 // IO, Library (lazy: built inline in RunE via cmdutil.OnceValuesFunc),
 // and Ctx come from the Factory; the rest come from parsed flags.
 //
-// runAdd wraps the loaded *library.Library in a *libraryAdapter (a
-// small private type) so the resourceAdder interface — declared
-// below — governs the per-call contract for discovery + registration.
-// tests can substitute the Lazy loader to inject a fake library.
+// Adder is the per-options test-injection seam for the resource-
+// adding operations (Add / BatchAddResources / DiscoverOrphans). In
+// production it is set to the loaded *library.Library (which satisfies
+// the adderLibrary interface via the slice-8 extract-io-adapters
+// stage-2 work that converted the package-level functions to methods
+// on *library.Library). Tests substitute a thin test-local stub that
+// records the call and short-circuits the real body so library.yaml
+// is not mutated.
 //
 // Three modes are dispatched on by runAdd:
 //   - Mode 1 (explicit files): opts.InputPaths populated
@@ -33,6 +37,7 @@ import (
 type addOptions struct {
 	IO              *iostreams.IOStreams
 	Library         func() (*library.Library, error)
+	Adder           adderLibrary
 	Ctx             context.Context
 	InputPaths      []string
 	Name            string
@@ -47,75 +52,30 @@ type addOptions struct {
 	CompletionCache *cmdutil.CompletionCache
 }
 
-// resourceAdder is the cmd-side contract for resource-adding
-// operations. It is intentionally distinct from `Library` (which would
-// shadow the library.Library struct). Methods match the public
-// library.* types (Decision 6 renames) so a future slice that converts
-// the package functions to methods on *library.Library will allow the
-// compile-time check against the concrete type instead of the adapter.
+// adderLibrary is the cmd-side contract for resource-adding
+// operations. Methods match the slice-8 (*library.Library) method
+// forms exactly so *library.Library satisfies the contract via the
+// compile-time check below. Naming uses the "library" suffix to
+// disambiguate from the library.Library struct (matching the
+// slice-7 removerLibrary / validatorLibrary precedent).
 //
-// The interface is satisfied by *libraryAdapter (a private wrapper
-// around *library.Library that delegates to the package-level
-// functions) because the library package's functions are currently
-// package-level rather than methods on *Library — converting them is
-// out of scope for slice 6.
-//
-// Note: the writer discipline (Stdout io.Writer on AddRequest /
-// BatchAddOptions) is plumbed through as a struct field, not a
-// positional parameter, so this interface signature does not need a
-// change to forward the writer — *libraryAdapter.AddResource and
-// *libraryAdapter.BatchAddResources already pass the full req / opts
-// struct to the underlying package-level functions, and the new
-// Stdout field flows through automatically.
-type resourceAdder interface {
-	AddResource(ctx context.Context, req *library.AddRequest) error
-	DiscoverOrphans(ctx context.Context, opts library.DiscoverOptions) (*library.DiscoverResult, error)
-	BatchAddResources(ctx context.Context, opts library.BatchAddOptions) (*library.BatchAddResult, error)
+// The writer discipline (Stdout io.Writer on AddRequest /
+// BatchAddOptions) is plumbed through as a struct field on the
+// request, not a positional parameter, so this interface signature
+// forwards the writer through the method call without extra wiring.
+type adderLibrary interface {
+	Add(ctx context.Context, req *library.AddRequest) error
+	BatchAddResources(ctx context.Context, opts *library.BatchAddOptions) (*library.BatchAddResult, error)
+	DiscoverOrphans(ctx context.Context, opts *library.DiscoverOptions) (*library.DiscoverResult, error)
 }
 
-// libraryAdapter is a stateless wrapper that exposes the library's
-// package-level adder functions as interface methods so command-side
-// code can depend on the resourceAdder contract rather than the
-// package surface directly. The methods are thin pass-throughs that
-// retain the canonical ctx -> request -> error signature, so a future
-// slice that converts these to methods on *library.Library is a
-// mechanical rename.
-type libraryAdapter struct{}
-
-// AddResource delegates to library.AddResource. The returned error is
-// a typed *core.*Error (Phase 2 thread guarantees the cause is
-// typed); errors.As traverses via the typed-error chain without an
-// extra %w wrap prefix, so the wrap is noise (Phase 3.19).
-func (a *libraryAdapter) AddResource(ctx context.Context, req *library.AddRequest) error {
-	return library.AddResource(ctx, *req) //nolint:wrapcheck // typed-error chain traversal (Phase 3.19)
-}
-
-// DiscoverOrphans delegates to library.DiscoverOrphans. The returned
-// error is a typed *core.*Error; see AddResource for rationale
-// (Phase 3.19).
-func (a *libraryAdapter) DiscoverOrphans(ctx context.Context, opts library.DiscoverOptions) (*library.DiscoverResult, error) {
-	return library.DiscoverOrphans(ctx, opts) //nolint:wrapcheck // typed-error chain traversal (Phase 3.19)
-}
-
-// BatchAddResources delegates to library.BatchAddResources. The
-// returned error is a typed *core.*Error; see AddResource for
-// rationale (Phase 3.19).
-func (a *libraryAdapter) BatchAddResources(ctx context.Context, opts library.BatchAddOptions) (*library.BatchAddResult, error) {
-	return library.BatchAddResources(ctx, opts) //nolint:wrapcheck // typed-error chain traversal (Phase 3.19)
-}
-
-// Compile-time confirmation that libraryAdapter satisfies the
-// resourceAdder contract. If either side changes (interface or
-// adapter methods), the build fails immediately. Note: the
-// libraryAdapter type IS used at runtime via defaultAdder, so no
-// suppression directive is required (and any empty one would itself
-// be flagged by the linter).
-var _ resourceAdder = (*libraryAdapter)(nil)
-
-// defaultAdder is the production resourceAdder. Tests may inject
-// alternative implementations via constructor parameters when those
-// land in subsequent slices.
-var defaultAdder resourceAdder = &libraryAdapter{}
+// Compile-time confirmation that *library.Library satisfies the
+// adderLibrary contract. If either side changes (interface or
+// concrete method signatures), the build fails immediately.
+// *library.Library is the sole production implementation; the
+// check runs at package init and is the same one exercised at
+// runtime by the opts.Adder = lib wiring inside NewCmdAdd.
+var _ adderLibrary = (*library.Library)(nil)
 
 // NewCmdAdd creates the `library add` command via the canonical
 // NewCmdXxx(f, libraryPath, runF) pattern. Migrated in slice 6.
@@ -202,6 +162,9 @@ Other examples:
 			opts.Library = cmdutil.OnceValuesFunc(func() (*library.Library, error) {
 				return library.LoadLibrary(c.Context(), resolved)
 			})
+			// opts.Adder is the test-injection seam; production
+			// leaves it nil and each runAdd* mode falls back to
+			// opts.Library() after loading.
 
 			if runF != nil {
 				return runF(opts)
@@ -264,13 +227,13 @@ func runAdd(opts *addOptions) error {
 }
 
 // runAddExplicit executes Mode 1: one or more explicit input paths.
-// For each path it calls library.AddResource (via the resourceAdder
-// interface) and aggregates failures into a
-// *core.PartialSuccessError. The full success path ("Added: <ref>")
-// is written to opts.IO.Out; per-file failures are accumulated into
-// initErrs and bubble up to main.go where output.FormatError
-// renders the returned *core.PartialSuccessError once (single-
-// handling rule per cmd/AGENTS.md).
+// For each path it calls adderLibrary.Add (the slice-8 method form on
+// *library.Library, set on opts.Adder by NewCmdAdd) and aggregates
+// failures into a *core.PartialSuccessError. The full success path
+// ("Added: <ref>") is written to opts.IO.Out; per-file failures are
+// accumulated into initErrs and bubble up to main.go where
+// output.FormatError renders the returned *core.PartialSuccessError
+// once (single-handling rule per cmd/AGENTS.md).
 //
 // Pre-flight: core.ValidatePlatform + core.CanInstallResource ensure
 // malformed refs short-circuit before any I/O. The library load is
@@ -305,7 +268,10 @@ func runAddExplicit(opts *addOptions) error {
 	if err != nil {
 		return fmt.Errorf("loading library: %w", err)
 	}
-	adder := defaultAdder
+	adder := opts.Adder
+	if adder == nil {
+		adder = lib
+	}
 
 	succeeded := 0
 	var initErrs []core.InitializeError
@@ -324,7 +290,7 @@ func runAddExplicit(opts *addOptions) error {
 			DryRun:      opts.DryRun,
 			Stdout:      opts.IO.Out,
 		}
-		if addErr := adder.AddResource(opts.Ctx, req); addErr != nil {
+		if addErr := adder.Add(opts.Ctx, req); addErr != nil {
 			opErr := core.NewOperationError("add", path, addErr)
 			initErrs = append(initErrs, *core.NewInitializeError(path, path, "", opErr))
 			continue
@@ -494,9 +460,12 @@ func runAddBatchFiles(opts *addOptions) error {
 	if err != nil {
 		return fmt.Errorf("loading library: %w", err)
 	}
-	adder := defaultAdder
+	adder := opts.Adder
+	if adder == nil {
+		adder = lib
+	}
 
-	batchResult, batchErr := adder.BatchAddResources(opts.Ctx, library.BatchAddOptions{
+	batchOpts := library.BatchAddOptions{
 		Sources:     opts.InputPaths,
 		LibraryPath: lib.RootPath,
 		DryRun:      opts.DryRun,
@@ -506,7 +475,8 @@ func runAddBatchFiles(opts *addOptions) error {
 		Type:        opts.Type,
 		Platform:    opts.Platform,
 		Stdout:      opts.IO.Out,
-	})
+	}
+	batchResult, batchErr := adder.BatchAddResources(opts.Ctx, &batchOpts)
 	if batchErr != nil && batchResult == nil {
 		return fmt.Errorf("batch add: %w", batchErr)
 	}
@@ -580,16 +550,20 @@ func runAddDiscover(opts *addOptions) error {
 	if err != nil {
 		return fmt.Errorf("loading library: %w", err)
 	}
-	adder := defaultAdder
+	adder := opts.Adder
+	if adder == nil {
+		adder = lib
+	}
 
 	opts.IO.Verbosef("scanning library at %s for orphans", lib.RootPath)
 
-	discResult, err := adder.DiscoverOrphans(opts.Ctx, library.DiscoverOptions{
+	discOpts := library.DiscoverOptions{
 		LibraryPath: lib.RootPath,
 		DryRun:      opts.DryRun,
 		Force:       opts.Force,
 		Batch:       opts.Batch,
-	})
+	}
+	discResult, err := adder.DiscoverOrphans(opts.Ctx, &discOpts)
 	if err != nil && discResult == nil {
 		return fmt.Errorf("discovering orphans: %w", err)
 	}
@@ -597,7 +571,7 @@ func runAddDiscover(opts *addOptions) error {
 		discResult = &library.DiscoverResult{}
 	}
 
-	batchResult, err := runDiscoverBatch(opts, adder, lib, discResult)
+	batchResult, err := runDiscoverBatch(opts, adder, discResult)
 	if err != nil && batchResult == nil {
 		return fmt.Errorf("batch add: %w", err)
 	}
@@ -609,12 +583,12 @@ func runAddDiscover(opts *addOptions) error {
 	return renderDiscoverResult(opts, discResult, succeeded, initErrs)
 }
 
-// runDiscoverBatch calls library.BatchAddResources on the discovered
-// orphans when --batch is set. The Sources slice is the orphan Paths
-// (BatchAddResources iterates only over Sources internally); the
-// Orphans slice carries per-path type/name metadata that the batch
-// step uses to skip redundant type detection.
-func runDiscoverBatch(opts *addOptions, adder resourceAdder, _ *library.Library, discResult *library.DiscoverResult) (*library.BatchAddResult, error) {
+// runDiscoverBatch calls adderLibrary.BatchAddResources on the
+// discovered orphans when --batch is set. The Sources slice is the
+// orphan Paths (BatchAddResources iterates only over Sources
+// internally); the Orphans slice carries per-path type/name metadata
+// that the batch step uses to skip redundant type detection.
+func runDiscoverBatch(opts *addOptions, adder adderLibrary, discResult *library.DiscoverResult) (*library.BatchAddResult, error) {
 	if !opts.Batch || len(discResult.Orphans) == 0 {
 		return nil, nil
 	}
@@ -622,17 +596,15 @@ func runDiscoverBatch(opts *addOptions, adder resourceAdder, _ *library.Library,
 	for _, o := range discResult.Orphans {
 		sources = append(sources, o.Path)
 	}
-	// Resolve the library path here (the earlier _ parameter is
-	// unused because the loaded library carries the RootPath through
-	// the adapter; for batch mode we need it explicitly).
-	br, err := adder.BatchAddResources(opts.Ctx, library.BatchAddOptions{
+	batchOpts := library.BatchAddOptions{
 		Sources:     sources,
 		LibraryPath: deriveLibraryPath(opts),
 		DryRun:      opts.DryRun,
 		Force:       opts.Force,
 		Orphans:     discResult.Orphans,
 		Stdout:      opts.IO.Out,
-	})
+	}
+	br, err := adder.BatchAddResources(opts.Ctx, &batchOpts)
 	if err != nil {
 		return nil, fmt.Errorf("batch add: %w", err)
 	}

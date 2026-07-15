@@ -47,37 +47,18 @@ type AddRequest struct {
 }
 
 // AddResource adds a resource from a source file to the library.
-// The source must already be in canonical format (canonicalization should be done by caller).
-// It handles type detection, name detection, description detection, and library.yaml updates.
-// The provided ctx is checked before each file I/O operation; on
-// cancellation, the function returns wrapped ctx.Err() so the caller can
-// distinguish a cancelled write from a regular library error.
+// It is a thin loader that resolves opts.LibraryPath into a *Library
+// and delegates to (*Library).Add, the canonical method form. The
+// dual-form convention matches the slice-7 Refresh / RemoveResource /
+// RemovePreset / Validate / Fix precedent: callers that already hold a
+// *Library use the method directly; callers that have only a path use
+// this package-level function.
+//
+// The provided ctx is checked at entry so caller-supplied
+// cancellation is honored before any I/O. On error the method
+// returns a typed *core.*Error wrapped in fmt.Errorf so the chain
+// remains errors.Is / errors.As traversable (Phase 3.19).
 func AddResource(ctx context.Context, opts AddRequest) error {
-	if err := ctx.Err(); err != nil {
-		return fmt.Errorf("adding resource: %w", err)
-	}
-
-	// Validate source file exists
-	if err := validateSourceExists(opts.Source); err != nil {
-		return err
-	}
-
-	// Detect resource type
-	docType, err := detectType(opts.Source, opts.Type)
-	if err != nil {
-		return err
-	}
-
-	// Detect resource name
-	name, err := detectName(opts.Source, opts.Name)
-	if err != nil {
-		return err
-	}
-
-	// Detect resource description
-	description := detectDescription(opts.Source, opts.Description)
-
-	// Load the library
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("adding resource: %w", err)
 	}
@@ -85,67 +66,9 @@ func AddResource(ctx context.Context, opts AddRequest) error {
 	if err != nil {
 		return fmt.Errorf("loading library: %w", err)
 	}
-
-	// Check for existing resource
-	resourceKey := FormatRef(docType, name)
-	existingTypeMap, typeExists := lib.Resources[docType]
-	_, nameExists := existingTypeMap[name]
-	if typeExists && nameExists && !opts.Force {
-		return core.NewFileError(opts.LibraryPath, "add", fmt.Sprintf("resource %s already exists (use --force to overwrite)", resourceKey), nil)
+	if addErr := lib.Add(ctx, &opts); addErr != nil {
+		return fmt.Errorf("adding resource: %w", addErr)
 	}
-
-	// Dry-run mode - report what would happen
-	if opts.DryRun {
-		if opts.Stdout != nil {
-			_, _ = fmt.Fprintln(opts.Stdout, "Would add resource:", resourceKey)
-			_, _ = fmt.Fprintln(opts.Stdout, "  Type:", docType)
-			_, _ = fmt.Fprintln(opts.Stdout, "  Name:", name)
-			_, _ = fmt.Fprintln(opts.Stdout, "  Description:", description)
-			_, _ = fmt.Fprintln(opts.Stdout, "  Source:", opts.Source)
-		}
-		return nil
-	}
-
-	// Determine target path
-	targetDir := filepath.Join(opts.LibraryPath, docType+"s")
-	targetFile := filepath.Join(targetDir, name+".md")
-
-	// Ensure directory exists.
-	// Unix permission bits (0o750) are no-ops on Windows; Windows
-	// support is out of scope.
-	if err := os.MkdirAll(targetDir, 0o750); err != nil {
-		return core.NewFileError(targetDir, "create", "failed to create resource directory", err)
-	}
-
-	if err := ctx.Err(); err != nil {
-		return fmt.Errorf("adding resource: %w", err)
-	}
-
-	// Read source content
-	content, err := os.ReadFile(opts.Source) //nolint:gosec,nolintlint // G304: User provides source path, must read user documents
-	if err != nil {
-		return core.NewFileError(opts.Source, "read", "failed to read source file", err)
-	}
-
-	if err := ctx.Err(); err != nil {
-		return fmt.Errorf("adding resource: %w", err)
-	}
-
-	// Write to target path
-	if err := os.WriteFile(targetFile, content, 0o644); err != nil { //nolint:gosec // G302: Creating new file with standard permissions
-		return core.NewFileError(targetFile, "write", "failed to write resource file", err)
-	}
-
-	// Update library.yaml
-	if err := addResourceToLibrary(opts.LibraryPath, docType, name, targetFile, description); err != nil {
-		return fmt.Errorf("updating library.yaml: %w", err)
-	}
-
-	// Validate the updated library
-	if _, err := LoadLibrary(ctx, opts.LibraryPath); err != nil {
-		return fmt.Errorf("validating updated library: %w", err)
-	}
-
 	return nil
 }
 
@@ -572,50 +495,28 @@ type BatchAddOptions struct {
 }
 
 // BatchAddResources adds multiple resources to the library in batch mode.
-// It processes all sources sequentially, collecting results by category
-// (added/skipped/failed). The provided ctx is checked between files in the
-// inner loop; on cancellation the partial BatchAddResult is returned
-// alongside wrapped ctx.Err() so callers can inspect successes/failures
-// observed up to the cancel point.
+// It is a thin loader that resolves opts.LibraryPath into a *Library
+// and delegates to (*Library).BatchAddResources, the canonical method
+// form. The dual-form convention matches the slice-7 Refresh /
+// RemoveResource / RemovePreset / Validate / Fix precedent: callers
+// that already hold a *Library use the method directly; callers that
+// have only a path use this package-level function.
+//
+// The provided ctx is checked at entry and between files so caller-
+// supplied cancellation is honored before any I/O.
 func BatchAddResources(ctx context.Context, opts BatchAddOptions) (*BatchAddResult, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, fmt.Errorf("batch add: %w", err)
 	}
-
-	result := &BatchAddResult{}
-
-	// Build a map of source path to orphan info for quick lookup
-	orphanMap := make(map[string]Orphan)
-	for _, orphan := range opts.Orphans {
-		orphanMap[orphan.Path] = orphan
-	}
-
-	// Collect all source files (expand directories)
-	files, err := collectSourceFiles(opts.Sources)
+	lib, err := LoadLibrary(ctx, opts.LibraryPath)
 	if err != nil {
-		return nil, fmt.Errorf("collecting source files: %w", err)
+		return nil, fmt.Errorf("loading library: %w", err)
 	}
-
-	// Initialize summary total
-	result.Summary.Total = len(files)
-
-	// Process each file
-	for _, source := range files {
-		if cerr := ctx.Err(); cerr != nil {
-			return result, fmt.Errorf("batch add: %w", cerr)
-		}
-		var orphan Orphan
-		if o, ok := orphanMap[source]; ok {
-			orphan = o
-		}
-		_ = processBatchAddFile(ctx, source, opts, result, orphan) // Error is already recorded in result
+	result, batchErr := lib.BatchAddResources(ctx, &opts)
+	if batchErr != nil && result == nil {
+		return nil, fmt.Errorf("batch add: %w", batchErr)
 	}
-
-	if err := ctx.Err(); err != nil {
-		return result, fmt.Errorf("batch add: %w", err)
-	}
-
-	return result, nil
+	return result, batchErr
 }
 
 // collectSourceFiles expands directories to .md files recursively.
@@ -659,15 +560,15 @@ func collectSourceFiles(sources []string) ([]string, error) {
 }
 
 // processBatchAddFile processes a single file for batch add.
-// The ctx is propagated into the library load and the recursive AddResource
-// call; a mid-batch cancellation is reported as a per-file failure so the
-// partial summary remains consistent.
-func processBatchAddFile(ctx context.Context, source string, opts BatchAddOptions, result *BatchAddResult, orphan Orphan) error {
+// The ctx is propagated into the per-file lib.Add call; a mid-batch
+// cancellation is reported as a per-file failure so the partial
+// summary remains consistent.
+func processBatchAddFile(ctx context.Context, lib *Library, source string, opts *BatchAddOptions, result *BatchAddResult, orphan Orphan) error {
 	// Pre-flight cancellation check so a cancelled context short-circuits
-	// the detect → load → add pipeline per file. The cancellation cause
-	// is wrapped in *core.FileError before assignment so the JSON wire
-	// shape preserves the typed-error contract; context.Canceled has no
-	// MarshalJSON and would otherwise serialize as `{}`.
+	// the detect → add pipeline per file. The cancellation cause is
+	// wrapped in *core.FileError before assignment so the JSON wire
+	// shape preserves the typed-error contract; context.Canceled has
+	// no MarshalJSON and would otherwise serialize as `{}`.
 	if cerr := ctx.Err(); cerr != nil {
 		typed := core.NewFileError(source, "context", cerr.Error(), cerr)
 		result.Failed = append(result.Failed, BatchFailureInfo{
@@ -726,20 +627,6 @@ func processBatchAddFile(ctx context.Context, source string, opts BatchAddOption
 	// Format reference
 	resourceKey := FormatRef(docType, name)
 
-	// Load the library to check for existing resources
-	lib, err := LoadLibrary(ctx, opts.LibraryPath)
-	if err != nil {
-		typed := wrapAsTypedCause(err, opts.LibraryPath)
-		result.Failed = append(result.Failed, BatchFailureInfo{
-			Source:    source,
-			Error:     fmt.Sprintf("loading library: %v", err),
-			ErrorType: errorTypeName(typed),
-			Cause:     typed,
-		})
-		result.Summary.Failed++
-		return fmt.Errorf("loading library: %w", err)
-	}
-
 	// Check for existing resource (skip check if Force is set)
 	existingTypeMap, typeExists := lib.Resources[docType]
 	_, nameExists := existingTypeMap[name]
@@ -778,19 +665,21 @@ func processBatchAddFile(ctx context.Context, source string, opts BatchAddOption
 	if opts.DryRun {
 		result.Added = append(result.Added, BatchAddSuccess{
 			Ref:  resourceKey,
-			Path: filepath.Join(opts.LibraryPath, docType+"s", name+".md"),
+			Path: filepath.Join(lib.RootPath, docType+"s", name+".md"),
 		})
 		result.Summary.Added++
 		return nil
 	}
 
-	// Add the resource using existing AddResource function
-	addErr := AddResource(ctx, AddRequest{
+	// Add the resource via the *Library method so the receiver's
+	// RootPath + in-memory Resources map are reused instead of
+	// re-loading the library for each file.
+	addErr := lib.Add(ctx, &AddRequest{
 		Source:      source,
 		Name:        name,
 		Description: description,
 		Type:        docType,
-		LibraryPath: opts.LibraryPath,
+		LibraryPath: lib.RootPath,
 		Force:       opts.Force,
 		DryRun:      false,
 	})
@@ -808,71 +697,36 @@ func processBatchAddFile(ctx context.Context, source string, opts BatchAddOption
 
 	result.Added = append(result.Added, BatchAddSuccess{
 		Ref:  resourceKey,
-		Path: filepath.Join(opts.LibraryPath, docType+"s", name+".md"),
+		Path: filepath.Join(lib.RootPath, docType+"s", name+".md"),
 	})
 	result.Summary.Added++
 	return nil
 }
 
 // DiscoverOrphans scans library directories for orphaned resource files.
-// The provided ctx is checked between scanned directories and inside the
-// per-directory walk; on cancellation, the partial DiscoverResult is
-// returned alongside wrapped ctx.Err() so callers can inspect what was
-// found before the cancel arrived.
+// It is a thin loader that resolves opts.LibraryPath into a *Library
+// and delegates to (*Library).DiscoverOrphans, the canonical method
+// form. The dual-form convention matches the slice-7 Refresh /
+// RemoveResource / RemovePreset / Validate / Fix precedent: callers
+// that already hold a *Library use the method directly; callers that
+// have only a path use this package-level function.
+//
+// The provided ctx is checked at entry and between scanned
+// directories so caller-supplied cancellation is honored before
+// any subtree walk.
 func DiscoverOrphans(ctx context.Context, opts DiscoverOptions) (*DiscoverResult, error) {
-	// Load the library to get registered resources
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("discovering orphans: %w", err)
+	}
 	lib, err := LoadLibrary(ctx, opts.LibraryPath)
 	if err != nil {
 		return nil, fmt.Errorf("loading library: %w", err)
 	}
-
-	result := &DiscoverResult{}
-
-	// Scan each resource directory
-	directories := map[string]string{
-		"skills":   "skill",
-		"agents":   "agent",
-		"commands": "command",
-		"memory":   "memory",
+	result, discErr := lib.DiscoverOrphans(ctx, &opts)
+	if discErr != nil && result == nil {
+		return nil, fmt.Errorf("discovering orphans: %w", discErr)
 	}
-
-	for dir, resType := range directories {
-		if err := ctx.Err(); err != nil {
-			return result, fmt.Errorf("discovering orphans: %w", err)
-		}
-		dirPath := filepath.Join(opts.LibraryPath, dir)
-		if err := scanDirectory(ctx, dirPath, resType, lib, opts, result); err != nil {
-			return result, err
-		}
-	}
-
-	// Update summary with totals
-	result.Summary.TotalOrphans = len(result.Orphans)
-
-	// Legacy non-batch force mode: require no conflicts before registering
-	// Note: When Batch is true, we defer to BatchAddResources for full processing
-	if !opts.Batch && opts.Force && len(result.Conflicts) == 0 && !opts.DryRun {
-		for _, orphan := range result.Orphans {
-			if err := ctx.Err(); err != nil {
-				return result, fmt.Errorf("discovering orphans: %w", err)
-			}
-			if err := registerOrphan(opts.LibraryPath, orphan); err != nil {
-				return nil, err
-			}
-			result.Added = append(result.Added, AddSuccess{
-				Type: orphan.Type,
-				Name: orphan.Name,
-				Path: orphan.Path,
-			})
-			result.Summary.TotalAdded++
-		}
-	}
-
-	if err := ctx.Err(); err != nil {
-		return result, fmt.Errorf("discovering orphans: %w", err)
-	}
-
-	return result, nil
+	return result, discErr
 }
 
 // scanConcurrencyLimit caps the number of sibling-subtree goroutines
@@ -1110,37 +964,11 @@ func errorTypeName(cause error) string {
 	}
 }
 
-// wrapAsTypedCause guarantees the BatchFailureInfo.Cause value
-// implements json.Marshaler with the canonical single-key shape.
-// Production sites that surface stdlib errors (e.g., context.Canceled
-// or *os.PathError) wrap the cause in *core.FileError before
-// assignment; the original cause is preserved via Unwrap so callers
-// retain errors.Is/errors.As chain traversal.
-//
-// The check is a direct switch on the outermost concrete type. A
-// wrapped typed chain (e.g., fmt.Errorf("...: %w", inner)) is treated
-// as "untyped" here — only *outermost* core.*Error / PathError values
-// are recognized; the fallback wraps the chain so downstream JSON
-// serialization falls back to the canonical single-key shape.
-func wrapAsTypedCause(err error, fallbackPath string) error {
-	if err == nil {
-		return nil
-	}
-	//nolint:errorlint // direct type switch is intentional: see doc comment above
-	switch err.(type) {
-	case *core.ParseError,
-		*core.ValidationError,
-		*core.TransformError,
-		*core.FileError,
-		*core.ConfigError,
-		*core.NotFoundError,
-		*core.OperationError,
-		*core.InitializeError,
-		*core.PartialSuccessError,
-		*core.UsageError,
-		*core.CobraUsageError,
-		*os.PathError:
-		return err
-	}
-	return core.NewFileError(fallbackPath, "load", err.Error(), err)
-}
+// wrapAsTypedCause was removed in slice-8 extract-io-adapters stage 2:
+// processBatchAddFile now calls lib.Add (the *Library method form)
+// instead of re-loading the library per file, so the per-file
+// LoadLibrary error path that previously fed wrapAsTypedCause no
+// longer exists. The two remaining sites that produce
+// BatchFailureInfo.Cause (the pre-flight ctx.Err() guard and
+// processBatchAddFile's lib.Add failure) wrap their causes in
+// *core.FileError directly at the population site.

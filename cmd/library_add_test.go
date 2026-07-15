@@ -402,6 +402,7 @@ func TestAddOptions_StructShape(t *testing.T) {
 	want := map[string]bool{
 		"IO":              true,
 		"Library":         true,
+		"Adder":           true,
 		"Ctx":             true,
 		"InputPaths":      true,
 		"Name":            true,
@@ -428,19 +429,18 @@ func TestAddOptions_StructShape(t *testing.T) {
 // writer discipline) instead of leaving it nil or, worse, writing
 // dry-run output to os.Stdout directly. Closes the
 // library-library-batch-add spec scenario "Cmd layer populates the
-// writer field" by stubbing defaultAdder and capturing the
-// *library.AddRequest passed to AddResource.
+// writer field" by injecting a thin test-local stub (testAdder) via
+// opts.Adder and capturing the *library.AddRequest passed to Add.
 //
 // Also covers library-library-resource-import by exercising the
 // same Stdout field on the AddRequest path (not just the
 // BatchAddOptions path covered below).
 //
-// This is the first runtime injection of defaultAdder in the
-// test suite; previously only the compile-time
-// `var _ resourceAdder = (*libraryAdapter)(nil)` assertion was
-// exercised. The injection is the cleanest way to assert the
-// writer field without running the full AddResource body
-// (which would mutate library.yaml on disk).
+// Per internal/AGENTS.md "When to Mock vs Use Real Implementations":
+// production paths use real *library.Library; tests that need to
+// assert wire-shape without mutating library.yaml use a thin
+// test-local stub that records the call and short-circuits the
+// real body.
 func TestRunAdd_PopulatesStdoutOnAddRequest(t *testing.T) {
 	libDir := makeTestLibrary(t, map[string]map[string]library.Resource{})
 	srcDir := t.TempDir()
@@ -459,15 +459,9 @@ func TestRunAdd_PopulatesStdoutOnAddRequest(t *testing.T) {
 		},
 	}
 
-	// Save and restore defaultAdder; the stub captures the
-	// *library.AddRequest that runAdd builds and short-circuits the
-	// real library.AddResource body (which would mutate library.yaml).
-	prev := defaultAdder
-	t.Cleanup(func() { defaultAdder = prev })
-
 	var captured *library.AddRequest
-	defaultAdder = captureAdder{
-		addResourceFn: func(_ context.Context, req *library.AddRequest) error {
+	opts.Adder = testAdder{
+		addFn: func(_ context.Context, req *library.AddRequest) error {
 			captured = req
 			return nil
 		},
@@ -476,7 +470,7 @@ func TestRunAdd_PopulatesStdoutOnAddRequest(t *testing.T) {
 	require.NoError(t, runAdd(opts))
 
 	if captured == nil {
-		t.Fatal("defaultAdder.AddResource was not called; runAdd did not reach runAddExplicit")
+		t.Fatal("opts.Adder.Add was not called; runAdd did not reach runAddExplicit")
 	}
 	if captured.Stdout == nil {
 		t.Fatal("captured AddRequest.Stdout is nil; cmd layer must populate it from opts.IO.Out")
@@ -508,13 +502,10 @@ func TestRunAddBatchFiles_PopulatesStdoutOnBatchAddOptions(t *testing.T) {
 		},
 	}
 
-	prev := defaultAdder
-	t.Cleanup(func() { defaultAdder = prev })
-
 	var captured library.BatchAddOptions
-	defaultAdder = captureAdder{
-		batchAddFn: func(_ context.Context, bo library.BatchAddOptions) (*library.BatchAddResult, error) {
-			captured = bo
+	opts.Adder = testAdder{
+		batchFn: func(_ context.Context, bo *library.BatchAddOptions) (*library.BatchAddResult, error) {
+			captured = *bo
 			return &library.BatchAddResult{Summary: library.BatchSummary{Added: 1}}, nil
 		},
 	}
@@ -531,47 +522,50 @@ func TestRunAddBatchFiles_PopulatesStdoutOnBatchAddOptions(t *testing.T) {
 	}
 }
 
-// captureAdder satisfies the resourceAdder interface. Each
-// method delegates to a function field (if set) so tests can
-// capture inputs and short-circuit the real library calls. Used
-// only by TestRunAdd_PopulatesStdout* tests; other tests use
-// defaultAdder directly.
-type captureAdder struct {
-	addResourceFn func(ctx context.Context, req *library.AddRequest) error
-	discoverFn    func(ctx context.Context, opts library.DiscoverOptions) (*library.DiscoverResult, error)
-	batchAddFn    func(ctx context.Context, opts library.BatchAddOptions) (*library.BatchAddResult, error)
+// testAdder is a thin test-local stub satisfying the adderLibrary
+// interface. Each method delegates to a function field (if set) so
+// tests can capture inputs and short-circuit the real (*library.Library)
+// body (which would mutate library.yaml on disk). Per
+// internal/AGENTS.md, production paths use real *library.Library
+// instances; this stub is reserved for tests that need to assert
+// wire-shape (e.g., writer discipline) without on-disk side effects.
+type testAdder struct {
+	addFn      func(ctx context.Context, req *library.AddRequest) error
+	batchFn    func(ctx context.Context, opts *library.BatchAddOptions) (*library.BatchAddResult, error)
+	discoverFn func(ctx context.Context, opts *library.DiscoverOptions) (*library.DiscoverResult, error)
 }
 
-func (c captureAdder) AddResource(ctx context.Context, req *library.AddRequest) error {
-	if c.addResourceFn == nil {
+func (t testAdder) Add(ctx context.Context, req *library.AddRequest) error {
+	if t.addFn == nil {
 		return nil
 	}
-	return c.addResourceFn(ctx, req)
+	return t.addFn(ctx, req)
 }
 
-func (c captureAdder) DiscoverOrphans(ctx context.Context, opts library.DiscoverOptions) (*library.DiscoverResult, error) {
-	if c.discoverFn == nil {
-		return &library.DiscoverResult{}, nil
-	}
-	return c.discoverFn(ctx, opts)
-}
-
-func (c captureAdder) BatchAddResources(ctx context.Context, opts library.BatchAddOptions) (*library.BatchAddResult, error) {
-	if c.batchAddFn == nil {
+func (t testAdder) BatchAddResources(ctx context.Context, opts *library.BatchAddOptions) (*library.BatchAddResult, error) {
+	if t.batchFn == nil {
 		return &library.BatchAddResult{}, nil
 	}
-	return c.batchAddFn(ctx, opts)
+	return t.batchFn(ctx, opts)
 }
 
-// T12 — Sanity check on the resourceAdder / libraryAdapter compile-
-// time assertion. The check `var _ resourceAdder = (*libraryAdapter)(nil)`
-// runs at package init and is the same check exercised at runtime
-// via this test.
-func TestResourceAdderInterfaceSatisfied(t *testing.T) {
+func (t testAdder) DiscoverOrphans(ctx context.Context, opts *library.DiscoverOptions) (*library.DiscoverResult, error) {
+	if t.discoverFn == nil {
+		return &library.DiscoverResult{}, nil
+	}
+	return t.discoverFn(ctx, opts)
+}
+
+// T12 — Compile-time assertion `var _ adderLibrary = (*library.Library)(nil)`
+// runs at package init and is the same check exercised at runtime via
+// this test. The check is now satisfied by *library.Library directly
+// (the slice-8 method-form additions on *Library), so no adapter
+// shim or interface-local type is required.
+func TestAdderLibraryInterfaceSatisfied(t *testing.T) {
 	t.Parallel()
 
-	var ra resourceAdder = &libraryAdapter{}
-	assert.NotNil(t, ra, "libraryAdapter must satisfy resourceAdder")
+	var al adderLibrary = &library.Library{}
+	assert.NotNil(t, al, "*library.Library must satisfy adderLibrary")
 }
 
 // T14 — Golden file: explicit-mode plain output for a single
