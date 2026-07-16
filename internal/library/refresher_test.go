@@ -8,6 +8,9 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRefreshLibrary(t *testing.T) {
@@ -196,37 +199,30 @@ description: new description
 
 			// Write library.yaml
 			libraryPath := filepath.Join(tmpDir, "library.yaml")
-			if err := os.WriteFile(libraryPath, []byte(tt.libraryYAML), 0644); err != nil {
-				t.Fatalf("Failed to write library.yaml: %v", err)
-			}
+			require.NoError(t, os.WriteFile(libraryPath, []byte(tt.libraryYAML), 0644))
 
 			// Write resource files
 			for relPath, content := range tt.files {
 				filePath := filepath.Join(tmpDir, relPath)
-				if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
-					t.Fatalf("Failed to create directory: %v", err)
-				}
-				if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
-					t.Fatalf("Failed to write file %s: %v", relPath, err)
-				}
+				require.NoError(t, os.MkdirAll(filepath.Dir(filePath), 0755))
+				require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
 			}
 
 			opts := tt.opts
 			opts.LibraryPath = tmpDir
 
 			result, err := RefreshLibrary(context.Background(), opts)
-			if err != nil {
-				t.Fatalf("RefreshLibrary() error = %v", err)
-			}
+			require.NoError(t, err)
 
 			if len(result.Refreshed) != tt.wantRefresh {
-				t.Errorf("RefreshLibrary() refreshed = %d, want %d", len(result.Refreshed), tt.wantRefresh)
+				assert.Len(t, result.Refreshed, tt.wantRefresh, "RefreshLibrary() refreshed count")
 			}
 			if len(result.Skipped) != tt.wantSkipped {
-				t.Errorf("RefreshLibrary() skipped = %d, want %d", len(result.Skipped), tt.wantSkipped)
+				assert.Len(t, result.Skipped, tt.wantSkipped, "RefreshLibrary() skipped count")
 			}
-			if len(result.Errors) != tt.wantErrors {
-				t.Errorf("RefreshLibrary() errors = %d, want %d", len(result.Errors), tt.wantErrors)
+			errs := fieldByName(result, "Errors").([]RefreshError)
+			if len(errs) != tt.wantErrors {
+				assert.Len(t, errs, tt.wantErrors, "RefreshLibrary() errors count")
 			}
 		})
 	}
@@ -362,37 +358,29 @@ description: command commit
 
 			// Write library.yaml
 			libraryPath := filepath.Join(tmpDir, "library.yaml")
-			if err := os.WriteFile(libraryPath, []byte(tt.libraryYAML), 0644); err != nil {
-				t.Fatalf("Failed to write library.yaml: %v", err)
-			}
+			require.NoError(t, os.WriteFile(libraryPath, []byte(tt.libraryYAML), 0644))
 
 			// Write resource files
 			for relPath, content := range tt.files {
 				filePath := filepath.Join(tmpDir, relPath)
-				if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
-					t.Fatalf("Failed to create directory: %v", err)
-				}
-				if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
-					t.Fatalf("Failed to write file %s: %v", relPath, err)
-				}
+				require.NoError(t, os.MkdirAll(filepath.Dir(filePath), 0755))
+				require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
 			}
 
 			opts := tt.opts
 			opts.LibraryPath = tmpDir
 
 			result, err := DiscoverOrphans(context.Background(), opts)
-			if err != nil {
-				t.Fatalf("DiscoverOrphans() error = %v", err)
-			}
+			require.NoError(t, err)
 
 			if len(result.Orphans) != tt.wantOrphans {
-				t.Errorf("DiscoverOrphans() orphans = %d, want %d", len(result.Orphans), tt.wantOrphans)
+				assert.Len(t, result.Orphans, tt.wantOrphans, "DiscoverOrphans() orphans count")
 			}
 			if len(result.Added) != tt.wantAdded {
-				t.Errorf("DiscoverOrphans() added = %d, want %d", len(result.Added), tt.wantAdded)
+				assert.Len(t, result.Added, tt.wantAdded, "DiscoverOrphans() added count")
 			}
 			if len(result.Conflicts) != tt.wantConflicts {
-				t.Errorf("DiscoverOrphans() conflicts = %d, want %d", len(result.Conflicts), tt.wantConflicts)
+				assert.Len(t, result.Conflicts, tt.wantConflicts, "DiscoverOrphans() conflicts count")
 			}
 		})
 	}
@@ -475,37 +463,29 @@ resources: {}
 
 			// Write library.yaml
 			libraryPath := filepath.Join(tmpDir, "library.yaml")
-			if err := os.WriteFile(libraryPath, []byte(tt.libraryYAML), 0644); err != nil {
-				t.Fatalf("Failed to write library.yaml: %v", err)
-			}
+			require.NoError(t, os.WriteFile(libraryPath, []byte(tt.libraryYAML), 0644))
 
 			// Write resource files
 			for relPath, content := range tt.files {
 				filePath := filepath.Join(tmpDir, relPath)
-				if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
-					t.Fatalf("Failed to create directory: %v", err)
-				}
-				if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
-					t.Fatalf("Failed to write file %s: %v", relPath, err)
-				}
+				require.NoError(t, os.MkdirAll(filepath.Dir(filePath), 0755))
+				require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
 			}
 
 			opts := tt.opts
 			opts.LibraryPath = tmpDir
 
 			result, err := DiscoverOrphans(context.Background(), opts)
-			if err != nil {
-				t.Fatalf("DiscoverOrphans() error = %v", err)
-			}
+			require.NoError(t, err)
 
 			if len(result.Orphans) != tt.wantOrphans {
-				t.Errorf("DiscoverOrphans() orphans = %d, want %d", len(result.Orphans), tt.wantOrphans)
+				assert.Len(t, result.Orphans, tt.wantOrphans, "DiscoverOrphans() orphans count")
 			}
 			if result.Summary.TotalScanned != tt.wantScanned {
-				t.Errorf("DiscoverOrphans() TotalScanned = %d, want %d", result.Summary.TotalScanned, tt.wantScanned)
+				assert.Equal(t, tt.wantScanned, result.Summary.TotalScanned, "DiscoverOrphans() TotalScanned = %d, want %d")
 			}
 			if result.Summary.TotalAdded != tt.wantTotalAdded {
-				t.Errorf("DiscoverOrphans() TotalAdded = %d, want %d", result.Summary.TotalAdded, tt.wantTotalAdded)
+				assert.Equal(t, tt.wantTotalAdded, result.Summary.TotalAdded, "DiscoverOrphans() TotalAdded = %d, want %d")
 			}
 		})
 	}
@@ -608,40 +588,32 @@ resources:
 
 			// Write library.yaml
 			libraryPath := filepath.Join(tmpDir, "library.yaml")
-			if err := os.WriteFile(libraryPath, []byte(tt.libraryYAML), 0644); err != nil {
-				t.Fatalf("Failed to write library.yaml: %v", err)
-			}
+			require.NoError(t, os.WriteFile(libraryPath, []byte(tt.libraryYAML), 0644))
 
 			// Write resource files
 			for relPath, content := range tt.files {
 				filePath := filepath.Join(tmpDir, relPath)
-				if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
-					t.Fatalf("Failed to create directory: %v", err)
-				}
-				if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
-					t.Fatalf("Failed to write file %s: %v", relPath, err)
-				}
+				require.NoError(t, os.MkdirAll(filepath.Dir(filePath), 0755))
+				require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
 			}
 
 			opts := tt.opts
 			opts.LibraryPath = tmpDir
 
 			result, err := DiscoverOrphans(context.Background(), opts)
-			if err != nil {
-				t.Fatalf("DiscoverOrphans() error = %v", err)
-			}
+			require.NoError(t, err)
 
 			if len(result.Orphans) != tt.wantOrphans {
-				t.Errorf("DiscoverOrphans() orphans = %d, want %d", len(result.Orphans), tt.wantOrphans)
+				assert.Len(t, result.Orphans, tt.wantOrphans, "DiscoverOrphans() orphans count")
 			}
 			if len(result.Added) != tt.wantAdded {
-				t.Errorf("DiscoverOrphans() added = %d, want %d", len(result.Added), tt.wantAdded)
+				assert.Len(t, result.Added, tt.wantAdded, "DiscoverOrphans() added count")
 			}
 			if result.Summary.TotalFailed != tt.wantFailed {
-				t.Errorf("DiscoverOrphans() TotalFailed = %d, want %d", result.Summary.TotalFailed, tt.wantFailed)
+				assert.Equal(t, tt.wantFailed, result.Summary.TotalFailed, "DiscoverOrphans() TotalFailed = %d, want %d")
 			}
 			if len(result.Conflicts) != tt.wantConflicts {
-				t.Errorf("DiscoverOrphans() conflicts = %d, want %d", len(result.Conflicts), tt.wantConflicts)
+				assert.Len(t, result.Conflicts, tt.wantConflicts, "DiscoverOrphans() conflicts count")
 			}
 		})
 	}
@@ -655,9 +627,7 @@ func TestDiscoverOrphans_Summary(t *testing.T) {
 resources: {}
 `
 	libraryPath := filepath.Join(tmpDir, "library.yaml")
-	if err := os.WriteFile(libraryPath, []byte(libraryYAML), 0644); err != nil {
-		t.Fatalf("Failed to write library.yaml: %v", err)
-	}
+	require.NoError(t, os.WriteFile(libraryPath, []byte(libraryYAML), 0644))
 
 	// Write resource files
 	files := map[string]string{
@@ -667,12 +637,8 @@ resources: {}
 	}
 	for relPath, content := range files {
 		filePath := filepath.Join(tmpDir, relPath)
-		if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
-			t.Fatalf("Failed to create directory: %v", err)
-		}
-		if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
-			t.Fatalf("Failed to write file %s: %v", relPath, err)
-		}
+		require.NoError(t, os.MkdirAll(filepath.Dir(filePath), 0755))
+		require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
 	}
 
 	result, err := DiscoverOrphans(context.Background(), DiscoverOptions{
@@ -681,25 +647,23 @@ resources: {}
 		Force:       false,
 		Batch:       false,
 	})
-	if err != nil {
-		t.Fatalf("DiscoverOrphans() error = %v", err)
-	}
+	require.NoError(t, err)
 
 	// Verify summary fields
 	if result.Summary.TotalScanned != 3 {
-		t.Errorf("Summary.TotalScanned = %d, want 3", result.Summary.TotalScanned)
+		assert.Equal(t, 3, result.Summary.TotalScanned, "Summary.TotalScanned = %d, want %d")
 	}
 	if result.Summary.TotalOrphans != 3 {
-		t.Errorf("Summary.TotalOrphans = %d, want 3", result.Summary.TotalOrphans)
+		assert.Equal(t, 3, result.Summary.TotalOrphans, "Summary.TotalOrphans = %d, want %d")
 	}
 	if result.Summary.TotalAdded != 0 {
-		t.Errorf("Summary.TotalAdded = %d, want 0", result.Summary.TotalAdded)
+		assert.Equal(t, 0, result.Summary.TotalAdded, "Summary.TotalAdded = %d, want %d")
 	}
 	if result.Summary.TotalSkipped != 0 {
-		t.Errorf("Summary.TotalSkipped = %d, want 0", result.Summary.TotalSkipped)
+		assert.Equal(t, 0, result.Summary.TotalSkipped, "Summary.TotalSkipped = %d, want %d")
 	}
 	if result.Summary.TotalFailed != 0 {
-		t.Errorf("Summary.TotalFailed = %d, want 0", result.Summary.TotalFailed)
+		assert.Equal(t, 0, result.Summary.TotalFailed, "Summary.TotalFailed = %d, want %d")
 	}
 }
 
@@ -715,12 +679,10 @@ func TestDiscoverOrphans_CtxCancelled(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Library.yaml: empty registry so every .md file is an orphan.
-	if err := os.WriteFile(filepath.Join(tmpDir, "library.yaml"),
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "library.yaml"),
 		[]byte(`version: "1"
 resources: {}
-`), 0o600); err != nil {
-		t.Fatalf("write library.yaml: %v", err)
-	}
+`), 0o600))
 
 	// Build a deeply nested library with enough files that the scan
 	// is still in-flight when ctx cancellation arrives at 50ms.
@@ -734,16 +696,12 @@ resources: {}
 		for level := 0; level < subLevels; level++ {
 			base = filepath.Join(base, fmt.Sprintf("sub%d", level))
 		}
-		if err := os.MkdirAll(base, 0o755); err != nil {
-			t.Fatalf("MkdirAll %s: %v", base, err)
-		}
+		require.NoError(t, os.MkdirAll(base, 0o755))
 		for i := 0; i < perDir; i++ {
 			body := fmt.Sprintf("---\nname: %s%d\ndescription: test\n---\n# %d\n",
 				dir, i, i)
-			if err := os.WriteFile(filepath.Join(base, fmt.Sprintf("r%d.md", i)),
-				[]byte(body), 0o644); err != nil {
-				t.Fatalf("write %s/r%d.md: %v", dir, i, err)
-			}
+			require.NoError(t, os.WriteFile(filepath.Join(base, fmt.Sprintf("r%d.md", i)),
+				[]byte(body), 0o644))
 		}
 	}
 
@@ -761,24 +719,16 @@ resources: {}
 	result, err := DiscoverOrphans(ctx, DiscoverOptions{LibraryPath: tmpDir})
 	elapsed := time.Since(start)
 
-	if err == nil {
-		t.Fatal("DiscoverOrphans() expected error from cancelled ctx, got nil")
-	}
-	if !errors.Is(err, context.Canceled) {
-		t.Errorf("DiscoverOrphans() err = %v, want wrapped context.Canceled", err)
-	}
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, context.Canceled), "DiscoverOrphans err should wrap context.Canceled")
 	// Allow generous slack — the errgroup must surface cancellation
 	// at the next goroutine yield, not after the slowest subtree's
 	// full walk. Pre-change filepath.WalkDir typically bounded
 	// cancellation by total scan time (~500ms+ on this fixture).
-	if elapsed > 500*time.Millisecond {
-		t.Errorf("DiscoverOrphans took %v after cancel; expected <500ms "+
-			"(errgroup must observe ctx cancellation promptly)", elapsed)
-	}
+	assert.Less(t, elapsed, 500*time.Millisecond,
+		"DiscoverOrphans took %v after cancel; expected <500ms (errgroup must observe ctx cancellation promptly)", elapsed)
 	// Partial result is still returned alongside the error.
-	if result == nil {
-		t.Error("DiscoverOrphans() result should be non-nil on cancellation")
-	}
+	require.NotNil(t, result, "DiscoverOrphans() result should be non-nil on cancellation")
 }
 
 // TestDiscoverOrphans_TotalScannedThreadSafe exercises the parallel
@@ -808,11 +758,9 @@ func TestDiscoverOrphans_TotalScannedThreadSafe(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	libraryPath := filepath.Join(tmpDir, "library.yaml")
-	if err := os.WriteFile(libraryPath, []byte(`version: "1"
+	require.NoError(t, os.WriteFile(libraryPath, []byte(`version: "1"
 resources: {}
-`), 0o600); err != nil {
-		t.Fatalf("write library.yaml: %v", err)
-	}
+`), 0o600))
 
 	const topLevelDirs = 4
 	const filesPerDir = 32
@@ -821,43 +769,30 @@ resources: {}
 	dirs := []string{"skills", "agents", "commands", "memory"}
 	for _, dir := range dirs {
 		base := filepath.Join(tmpDir, dir, "leaf")
-		if err := os.MkdirAll(base, 0o755); err != nil {
-			t.Fatalf("MkdirAll %s: %v", base, err)
-		}
+		require.NoError(t, os.MkdirAll(base, 0o755))
 		for f := 0; f < filesPerDir; f++ {
 			body := fmt.Sprintf("---\nname: %s-f%d\ndescription: test\n---\n",
 				dir, f)
 			path := filepath.Join(base, fmt.Sprintf("r%d.md", f))
-			if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
-				t.Fatalf("write %s: %v", path, err)
-			}
+			require.NoError(t, os.WriteFile(path, []byte(body), 0o644))
 		}
 	}
 
 	result, err := DiscoverOrphans(context.Background(), DiscoverOptions{LibraryPath: tmpDir})
-	if err != nil {
-		t.Fatalf("DiscoverOrphans() error = %v", err)
-	}
-	if result == nil {
-		t.Fatal("DiscoverOrphans() result is nil")
-	}
+	require.NoError(t, err)
+	require.NotNil(t, result)
 
 	// No lost increments: every .md file is counted exactly once.
 	if result.Summary.TotalScanned != wantTotal {
-		t.Errorf("Summary.TotalScanned = %d, want %d "+
-			"(concurrent writes to TotalScanned lost increments)",
-			result.Summary.TotalScanned, wantTotal)
+		assert.Equal(t, wantTotal, result.Summary.TotalScanned, "Summary.TotalScanned mismatch: (concurrent writes to TotalScanned lost increments)")
 	}
 
 	// Every file is an orphan (empty library.yaml registry).
 	if result.Summary.TotalOrphans != wantTotal {
-		t.Errorf("Summary.TotalOrphans = %d, want %d",
-			result.Summary.TotalOrphans, wantTotal)
+		assert.Equal(t, wantTotal, result.Summary.TotalOrphans, "Summary.TotalOrphans mismatch")
 	}
 	if got := len(result.Orphans); got != wantTotal {
-		t.Errorf("len(result.Orphans) = %d, want %d "+
-			"(concurrent slice appends lost entries)",
-			got, wantTotal)
+		assert.Len(t, got, wantTotal, "len(result.Orphans) mismatch: (concurrent slice appends lost entries)")
 	}
 }
 
@@ -881,23 +816,17 @@ func TestDiscoverOrphans_OrderUnordered(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	libraryPath := filepath.Join(tmpDir, "library.yaml")
-	if err := os.WriteFile(libraryPath, []byte(`version: "1"
+	require.NoError(t, os.WriteFile(libraryPath, []byte(`version: "1"
 resources: {}
-`), 0o600); err != nil {
-		t.Fatalf("write library.yaml: %v", err)
-	}
+`), 0o600))
 
 	const files = 16
 	base := filepath.Join(tmpDir, "skills", "leaf")
-	if err := os.MkdirAll(base, 0o755); err != nil {
-		t.Fatalf("MkdirAll %s: %v", base, err)
-	}
+	require.NoError(t, os.MkdirAll(base, 0o755))
 	for f := 0; f < files; f++ {
 		body := fmt.Sprintf("---\nname: skill-f%d\ndescription: d\n---\n", f)
 		path := filepath.Join(base, fmt.Sprintf("r%d.md", f))
-		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
-			t.Fatalf("write %s: %v", path, err)
-		}
+		require.NoError(t, os.WriteFile(path, []byte(body), 0o644))
 	}
 
 	const runs = 5
@@ -905,15 +834,10 @@ resources: {}
 	for i := 0; i < runs; i++ {
 		result, err := DiscoverOrphans(context.Background(), DiscoverOptions{LibraryPath: tmpDir})
 		if err != nil {
-			t.Fatalf("DiscoverOrphans() run %d error = %v", i, err)
+			require.NoError(t, err)
 		}
-		if result == nil {
-			t.Fatalf("DiscoverOrphans() run %d result is nil", i)
-		}
-		if got := len(result.Orphans); got != files {
-			t.Fatalf("DiscoverOrphans() run %d: len(Orphans) = %d, want %d",
-				i, got, files)
-		}
+		require.NotNil(t, result)
+		assert.Len(t, result.Orphans, files, "DiscoverOrphans() run %d: len(Orphans)", i)
 		paths := make([]string, 0, len(result.Orphans))
 		for _, o := range result.Orphans {
 			paths = append(paths, o.Path)
@@ -923,10 +847,8 @@ resources: {}
 
 	// All runs must yield the same set of paths (membership equality).
 	for i := 1; i < runs; i++ {
-		if !stringSlicesEqualUnordered(pathSets[0], pathSets[i]) {
-			t.Errorf("DiscoverOrphans() run %d paths differ from run 0: "+
-				"run 0 = %v, run %d = %v",
-				i, pathSets[0], i, pathSets[i])
-		}
+		assert.True(t, stringSlicesEqualUnordered(pathSets[0], pathSets[i]),
+			"DiscoverOrphans() run %d paths differ from run 0: run 0 = %v, run %d = %v",
+			i, pathSets[0], i, pathSets[i])
 	}
 }

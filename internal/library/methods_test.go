@@ -2,6 +2,7 @@ package library
 
 import (
 	"context"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -89,53 +90,40 @@ resources: {}
 
 			if tt.name == "error: nil lib" {
 				_, err := ((*Library)(nil)).Refresh(context.Background(), &RefreshRequest{DryRun: tt.dryRun, Force: tt.force})
-				if err == nil {
-					t.Fatal("expected error from nil lib, got nil")
-				}
+				require.Error(t, err)
 				return
 			}
 
 			if tt.name == "error: empty RootPath" {
 				_, err := (&Library{}).Refresh(context.Background(), &RefreshRequest{DryRun: tt.dryRun, Force: tt.force})
-				if err == nil {
-					t.Fatal("expected error from empty RootPath, got nil")
-				}
+				require.Error(t, err)
 				return
 			}
 
 			libraryPath := filepath.Join(tmpDir, "library.yaml")
-			if err := os.WriteFile(libraryPath, []byte(tt.libraryYAML), 0o600); err != nil {
-				t.Fatalf("write library.yaml: %v", err)
-			}
+			require.NoError(t, os.WriteFile(libraryPath, []byte(tt.libraryYAML), 0o600))
 			for rel, content := range tt.files {
 				fp := filepath.Join(tmpDir, rel)
-				if err := os.MkdirAll(filepath.Dir(fp), 0o750); err != nil {
-					t.Fatalf("mkdir: %v", err)
-				}
-				if err := os.WriteFile(fp, []byte(content), 0o600); err != nil {
-					t.Fatalf("write file: %v", err)
-				}
+				require.NoError(t, os.MkdirAll(filepath.Dir(fp), 0o750))
+				require.NoError(t, os.WriteFile(fp, []byte(content), 0o600))
 			}
 
 			lib, err := LoadLibrary(context.Background(), tmpDir)
-			if err != nil {
-				t.Fatalf("LoadLibrary: %v", err)
-			}
+			require.NoError(t, err)
 
 			result, err := lib.Refresh(context.Background(), &RefreshRequest{DryRun: tt.dryRun, Force: tt.force})
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("Refresh() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			if err != nil {
+			if tt.wantErr {
+				require.Error(t, err)
 				return
 			}
+			require.NoError(t, err)
 
 			gotUnchanged := make([]string, 0, len(result.Unchanged))
 			for _, u := range result.Unchanged {
 				gotUnchanged = append(gotUnchanged, u.Ref)
 			}
 			if !stringSlicesEqualUnordered(gotUnchanged, tt.wantUnchangedRefs) {
-				t.Errorf("Unchanged refs = %v, want %v", gotUnchanged, tt.wantUnchangedRefs)
+				assert.Equal(t, tt.wantUnchangedRefs, gotUnchanged, "Unchanged refs = %v, want %v")
 			}
 		})
 	}
@@ -148,7 +136,7 @@ func TestLibrary_Refresh_CtxCancelled(t *testing.T) {
 	lib := &Library{RootPath: t.TempDir()}
 	_, err := lib.Refresh(ctx, &RefreshRequest{})
 	require.Error(t, err)
-	assert.ErrorIs(t, err, context.Canceled)
+	assert.True(t, errors.Is(err, context.Canceled))
 }
 
 func TestLibrary_RemoveResource(t *testing.T) {
@@ -165,12 +153,8 @@ func TestLibrary_RemoveResource(t *testing.T) {
 				createTestLibrary(t, libDir)
 				srcPath := filepath.Join(t.TempDir(), "skill.md")
 				content := "---\nname: target\ndescription: target skill\ntype: skill\ntools:\n  - bash\n---\n# Target\n"
-				if err := os.WriteFile(srcPath, []byte(content), 0o600); err != nil {
-					t.Fatalf("write src: %v", err)
-				}
-				if err := AddResource(context.Background(), AddRequest{Source: srcPath, LibraryPath: libDir, Type: "skill"}); err != nil {
-					t.Fatalf("AddResource: %v", err)
-				}
+				require.NoError(t, os.WriteFile(srcPath, []byte(content), 0o600))
+				require.NoError(t, AddResource(context.Background(), AddRequest{Source: srcPath, LibraryPath: libDir, Type: "skill"}))
 			},
 			req:     &RemoveResourceRequest{Ref: "skill/target"},
 			wantErr: false,
@@ -208,23 +192,21 @@ func TestLibrary_RemoveResource(t *testing.T) {
 
 			if tt.name == "error: empty RootPath" {
 				err := (&Library{}).RemoveResource(context.Background(), tt.req)
-				if err == nil {
-					t.Fatal("expected error from empty RootPath, got nil")
-				}
+				require.Error(t, err)
 				return
 			}
 
 			lib, err := LoadLibrary(context.Background(), libDir)
-			if err != nil {
-				t.Fatalf("LoadLibrary: %v", err)
-			}
+			require.NoError(t, err)
 
 			err = lib.RemoveResource(context.Background(), tt.req)
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("RemoveResource() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
 			}
+			require.NoError(t, err)
 			if err != nil && tt.errContains != "" && !strings.Contains(err.Error(), tt.errContains) {
-				t.Errorf("error %q does not contain %q", err.Error(), tt.errContains)
+				assert.Contains(t, err.Error(), tt.errContains, "error must contain")
 			}
 		})
 	}
@@ -237,7 +219,7 @@ func TestLibrary_RemoveResource_CtxCancelled(t *testing.T) {
 	lib := &Library{RootPath: t.TempDir()}
 	err := lib.RemoveResource(ctx, &RemoveResourceRequest{Ref: "skill/x"})
 	require.Error(t, err)
-	assert.ErrorIs(t, err, context.Canceled)
+	assert.True(t, errors.Is(err, context.Canceled))
 }
 
 func TestLibrary_RemovePreset(t *testing.T) {
@@ -253,15 +235,9 @@ func TestLibrary_RemovePreset(t *testing.T) {
 			setupLib: func(t *testing.T, libDir string) {
 				createTestLibrary(t, libDir)
 				lib, err := LoadLibrary(context.Background(), libDir)
-				if err != nil {
-					t.Fatalf("LoadLibrary: %v", err)
-				}
-				if err := AddPreset(lib, Preset{Name: "wp", Description: "d", Resources: []string{"skill/any"}}); err != nil {
-					t.Fatalf("AddPreset: %v", err)
-				}
-				if err := SaveLibrary(lib); err != nil {
-					t.Fatalf("SaveLibrary: %v", err)
-				}
+				require.NoError(t, err)
+				require.NoError(t, AddPreset(lib, Preset{Name: "wp", Description: "d", Resources: []string{"skill/any"}}))
+				require.NoError(t, SaveLibrary(lib))
 			},
 			req:     &RemovePresetRequest{Name: "wp"},
 			wantErr: false,
@@ -299,23 +275,21 @@ func TestLibrary_RemovePreset(t *testing.T) {
 
 			if tt.name == "error: empty RootPath" {
 				err := (&Library{}).RemovePreset(context.Background(), tt.req)
-				if err == nil {
-					t.Fatal("expected error from empty RootPath, got nil")
-				}
+				require.Error(t, err)
 				return
 			}
 
 			lib, err := LoadLibrary(context.Background(), libDir)
-			if err != nil {
-				t.Fatalf("LoadLibrary: %v", err)
-			}
+			require.NoError(t, err)
 
 			err = lib.RemovePreset(context.Background(), tt.req)
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("RemovePreset() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
 			}
+			require.NoError(t, err)
 			if err != nil && tt.errContains != "" && !strings.Contains(err.Error(), tt.errContains) {
-				t.Errorf("error %q does not contain %q", err.Error(), tt.errContains)
+				assert.Contains(t, err.Error(), tt.errContains, "error must contain")
 			}
 		})
 	}
@@ -328,7 +302,7 @@ func TestLibrary_RemovePreset_CtxCancelled(t *testing.T) {
 	lib := &Library{RootPath: t.TempDir()}
 	err := lib.RemovePreset(ctx, &RemovePresetRequest{Name: "x"})
 	require.Error(t, err)
-	assert.ErrorIs(t, err, context.Canceled)
+	assert.True(t, errors.Is(err, context.Canceled))
 }
 
 func TestLibrary_Validate(t *testing.T) {
@@ -348,12 +322,8 @@ func TestLibrary_Validate(t *testing.T) {
 				// Add a resource whose file exists
 				srcPath := filepath.Join(t.TempDir(), "skill.md")
 				content := "---\nname: ok\ndescription: ok\ntype: skill\ntools:\n  - bash\n---\n# Ok\n"
-				if err := os.WriteFile(srcPath, []byte(content), 0o600); err != nil {
-					t.Fatalf("write src: %v", err)
-				}
-				if err := AddResource(context.Background(), AddRequest{Source: srcPath, LibraryPath: libDir, Type: "skill"}); err != nil {
-					t.Fatalf("AddResource: %v", err)
-				}
+				require.NoError(t, os.WriteFile(srcPath, []byte(content), 0o600))
+				require.NoError(t, AddResource(context.Background(), AddRequest{Source: srcPath, LibraryPath: libDir, Type: "skill"}))
 			},
 			req:            &ValidateRequest{Fix: false},
 			wantErr:        false,
@@ -366,15 +336,11 @@ func TestLibrary_Validate(t *testing.T) {
 				createTestLibrary(t, libDir)
 				// Add a resource that references a missing file
 				lib, err := LoadLibrary(context.Background(), libDir)
-				if err != nil {
-					t.Fatalf("LoadLibrary: %v", err)
-				}
+				require.NoError(t, err)
 				lib.Resources["skill"] = map[string]Resource{
 					"missing": {Path: "skills/missing.md", Description: "missing skill"},
 				}
-				if err := SaveLibrary(lib); err != nil {
-					t.Fatalf("SaveLibrary: %v", err)
-				}
+				require.NoError(t, SaveLibrary(lib))
 			},
 			req:              &ValidateRequest{Fix: true},
 			wantErr:          false,
@@ -397,33 +363,28 @@ func TestLibrary_Validate(t *testing.T) {
 
 			if tt.name == "error: empty RootPath" {
 				_, err := (&Library{}).Validate(context.Background(), tt.req)
-				if err == nil {
-					t.Fatal("expected error from empty RootPath, got nil")
-				}
+				require.Error(t, err)
 				return
 			}
 
 			lib, err := LoadLibrary(context.Background(), libDir)
-			if err != nil {
-				t.Fatalf("LoadLibrary: %v", err)
-			}
+			require.NoError(t, err)
 
 			result, err := lib.Validate(context.Background(), tt.req)
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("Validate() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			if err != nil {
+			if tt.wantErr {
+				require.Error(t, err)
 				return
 			}
+			require.NoError(t, err)
 
 			if result.Valid != tt.wantValid {
-				t.Errorf("Valid = %v, want %v", result.Valid, tt.wantValid)
+				assert.Equal(t, tt.wantValid, result.Valid, "Valid = %v, want %v")
 			}
 			if result.FixApplied != tt.wantFixApplied {
-				t.Errorf("FixApplied = %v, want %v", result.FixApplied, tt.wantFixApplied)
+				assert.Equal(t, tt.wantFixApplied, result.FixApplied, "FixApplied = %v, want %v")
 			}
 			if tt.wantFixHasFields && result.FixResult == nil {
-				t.Error("expected FixResult to be populated, got nil")
+				assert.Fail(t, "expected FixResult to be populated, got nil")
 			}
 		})
 	}
@@ -436,7 +397,7 @@ func TestLibrary_Validate_CtxCancelled(t *testing.T) {
 	lib := &Library{RootPath: t.TempDir()}
 	_, err := lib.Validate(ctx, &ValidateRequest{})
 	require.Error(t, err)
-	assert.ErrorIs(t, err, context.Canceled)
+	assert.True(t, errors.Is(err, context.Canceled))
 }
 
 func TestLibrary_Fix(t *testing.T) {
@@ -451,9 +412,7 @@ func TestLibrary_Fix(t *testing.T) {
 			setupLib: func(t *testing.T, libDir string) {
 				createTestLibrary(t, libDir)
 				lib, err := LoadLibrary(context.Background(), libDir)
-				if err != nil {
-					t.Fatalf("LoadLibrary: %v", err)
-				}
+				require.NoError(t, err)
 				lib.Resources["skill"] = map[string]Resource{
 					"missing": {Path: "skills/missing.md", Description: "missing skill"},
 				}
@@ -461,9 +420,7 @@ func TestLibrary_Fix(t *testing.T) {
 					Name:      "workflow",
 					Resources: []string{"skill/missing", "skill/ghost"},
 				}
-				if err := SaveLibrary(lib); err != nil {
-					t.Fatalf("SaveLibrary: %v", err)
-				}
+				require.NoError(t, SaveLibrary(lib))
 			},
 			wantErr:      false,
 			wantRemovals: 1,
@@ -482,26 +439,21 @@ func TestLibrary_Fix(t *testing.T) {
 
 			if tt.name == "error: empty RootPath" {
 				_, err := (&Library{}).Fix(context.Background(), &FixRequest{})
-				if err == nil {
-					t.Fatal("expected error from empty RootPath, got nil")
-				}
+				require.Error(t, err)
 				return
 			}
 
 			lib, err := LoadLibrary(context.Background(), libDir)
-			if err != nil {
-				t.Fatalf("LoadLibrary: %v", err)
-			}
+			require.NoError(t, err)
 
 			result, err := lib.Fix(context.Background(), &FixRequest{})
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("Fix() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			if err != nil {
+			if tt.wantErr {
+				require.Error(t, err)
 				return
 			}
+			require.NoError(t, err)
 			if len(result.RemovedEntries) != tt.wantRemovals {
-				t.Errorf("RemovedEntries count = %d, want %d", len(result.RemovedEntries), tt.wantRemovals)
+				assert.Len(t, result.RemovedEntries, tt.wantRemovals, "RemovedEntries count count")
 			}
 		})
 	}
@@ -514,7 +466,7 @@ func TestLibrary_Fix_CtxCancelled(t *testing.T) {
 	lib := &Library{RootPath: t.TempDir()}
 	_, err := lib.Fix(ctx, &FixRequest{})
 	require.Error(t, err)
-	assert.ErrorIs(t, err, context.Canceled)
+	assert.True(t, errors.Is(err, context.Canceled))
 }
 
 func TestInit(t *testing.T) {
@@ -541,9 +493,11 @@ func TestInit(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := Init(context.Background(), tt.req, io.Discard)
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("Init() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
 			}
+			require.NoError(t, err)
 		})
 	}
 }
@@ -554,7 +508,7 @@ func TestInit_CtxCancelled(t *testing.T) {
 
 	err := Init(ctx, &InitRequest{Path: filepath.Join(t.TempDir(), "x")}, io.Discard)
 	require.Error(t, err)
-	assert.ErrorIs(t, err, context.Canceled)
+	assert.True(t, errors.Is(err, context.Canceled))
 }
 
 func TestLibrary_Add(t *testing.T) {
@@ -596,41 +550,33 @@ func TestLibrary_Add(t *testing.T) {
 				srcDir := t.TempDir()
 				src := filepath.Join(srcDir, "skill-added.md")
 				body := "---\nname: added\ndescription: added skill\ntype: skill\ntools:\n  - bash\n---\n# Added\n"
-				if err := os.WriteFile(src, []byte(body), 0o600); err != nil {
-					t.Fatalf("write src: %v", err)
-				}
+				require.NoError(t, os.WriteFile(src, []byte(body), 0o600))
 				tt.req.Source = src
 				tt.req.LibraryPath = libDir
 			}
 
 			if tt.name == "error: empty RootPath" {
 				err := (&Library{}).Add(context.Background(), tt.req)
-				if err == nil {
-					t.Fatal("expected error from empty RootPath, got nil")
-				}
+				require.Error(t, err)
 				return
 			}
 			if tt.name == "error: nil request" {
 				lib := &Library{RootPath: t.TempDir()}
 				err := lib.Add(context.Background(), nil)
-				if err == nil {
-					t.Fatal("expected error from nil request, got nil")
-				}
+				require.Error(t, err)
 				return
 			}
 
 			lib, err := LoadLibrary(context.Background(), libDir)
-			if err != nil {
-				t.Fatalf("LoadLibrary: %v", err)
-			}
-			if addErr := lib.Add(context.Background(), tt.req); (addErr != nil) != tt.wantErr {
-				t.Fatalf("Add() error = %v, wantErr %v", addErr, tt.wantErr)
-			}
+			require.NoError(t, err)
+			addErr := lib.Add(context.Background(), tt.req)
 			if tt.wantErr {
+				require.Error(t, addErr)
 				return
 			}
+			require.NoError(t, addErr)
 			if _, exists := lib.Resources["skill"]["added"]; !exists {
-				t.Error("lib.Resources must contain skill/added after Add")
+				assert.Fail(t, "lib.Resources must contain skill/added after Add")
 			}
 		})
 	}
@@ -643,7 +589,7 @@ func TestLibrary_Add_CtxCancelled(t *testing.T) {
 	lib := &Library{RootPath: t.TempDir()}
 	err := lib.Add(ctx, &AddRequest{Name: "x", Type: "skill"})
 	require.Error(t, err)
-	assert.ErrorIs(t, err, context.Canceled)
+	assert.True(t, errors.Is(err, context.Canceled))
 }
 
 func TestLibrary_BatchAddResources(t *testing.T) {
@@ -664,9 +610,7 @@ func TestLibrary_BatchAddResources(t *testing.T) {
 				for _, name := range []string{"ba1", "ba2"} {
 					p := filepath.Join(srcDir, "skill-"+name+".md")
 					body := "---\nname: " + name + "\ndescription: " + name + "\ntype: skill\ntools:\n  - bash\n---\n# " + name + "\n"
-					if err := os.WriteFile(p, []byte(body), 0o600); err != nil {
-						t.Fatalf("write src: %v", err)
-					}
+					require.NoError(t, os.WriteFile(p, []byte(body), 0o600))
 					sources = append(sources, p)
 				}
 				return sources
@@ -697,36 +641,27 @@ func TestLibrary_BatchAddResources(t *testing.T) {
 
 			if tt.name == "error: empty RootPath" {
 				_, err := (&Library{}).BatchAddResources(context.Background(), opts)
-				if err == nil {
-					t.Fatal("expected error from empty RootPath, got nil")
-				}
+				require.Error(t, err)
 				return
 			}
 			if tt.name == "error: nil options" {
 				lib := &Library{RootPath: t.TempDir()}
 				_, err := lib.BatchAddResources(context.Background(), nil)
-				if err == nil {
-					t.Fatal("expected error from nil options, got nil")
-				}
+				require.Error(t, err)
 				return
 			}
 
 			lib, err := LoadLibrary(context.Background(), libDir)
-			if err != nil {
-				t.Fatalf("LoadLibrary: %v", err)
-			}
+			require.NoError(t, err)
 			result, batchErr := lib.BatchAddResources(context.Background(), opts)
-			if (batchErr != nil) != tt.wantErr {
-				t.Fatalf("BatchAddResources() error = %v, wantErr %v", batchErr, tt.wantErr)
-			}
 			if tt.wantErr {
+				require.Error(t, batchErr)
 				return
 			}
-			if result == nil {
-				t.Fatal("expected non-nil result")
-			}
+			require.NoError(t, batchErr)
+			require.NotNil(t, result)
 			if result.Summary.Added != tt.wantAdded {
-				t.Errorf("Summary.Added = %d, want %d", result.Summary.Added, tt.wantAdded)
+				assert.Equal(t, tt.wantAdded, result.Summary.Added, "Summary.Added mismatch")
 			}
 		})
 	}
@@ -739,7 +674,7 @@ func TestLibrary_BatchAddResources_CtxCancelled(t *testing.T) {
 	lib := &Library{RootPath: t.TempDir()}
 	_, err := lib.BatchAddResources(ctx, &BatchAddOptions{})
 	require.Error(t, err)
-	assert.ErrorIs(t, err, context.Canceled)
+	assert.True(t, errors.Is(err, context.Canceled))
 }
 
 func TestLibrary_DiscoverOrphans(t *testing.T) {
@@ -778,34 +713,30 @@ func TestLibrary_DiscoverOrphans(t *testing.T) {
 
 			if tt.name == "error: empty RootPath" {
 				_, err := (&Library{}).DiscoverOrphans(context.Background(), tt.opts)
-				if err == nil {
-					t.Fatal("expected error from empty RootPath, got nil")
-				}
+				require.Error(t, err)
 				return
 			}
 			if tt.name == "error: nil options" {
 				lib := &Library{RootPath: t.TempDir()}
 				_, err := lib.DiscoverOrphans(context.Background(), nil)
-				if err == nil {
-					t.Fatal("expected error from nil options, got nil")
-				}
+				require.Error(t, err)
 				return
 			}
 
 			lib, err := LoadLibrary(context.Background(), libDir)
-			if err != nil {
-				t.Fatalf("LoadLibrary: %v", err)
-			}
+			require.NoError(t, err)
 			tt.opts.LibraryPath = libDir
 			result, discErr := lib.DiscoverOrphans(context.Background(), tt.opts)
-			if (discErr != nil) != tt.wantErr {
-				t.Fatalf("DiscoverOrphans() error = %v, wantErr %v", discErr, tt.wantErr)
+			if tt.wantErr {
+				require.Error(t, discErr)
+				return
 			}
+			require.NoError(t, discErr)
 			if tt.wantErr {
 				return
 			}
 			if len(result.Orphans) != tt.wantOrph {
-				t.Errorf("len(Orphans) = %d, want %d", len(result.Orphans), tt.wantOrph)
+				assert.Len(t, result.Orphans, tt.wantOrph, "len(Orphans) count")
 			}
 		})
 	}
@@ -818,7 +749,7 @@ func TestLibrary_DiscoverOrphans_CtxCancelled(t *testing.T) {
 	lib := &Library{RootPath: t.TempDir()}
 	_, err := lib.DiscoverOrphans(ctx, &DiscoverOptions{})
 	require.Error(t, err)
-	assert.ErrorIs(t, err, context.Canceled)
+	assert.True(t, errors.Is(err, context.Canceled))
 }
 
 // stringSlicesEqualUnordered reports whether two string slices contain

@@ -62,20 +62,19 @@ func TestResolveResource(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			gotPath, err := ResolveResource(lib, tt.ref)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ResolveResource() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantErr {
+				require.Error(t, err)
+				if tt.name != "invalid ref format" {
+					var nf *gerrors.NotFoundError
+					require.True(t, errors.As(err, &nf),
+						"not-found path MUST surface as *core.NotFoundError; got %T (%v)", err, err)
+					assert.Equal(t, "resource", nf.Entity,
+						"resource-lookup misses MUST report entity 'resource'")
+				}
 				return
 			}
-			if !tt.wantErr && gotPath != tt.wantPath {
-				t.Errorf("ResolveResource() path = %v, want %v", gotPath, tt.wantPath)
-			}
-			if tt.wantErr && tt.name != "invalid ref format" {
-				var nf *gerrors.NotFoundError
-				require.True(t, errors.As(err, &nf),
-					"not-found path MUST surface as *core.NotFoundError; got %T (%v)", err, err)
-				assert.Equal(t, "resource", nf.Entity,
-					"resource-lookup misses MUST report entity 'resource'")
-			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantPath, gotPath)
 		})
 	}
 }
@@ -93,13 +92,8 @@ func TestResolveResources(t *testing.T) {
 
 	refs := []string{"skill/commit", "skill/merge-request"}
 	paths, err := ResolveResources(lib, refs)
-	if err != nil {
-		t.Fatalf("ResolveResources() error = %v", err)
-	}
-
-	if len(paths) != 2 {
-		t.Errorf("ResolveResources() returned %d paths, want 2", len(paths))
-	}
+	require.NoError(t, err)
+	assert.Len(t, paths, 2)
 }
 
 func TestResolveResources_FailFast(t *testing.T) {
@@ -115,9 +109,7 @@ func TestResolveResources_FailFast(t *testing.T) {
 	// Second resource doesn't exist
 	refs := []string{"skill/commit", "skill/nonexistent"}
 	_, err := ResolveResources(lib, refs)
-	if err == nil {
-		t.Error("ResolveResources() expected error for missing resource")
-	}
+	require.Error(t, err)
 }
 
 func TestLibraryResolvePreset(t *testing.T) {
@@ -132,31 +124,20 @@ func TestLibraryResolvePreset(t *testing.T) {
 	}
 
 	refs, err := lib.ResolvePreset(context.Background(), "git-workflow")
-	if err != nil {
-		t.Fatalf("ResolvePreset() error = %v", err)
-	}
-	if len(refs) != 2 {
-		t.Errorf("ResolvePreset() returned %d refs, want 2", len(refs))
-	}
-	if refs[0] != "skill/commit" || refs[1] != "skill/merge-request" {
-		t.Errorf("ResolvePreset() refs = %v, want [skill/commit skill/merge-request]", refs)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, []string{"skill/commit", "skill/merge-request"}, refs)
 }
 
 func TestLibraryResolvePreset_NotFound(t *testing.T) {
 	lib := &Library{Presets: map[string]Preset{}}
 
 	_, err := lib.ResolvePreset(context.Background(), "ghost")
-	if err == nil {
-		t.Fatal("ResolvePreset() expected error for missing preset")
-	}
+	require.Error(t, err)
 	var nf *gerrors.NotFoundError
-	if !errors.As(err, &nf) {
-		t.Errorf("ResolvePreset() expected *core.NotFoundError, got %T (%v)", err, err)
-	}
-	if nf.Entity != "preset" || nf.Key != "ghost" {
-		t.Errorf("ResolvePreset() NotFoundError = %+v, want Entity=preset Key=ghost", nf)
-	}
+	require.True(t, errors.As(err, &nf),
+		"ResolvePreset() expected *core.NotFoundError; got %T (%v)", err, err)
+	assert.Equal(t, "preset", nf.Entity)
+	assert.Equal(t, "ghost", nf.Key)
 }
 
 func TestLibraryResolvePreset_EmptyResources(t *testing.T) {
@@ -170,12 +151,8 @@ func TestLibraryResolvePreset_EmptyResources(t *testing.T) {
 	}
 
 	refs, err := lib.ResolvePreset(context.Background(), "empty")
-	if err != nil {
-		t.Fatalf("ResolvePreset() error = %v", err)
-	}
-	if len(refs) != 0 {
-		t.Errorf("ResolvePreset() returned %d refs, want 0", len(refs))
-	}
+	require.NoError(t, err)
+	assert.Empty(t, refs)
 }
 
 // TestResolvePreset_AcceptAndMayIgnore documents the spec contract from
@@ -293,34 +270,25 @@ func TestGetOutputPath(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			gotPath, err := GetOutputPath(tt.typ, tt.resName, tt.platform, tt.outputDir)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("GetOutputPath() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantErr {
+				require.Error(t, err)
 				return
 			}
-			if !tt.wantErr && gotPath != tt.wantPath {
-				t.Errorf("GetOutputPath() = %v, want %v", gotPath, tt.wantPath)
-			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantPath, gotPath)
 		})
 	}
 }
 
 func TestIsValidPlatform(t *testing.T) {
-	if !IsValidPlatform("opencode") {
-		t.Error("opencode should be valid platform")
-	}
-	if !IsValidPlatform("claude-code") {
-		t.Error("claude-code should be valid platform")
-	}
-	if IsValidPlatform("invalid") {
-		t.Error("invalid should not be valid platform")
-	}
+	assert.True(t, IsValidPlatform("opencode"), "opencode should be valid platform")
+	assert.True(t, IsValidPlatform("claude-code"), "claude-code should be valid platform")
+	assert.False(t, IsValidPlatform("invalid"), "invalid should not be valid platform")
 }
 
 func TestValidPlatforms(t *testing.T) {
 	platforms := ValidPlatforms()
-	if len(platforms) != 2 {
-		t.Errorf("ValidPlatforms() returned %d platforms, want 2", len(platforms))
-	}
+	assert.Len(t, platforms, 2)
 }
 
 func TestValidateRef(t *testing.T) {
@@ -341,9 +309,11 @@ func TestValidateRef(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateRef(tt.ref)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ValidateRef() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
 			}
+			require.NoError(t, err)
 		})
 	}
 }

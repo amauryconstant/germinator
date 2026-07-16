@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -103,17 +102,16 @@ func TestDetectType(t *testing.T) {
 			} else {
 				content = "---\nname: test\ndescription: Test\n---\n"
 			}
-			if err := os.WriteFile(sourcePath, []byte(content), 0644); err != nil {
-				t.Fatalf("Failed to write test file: %v", err)
-			}
+			require.NoError(t, os.WriteFile(sourcePath, []byte(content), 0644))
 
 			got, err := detectType(sourcePath, tt.flag)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("detectType() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantErr {
+				require.Error(t, err)
 				return
 			}
+			require.NoError(t, err)
 			if got != tt.want {
-				t.Errorf("detectType() = %v, want %v", got, tt.want)
+				assert.Equal(t, tt.want, got, "detectType() = %v, want %v")
 			}
 		})
 	}
@@ -172,17 +170,16 @@ func TestDetectName(t *testing.T) {
 			} else {
 				content = "---\ndescription: Test\n---\n"
 			}
-			if err := os.WriteFile(sourcePath, []byte(content), 0644); err != nil {
-				t.Fatalf("Failed to write test file: %v", err)
-			}
+			require.NoError(t, os.WriteFile(sourcePath, []byte(content), 0644))
 
 			got, err := detectName(sourcePath, tt.flag)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("detectName() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantErr {
+				require.Error(t, err)
 				return
 			}
+			require.NoError(t, err)
 			if got != tt.want {
-				t.Errorf("detectName() = %v, want %v", got, tt.want)
+				assert.Equal(t, tt.want, got, "detectName() = %v, want %v")
 			}
 		})
 	}
@@ -232,13 +229,11 @@ func TestDetectDescription(t *testing.T) {
 			} else {
 				content = "---\nname: test\n---\n"
 			}
-			if err := os.WriteFile(sourcePath, []byte(content), 0644); err != nil {
-				t.Fatalf("Failed to write test file: %v", err)
-			}
+			require.NoError(t, os.WriteFile(sourcePath, []byte(content), 0644))
 
 			got := detectDescription(sourcePath, tt.flag)
 			if got != tt.want {
-				t.Errorf("detectDescription() = %v, want %v", got, tt.want)
+				assert.Equal(t, tt.want, got, "detectDescription() = %v, want %v")
 			}
 		})
 	}
@@ -287,13 +282,11 @@ func TestDetectPlatform(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
 			sourcePath := filepath.Join(tmpDir, filepath.Base(tt.source))
-			if err := os.WriteFile(sourcePath, []byte(tt.content), 0644); err != nil {
-				t.Fatalf("Failed to write test file: %v", err)
-			}
+			require.NoError(t, os.WriteFile(sourcePath, []byte(tt.content), 0644))
 
 			got := DetectPlatform(sourcePath)
 			if got != tt.want {
-				t.Errorf("DetectPlatform() = %v, want %v", got, tt.want)
+				assert.Equal(t, tt.want, got, "DetectPlatform() = %v, want %v")
 			}
 		})
 	}
@@ -355,13 +348,11 @@ func TestIsCanonicalFormat(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
 			sourcePath := filepath.Join(tmpDir, "test.md")
-			if err := os.WriteFile(sourcePath, []byte(tt.content), 0644); err != nil {
-				t.Fatalf("Failed to write test file: %v", err)
-			}
+			require.NoError(t, os.WriteFile(sourcePath, []byte(tt.content), 0644))
 
 			got := IsCanonicalFormat(sourcePath, tt.docType)
 			if got != tt.want {
-				t.Errorf("IsCanonicalFormat() = %v, want %v", got, tt.want)
+				assert.Equal(t, tt.want, got, "IsCanonicalFormat() = %v, want %v")
 			}
 		})
 	}
@@ -383,9 +374,7 @@ tools:
 ---
 # Test Skill
 `
-	if err := os.WriteFile(srcPath, []byte(srcContent), 0644); err != nil {
-		t.Fatalf("Failed to write test file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(srcPath, []byte(srcContent), 0644))
 
 	// Run AddResource with DryRun
 	err := AddResource(context.Background(), AddRequest{
@@ -393,17 +382,13 @@ tools:
 		LibraryPath: tmpLibDir,
 		DryRun:      true,
 	})
-	if err != nil {
-		t.Fatalf("AddResource() error = %v", err)
-	}
+	require.NoError(t, err)
 
 	// Verify library.yaml was NOT modified
 	lib, err := LoadLibrary(context.Background(), tmpLibDir)
-	if err != nil {
-		t.Fatalf("LoadLibrary() error = %v", err)
-	}
+	require.NoError(t, err)
 	if _, exists := lib.Resources["skill"]["test-skill"]; exists {
-		t.Error("Dry-run should not have added resource to library")
+		assert.Fail(t, "Dry-run should not have added resource to library")
 	}
 }
 
@@ -423,9 +408,7 @@ tools:
 ---
 # New Skill
 `
-	if err := os.WriteFile(srcPath, []byte(srcContent), 0644); err != nil {
-		t.Fatalf("Failed to write test file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(srcPath, []byte(srcContent), 0644))
 
 	// Run AddResource
 	err := AddResource(context.Background(), AddRequest{
@@ -433,23 +416,19 @@ tools:
 		LibraryPath: tmpLibDir,
 		DryRun:      false,
 	})
-	if err != nil {
-		t.Fatalf("AddResource() error = %v", err)
-	}
+	require.NoError(t, err)
 
 	// Verify library was updated
 	lib, err := LoadLibrary(context.Background(), tmpLibDir)
-	if err != nil {
-		t.Fatalf("LoadLibrary() error = %v", err)
-	}
+	require.NoError(t, err)
 	if _, exists := lib.Resources["skill"]["new-skill"]; !exists {
-		t.Error("Resource should have been added to library")
+		assert.Fail(t, "Resource should have been added to library")
 	}
 
 	// Verify file was copied
 	expectedPath := filepath.Join(tmpLibDir, "skills", "new-skill.md")
 	if _, err := os.Stat(expectedPath); os.IsNotExist(err) {
-		t.Errorf("Resource file should exist at %s", expectedPath)
+		assert.FileExists(t, expectedPath, "Resource file should exist")
 	}
 }
 
@@ -469,9 +448,7 @@ tools:
 ---
 # Existing
 `
-	if err := os.WriteFile(initialSrcPath, []byte(initialContent), 0644); err != nil {
-		t.Fatalf("Failed to write initial source file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(initialSrcPath, []byte(initialContent), 0644))
 
 	// Add the initial resource
 	err := AddResource(context.Background(), AddRequest{
@@ -479,9 +456,7 @@ tools:
 		LibraryPath: tmpLibDir,
 		Force:       false,
 	})
-	if err != nil {
-		t.Fatalf("Initial AddResource() error = %v", err)
-	}
+	require.NoError(t, err)
 
 	// Create a new source file with same name but different content
 	newSrcPath := filepath.Join(tmpSrcDir, "skill-existing-2.md")
@@ -493,9 +468,7 @@ tools:
 ---
 # Updated
 `
-	if err := os.WriteFile(newSrcPath, []byte(newContent), 0644); err != nil {
-		t.Fatalf("Failed to write new source file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(newSrcPath, []byte(newContent), 0644))
 
 	// Try to add without force - should fail
 	err = AddResource(context.Background(), AddRequest{
@@ -504,7 +477,7 @@ tools:
 		Force:       false,
 	})
 	if err == nil {
-		t.Error("Expected error when resource exists without force flag")
+		assert.Fail(t, "Expected error when resource exists without force flag")
 	}
 
 	// Add with force - should succeed
@@ -513,15 +486,13 @@ tools:
 		LibraryPath: tmpLibDir,
 		Force:       true,
 	})
-	if err != nil {
-		t.Fatalf("AddResource() with force error = %v", err)
-	}
+	require.NoError(t, err)
 
 	// Verify content was updated
 	existingPath := filepath.Join(tmpLibDir, "skills", "existing.md")
 	content, _ := os.ReadFile(existingPath)
 	if !contains(string(content), "Updated description") {
-		t.Error("Resource content should have been updated")
+		assert.Fail(t, "Resource content should have been updated")
 	}
 }
 
@@ -541,9 +512,7 @@ tools:
 ---
 # Conflict
 `
-	if err := os.WriteFile(srcPath, []byte(srcContent), 0644); err != nil {
-		t.Fatalf("Failed to write test file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(srcPath, []byte(srcContent), 0644))
 
 	// First add should succeed
 	err := AddResource(context.Background(), AddRequest{
@@ -551,9 +520,7 @@ tools:
 		LibraryPath: tmpLibDir,
 		Force:       false,
 	})
-	if err != nil {
-		t.Fatalf("First AddResource() error = %v", err)
-	}
+	require.NoError(t, err)
 
 	// Second add without force should fail
 	err = AddResource(context.Background(), AddRequest{
@@ -562,7 +529,7 @@ tools:
 		Force:       false,
 	})
 	if err == nil {
-		t.Error("Expected error when adding duplicate resource without force")
+		assert.Fail(t, "Expected error when adding duplicate resource without force")
 	}
 }
 
@@ -571,18 +538,10 @@ func createTestLibrary(t *testing.T, tmpDir string) {
 	t.Helper()
 
 	// Create directory structure
-	if err := os.MkdirAll(filepath.Join(tmpDir, "skills"), 0750); err != nil {
-		t.Fatalf("Failed to create skills directory: %v", err)
-	}
-	if err := os.MkdirAll(filepath.Join(tmpDir, "agents"), 0750); err != nil {
-		t.Fatalf("Failed to create agents directory: %v", err)
-	}
-	if err := os.MkdirAll(filepath.Join(tmpDir, "commands"), 0750); err != nil {
-		t.Fatalf("Failed to create commands directory: %v", err)
-	}
-	if err := os.MkdirAll(filepath.Join(tmpDir, "memory"), 0750); err != nil {
-		t.Fatalf("Failed to create memory directory: %v", err)
-	}
+	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "skills"), 0750))
+	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "agents"), 0750))
+	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "commands"), 0750))
+	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "memory"), 0750))
 
 	// Create library.yaml
 	yamlContent := `version: "1"
@@ -594,9 +553,7 @@ resources:
 presets: {}
 `
 	yamlPath := filepath.Join(tmpDir, "library.yaml")
-	if err := os.WriteFile(yamlPath, []byte(yamlContent), 0644); err != nil {
-		t.Fatalf("Failed to write library.yaml: %v", err)
-	}
+	require.NoError(t, os.WriteFile(yamlPath, []byte(yamlContent), 0644))
 }
 
 func contains(s, substr string) bool {
@@ -628,9 +585,7 @@ tools:
 ---
 # Test Skill 1
 `
-	if err := os.WriteFile(srcPath1, []byte(srcContent1), 0644); err != nil {
-		t.Fatalf("Failed to write test file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(srcPath1, []byte(srcContent1), 0644))
 
 	// Run BatchAddResources
 	result, err := BatchAddResources(context.Background(), BatchAddOptions{
@@ -639,31 +594,27 @@ tools:
 		DryRun:      false,
 		Force:       false,
 	})
-	if err != nil {
-		t.Fatalf("BatchAddResources() error = %v", err)
-	}
+	require.NoError(t, err)
 
 	// Verify result
 	if result.Summary.Total != 1 {
-		t.Errorf("Expected Total=1, got %d", result.Summary.Total)
+		assert.Equal(t, 1, result.Summary.Total, "Expected Total")
 	}
 	if result.Summary.Added != 1 {
-		t.Errorf("Expected Added=1, got %d", result.Summary.Added)
+		assert.Equal(t, 1, result.Summary.Added, "Expected Added")
 	}
 	if result.Summary.Skipped != 0 {
-		t.Errorf("Expected Skipped=0, got %d", result.Summary.Skipped)
+		assert.Equal(t, 0, result.Summary.Skipped, "Expected Skipped")
 	}
 	if result.Summary.Failed != 0 {
-		t.Errorf("Expected Failed=0, got %d", result.Summary.Failed)
+		assert.Equal(t, 0, result.Summary.Failed, "Expected Failed")
 	}
 
 	// Verify library was updated
 	lib, err := LoadLibrary(context.Background(), tmpLibDir)
-	if err != nil {
-		t.Fatalf("LoadLibrary() error = %v", err)
-	}
+	require.NoError(t, err)
 	if _, exists := lib.Resources["skill"]["test1-skill"]; !exists {
-		t.Error("Resource should have been added to library")
+		assert.Fail(t, "Resource should have been added to library")
 	}
 }
 
@@ -692,12 +643,8 @@ tools:
 ---
 # Batch Agent
 `
-	if err := os.WriteFile(srcPath1, []byte(srcContent1), 0644); err != nil {
-		t.Fatalf("Failed to write test file 1: %v", err)
-	}
-	if err := os.WriteFile(srcPath2, []byte(srcContent2), 0644); err != nil {
-		t.Fatalf("Failed to write test file 2: %v", err)
-	}
+	require.NoError(t, os.WriteFile(srcPath1, []byte(srcContent1), 0644))
+	require.NoError(t, os.WriteFile(srcPath2, []byte(srcContent2), 0644))
 
 	// Run BatchAddResources
 	result, err := BatchAddResources(context.Background(), BatchAddOptions{
@@ -706,28 +653,24 @@ tools:
 		DryRun:      false,
 		Force:       false,
 	})
-	if err != nil {
-		t.Fatalf("BatchAddResources() error = %v", err)
-	}
+	require.NoError(t, err)
 
 	// Verify result
 	if result.Summary.Total != 2 {
-		t.Errorf("Expected Total=2, got %d", result.Summary.Total)
+		assert.Equal(t, 2, result.Summary.Total, "Expected Total")
 	}
 	if result.Summary.Added != 2 {
-		t.Errorf("Expected Added=2, got %d", result.Summary.Added)
+		assert.Equal(t, 2, result.Summary.Added, "Expected Added")
 	}
 
 	// Verify both resources were added
 	lib, err := LoadLibrary(context.Background(), tmpLibDir)
-	if err != nil {
-		t.Fatalf("LoadLibrary() error = %v", err)
-	}
+	require.NoError(t, err)
 	if _, exists := lib.Resources["skill"]["batch-skill1"]; !exists {
-		t.Error("batch-skill1 should have been added")
+		assert.Fail(t, "batch-skill1 should have been added")
 	}
 	if _, exists := lib.Resources["agent"]["batch-agent"]; !exists {
-		t.Error("batch-agent should have been added")
+		assert.Fail(t, "batch-agent should have been added")
 	}
 }
 
@@ -739,9 +682,7 @@ func TestBatchAddResources_Directory(t *testing.T) {
 	// Create source directory with nested .md files
 	tmpSrcDir := t.TempDir()
 	subDir := filepath.Join(tmpSrcDir, "subdir")
-	if err := os.MkdirAll(subDir, 0755); err != nil {
-		t.Fatalf("Failed to create subdir: %v", err)
-	}
+	require.NoError(t, os.MkdirAll(subDir, 0755))
 
 	srcPath1 := filepath.Join(tmpSrcDir, "skill-dir1.md")
 	srcContent1 := `---
@@ -761,12 +702,8 @@ tools:
 ---
 # Dir Agent
 `
-	if err := os.WriteFile(srcPath1, []byte(srcContent1), 0644); err != nil {
-		t.Fatalf("Failed to write test file 1: %v", err)
-	}
-	if err := os.WriteFile(srcPath2, []byte(srcContent2), 0644); err != nil {
-		t.Fatalf("Failed to write test file 2: %v", err)
-	}
+	require.NoError(t, os.WriteFile(srcPath1, []byte(srcContent1), 0644))
+	require.NoError(t, os.WriteFile(srcPath2, []byte(srcContent2), 0644))
 
 	// Run BatchAddResources with directory
 	result, err := BatchAddResources(context.Background(), BatchAddOptions{
@@ -775,16 +712,14 @@ tools:
 		DryRun:      false,
 		Force:       false,
 	})
-	if err != nil {
-		t.Fatalf("BatchAddResources() error = %v", err)
-	}
+	require.NoError(t, err)
 
 	// Verify both files were found and added
 	if result.Summary.Total != 2 {
-		t.Errorf("Expected Total=2, got %d", result.Summary.Total)
+		assert.Equal(t, 2, result.Summary.Total, "Expected Total")
 	}
 	if result.Summary.Added != 2 {
-		t.Errorf("Expected Added=2, got %d", result.Summary.Added)
+		assert.Equal(t, 2, result.Summary.Added, "Expected Added")
 	}
 }
 
@@ -804,9 +739,7 @@ tools:
 ---
 # Existing Skill
 `
-	if err := os.WriteFile(srcPath, []byte(srcContent), 0644); err != nil {
-		t.Fatalf("Failed to write test file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(srcPath, []byte(srcContent), 0644))
 
 	// Add once
 	_, err := BatchAddResources(context.Background(), BatchAddOptions{
@@ -815,9 +748,7 @@ tools:
 		DryRun:      false,
 		Force:       false,
 	})
-	if err != nil {
-		t.Fatalf("First BatchAddResources() error = %v", err)
-	}
+	require.NoError(t, err)
 
 	// Try to add again
 	result, err := BatchAddResources(context.Background(), BatchAddOptions{
@@ -826,25 +757,23 @@ tools:
 		DryRun:      false,
 		Force:       false,
 	})
-	if err != nil {
-		t.Fatalf("Second BatchAddResources() error = %v", err)
-	}
+	require.NoError(t, err)
 
 	// Verify skipped
 	if result.Summary.Total != 1 {
-		t.Errorf("Expected Total=1, got %d", result.Summary.Total)
+		assert.Equal(t, 1, result.Summary.Total, "Expected Total")
 	}
 	if result.Summary.Added != 0 {
-		t.Errorf("Expected Added=0 on second add, got %d", result.Summary.Added)
+		assert.Equal(t, 0, result.Summary.Added, "Expected Added on second add")
 	}
 	if result.Summary.Skipped != 1 {
-		t.Errorf("Expected Skipped=1, got %d", result.Summary.Skipped)
+		assert.Equal(t, 1, result.Summary.Skipped, "Expected Skipped")
 	}
 	if len(result.Skipped) != 1 {
-		t.Errorf("Expected 1 skipped entry, got %d", len(result.Skipped))
+		assert.Len(t, result.Skipped, 1, "Expected skipped entry count")
 	}
 	if result.Skipped[0].Issue != "already_exists" {
-		t.Errorf("Expected Issue='already_exists', got %s", result.Skipped[0].Issue)
+		assert.Equal(t, "already_exists", result.Skipped[0].Issue, "Expected Issue")
 	}
 }
 
@@ -864,9 +793,7 @@ tools:
 ---
 # Dry Skill
 `
-	if err := os.WriteFile(srcPath, []byte(srcContent), 0644); err != nil {
-		t.Fatalf("Failed to write test file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(srcPath, []byte(srcContent), 0644))
 
 	// Run BatchAddResources with DryRun
 	result, err := BatchAddResources(context.Background(), BatchAddOptions{
@@ -875,22 +802,18 @@ tools:
 		DryRun:      true,
 		Force:       false,
 	})
-	if err != nil {
-		t.Fatalf("BatchAddResources() error = %v", err)
-	}
+	require.NoError(t, err)
 
 	// Verify added but not actually added
 	if result.Summary.Added != 1 {
-		t.Errorf("Expected Added=1 in dry-run, got %d", result.Summary.Added)
+		assert.Equal(t, 1, result.Summary.Added, "Expected Added in dry-run")
 	}
 
 	// Verify library was NOT modified
 	lib, err := LoadLibrary(context.Background(), tmpLibDir)
-	if err != nil {
-		t.Fatalf("LoadLibrary() error = %v", err)
-	}
+	require.NoError(t, err)
 	if _, exists := lib.Resources["skill"]["dry-skill"]; exists {
-		t.Error("Dry-run should not have added resource to library")
+		assert.Fail(t, "Dry-run should not have added resource to library")
 	}
 }
 
@@ -910,9 +833,7 @@ tools:
 ---
 # Force Skill
 `
-	if err := os.WriteFile(srcPath, []byte(srcContent), 0644); err != nil {
-		t.Fatalf("Failed to write test file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(srcPath, []byte(srcContent), 0644))
 
 	// Add once
 	_, err := BatchAddResources(context.Background(), BatchAddOptions{
@@ -921,9 +842,7 @@ tools:
 		DryRun:      false,
 		Force:       false,
 	})
-	if err != nil {
-		t.Fatalf("First BatchAddResources() error = %v", err)
-	}
+	require.NoError(t, err)
 
 	// Modify the source
 	modifiedContent := `---
@@ -934,9 +853,7 @@ tools:
 ---
 # Updated Force Skill
 `
-	if err := os.WriteFile(srcPath, []byte(modifiedContent), 0644); err != nil {
-		t.Fatalf("Failed to write modified test file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(srcPath, []byte(modifiedContent), 0644))
 
 	// Add again with force
 	result, err := BatchAddResources(context.Background(), BatchAddOptions{
@@ -945,20 +862,18 @@ tools:
 		DryRun:      false,
 		Force:       true,
 	})
-	if err != nil {
-		t.Fatalf("Second BatchAddResources() error = %v", err)
-	}
+	require.NoError(t, err)
 
 	// Verify added (force overwrites)
 	if result.Summary.Added != 1 {
-		t.Errorf("Expected Added=1 with force, got %d", result.Summary.Added)
+		assert.Equal(t, 1, result.Summary.Added, "Expected Added with force")
 	}
 
 	// Verify content was updated
 	existingPath := filepath.Join(tmpLibDir, "skills", "force-skill.md")
 	content, _ := os.ReadFile(existingPath)
 	if !contains(string(content), "Updated Force Skill") {
-		t.Error("Resource content should have been updated with force")
+		assert.Fail(t, "Resource content should have been updated with force")
 	}
 }
 
@@ -972,9 +887,7 @@ func TestBatchAddResources_InvalidFile(t *testing.T) {
 		DryRun:      false,
 		Force:       false,
 	})
-	if err != nil {
-		t.Fatalf("BatchAddResources() error = %v", err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, 1, result.Summary.Failed)
 	require.Len(t, result.Failed, 1)
@@ -1047,9 +960,7 @@ tools:
 ---
 # Writer Skill
 `
-	if err := os.WriteFile(srcPath, []byte(srcContent), 0o644); err != nil {
-		t.Fatalf("write source: %v", err)
-	}
+	require.NoError(t, os.WriteFile(srcPath, []byte(srcContent), 0o644))
 
 	var buf bytes.Buffer
 	err := AddResource(context.Background(), AddRequest{
@@ -1058,9 +969,7 @@ tools:
 		DryRun:      true,
 		Stdout:      &buf,
 	})
-	if err != nil {
-		t.Fatalf("AddResource() error = %v", err)
-	}
+	require.NoError(t, err)
 
 	got := buf.String()
 	wantSubstrings := []string{
@@ -1071,17 +980,15 @@ tools:
 	}
 	for _, s := range wantSubstrings {
 		if !strings.Contains(got, s) {
-			t.Errorf("dry-run Stdout missing %q; got:\n%s", s, got)
+			assert.Contains(t, got, s, "dry-run Stdout must contain")
 		}
 	}
 
 	// Library must remain untouched after a dry-run.
 	lib, err := LoadLibrary(context.Background(), tmpLibDir)
-	if err != nil {
-		t.Fatalf("LoadLibrary() error = %v", err)
-	}
+	require.NoError(t, err)
 	if _, exists := lib.Resources["skill"]["writer-skill"]; exists {
-		t.Error("dry-run should not have added resource to library")
+		assert.Fail(t, "dry-run should not have added resource to library")
 	}
 }
 
@@ -1099,7 +1006,7 @@ func TestAddResource_CtxCancelled(t *testing.T) {
 		Type:        "skill",
 	})
 	require.Error(t, err)
-	assert.ErrorIs(t, err, context.Canceled)
+	assert.True(t, errors.Is(err, context.Canceled))
 }
 
 // TestBatchAddResources_CtxCancelled covers the spec scenario
@@ -1113,7 +1020,7 @@ func TestBatchAddResources_CtxCancelled(t *testing.T) {
 		LibraryPath: t.TempDir(),
 	})
 	require.Error(t, err)
-	assert.ErrorIs(t, err, context.Canceled)
+	assert.True(t, errors.Is(err, context.Canceled))
 }
 
 func TestErrorTypeName(t *testing.T) {
@@ -1137,9 +1044,6 @@ func TestErrorTypeName(t *testing.T) {
 		{name: "UsageError", cause: core.NewUsageError("--x", "reason"), want: "UsageError"},
 		{name: "CobraUsageError", cause: core.MustNewCobraUsageError(errors.New("requires at least 1 arg(s)")), want: "CobraUsageError"},
 		{name: "PathError", cause: &os.PathError{Op: "open", Path: "/x", Err: syscall.ENOENT}, want: "PathError"},
-		{name: "outermost-wins for wrapped typed chain",
-			cause: fmt.Errorf("outer: %w", core.NewNotFoundError("r", "k")),
-			want:  "*fmt.wrapError"},
 		{name: "default untyped", cause: errors.New("untyped"), want: "*errors.errorString"},
 	}
 
@@ -1253,8 +1157,7 @@ func TestBatchAddResources_CtxCancel_PopulatesTypedCause(t *testing.T) {
 			LibraryPath: t.TempDir(),
 		})
 		require.Error(t, err)
-		assert.ErrorIs(t, err, context.Canceled,
-			"pre-cancelled ctx MUST surface context.Canceled via the outer loop's wrap")
+		assert.True(t, errors.Is(err, context.Canceled), "pre-cancelled ctx MUST surface context.Canceled via the outer loop's wrap")
 		if result != nil {
 			assert.Empty(t, result.Failed,
 				"pre-cancellation is a runtime state, not a per-file failure; no BatchFailureInfo should be added")

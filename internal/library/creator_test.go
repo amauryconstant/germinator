@@ -7,6 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // Tests for CreateLibrary (creator.go). Placed in a dedicated test
@@ -29,9 +32,7 @@ func TestCreateLibrary_DryRun_WritesToStdout(t *testing.T) {
 		Path:   tmpDir,
 		DryRun: true,
 	}, &buf)
-	if err != nil {
-		t.Fatalf("CreateLibrary() error = %v", err)
-	}
+	require.NoError(t, err)
 
 	got := buf.String()
 	wantSubstrings := []string{
@@ -45,16 +46,16 @@ func TestCreateLibrary_DryRun_WritesToStdout(t *testing.T) {
 	}
 	for _, s := range wantSubstrings {
 		if !strings.Contains(got, s) {
-			t.Errorf("dry-run Stdout missing %q; got:\n%s", s, got)
+			assert.Contains(t, got, s, "dry-run Stdout must contain")
 		}
 	}
 
 	// Library directory and library.yaml must NOT exist after a dry-run.
 	if _, err := os.Stat(tmpDir); !os.IsNotExist(err) {
-		t.Errorf("dry-run should not have created %s; stat err = %v", tmpDir, err)
+		assert.True(t, os.IsNotExist(err), "dry-run should not have created tmpDir")
 	}
 	yamlPath := filepath.Join(tmpDir, "library.yaml")
 	if _, err := os.Stat(yamlPath); !os.IsNotExist(err) {
-		t.Errorf("dry-run should not have created %s; stat err = %v", yamlPath, err)
+		assert.True(t, os.IsNotExist(err), "dry-run should not have created yamlPath")
 	}
 }

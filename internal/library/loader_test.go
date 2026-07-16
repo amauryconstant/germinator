@@ -16,74 +16,45 @@ func TestLoadLibrary(t *testing.T) {
 	// Get absolute path to fixtures
 	fixturePath := filepath.Join("..", "..", "test", "fixtures", "library")
 	absPath, err := filepath.Abs(fixturePath)
-	if err != nil {
-		t.Fatalf("Failed to get absolute path: %v", err)
-	}
+	require.NoError(t, err)
 
 	lib, err := LoadLibrary(context.Background(), absPath)
-	if err != nil {
-		t.Fatalf("LoadLibrary() error = %v", err)
-	}
+	require.NoError(t, err)
 
 	// Verify version
-	if lib.Version != "1" {
-		t.Errorf("Library version = %v, want 1", lib.Version)
-	}
+	assert.Equal(t, "1", lib.Version)
 
 	// Verify resources exist
-	if len(lib.Resources) == 0 {
-		t.Error("Library has no resources")
-	}
+	assert.NotEmpty(t, lib.Resources, "Library has no resources")
 
 	// Verify skills
 	skills, ok := lib.Resources["skill"]
-	if !ok {
-		t.Error("Library has no skills")
-	}
-	if len(skills) < 2 {
-		t.Errorf("Expected at least 2 skills, got %d", len(skills))
-	}
+	require.True(t, ok, "Library has no skills")
+	assert.GreaterOrEqual(t, len(skills), 2, "Expected at least 2 skills")
 
 	// Verify specific skill
 	commit, ok := skills["commit"]
-	if !ok {
-		t.Error("Library missing skill/commit")
-	}
-	if commit.Path != "skills/skill-commit.md" {
-		t.Errorf("skill/commit path = %v, want skills/skill-commit.md", commit.Path)
-	}
-	if commit.Description != "Git commit best practices" {
-		t.Errorf("skill/commit description = %v, want 'Git commit best practices'", commit.Description)
-	}
+	require.True(t, ok, "Library missing skill/commit")
+	assert.Equal(t, "skills/skill-commit.md", commit.Path)
+	assert.Equal(t, "Git commit best practices", commit.Description)
 
 	// Verify agents
 	agents, ok := lib.Resources["agent"]
-	if !ok {
-		t.Error("Library has no agents")
-	}
-	if _, ok := agents["reviewer"]; !ok {
-		t.Error("Library missing agent/reviewer")
-	}
+	require.True(t, ok, "Library has no agents")
+	_, ok = agents["reviewer"]
+	assert.True(t, ok, "Library missing agent/reviewer")
 
 	// Verify presets
-	if len(lib.Presets) == 0 {
-		t.Error("Library has no presets")
-	}
+	assert.NotEmpty(t, lib.Presets, "Library has no presets")
 
 	gitWorkflow, ok := lib.Presets["git-workflow"]
-	if !ok {
-		t.Fatal("Library missing git-workflow preset")
-	}
-	if len(gitWorkflow.Resources) != 2 {
-		t.Errorf("git-workflow preset has %d resources, want 2", len(gitWorkflow.Resources))
-	}
+	require.True(t, ok, "Library missing git-workflow preset")
+	assert.Len(t, gitWorkflow.Resources, 2)
 }
 
 func TestLoadLibrary_MissingDirectory(t *testing.T) {
 	_, err := LoadLibrary(context.Background(), "/nonexistent/path/to/library")
-	if err == nil {
-		t.Fatal("LoadLibrary() expected error for missing directory")
-	}
+	require.Error(t, err)
 
 	var nf *core.NotFoundError
 	require.True(t, errors.As(err, &nf),
@@ -96,9 +67,7 @@ func TestLoadLibrary_MissingYAML(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	_, err := LoadLibrary(context.Background(), tmpDir)
-	if err == nil {
-		t.Fatal("LoadLibrary() expected error for missing library.yaml")
-	}
+	require.Error(t, err)
 
 	var nf *core.NotFoundError
 	require.True(t, errors.As(err, &nf),
@@ -111,14 +80,10 @@ func TestLoadLibrary_InvalidYAML(t *testing.T) {
 
 	// Write invalid YAML
 	yamlPath := filepath.Join(tmpDir, "library.yaml")
-	if err := os.WriteFile(yamlPath, []byte("invalid: [yaml: content"), 0644); err != nil {
-		t.Fatalf("Failed to write library.yaml: %v", err)
-	}
+	require.NoError(t, os.WriteFile(yamlPath, []byte("invalid: [yaml: content"), 0644))
 
 	_, err := LoadLibrary(context.Background(), tmpDir)
-	if err == nil {
-		t.Error("LoadLibrary() expected error for invalid YAML")
-	}
+	require.Error(t, err)
 }
 
 func TestLoadLibrary_MissingVersion(t *testing.T) {
@@ -132,14 +97,10 @@ resources:
       path: skills/test.yaml
 `
 	yamlPath := filepath.Join(tmpDir, "library.yaml")
-	if err := os.WriteFile(yamlPath, []byte(yamlContent), 0644); err != nil {
-		t.Fatalf("Failed to write library.yaml: %v", err)
-	}
+	require.NoError(t, os.WriteFile(yamlPath, []byte(yamlContent), 0644))
 
 	_, err := LoadLibrary(context.Background(), tmpDir)
-	if err == nil {
-		t.Error("LoadLibrary() expected error for missing version")
-	}
+	require.Error(t, err)
 }
 
 func TestLoadLibrary_UnsupportedVersion(t *testing.T) {
@@ -154,14 +115,10 @@ resources:
       path: skills/test.yaml
 `
 	yamlPath := filepath.Join(tmpDir, "library.yaml")
-	if err := os.WriteFile(yamlPath, []byte(yamlContent), 0644); err != nil {
-		t.Fatalf("Failed to write library.yaml: %v", err)
-	}
+	require.NoError(t, os.WriteFile(yamlPath, []byte(yamlContent), 0644))
 
 	_, err := LoadLibrary(context.Background(), tmpDir)
-	if err == nil {
-		t.Error("LoadLibrary() expected error for unsupported version")
-	}
+	require.Error(t, err)
 }
 
 func TestLoadLibrary_InvalidResourceType(t *testing.T) {
@@ -176,14 +133,10 @@ resources:
       path: test.yaml
 `
 	yamlPath := filepath.Join(tmpDir, "library.yaml")
-	if err := os.WriteFile(yamlPath, []byte(yamlContent), 0644); err != nil {
-		t.Fatalf("Failed to write library.yaml: %v", err)
-	}
+	require.NoError(t, os.WriteFile(yamlPath, []byte(yamlContent), 0644))
 
 	_, err := LoadLibrary(context.Background(), tmpDir)
-	if err == nil {
-		t.Error("LoadLibrary() expected error for invalid resource type")
-	}
+	require.Error(t, err)
 }
 
 func TestLoadLibrary_EmptyLibrary(t *testing.T) {
@@ -196,32 +149,20 @@ resources: {}
 presets: {}
 `
 	yamlPath := filepath.Join(tmpDir, "library.yaml")
-	if err := os.WriteFile(yamlPath, []byte(yamlContent), 0644); err != nil {
-		t.Fatalf("Failed to write library.yaml: %v", err)
-	}
+	require.NoError(t, os.WriteFile(yamlPath, []byte(yamlContent), 0644))
 
 	lib, err := LoadLibrary(context.Background(), tmpDir)
-	if err != nil {
-		t.Fatalf("LoadLibrary() error = %v", err)
-	}
+	require.NoError(t, err)
 
-	if len(lib.Resources) != 0 {
-		t.Errorf("Empty library should have 0 resources, got %d", len(lib.Resources))
-	}
-	if len(lib.Presets) != 0 {
-		t.Errorf("Empty library should have 0 presets, got %d", len(lib.Presets))
-	}
+	assert.Empty(t, lib.Resources)
+	assert.Empty(t, lib.Presets)
 }
 
 func TestLoadLibrary_NotADirectory(t *testing.T) {
 	// Create temp file (not directory)
 	tmpFile := filepath.Join(t.TempDir(), "notadir")
-	if err := os.WriteFile(tmpFile, []byte("test"), 0644); err != nil {
-		t.Fatalf("Failed to create temp file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(tmpFile, []byte("test"), 0644))
 
 	_, err := LoadLibrary(context.Background(), tmpFile)
-	if err == nil {
-		t.Error("LoadLibrary() expected error for file path")
-	}
+	require.Error(t, err)
 }

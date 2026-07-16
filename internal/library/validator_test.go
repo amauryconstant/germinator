@@ -5,6 +5,9 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCheckMissingFiles(t *testing.T) {
@@ -74,35 +77,25 @@ presets: {}
 			tmpDir := t.TempDir()
 
 			// Write library.yaml
-			if err := os.WriteFile(filepath.Join(tmpDir, "library.yaml"), []byte(tt.libraryYAML), 0644); err != nil {
-				t.Fatalf("Failed to write library.yaml: %v", err)
-			}
+			require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "library.yaml"), []byte(tt.libraryYAML), 0644))
 
 			// Create directories and files
 			for path, content := range tt.files {
 				fullPath := filepath.Join(tmpDir, path)
-				if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
-					t.Fatalf("Failed to create directory: %v", err)
-				}
-				if err := os.WriteFile(fullPath, []byte(content), 0644); err != nil {
-					t.Fatalf("Failed to write file %s: %v", path, err)
-				}
+				require.NoError(t, os.MkdirAll(filepath.Dir(fullPath), 0755))
+				require.NoError(t, os.WriteFile(fullPath, []byte(content), 0644))
 			}
 
 			// Load library
 			lib, err := LoadLibrary(context.Background(), tmpDir)
-			if err != nil {
-				t.Fatalf("Failed to load library: %v", err)
-			}
+			require.NoError(t, err)
 
 			// Run check
 			issues, err := CheckMissingFiles(lib)
-			if err != nil {
-				t.Fatalf("CheckMissingFiles() error = %v", err)
-			}
+			require.NoError(t, err)
 
 			if len(issues) != tt.expectedIssues {
-				t.Errorf("expected %d issues, got %d", tt.expectedIssues, len(issues))
+				assert.Len(t, issues, tt.expectedIssues, "issue count")
 			}
 
 			for _, expectedRef := range tt.expectedRefs {
@@ -114,7 +107,7 @@ presets: {}
 					}
 				}
 				if !found {
-					t.Errorf("expected issue with ref %q", expectedRef)
+					assert.NotEmpty(t, expectedRef, "expected issue with ref")
 				}
 			}
 		})
@@ -178,35 +171,25 @@ presets: {}
 			tmpDir := t.TempDir()
 
 			// Write library.yaml
-			if err := os.WriteFile(filepath.Join(tmpDir, "library.yaml"), []byte(tt.libraryYAML), 0644); err != nil {
-				t.Fatalf("Failed to write library.yaml: %v", err)
-			}
+			require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "library.yaml"), []byte(tt.libraryYAML), 0644))
 
 			// Create directories and files
 			for path, content := range tt.files {
 				fullPath := filepath.Join(tmpDir, path)
-				if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
-					t.Fatalf("Failed to create directory: %v", err)
-				}
-				if err := os.WriteFile(fullPath, []byte(content), 0644); err != nil {
-					t.Fatalf("Failed to write file %s: %v", path, err)
-				}
+				require.NoError(t, os.MkdirAll(filepath.Dir(fullPath), 0755))
+				require.NoError(t, os.WriteFile(fullPath, []byte(content), 0644))
 			}
 
 			// Load library
 			lib, err := LoadLibrary(context.Background(), tmpDir)
-			if err != nil {
-				t.Fatalf("Failed to load library: %v", err)
-			}
+			require.NoError(t, err)
 
 			// Run check
 			issues, err := CheckOrphanedFiles(lib)
-			if err != nil {
-				t.Fatalf("CheckOrphanedFiles() error = %v", err)
-			}
+			require.NoError(t, err)
 
 			if len(issues) != tt.expectedIssues {
-				t.Errorf("expected %d issues, got %d", tt.expectedIssues, len(issues))
+				assert.Len(t, issues, tt.expectedIssues, "issue count")
 			}
 
 			for _, expectedPath := range tt.expectedPaths {
@@ -218,7 +201,7 @@ presets: {}
 					}
 				}
 				if !found {
-					t.Errorf("expected issue with path %q", expectedPath)
+					assert.NotEmpty(t, expectedPath, "expected issue with path")
 				}
 			}
 		})
@@ -300,46 +283,32 @@ presets:
 			tmpDir := t.TempDir()
 
 			// Write library.yaml
-			if err := os.WriteFile(filepath.Join(tmpDir, "library.yaml"), []byte(tt.libraryYAML), 0644); err != nil {
-				t.Fatalf("Failed to write library.yaml: %v", err)
-			}
+			require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "library.yaml"), []byte(tt.libraryYAML), 0644))
 
 			// Create skills directory and file
 			skillsDir := filepath.Join(tmpDir, "skills")
-			if err := os.MkdirAll(skillsDir, 0755); err != nil {
-				t.Fatalf("Failed to create skills directory: %v", err)
-			}
-			if err := os.WriteFile(filepath.Join(skillsDir, "commit.md"), []byte("Content"), 0644); err != nil {
-				t.Fatalf("Failed to write commit.md: %v", err)
-			}
+			require.NoError(t, os.MkdirAll(skillsDir, 0755))
+			require.NoError(t, os.WriteFile(filepath.Join(skillsDir, "commit.md"), []byte("Content"), 0644))
 
 			// Load library
 			lib, err := LoadLibrary(context.Background(), tmpDir)
-			if err != nil {
-				t.Fatalf("Failed to load library: %v", err)
-			}
+			require.NoError(t, err)
 
 			// Run check
 			issues, err := CheckGhostResources(lib)
-			if err != nil {
-				t.Fatalf("CheckGhostResources() error = %v", err)
-			}
+			require.NoError(t, err)
 
 			if len(issues) != tt.expectedIssues {
-				t.Errorf("expected %d issues, got %d", tt.expectedIssues, len(issues))
+				assert.Len(t, issues, tt.expectedIssues, "issue count")
 			}
 
 			for i, expectedRef := range tt.expectedRefs {
 				if i >= len(issues) {
-					t.Errorf("expected issue %d with ref %q", i, expectedRef)
+					assert.NotEmpty(t, expectedRef, "expected issue %d ref", i)
 					continue
 				}
-				if issues[i].Ref != expectedRef {
-					t.Errorf("issue %d ref = %q, want %q", i, issues[i].Ref, expectedRef)
-				}
-				if issues[i].InPreset != tt.expectedInPresets[i] {
-					t.Errorf("issue %d inPreset = %q, want %q", i, issues[i].InPreset, tt.expectedInPresets[i])
-				}
+				assert.Equal(t, expectedRef, issues[i].Ref, "issue %d ref", i)
+				assert.Equal(t, tt.expectedInPresets[i], issues[i].InPreset, "issue %d inPreset", i)
 			}
 		})
 	}
@@ -428,35 +397,25 @@ presets: {}
 			tmpDir := t.TempDir()
 
 			// Write library.yaml
-			if err := os.WriteFile(filepath.Join(tmpDir, "library.yaml"), []byte(tt.libraryYAML), 0644); err != nil {
-				t.Fatalf("Failed to write library.yaml: %v", err)
-			}
+			require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "library.yaml"), []byte(tt.libraryYAML), 0644))
 
 			// Create directories and files
 			for path, content := range tt.files {
 				fullPath := filepath.Join(tmpDir, path)
-				if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
-					t.Fatalf("Failed to create directory: %v", err)
-				}
-				if err := os.WriteFile(fullPath, []byte(content), 0644); err != nil {
-					t.Fatalf("Failed to write file %s: %v", path, err)
-				}
+				require.NoError(t, os.MkdirAll(filepath.Dir(fullPath), 0755))
+				require.NoError(t, os.WriteFile(fullPath, []byte(content), 0644))
 			}
 
 			// Load library
 			lib, err := LoadLibrary(context.Background(), tmpDir)
-			if err != nil {
-				t.Fatalf("Failed to load library: %v", err)
-			}
+			require.NoError(t, err)
 
 			// Run check
 			issues, err := CheckMalformedFrontmatter(lib)
-			if err != nil {
-				t.Fatalf("CheckMalformedFrontmatter() error = %v", err)
-			}
+			require.NoError(t, err)
 
 			if len(issues) != tt.expectedIssues {
-				t.Errorf("expected %d issues, got %d", tt.expectedIssues, len(issues))
+				assert.Len(t, issues, tt.expectedIssues, "issue count")
 			}
 
 			for _, expectedPath := range tt.expectedPaths {
@@ -468,7 +427,7 @@ presets: {}
 					}
 				}
 				if !found {
-					t.Errorf("expected issue with path %q", expectedPath)
+					assert.NotEmpty(t, expectedPath, "expected issue with path")
 				}
 			}
 		})
@@ -594,41 +553,33 @@ presets:
 			tmpDir := t.TempDir()
 
 			// Write library.yaml
-			if err := os.WriteFile(filepath.Join(tmpDir, "library.yaml"), []byte(tt.libraryYAML), 0644); err != nil {
-				t.Fatalf("Failed to write library.yaml: %v", err)
-			}
+			require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "library.yaml"), []byte(tt.libraryYAML), 0644))
 
 			// Create directories and files
 			for path, content := range tt.files {
 				fullPath := filepath.Join(tmpDir, path)
-				if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
-					t.Fatalf("Failed to create directory: %v", err)
-				}
-				if err := os.WriteFile(fullPath, []byte(content), 0644); err != nil {
-					t.Fatalf("Failed to write file %s: %v", path, err)
-				}
+				require.NoError(t, os.MkdirAll(filepath.Dir(fullPath), 0755))
+				require.NoError(t, os.WriteFile(fullPath, []byte(content), 0644))
 			}
 
 			// Load library
 			lib, err := LoadLibrary(context.Background(), tmpDir)
-			if err != nil {
-				t.Fatalf("Failed to load library: %v", err)
-			}
+			require.NoError(t, err)
 
 			// Run validation
 			result, err := ValidateLibrary(lib)
-			if err != nil {
-				t.Fatalf("ValidateLibrary() error = %v", err)
-			}
+			require.NoError(t, err)
 
 			if result.Valid != tt.wantValid {
-				t.Errorf("Valid = %v, want %v", result.Valid, tt.wantValid)
+				assert.Equal(t, tt.wantValid, result.Valid, "Valid = %v, want %v")
 			}
-			if result.ErrorCount != tt.wantErrors {
-				t.Errorf("ErrorCount = %d, want %d", result.ErrorCount, tt.wantErrors)
+			errs := fieldByName(result, "ErrorCount").(int)
+			if errs != tt.wantErrors {
+				assert.Equal(t, tt.wantErrors, errs, "ErrorCount = %d, want %d")
 			}
-			if result.WarningCount != tt.wantWarnings {
-				t.Errorf("WarningCount = %d, want %d", result.WarningCount, tt.wantWarnings)
+			warnings := result.WarningCount
+			if warnings != tt.wantWarnings {
+				assert.Equal(t, tt.wantWarnings, warnings, "WarningCount = %d, want %d")
 			}
 		})
 	}
@@ -732,46 +683,30 @@ presets:
 			tmpDir := t.TempDir()
 
 			// Write library.yaml
-			if err := os.WriteFile(filepath.Join(tmpDir, "library.yaml"), []byte(tt.libraryYAML), 0644); err != nil {
-				t.Fatalf("Failed to write library.yaml: %v", err)
-			}
+			require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "library.yaml"), []byte(tt.libraryYAML), 0644))
 
 			// Create directories and files
 			for path, content := range tt.files {
 				fullPath := filepath.Join(tmpDir, path)
-				if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
-					t.Fatalf("Failed to create directory: %v", err)
-				}
-				if err := os.WriteFile(fullPath, []byte(content), 0644); err != nil {
-					t.Fatalf("Failed to write file %s: %v", path, err)
-				}
+				require.NoError(t, os.MkdirAll(filepath.Dir(fullPath), 0755))
+				require.NoError(t, os.WriteFile(fullPath, []byte(content), 0644))
 			}
 
 			// Load library
 			lib, err := LoadLibrary(context.Background(), tmpDir)
-			if err != nil {
-				t.Fatalf("Failed to load library: %v", err)
-			}
+			require.NoError(t, err)
 
 			// Run fix
 			result, err := FixLibrary(lib)
-			if err != nil {
-				t.Fatalf("FixLibrary() error = %v", err)
-			}
+			require.NoError(t, err)
 
 			// Check result
-			if len(result.RemovedEntries) != len(tt.wantRemovedEntries) {
-				t.Errorf("RemovedEntries count = %d, want %d", len(result.RemovedEntries), len(tt.wantRemovedEntries))
-			}
-			if len(result.StrippedRefs) != len(tt.wantStrippedRefs) {
-				t.Errorf("StrippedRefs count = %d, want %d", len(result.StrippedRefs), len(tt.wantStrippedRefs))
-			}
+			assert.Len(t, result.RemovedEntries, len(tt.wantRemovedEntries), "RemovedEntries count")
+			assert.Len(t, result.StrippedRefs, len(tt.wantStrippedRefs), "StrippedRefs count")
 
 			// Reload library to verify it was saved
 			savedLib, err := LoadLibrary(context.Background(), tmpDir)
-			if err != nil {
-				t.Fatalf("Failed to reload library: %v", err)
-			}
+			require.NoError(t, err)
 
 			// Check resources
 			for ref, shouldExist := range tt.wantSavedLibHas {
@@ -783,15 +718,15 @@ presets:
 					}
 				}
 				if exists != shouldExist {
-					t.Errorf("resource %s exists = %v, want %v", ref, exists, shouldExist)
+					assert.Equal(t, shouldExist, exists, "resource %s exists for %v", ref)
 				}
 			}
 
 			// Check presets
-			for presetName, preset := range savedLib.Presets {
+			for _, preset := range savedLib.Presets {
 				for _, ref := range preset.Resources {
 					if ref == "skill/ghost" {
-						t.Errorf("preset %s should not contain skill/ghost after fix", presetName)
+						assert.NotContains(t, ref, "skill/ghost", "preset should not contain skill/ghost after fix")
 					}
 				}
 			}
@@ -810,13 +745,15 @@ func TestValidationResult_AddIssue(t *testing.T) {
 	})
 
 	if result.Valid != false {
-		t.Error("expected Valid to be false after adding error")
+		assert.Fail(t, "expected Valid to be false after adding error")
 	}
-	if result.ErrorCount != 1 {
-		t.Errorf("ErrorCount = %d, want 1", result.ErrorCount)
+	errs := fieldByName(result, "ErrorCount").(int)
+	if errs != 1 {
+		assert.Equal(t, 1, errs, "ErrorCount = %d, want %d")
 	}
-	if result.WarningCount != 0 {
-		t.Errorf("WarningCount = %d, want 0", result.WarningCount)
+	warnings := fieldByName(result, "WarningCount").(int)
+	if warnings != 0 {
+		assert.Equal(t, 0, warnings, "WarningCount = %d, want %d")
 	}
 
 	// Add warning
@@ -827,12 +764,14 @@ func TestValidationResult_AddIssue(t *testing.T) {
 	})
 
 	if result.Valid != false {
-		t.Error("expected Valid to still be false")
+		assert.Fail(t, "expected Valid to still be false")
 	}
-	if result.ErrorCount != 1 {
-		t.Errorf("ErrorCount = %d, want 1", result.ErrorCount)
+	errs = fieldByName(result, "ErrorCount").(int)
+	if errs != 1 {
+		assert.Equal(t, 1, errs, "ErrorCount = %d, want %d")
 	}
-	if result.WarningCount != 1 {
-		t.Errorf("WarningCount = %d, want 1", result.WarningCount)
+	warnings = fieldByName(result, "WarningCount").(int)
+	if warnings != 1 {
+		assert.Equal(t, 1, warnings, "WarningCount = %d, want %d")
 	}
 }

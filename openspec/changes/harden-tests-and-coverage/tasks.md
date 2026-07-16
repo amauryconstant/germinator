@@ -20,23 +20,23 @@ The 17 findings from the 2026-07-08 code review ship in **one PR with 6 atomic p
 
 Per `golang-stretchr-testify` "Rule": use `require` for preconditions (file writes, `LoadLibrary` errors) and `assert` for value verifications. Use `assert.Equal(t, expected, actual)` argument order. Per `golang-lint`, `testifylint` is enabled and will catch wrong argument order and assert/require misuse.
 
-- [ ] 2.1 In `internal/library/methods_test.go`, replace raw `t.Fatalf` / `t.Errorf` / `t.Fatal` calls with `require.NoError` / `require.Error` / `assert.Equal` / `assert.True`. testify is already imported — no import changes needed.
-- [ ] 2.2 In `internal/library/library_test.go`, same migration. Add the canonical import lines:
+- [x] 2.1 In `internal/library/methods_test.go`, replace raw `t.Fatalf` / `t.Errorf` / `t.Fatal` calls with `require.NoError` / `require.Error` / `assert.Equal` / `assert.True`. testify is already imported — no import changes needed.
+- [x] 2.2 In `internal/library/library_test.go`, same migration. Add the canonical import lines:
   ```go
   import (
       "github.com/stretchr/testify/assert"
       "github.com/stretchr/testify/require"
   )
   ```
-- [ ] 2.3 In `internal/library/refresher_test.go`, same migration. Add the same import lines as 2.2.
-- [ ] 2.4 In `internal/library/remover_test.go`, same migration. testify is already imported.
-- [ ] 2.5 In `internal/library/loader_test.go`, same migration. testify is already imported.
-- [ ] 2.6 In `internal/library/saver_test.go`, same migration. Add the same import lines as 2.2.
-- [ ] 2.7 In `internal/library/resolver_test.go`, same migration. testify is already imported.
-- [ ] 2.8 Run `rg "t\.Fatal|t\.Error" internal/library/*_test.go` — must return zero matches.
-- [ ] 2.9 Run `golangci-lint run --enable-only testifylint ./...` — no wrong-argument-order or assert/require-misuse findings.
-- [ ] 2.10 Run `mise run test` — all unit tests pass.
-- [ ] 2.11 Run `mise run test:race` — no race conditions.
+- [x] 2.3 In `internal/library/refresher_test.go`, same migration. Add the same import lines as 2.2.
+- [x] 2.4 In `internal/library/remover_test.go`, same migration. testify is already imported.
+- [x] 2.5 In `internal/library/loader_test.go`, same migration. testify is already imported.
+- [x] 2.6 In `internal/library/saver_test.go`, same migration. Add the same import lines as 2.2.
+- [x] 2.7 In `internal/library/resolver_test.go`, same migration. testify is already imported.
+- [x] 2.8 Run `rg "t\.Fatal|t\.Error" internal/library/*_test.go` — must return zero matches.
+- [x] 2.9 Run `golangci-lint run --enable-only testifylint ./...` — no wrong-argument-order or assert/require-misuse findings.
+- [x] 2.10 Run `mise run test` — all unit tests pass.
+- [x] 2.11 Run `mise run test:race` — no race conditions.
 
 ## 3. Phase 3 — Coverage gap fixes
 

@@ -27,25 +27,19 @@ tools:
 ---
 # Test Skill
 `
-	if err := os.WriteFile(srcPath, []byte(srcContent), 0644); err != nil {
-		t.Fatalf("Failed to write test file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(srcPath, []byte(srcContent), 0644))
 
 	err := AddResource(context.Background(), AddRequest{
 		Source:      srcPath,
 		LibraryPath: tmpLibDir,
 	})
-	if err != nil {
-		t.Fatalf("Failed to add resource: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Verify resource exists
 	lib, err := LoadLibrary(context.Background(), tmpLibDir)
-	if err != nil {
-		t.Fatalf("LoadLibrary() error = %v", err)
-	}
+	require.NoError(t, err)
 	if _, exists := lib.Resources["skill"]["to-remove"]; !exists {
-		t.Fatal("Resource should exist before removal")
+		require.Fail(t, "Resource should exist before removal")
 	}
 
 	// Remove the resource
@@ -53,33 +47,29 @@ tools:
 		Ref:         "skill/to-remove",
 		LibraryPath: tmpLibDir,
 	})
-	if err != nil {
-		t.Fatalf("RemoveResource() error = %v", err)
-	}
+	require.NoError(t, err)
 
 	if result.Type != "resource" {
-		t.Errorf("Type = %v, want resource", result.Type)
+		assert.Equal(t, "resource", result.Type, "Type mismatch")
 	}
 	if result.ResourceType != "skill" {
-		t.Errorf("ResourceType = %v, want skill", result.ResourceType)
+		assert.Equal(t, "skill", result.ResourceType, "ResourceType mismatch")
 	}
 	if result.Name != "to-remove" {
-		t.Errorf("Name = %v, want to-remove", result.Name)
+		assert.Equal(t, "to-remove", result.Name, "Name mismatch")
 	}
 
 	// Verify resource no longer exists in library
 	lib, err = LoadLibrary(context.Background(), tmpLibDir)
-	if err != nil {
-		t.Fatalf("LoadLibrary() error = %v", err)
-	}
+	require.NoError(t, err)
 	if _, exists := lib.Resources["skill"]["to-remove"]; exists {
-		t.Error("Resource should have been removed from library")
+		assert.Fail(t, "Resource should have been removed from library")
 	}
 
 	// Verify physical file was deleted
 	physicalPath := filepath.Join(tmpLibDir, "skills", "to-remove.md")
 	if _, err := os.Stat(physicalPath); !os.IsNotExist(err) {
-		t.Error("Physical file should have been deleted")
+		assert.Fail(t, "Physical file should have been deleted")
 	}
 }
 
@@ -91,9 +81,7 @@ func TestRemoveResource_NotFound(t *testing.T) {
 		Ref:         "skill/nonexistent",
 		LibraryPath: tmpLibDir,
 	})
-	if err == nil {
-		t.Fatal("Expected error when resource not found")
-	}
+	require.Error(t, err)
 
 	var nf *gerrors.NotFoundError
 	require.True(t, errors.As(err, &nf),
@@ -117,46 +105,34 @@ tools:
 ---
 # Test Skill
 `
-	if err := os.WriteFile(srcPath, []byte(srcContent), 0644); err != nil {
-		t.Fatalf("Failed to write test file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(srcPath, []byte(srcContent), 0644))
 
 	err := AddResource(context.Background(), AddRequest{
 		Source:      srcPath,
 		LibraryPath: tmpLibDir,
 	})
-	if err != nil {
-		t.Fatalf("Failed to add resource: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Create a preset that references the resource
 	lib, err := LoadLibrary(context.Background(), tmpLibDir)
-	if err != nil {
-		t.Fatalf("LoadLibrary() error = %v", err)
-	}
+	require.NoError(t, err)
 
 	err = AddPreset(lib, Preset{
 		Name:        "test-preset",
 		Description: "Test preset",
 		Resources:   []string{"skill/conflict-skill"},
 	})
-	if err != nil {
-		t.Fatalf("AddPreset() error = %v", err)
-	}
+	require.NoError(t, err)
 
 	err = SaveLibrary(lib)
-	if err != nil {
-		t.Fatalf("SaveLibrary() error = %v", err)
-	}
+	require.NoError(t, err)
 
 	// Try to remove the resource - should fail
 	_, err = RemoveResource(context.Background(), RemoveResourceOptions{
 		Ref:         "skill/conflict-skill",
 		LibraryPath: tmpLibDir,
 	})
-	if err == nil {
-		t.Fatal("Expected error when resource is referenced by preset")
-	}
+	require.Error(t, err)
 }
 
 func TestRemoveResource_InvalidRefFormat(t *testing.T) {
@@ -180,7 +156,7 @@ func TestRemoveResource_InvalidRefFormat(t *testing.T) {
 				LibraryPath: tmpLibDir,
 			})
 			if err == nil {
-				t.Errorf("Expected error for ref %q", tt.ref)
+				require.Error(t, err, "Expected error for ref %q", tt.ref)
 			}
 		})
 	}
@@ -201,78 +177,58 @@ tools:
 ---
 # Test Skill
 `
-	if err := os.WriteFile(srcPath, []byte(srcContent), 0644); err != nil {
-		t.Fatalf("Failed to write test file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(srcPath, []byte(srcContent), 0644))
 
 	err := AddResource(context.Background(), AddRequest{
 		Source:      srcPath,
 		LibraryPath: tmpLibDir,
 	})
-	if err != nil {
-		t.Fatalf("Failed to add resource: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Create a preset
 	lib, err := LoadLibrary(context.Background(), tmpLibDir)
-	if err != nil {
-		t.Fatalf("LoadLibrary() error = %v", err)
-	}
+	require.NoError(t, err)
 
 	err = AddPreset(lib, Preset{
 		Name:        "workflow-preset",
 		Description: "Test preset",
 		Resources:   []string{"skill/preset-skill"},
 	})
-	if err != nil {
-		t.Fatalf("AddPreset() error = %v", err)
-	}
+	require.NoError(t, err)
 
 	err = SaveLibrary(lib)
-	if err != nil {
-		t.Fatalf("SaveLibrary() error = %v", err)
-	}
+	require.NoError(t, err)
 
 	// Verify preset exists
 	lib, err = LoadLibrary(context.Background(), tmpLibDir)
-	if err != nil {
-		t.Fatalf("LoadLibrary() error = %v", err)
-	}
-	if !PresetExists(lib, "workflow-preset") {
-		t.Fatal("Preset should exist before removal")
-	}
+	require.NoError(t, err)
+	require.True(t, PresetExists(lib, "workflow-preset"), "Preset should exist before removal")
 
 	// Remove the preset
 	result, err := RemovePreset(context.Background(), RemovePresetOptions{
 		Name:        "workflow-preset",
 		LibraryPath: tmpLibDir,
 	})
-	if err != nil {
-		t.Fatalf("RemovePreset() error = %v", err)
-	}
+	require.NoError(t, err)
 
 	if result.Type != "preset" {
-		t.Errorf("Type = %v, want preset", result.Type)
+		assert.Equal(t, "preset", result.Type, "Type mismatch")
 	}
 	if result.Name != "workflow-preset" {
-		t.Errorf("Name = %v, want workflow-preset", result.Name)
+		assert.Equal(t, "workflow-preset", result.Name, "Name mismatch")
 	}
 	if len(result.ResourcesRemoved) != 1 || result.ResourcesRemoved[0] != "skill/preset-skill" {
-		t.Errorf("ResourcesRemoved = %v, want [skill/preset-skill]", result.ResourcesRemoved)
+		assert.Equal(t, []string{"skill/preset-skill"}, result.ResourcesRemoved, "ResourcesRemoved mismatch")
 	}
 
 	// Verify preset no longer exists
 	lib, err = LoadLibrary(context.Background(), tmpLibDir)
-	if err != nil {
-		t.Fatalf("LoadLibrary() error = %v", err)
-	}
-	if PresetExists(lib, "workflow-preset") {
-		t.Error("Preset should have been removed")
-	}
+	require.NoError(t, err)
+	assert.False(t, PresetExists(lib, "workflow-preset"), "Preset should have been removed")
 
 	// Verify resource still exists (presets are just references)
 	if _, exists := lib.Resources["skill"]["preset-skill"]; !exists {
-		t.Error("Resource should still exist after preset removal")
+		assert.Fail(t, "Resource should still exist after preset removal")
 	}
 }
 
@@ -284,9 +240,7 @@ func TestRemovePreset_NotFound(t *testing.T) {
 		Name:        "nonexistent-preset",
 		LibraryPath: tmpLibDir,
 	})
-	if err == nil {
-		t.Fatal("Expected error when preset not found")
-	}
+	require.Error(t, err)
 
 	var nf *gerrors.NotFoundError
 	require.True(t, errors.As(err, &nf),
@@ -303,7 +257,5 @@ func TestRemovePreset_EmptyName(t *testing.T) {
 		Name:        "",
 		LibraryPath: tmpLibDir,
 	})
-	if err == nil {
-		t.Fatal("Expected error when preset name is empty")
-	}
+	require.Error(t, err)
 }

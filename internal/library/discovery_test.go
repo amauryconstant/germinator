@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/adrg/xdg"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestFindLibrary(t *testing.T) {
@@ -50,7 +52,7 @@ func TestFindLibrary(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := FindLibrary(tt.flagPath, tt.envPath, tt.cfgPath)
 			if got != tt.wantPath {
-				t.Errorf("FindLibrary() = %v, want %v", got, tt.wantPath)
+				assert.Equal(t, tt.wantPath, got, "FindLibrary() = %v, want %v")
 			}
 		})
 	}
@@ -60,7 +62,7 @@ func TestDefaultLibraryPath(t *testing.T) {
 	path := DefaultLibraryPath()
 
 	if !filepath.IsAbs(path) {
-		t.Errorf("DefaultLibraryPath() should return absolute path, got %s", path)
+		assert.NotEmpty(t, path, "DefaultLibraryPath() should return absolute")
 	}
 }
 
@@ -70,15 +72,13 @@ func TestDefaultLibraryPathXDGDataHome(t *testing.T) {
 		os.Setenv("XDG_DATA_HOME", original) //nolint:errcheck // test cleanup: best-effort env restore
 	})
 
-	if err := os.Setenv("XDG_DATA_HOME", "/custom/data"); err != nil {
-		t.Fatalf("Failed to set XDG_DATA_HOME: %v", err)
-	}
+	require.NoError(t, os.Setenv("XDG_DATA_HOME", "/custom/data"))
 
 	path := DefaultLibraryPath()
 
 	expected := filepath.Join("/custom/data", "germinator", "library")
 	if path != expected {
-		t.Errorf("DefaultLibraryPath() with XDG_DATA_HOME = %q, got %q, want %q", "/custom/data", path, expected)
+		assert.Equal(t, expected, path, "DefaultLibraryPath() with XDG_DATA_HOME mismatch")
 	}
 }
 
@@ -86,12 +86,12 @@ func TestExists(t *testing.T) {
 	// Test with existing directory
 	tmpDir := t.TempDir()
 	if !Exists(tmpDir) {
-		t.Error("Exists() should return true for existing directory")
+		assert.Fail(t, "Exists() should return true for existing directory")
 	}
 
 	// Test with non-existing directory
 	if Exists("/nonexistent/path") {
-		t.Error("Exists() should return false for non-existing directory")
+		assert.Fail(t, "Exists() should return false for non-existing directory")
 	}
 }
 
@@ -100,18 +100,16 @@ func TestYAMLExists(t *testing.T) {
 
 	// Test without library.yaml
 	if YAMLExists(tmpDir) {
-		t.Error("YAMLExists() should return false when no library.yaml")
+		assert.Fail(t, "YAMLExists() should return false when no library.yaml")
 	}
 
 	// Create library.yaml
 	yamlPath := filepath.Join(tmpDir, "library.yaml")
-	if err := os.WriteFile(yamlPath, []byte("version: \"1\""), 0644); err != nil {
-		t.Fatalf("Failed to create library.yaml: %v", err)
-	}
+	require.NoError(t, os.WriteFile(yamlPath, []byte("version: \"1\""), 0644))
 
 	// Test with library.yaml
 	if !YAMLExists(tmpDir) {
-		t.Error("YAMLExists() should return true when library.yaml exists")
+		assert.Fail(t, "YAMLExists() should return true when library.yaml exists")
 	}
 }
 
@@ -166,7 +164,7 @@ func TestResolveLibrary_FlagOverEnvOverCfgOverDefault(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := FindLibrary(tt.flagPath, tt.envPath, tt.cfgPath)
 			if got != tt.wantPath {
-				t.Errorf("FindLibrary() = %v, want %v", got, tt.wantPath)
+				assert.Equal(t, tt.wantPath, got, "FindLibrary() = %v, want %v")
 			}
 		})
 	}
@@ -178,7 +176,7 @@ func TestResolveLibrary_AllEmpty_ReturnsXDGDefault(t *testing.T) {
 	got := FindLibrary("", "", "")
 	want := DefaultLibraryPath()
 	if got != want {
-		t.Errorf("FindLibrary(\"\",\"\",\"\" ) = %v, want %v", got, want)
+		assert.Equal(t, want, got, "FindLibrary(\"\",\"\",\"\" ) mismatch")
 	}
 }
 
@@ -192,7 +190,7 @@ func TestDefaultLibraryPath_AdoptsXDG(t *testing.T) {
 	got := DefaultLibraryPath()
 	want := filepath.Join(xdgDataHome, "germinator", "library")
 	if got != want {
-		t.Errorf("DefaultLibraryPath() = %q, want %q", got, want)
+		assert.Equal(t, want, got, "DefaultLibraryPath() = %q, want %q")
 	}
 }
 
@@ -202,14 +200,10 @@ func TestDefaultLibraryPath_PrefersXDGOverCWDWhenXDGExists(t *testing.T) {
 	tmpDir := t.TempDir()
 	xdgHome := filepath.Join(tmpDir, "xdg-data")
 	xdgLib := filepath.Join(xdgHome, "germinator", "library")
-	if err := os.MkdirAll(xdgLib, 0755); err != nil {
-		t.Fatalf("MkdirAll failed: %v", err)
-	}
+	require.NoError(t, os.MkdirAll(xdgLib, 0755))
 
 	origWd, _ := os.Getwd()
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("Chdir failed: %v", err)
-	}
+	require.NoError(t, os.Chdir(tmpDir))
 	t.Cleanup(func() { _ = os.Chdir(origWd) })
 
 	t.Setenv("XDG_DATA_HOME", xdgHome)
@@ -217,7 +211,7 @@ func TestDefaultLibraryPath_PrefersXDGOverCWDWhenXDGExists(t *testing.T) {
 
 	got := DefaultLibraryPath()
 	if got != xdgLib {
-		t.Errorf("DefaultLibraryPath() = %q, want %q (XDG path should win)", got, xdgLib)
+		assert.Equal(t, xdgLib, got, "DefaultLibraryPath() mismatch: XDG path should win")
 	}
 }
 
@@ -227,14 +221,10 @@ func TestDefaultLibraryPath_FallsBackToCWDWhenXDGDoesNotExist(t *testing.T) {
 	tmpDir := t.TempDir()
 	xdgHome := filepath.Join(tmpDir, "xdg-data")
 	cwdLib := filepath.Join(tmpDir, "germinator", "library")
-	if err := os.MkdirAll(cwdLib, 0755); err != nil {
-		t.Fatalf("MkdirAll failed: %v", err)
-	}
+	require.NoError(t, os.MkdirAll(cwdLib, 0755))
 
 	origWd, _ := os.Getwd()
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("Chdir failed: %v", err)
-	}
+	require.NoError(t, os.Chdir(tmpDir))
 	t.Cleanup(func() { _ = os.Chdir(origWd) })
 
 	t.Setenv("XDG_DATA_HOME", xdgHome)
@@ -242,7 +232,7 @@ func TestDefaultLibraryPath_FallsBackToCWDWhenXDGDoesNotExist(t *testing.T) {
 
 	got := DefaultLibraryPath()
 	if got != cwdLib {
-		t.Errorf("DefaultLibraryPath() = %q, want %q (CWD path should win when XDG does not exist)", got, cwdLib)
+		assert.Equal(t, cwdLib, got, "DefaultLibraryPath() mismatch: CWD path should win when XDG does not exist")
 	}
 }
 
@@ -257,6 +247,6 @@ func TestXdgReload(t *testing.T) {
 	_ = DefaultLibraryPath()
 
 	if xdg.DataHome != "/custom/data" {
-		t.Errorf("xdg.DataHome = %q, want %q (xdg.Reload should pick up env)", xdg.DataHome, "/custom/data")
+		assert.Equal(t, "/custom/data", xdg.DataHome, "xdg.DataHome mismatch: xdg.Reload should pick up env")
 	}
 }

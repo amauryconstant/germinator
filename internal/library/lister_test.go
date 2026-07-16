@@ -2,6 +2,8 @@ package library
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestListResources(t *testing.T) {
@@ -19,12 +21,8 @@ func TestListResources(t *testing.T) {
 
 	result := ListResources(lib)
 
-	if len(result["skill"]) != 2 {
-		t.Errorf("Expected 2 skills, got %d", len(result["skill"]))
-	}
-	if len(result["agent"]) != 1 {
-		t.Errorf("Expected 1 agent, got %d", len(result["agent"]))
-	}
+	assert.Len(t, result["skill"], 2, "skills count")
+	assert.Len(t, result["agent"], 1, "agents count")
 }
 
 func TestListResources_SortedByName(t *testing.T) {
@@ -41,12 +39,8 @@ func TestListResources_SortedByName(t *testing.T) {
 	result := ListResources(lib)
 	skills := result["skill"]
 
-	if skills[0].Name != "alpha" {
-		t.Errorf("First skill should be 'alpha', got '%s'", skills[0].Name)
-	}
-	if skills[2].Name != "zebra" {
-		t.Errorf("Last skill should be 'zebra', got '%s'", skills[2].Name)
-	}
+	assert.Equal(t, "alpha", skills[0].Name, "first skill")
+	assert.Equal(t, "zebra", skills[2].Name, "last skill")
 }
 
 func TestListPresets(t *testing.T) {
@@ -59,11 +53,6 @@ func TestListPresets(t *testing.T) {
 
 	presets := ListPresets(lib)
 
-	if len(presets) != 2 {
-		t.Errorf("Expected 2 presets, got %d", len(presets))
-	}
-
-	if presets[0].Name != "code-review" {
-		t.Errorf("First preset should be 'code-review', got '%s'", presets[0].Name)
-	}
+	assert.Len(t, presets, 2, "presets count")
+	assert.Equal(t, "code-review", presets[0].Name, "first preset")
 }

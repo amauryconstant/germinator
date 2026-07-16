@@ -8,6 +8,8 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 )
 
@@ -40,22 +42,17 @@ func TestAtomicWriteFile_EXDEV(t *testing.T) {
 	})
 
 	if err := atomicWriteFile(targetPath, []byte("data\n"), 0o600); err != nil {
-		t.Fatalf("atomicWriteFile() EXDEV fallback error = %v", err)
+		require.NoError(t, err)
 	}
 
 	got, err := os.ReadFile(targetPath)
-	if err != nil {
-		t.Fatalf("reading target after EXDEV fallback: %v", err)
-	}
-	if string(got) != "data\n" {
-		t.Errorf("target content = %q, want %q", got, "data\n")
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "data\n", string(got), "target content mismatch")
 
 	// Temp file should be cleaned up by the fallback path.
 	tmpPath := targetPath + ".tmp"
-	if _, err := os.Stat(tmpPath); !errors.Is(err, os.ErrNotExist) {
-		t.Errorf("temp file should be removed after EXDEV fallback; stat err = %v", err)
-	}
+	_, err = os.Stat(tmpPath)
+	assert.True(t, errors.Is(err, os.ErrNotExist), "temp file should be removed after EXDEV fallback")
 }
 
 // TestAtomicWriteFile_HappyPath verifies that atomicWriteFile with
@@ -66,21 +63,16 @@ func TestAtomicWriteFile_HappyPath(t *testing.T) {
 	targetPath := filepath.Join(tmpDir, "library.yaml")
 
 	if err := atomicWriteFile(targetPath, []byte("hello\n"), 0o600); err != nil {
-		t.Fatalf("atomicWriteFile() error = %v", err)
+		require.NoError(t, err)
 	}
 
 	got, err := os.ReadFile(targetPath)
-	if err != nil {
-		t.Fatalf("reading target: %v", err)
-	}
-	if string(got) != "hello\n" {
-		t.Errorf("target content = %q, want %q", got, "hello\n")
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "hello\n", string(got), "target content mismatch")
 
 	tmpPath := targetPath + ".tmp"
-	if _, err := os.Stat(tmpPath); !os.IsNotExist(err) {
-		t.Errorf("temp file should be removed; stat err = %v", err)
-	}
+	_, err = os.Stat(tmpPath)
+	assert.True(t, os.IsNotExist(err), "temp file should be removed")
 }
 
 // TestAtomicWriteFile_RenameFailNoEXDEV verifies that non-EXDEV
@@ -96,13 +88,12 @@ func TestAtomicWriteFile_RenameFailNoEXDEV(t *testing.T) {
 	})
 
 	if err := atomicWriteFile(targetPath, []byte("data\n"), 0o600); err == nil {
-		t.Fatal("atomicWriteFile() expected error when rename fails non-EXDEV")
+		require.Fail(t, "atomicWriteFile() expected error when rename fails non-EXDEV")
 	}
 
 	// Target should not exist (rename failed before any copy).
-	if _, err := os.Stat(targetPath); !os.IsNotExist(err) {
-		t.Errorf("target should not exist after non-EXDEV rename failure; stat err = %v", err)
-	}
+	_, statErr := os.Stat(targetPath)
+	assert.True(t, os.IsNotExist(statErr), "target should not exist after non-EXDEV rename failure")
 }
 
 func TestSaveLibrary(t *testing.T) {
@@ -129,39 +120,35 @@ func TestSaveLibrary(t *testing.T) {
 
 	// Save the library
 	if err := SaveLibrary(lib); err != nil {
-		t.Fatalf("SaveLibrary() error = %v", err)
+		require.NoError(t, err)
 	}
 
 	// Verify file was created
 	yamlPath := filepath.Join(tmpDir, "library.yaml")
 	if _, err := os.Stat(yamlPath); os.IsNotExist(err) {
-		t.Fatal("library.yaml was not created")
+		require.Fail(t, "library.yaml was not created")
 	}
 
 	// Verify content by loading it back
 	loadedLib, err := LoadLibrary(context.Background(), tmpDir)
-	if err != nil {
-		t.Fatalf("LoadLibrary() error = %v", err)
-	}
+	require.NoError(t, err)
 
 	if loadedLib.Version != "1" {
-		t.Errorf("Version = %v, want 1", loadedLib.Version)
+		assert.Equal(t, 1, loadedLib.Version, "Version mismatch")
 	}
 
 	if len(loadedLib.Resources) != 1 {
-		t.Errorf("Resources count = %d, want 1", len(loadedLib.Resources))
+		assert.Len(t, loadedLib.Resources, 1, "Resources count")
 	}
 
 	if len(loadedLib.Presets) != 1 {
-		t.Errorf("Presets count = %d, want 1", len(loadedLib.Presets))
+		assert.Len(t, loadedLib.Presets, 1, "Presets count")
 	}
 
 	testPreset, ok := loadedLib.Presets["test-preset"]
-	if !ok {
-		t.Fatal("test-preset not found")
-	}
+	require.True(t, ok, "test-preset not found")
 	if testPreset.Description != "Test preset" {
-		t.Errorf("Preset description = %v, want 'Test preset'", testPreset.Description)
+		assert.Equal(t, "Test preset", testPreset.Description, "Preset description mismatch")
 	}
 }
 
@@ -176,23 +163,19 @@ func TestSaveLibrary_EmptyLibrary(t *testing.T) {
 	}
 
 	if err := SaveLibrary(lib); err != nil {
-		t.Fatalf("SaveLibrary() error = %v", err)
+		require.NoError(t, err)
 	}
 
 	// Verify content
 	yamlPath := filepath.Join(tmpDir, "library.yaml")
 	content, err := os.ReadFile(yamlPath)
-	if err != nil {
-		t.Fatalf("Failed to read library.yaml: %v", err)
-	}
+	require.NoError(t, err)
 
 	var parsed libraryYAML
-	if err := yaml.Unmarshal(content, &parsed); err != nil {
-		t.Fatalf("Failed to parse YAML: %v", err)
-	}
+	require.NoError(t, yaml.Unmarshal(content, &parsed))
 
 	if parsed.Version != "1" {
-		t.Errorf("Version = %v, want 1", parsed.Version)
+		assert.Equal(t, 1, parsed.Version, "Version mismatch")
 	}
 }
 
@@ -204,7 +187,7 @@ func TestSaveLibrary_NoRootPath(t *testing.T) {
 
 	err := SaveLibrary(lib)
 	if err == nil {
-		t.Error("SaveLibrary() expected error for empty RootPath")
+		assert.Fail(t, "SaveLibrary() expected error for empty RootPath")
 	}
 }
 
@@ -220,12 +203,12 @@ func TestSaveLibrary_CreatesDirectory(t *testing.T) {
 	}
 
 	if err := SaveLibrary(lib); err != nil {
-		t.Fatalf("SaveLibrary() error = %v", err)
+		require.NoError(t, err)
 	}
 
 	yamlPath := filepath.Join(nestedPath, "library.yaml")
 	if _, err := os.Stat(yamlPath); os.IsNotExist(err) {
-		t.Fatal("library.yaml was not created in nested directory")
+		require.Fail(t, "library.yaml was not created in nested directory")
 	}
 }
 
@@ -244,23 +227,23 @@ func TestAddPreset(t *testing.T) {
 	}
 
 	if err := AddPreset(lib, preset); err != nil {
-		t.Fatalf("AddPreset() error = %v", err)
+		require.NoError(t, err)
 	}
 
 	if len(lib.Presets) != 1 {
-		t.Fatalf("Presets count = %d, want 1", len(lib.Presets))
+		require.Fail(t, "Presets count != 1")
 	}
 
 	if !PresetExists(lib, "new-preset") {
-		t.Error("PresetExists() returned false for added preset")
+		assert.Fail(t, "PresetExists() returned false for added preset")
 	}
 
 	addedPreset := lib.Presets["new-preset"]
 	if addedPreset.Description != "A new preset" {
-		t.Errorf("Description = %v, want 'A new preset'", addedPreset.Description)
+		assert.Equal(t, "A new preset", addedPreset.Description, "Description mismatch")
 	}
 	if len(addedPreset.Resources) != 2 {
-		t.Errorf("Resources count = %d, want 2", len(addedPreset.Resources))
+		assert.Len(t, addedPreset.Resources, 2, "Resources count")
 	}
 }
 
@@ -281,7 +264,7 @@ func TestAddPreset_ValidationError(t *testing.T) {
 
 	err := AddPreset(lib, preset)
 	if err == nil {
-		t.Error("AddPreset() expected error for empty preset name")
+		assert.Fail(t, "AddPreset() expected error for empty preset name")
 	}
 }
 
@@ -301,7 +284,7 @@ func TestAddPreset_EmptyResources(t *testing.T) {
 
 	err := AddPreset(lib, preset)
 	if err == nil {
-		t.Error("AddPreset() expected error for empty resources")
+		assert.Fail(t, "AddPreset() expected error for empty resources")
 	}
 }
 
@@ -321,7 +304,7 @@ func TestAddPreset_InvalidResourceRef(t *testing.T) {
 
 	err := AddPreset(lib, preset)
 	if err == nil {
-		t.Error("AddPreset() expected error for invalid resource reference")
+		assert.Fail(t, "AddPreset() expected error for invalid resource reference")
 	}
 }
 
@@ -340,11 +323,11 @@ func TestAddPreset_NilPresetsMap(t *testing.T) {
 	}
 
 	if err := AddPreset(lib, preset); err != nil {
-		t.Fatalf("AddPreset() error = %v", err)
+		require.NoError(t, err)
 	}
 
 	if lib.Presets == nil {
-		t.Error("Presets map should be initialized")
+		assert.Fail(t, "Presets map should be initialized")
 	}
 }
 
@@ -370,9 +353,7 @@ func TestPresetExists(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := PresetExists(lib, tt.preset); got != tt.expected {
-				t.Errorf("PresetExists(%q) = %v, want %v", tt.preset, got, tt.expected)
-			}
+			assert.Equal(t, tt.expected, PresetExists(lib, tt.preset), "PresetExists mismatch")
 		})
 	}
 }
@@ -385,17 +366,13 @@ func TestPresetExists_NilPresets(t *testing.T) {
 		Presets:   nil,
 	}
 
-	if PresetExists(lib, "any") {
-		t.Error("PresetExists() should return false for nil Presets")
-	}
+	assert.False(t, PresetExists(lib, "any"), "PresetExists() should return false for nil Presets")
 }
 
 func TestPresetExists_NilLibrary(t *testing.T) {
 	var lib *Library
 
-	if PresetExists(lib, "any") {
-		t.Error("PresetExists() should return false for nil Library")
-	}
+	assert.False(t, PresetExists(lib, "any"), "PresetExists() should return false for nil Library")
 }
 
 func TestPresetExists_EmptyLibrary(t *testing.T) {
@@ -406,7 +383,5 @@ func TestPresetExists_EmptyLibrary(t *testing.T) {
 		Presets:   make(map[string]Preset),
 	}
 
-	if PresetExists(lib, "any") {
-		t.Error("PresetExists() should return false for empty Presets")
-	}
+	assert.False(t, PresetExists(lib, "any"), "PresetExists() should return false for empty Presets")
 }

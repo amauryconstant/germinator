@@ -2,6 +2,9 @@ package library
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestResourceType_IsValid(t *testing.T) {
@@ -20,9 +23,7 @@ func TestResourceType_IsValid(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.rt.IsValid(); got != tt.expected {
-				t.Errorf("ResourceType.IsValid() = %v, want %v", got, tt.expected)
-			}
+			assert.Equal(t, tt.expected, tt.rt.IsValid())
 		})
 	}
 }
@@ -53,9 +54,11 @@ func TestResource_Validate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.resource.Validate()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Resource.Validate() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
 			}
+			require.NoError(t, err)
 		})
 	}
 }
@@ -112,9 +115,11 @@ func TestPreset_Validate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.preset.Validate()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Preset.Validate() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
 			}
+			require.NoError(t, err)
 		})
 	}
 }
@@ -141,24 +146,17 @@ func TestParseRef(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			gotType, gotName, err := ParseRef(tt.ref)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ParseRef() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantErr {
+				require.Error(t, err)
 				return
 			}
-			if !tt.wantErr {
-				if gotType != tt.wantType {
-					t.Errorf("ParseRef() type = %v, want %v", gotType, tt.wantType)
-				}
-				if gotName != tt.wantName {
-					t.Errorf("ParseRef() name = %v, want %v", gotName, tt.wantName)
-				}
-			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantType, gotType)
+			assert.Equal(t, tt.wantName, gotName)
 		})
 	}
 }
 
 func TestFormatRef(t *testing.T) {
-	if got := FormatRef("skill", "commit"); got != "skill/commit" {
-		t.Errorf("FormatRef() = %v, want skill/commit", got)
-	}
+	assert.Equal(t, "skill/commit", FormatRef("skill", "commit"))
 }
