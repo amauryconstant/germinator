@@ -7,6 +7,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"gitlab.com/amoconst/germinator/internal/canonicalize"
@@ -24,13 +25,18 @@ import (
 // Black-box test (`canonicalize_test` package) — invokes the public
 // canonicalize.NewService().Canonicalize(...) entry point instead
 // of the legacy unexported canonicalizeDocument helper.
+//
+// Fixture paths are resolved via runtime.Caller(0) so the test runs
+// from any working directory (previously required CWD=project root
+// or the test skipped).
 func TestCanonicalizeGoldenFiles(t *testing.T) {
-	if _, err := os.Stat("../../test/fixtures/canonical"); os.IsNotExist(err) {
-		t.Skip("Golden file tests require running from project root")
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller(0) failed; cannot resolve fixture paths")
 	}
-
-	fixturesDir := filepath.Join("..", "..", "test", "fixtures")
-	goldenDir := filepath.Join("..", "..", "test", "golden", "canonical")
+	repoRoot := filepath.Join(filepath.Dir(thisFile), "..", "..")
+	fixturesDir := filepath.Join(repoRoot, "test", "fixtures")
+	goldenDir := filepath.Join(repoRoot, "test", "golden", "canonical")
 
 	svc := canonicalize.NewService()
 

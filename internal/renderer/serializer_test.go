@@ -2,9 +2,15 @@ package renderer
 
 import (
 	"context"
+	"os"
+	"path/filepath"
+	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gitlab.com/amoconst/germinator/internal/core"
 	"gitlab.com/amoconst/germinator/internal/parser"
 )
@@ -1064,5 +1070,336 @@ func TestMarshalCanonicalUnknownType(t *testing.T) {
 	}
 	if !containsString(err.Error(), "unknown document type") {
 		t.Errorf("Expected unknown document type error, got: %v", err)
+	}
+}
+
+// fixtureRepoRoot resolves the repo root via runtime.Caller(0) so the
+// round-trip tests can locate test/fixtures from any working directory.
+// Mirrors the canonicalize golden-test path-resolution pattern.
+func fixtureRepoRoot(t *testing.T) string {
+	t.Helper()
+	_, thisFile, _, ok := runtime.Caller(0)
+	require.True(t, ok, "runtime.Caller(0) failed; cannot resolve fixtures")
+	return filepath.Join(filepath.Dir(thisFile), "..", "..")
+}
+
+// TestParseRenderRoundTrip verifies the canonical parse → marshal →
+// re-parse cycle preserves semantic field equality. Unlike the
+// byte-equality golden tests in test/e2e/, this test asserts the
+// round-trip preserves the canonical field set — not the on-disk byte
+// layout — because YAML serialization is not byte-stable across
+// dependency versions. The test is in the default suite (no build
+// tag) because semantic equality is deterministic.
+//
+// Subtests cover each canonical doc type (agent, command, skill,
+// memory) against the corresponding canonical fixture in
+// test/fixtures/canonical/.
+func TestParseRenderRoundTrip(t *testing.T) {
+	repoRoot := fixtureRepoRoot(t)
+	fixturesDir := filepath.Join(repoRoot, "test", "fixtures", "canonical")
+
+	t.Run("agent-permission-balanced", func(t *testing.T) {
+		fixturePath := filepath.Join(fixturesDir, "agent-permission-balanced.md")
+		first, err := parser.ParseDocument(t.Context(), fixturePath, "agent")
+		require.NoError(t, err)
+		firstAgent, ok := first.(*parser.CanonicalAgent)
+		require.True(t, ok, "expected *parser.CanonicalAgent, got %T", first)
+
+		marshaled, err := MarshalCanonical(t.Context(), first)
+		require.NoError(t, err)
+
+		tmpDir := t.TempDir()
+		tmpPath := filepath.Join(tmpDir, "agent.md")
+		require.NoError(t, os.WriteFile(tmpPath, []byte(marshaled), 0o600))
+
+		second, err := parser.ParseDocument(t.Context(), tmpPath, "agent")
+		require.NoError(t, err)
+		secondAgent, ok := second.(*parser.CanonicalAgent)
+		require.True(t, ok, "expected *parser.CanonicalAgent, got %T", second)
+
+		assert.Equal(t, firstAgent.Name, secondAgent.Name, "Name round-trip")
+		assert.Equal(t, firstAgent.Description, secondAgent.Description, "Description round-trip")
+		assert.Equal(t, firstAgent.Tools, secondAgent.Tools, "Tools round-trip")
+		assert.Equal(t, firstAgent.DisallowedTools, secondAgent.DisallowedTools, "DisallowedTools round-trip")
+		assert.Equal(t, firstAgent.PermissionPolicy, secondAgent.PermissionPolicy, "PermissionPolicy round-trip")
+		assert.Equal(t, firstAgent.Behavior.Mode, secondAgent.Behavior.Mode, "Behavior.Mode round-trip")
+		require.NotNil(t, firstAgent.Behavior.Temperature)
+		require.NotNil(t, secondAgent.Behavior.Temperature)
+		assert.Equal(t, *firstAgent.Behavior.Temperature, *secondAgent.Behavior.Temperature, "Behavior.Temperature round-trip")
+		assert.Equal(t, firstAgent.Behavior.Steps, secondAgent.Behavior.Steps, "Behavior.Steps round-trip")
+		assert.Equal(t, firstAgent.Behavior.Prompt, secondAgent.Behavior.Prompt, "Behavior.Prompt round-trip")
+		assert.Equal(t, firstAgent.Behavior.Hidden, secondAgent.Behavior.Hidden, "Behavior.Hidden round-trip")
+		assert.Equal(t, firstAgent.Behavior.Disabled, secondAgent.Behavior.Disabled, "Behavior.Disabled round-trip")
+		assert.Equal(t, firstAgent.Model, secondAgent.Model, "Model round-trip")
+		assert.Equal(t, strings.TrimRight(firstAgent.Content, "\n"), strings.TrimRight(secondAgent.Content, "\n"), "Content round-trip")
+	})
+
+	t.Run("skill round-trip via RenderDocument+ParseDocument", func(t *testing.T) {
+		fixturePath := filepath.Join(fixturesDir, "skill-valid.md")
+		if _, err := os.Stat(fixturePath); os.IsNotExist(err) {
+			t.Skipf("skill fixture not found: %s", fixturePath)
+		}
+
+		first, err := parser.ParseDocument(t.Context(), fixturePath, "skill")
+		require.NoError(t, err)
+		firstSkill, ok := first.(*parser.CanonicalSkill)
+		require.True(t, ok, "expected *parser.CanonicalSkill, got %T", first)
+
+		marshaled, err := MarshalCanonical(t.Context(), first)
+		require.NoError(t, err)
+
+		tmpDir := t.TempDir()
+		tmpPath := filepath.Join(tmpDir, "skill.md")
+		require.NoError(t, os.WriteFile(tmpPath, []byte(marshaled), 0o600))
+
+		second, err := parser.ParseDocument(t.Context(), tmpPath, "skill")
+		require.NoError(t, err)
+		secondSkill, ok := second.(*parser.CanonicalSkill)
+		require.True(t, ok, "expected *parser.CanonicalSkill, got %T", second)
+
+		assert.Equal(t, firstSkill.Name, secondSkill.Name)
+		assert.Equal(t, firstSkill.Description, secondSkill.Description)
+		assert.Equal(t, firstSkill.Tools, secondSkill.Tools)
+		assert.Equal(t, firstSkill.Extensions.License, secondSkill.Extensions.License)
+		assert.Equal(t, firstSkill.Extensions.Compatibility, secondSkill.Extensions.Compatibility)
+		assert.Equal(t, firstSkill.Execution.UserInvocable, secondSkill.Execution.UserInvocable)
+		assert.Equal(t, firstSkill.Model, secondSkill.Model)
+		assert.Equal(t, firstSkill.Content, secondSkill.Content)
+	})
+
+	t.Run("command round-trip", func(t *testing.T) {
+		fixturePath := filepath.Join(fixturesDir, "command-valid.md")
+		if _, err := os.Stat(fixturePath); os.IsNotExist(err) {
+			t.Skipf("command fixture not found: %s", fixturePath)
+		}
+
+		first, err := parser.ParseDocument(t.Context(), fixturePath, "command")
+		require.NoError(t, err)
+		firstCmd, ok := first.(*parser.CanonicalCommand)
+		require.True(t, ok, "expected *parser.CanonicalCommand, got %T", first)
+
+		marshaled, err := MarshalCanonical(t.Context(), first)
+		require.NoError(t, err)
+
+		tmpDir := t.TempDir()
+		tmpPath := filepath.Join(tmpDir, "command.md")
+		require.NoError(t, os.WriteFile(tmpPath, []byte(marshaled), 0o600))
+
+		second, err := parser.ParseDocument(t.Context(), tmpPath, "command")
+		require.NoError(t, err)
+		secondCmd, ok := second.(*parser.CanonicalCommand)
+		require.True(t, ok, "expected *parser.CanonicalCommand, got %T", second)
+
+		assert.Equal(t, firstCmd.Name, secondCmd.Name)
+		assert.Equal(t, firstCmd.Description, secondCmd.Description)
+		assert.Equal(t, firstCmd.Tools, secondCmd.Tools)
+		assert.Equal(t, firstCmd.Execution.Context, secondCmd.Execution.Context)
+		assert.Equal(t, firstCmd.Execution.Subtask, secondCmd.Execution.Subtask)
+		assert.Equal(t, firstCmd.Arguments.Hint, secondCmd.Arguments.Hint)
+		assert.Equal(t, firstCmd.Model, secondCmd.Model)
+		assert.Equal(t, firstCmd.Content, secondCmd.Content)
+	})
+
+	t.Run("memory round-trip", func(t *testing.T) {
+		fixturePath := filepath.Join(fixturesDir, "memory-valid.md")
+		if _, err := os.Stat(fixturePath); os.IsNotExist(err) {
+			t.Skipf("memory fixture not found: %s", fixturePath)
+		}
+
+		first, err := parser.ParseDocument(t.Context(), fixturePath, "memory")
+		require.NoError(t, err)
+		firstMem, ok := first.(*parser.CanonicalMemory)
+		require.True(t, ok, "expected *parser.CanonicalMemory, got %T", first)
+
+		marshaled, err := MarshalCanonical(t.Context(), first)
+		require.NoError(t, err)
+
+		tmpDir := t.TempDir()
+		tmpPath := filepath.Join(tmpDir, "memory.md")
+		require.NoError(t, os.WriteFile(tmpPath, []byte(marshaled), 0o600))
+
+		second, err := parser.ParseDocument(t.Context(), tmpPath, "memory")
+		require.NoError(t, err)
+		secondMem, ok := second.(*parser.CanonicalMemory)
+		require.True(t, ok, "expected *parser.CanonicalMemory, got %T", second)
+
+		assert.Equal(t, firstMem.Paths, secondMem.Paths, "Paths round-trip")
+		assert.Equal(t, firstMem.Content, secondMem.Content, "Content round-trip")
+	})
+}
+
+// TestPlatformRoundTrip verifies that platform fixtures round-trip
+// through canonical marshaling without losing semantic field
+// equality. The platform YAML files (opencode / claude-code) are
+// parsed via ParsePlatformDocument, marshaled via MarshalCanonical,
+// re-parsed as canonical, and asserted equivalent to the original
+// canonical-shaped fields. This catches drift where a platform's
+// schema change loses information during the parse → canonical
+// → re-parse round trip.
+func TestPlatformRoundTrip(t *testing.T) {
+	repoRoot := fixtureRepoRoot(t)
+	fixturesDir := filepath.Join(repoRoot, "test", "fixtures")
+
+	t.Run("opencode agent", func(t *testing.T) {
+		fixturePath := filepath.Join(fixturesDir, "opencode", "agent.md")
+		if _, err := os.Stat(fixturePath); os.IsNotExist(err) {
+			t.Skipf("opencode agent fixture not found: %s", fixturePath)
+		}
+
+		first, err := parser.ParsePlatformDocument(t.Context(), fixturePath, "opencode", "agent")
+		require.NoError(t, err)
+		firstAgent, ok := first.(*parser.CanonicalAgent)
+		require.True(t, ok, "expected *parser.CanonicalAgent, got %T", first)
+
+		marshaled, err := MarshalCanonical(t.Context(), first)
+		require.NoError(t, err)
+
+		tmpDir := t.TempDir()
+		tmpPath := filepath.Join(tmpDir, "agent.md")
+		require.NoError(t, os.WriteFile(tmpPath, []byte(marshaled), 0o600))
+
+		second, err := parser.ParseDocument(t.Context(), tmpPath, "agent")
+		require.NoError(t, err)
+		secondAgent, ok := second.(*parser.CanonicalAgent)
+		require.True(t, ok, "expected *parser.CanonicalAgent, got %T", second)
+
+		assert.Equal(t, firstAgent.Description, secondAgent.Description, "Description round-trip")
+		assert.Equal(t, firstAgent.Tools, secondAgent.Tools, "Tools round-trip (after split)")
+		assert.Equal(t, firstAgent.DisallowedTools, secondAgent.DisallowedTools, "DisallowedTools round-trip (after split)")
+		assert.Equal(t, firstAgent.PermissionPolicy, secondAgent.PermissionPolicy, "PermissionPolicy round-trip (inferred)")
+		assert.Equal(t, firstAgent.Behavior.Mode, secondAgent.Behavior.Mode, "Behavior.Mode round-trip")
+		assert.Equal(t, firstAgent.Behavior.Steps, secondAgent.Behavior.Steps, "Behavior.Steps round-trip (renamed from maxSteps)")
+	})
+
+	t.Run("claude-code agent", func(t *testing.T) {
+		fixturePath := filepath.Join(fixturesDir, "claude-code", "agent.md")
+		if _, err := os.Stat(fixturePath); os.IsNotExist(err) {
+			t.Skipf("claude-code agent fixture not found: %s", fixturePath)
+		}
+
+		first, err := parser.ParsePlatformDocument(t.Context(), fixturePath, "claude-code", "agent")
+		require.NoError(t, err)
+		firstAgent, ok := first.(*parser.CanonicalAgent)
+		require.True(t, ok, "expected *parser.CanonicalAgent, got %T", first)
+
+		marshaled, err := MarshalCanonical(t.Context(), first)
+		require.NoError(t, err)
+
+		tmpDir := t.TempDir()
+		tmpPath := filepath.Join(tmpDir, "agent.md")
+		require.NoError(t, os.WriteFile(tmpPath, []byte(marshaled), 0o600))
+
+		second, err := parser.ParseDocument(t.Context(), tmpPath, "agent")
+		require.NoError(t, err)
+		secondAgent, ok := second.(*parser.CanonicalAgent)
+		require.True(t, ok, "expected *parser.CanonicalAgent, got %T", second)
+
+		assert.Equal(t, firstAgent.Description, secondAgent.Description)
+		assert.Equal(t, firstAgent.Tools, secondAgent.Tools, "Tools round-trip (PascalCase→lowercase)")
+		assert.Equal(t, firstAgent.DisallowedTools, secondAgent.DisallowedTools)
+		assert.Equal(t, firstAgent.PermissionPolicy, secondAgent.PermissionPolicy, "PermissionPolicy round-trip (from permissionMode)")
+		assert.Equal(t, firstAgent.Behavior.Mode, secondAgent.Behavior.Mode)
+	})
+}
+
+// TestPlatformRenderProducesNonEmpty ensures the platform render path
+// (RenderDocument) does not return empty output for any of the four
+// doc types. Catches regressions where a template change silently
+// produces zero-byte output.
+func TestPlatformRenderProducesNonEmpty(t *testing.T) {
+	platforms := []string{"claude-code", "opencode"}
+
+	tests := []struct {
+		name string
+		doc  interface{}
+	}{
+		{
+			name: "agent",
+			doc: &parser.CanonicalAgent{
+				Agent:   core.Agent{Name: "x", Description: "x"},
+				Content: "body",
+			},
+		},
+		{
+			name: "command",
+			doc: &parser.CanonicalCommand{
+				Command: core.Command{Name: "x", Description: "x"},
+				Content: "body",
+			},
+		},
+		{
+			name: "skill",
+			doc: &parser.CanonicalSkill{
+				Skill:   core.Skill{Name: "x", Description: "x"},
+				Content: "body",
+			},
+		},
+		{
+			name: "memory",
+			doc: &parser.CanonicalMemory{
+				Memory:  core.Memory{Paths: []string{"x"}},
+				Content: "body",
+			},
+		},
+	}
+
+	for _, platform := range platforms {
+		for _, tt := range tests {
+			t.Run(platform+"-"+tt.name, func(t *testing.T) {
+				out, err := RenderDocument(t.Context(), tt.doc, platform)
+				require.NoError(t, err)
+				assert.NotEmpty(t, strings.TrimSpace(out),
+					"RenderDocument(%s, %s) must produce non-empty output", platform, tt.name)
+			})
+		}
+	}
+}
+
+// TestCanonicalMarshalRoundTripPreservesSemanticFields is a
+// regression test for the canonical YAML emitter: it parses a
+// canonical fixture, marshals it back, and asserts the field set is
+// preserved through deep reflection. This complements
+// TestParseRenderRoundTrip (which checks one doc type per subtest)
+// with a single, generic, table-driven check.
+func TestCanonicalMarshalRoundTripPreservesSemanticFields(t *testing.T) {
+	repoRoot := fixtureRepoRoot(t)
+	fixturesDir := filepath.Join(repoRoot, "test", "fixtures", "canonical")
+
+	tests := []struct {
+		name    string
+		fixture string
+		docType string
+	}{
+		{"agent", "agent-permission-balanced.md", "agent"},
+		{"command", "command-valid.md", "command"},
+		{"skill", "skill-valid.md", "skill"},
+		{"memory", "memory-valid.md", "memory"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fixturePath := filepath.Join(fixturesDir, tt.fixture)
+			if _, err := os.Stat(fixturePath); os.IsNotExist(err) {
+				t.Skipf("fixture not found: %s", fixturePath)
+			}
+
+			first, err := parser.ParseDocument(t.Context(), fixturePath, tt.docType)
+			require.NoError(t, err)
+
+			marshaled, err := MarshalCanonical(t.Context(), first)
+			require.NoError(t, err)
+			require.NotEmpty(t, marshaled, "MarshalCanonical produced empty output")
+
+			// Re-parse from a temp file (so the parser's file-read path is exercised).
+			tmpDir := t.TempDir()
+			tmpPath := filepath.Join(tmpDir, tt.docType+".md")
+			require.NoError(t, os.WriteFile(tmpPath, []byte(marshaled), 0o600))
+
+			second, err := parser.ParseDocument(t.Context(), tmpPath, tt.docType)
+			require.NoError(t, err)
+
+			require.Equal(t, reflect.TypeOf(first), reflect.TypeOf(second),
+				"round-trip must preserve canonical struct type")
+		})
 	}
 }

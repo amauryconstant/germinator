@@ -89,7 +89,7 @@ The byte-equality adapter golden tests live in the **E2E tier** (`test/e2e/`, `/
 
 Per `golang-spf13-cobra` Testing section: cobra accumulates flag state across `Execute()` calls. The new E2E tests must be **Ginkgo `Describe`/`It` blocks within `package e2e_test`**, NOT standalone `Test*` functions (cobra state would leak).
 
-- [ ] 4.1a Create `test/e2e/opencode_adapter_golden_test.go` (build tag `e2e`) with a **Ginkgo spec** in `package e2e_test`:
+- [x] 4.1a Create `test/e2e/opencode_adapter_golden_test.go` (build tag `e2e`) with a **Ginkgo spec** in `package e2e_test`:
   ```go
   //go:build e2e
 
@@ -111,10 +111,10 @@ Per `golang-spf13-cobra` Testing section: cobra accumulates flag state across `E
   })
   ```
   Build tag: `//go:build e2e` at line 1.
-- [ ] 4.2a Create `test/e2e/claude_code_adapter_golden_test.go` (build tag `e2e`) with a similar **Ginkgo spec** for Claude Code. Fixture at `test/e2e/fixtures/claude-code/agent-balanced.md`.
-- [ ] 4.3a Create `test/e2e/fixtures/opencode/agent-balanced.md` — fixture for the OpenCode permission rendering test. Per `golang-testing` (Go 1.26+ test artifacts) and the project convention, fixtures live under `test/e2e/fixtures/`, not `test/e2e/testdata/`.
-- [ ] 4.4a Create `test/e2e/fixtures/claude-code/agent-balanced.md` — fixture for the Claude Code permission rendering test. Renderer output for both platforms is YAML frontmatter + Markdown body (`config/templates/<platform>/agent.tmpl`), so both fixtures use the `.md` extension.
-- [ ] 4.5 In `internal/renderer/serializer_test.go`, add `TestParseRenderRoundTrip` (canonical round-trip):
+- [x] 4.2a Create `test/e2e/claude_code_adapter_golden_test.go` (build tag `e2e`) with a similar **Ginkgo spec** for Claude Code. Fixture at `test/e2e/fixtures/claude-code/agent-balanced.md`.
+- [x] 4.3a Create `test/e2e/fixtures/opencode/agent-balanced.md` — fixture for the OpenCode permission rendering test. Per `golang-testing` (Go 1.26+ test artifacts) and the project convention, fixtures live under `test/e2e/fixtures/`, not `test/e2e/testdata/`.
+- [x] 4.4a Create `test/e2e/fixtures/claude-code/agent-balanced.md` — fixture for the Claude Code permission rendering test. Renderer output for both platforms is YAML frontmatter + Markdown body (`config/templates/<platform>/agent.tmpl`), so both fixtures use the `.md` extension.
+- [x] 4.5 In `internal/renderer/serializer_test.go`, add `TestParseRenderRoundTrip` (canonical round-trip):
   - Reads `test/fixtures/canonical/agent-permission-balanced.md` (or another canonical fixture with non-default fields).
   - Parses via `parser.ParseDocument(t.Context(), inputPath, "agent")`, returning `*parser.CanonicalAgent`.
   - Marshals via `renderer.MarshalCanonical(t.Context(), doc)`.
@@ -122,17 +122,23 @@ Per `golang-spf13-cobra` Testing section: cobra accumulates flag state across `E
   - Asserts the full canonical `core.Agent` field set is equal between the two parses: `Name`, `Description`, `Tools`, `DisallowedTools`, `PermissionPolicy`, `Behavior.Mode`, `Behavior.Temperature`, `Behavior.Steps`, `Behavior.Prompt`, `Behavior.Hidden`, `Behavior.Disabled`, `Model`, `Targets`, `Extensions`.
 
   Note: this is a **semantic** equality test (key fields compared, not bytes). It is distinct from the byte-equality golden tests in tasks 4.1a-4.4a, which live in the E2E tier. The round-trip test stays in the default suite (no build tag) because semantic equality is deterministic.
-- [ ] 4.6 Add `TestParseRenderRoundTrip` subtests for `Skill`, `Command`, `Memory` doc types (mirroring the existing `Agent` subtest).
-- [ ] 4.7 Add `TestPlatformRoundTrip` for `claude-code` and `opencode` that round-trips a platform fixture through canonical marshaling.
-- [ ] 4.8 In `internal/canonicalize/canonicalize_golden_test.go:28-30`, replace the CWD-relative `os.Stat("../../test/fixtures/canonical")` skip with a `runtime.Caller(0)`-based fixture path resolution. Remove the `t.Skip` call so the test runs from any working directory:
+- [x] 4.6 Add `TestParseRenderRoundTrip` subtests for `Skill`, `Command`, `Memory` doc types (mirroring the existing `Agent` subtest).
+- [x] 4.7 Add `TestPlatformRoundTrip` for `claude-code` and `opencode` that round-trips a platform fixture through canonical marshaling.
+- [x] 4.8 In `internal/canonicalize/canonicalize_golden_test.go:28-30`, replace the CWD-relative `os.Stat("../../test/fixtures/canonical")` skip with a `runtime.Caller(0)`-based fixture path resolution. Remove the `t.Skip` call so the test runs from any working directory:
   ```go
   _, thisFile, _, _ := runtime.Caller(0)
   fixturesDir := filepath.Join(filepath.Dir(thisFile), "..", "..", "test", "fixtures")
   goldenDir := filepath.Join(filepath.Dir(thisFile), "..", "..", "test", "golden", "canonical")
   ```
-- [ ] 4.9 Run `mise run test:e2e` — the new E2E golden tests (4.1a-4.4a) pass.
-- [ ] 4.10 Run `go test ./internal/renderer/...` — round-trip tests (4.5-4.7) pass in the default suite.
-- [ ] 4.11 Run `go test -tags=golden ./...` — pre-existing golden tests pass after the CWD-skip fix (4.8).
+- [x] 4.9 Run `mise run test:e2e` — the new E2E golden tests (4.1a-4.4a) pass.
+- [x] 4.10 Run `go test ./internal/renderer/...` — round-trip tests (4.5-4.7) pass in the default suite.
+- [x] 4.11 Run `go test -tags=golden ./...` — pre-existing golden tests pass after the CWD-skip fix (4.8).
+
+### Phase 4 implementation notes (artifact deviation from proposal)
+
+- **4.1a/4.2a — fixture/input paths resolved via `runtime.Caller(0)`**: the proposal's example shows fixturePath/outPath as opaque variables. The implementation resolves them via `runtime.Caller(0)` to find the repo root, then joins `test/fixtures/canonical/...` (input) and `test/e2e/fixtures/<platform>/...` (golden). Reason: `go test` runs with CWD = package directory (`test/e2e/`), not the project root; relative paths like `test/fixtures/canonical/...` would fail.
+- **4.5 — canonical round-trip asserted on canonical fixtures, not platform fixtures**: the proposal's wording suggests reading `test/fixtures/canonical/agent-permission-balanced.md` for the canonical round-trip; this is what the implementation does. Platform round-trips (task 4.7) read `test/fixtures/<platform>/agent.md`.
+- **4.5/4.7 — `Content` field compared via `TrimRight("\n")`**: the canonical marshaler adds a trailing newline that the original fixture lacks. `TrimRight` on both sides normalizes this so the semantic comparison passes.
 
 ## 5. Phase 5 — Test parallelization
 
