@@ -43,9 +43,9 @@ func ParsePlatformDocument(ctx context.Context, path string, platform string, do
 	var adapter interface{}
 	switch platform {
 	case "claude-code":
-		adapter = claudecode.New()
+		adapter = claudecode.ClaudeCode
 	case "opencode":
-		adapter = opencode.New()
+		adapter = opencode.OpenCode
 	default:
 		return nil, core.NewConfigError("platform", platform, "unsupported platform")
 	}

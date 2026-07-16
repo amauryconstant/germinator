@@ -11,10 +11,9 @@ import (
 // Adapter implements the Adapter interface for OpenCode platform.
 type Adapter struct{}
 
-// New creates and returns a new Adapter instance.
-func New() *Adapter {
-	return &Adapter{}
-}
+// OpenCode is the package-level singleton for the OpenCode Adapter.
+// The adapter is stateless; a single shared instance is safe to use across goroutines.
+var OpenCode = &Adapter{}
 
 // ToCanonical converts OpenCode format to canonical models.
 // It parses the input map based on the __type field and returns the appropriate canonical document type.
@@ -483,28 +482,31 @@ func (a *Adapter) mapPermissionModeToPolicy(mode string) core.PermissionPolicy {
 	}
 }
 
-func (a *Adapter) mapPermissionObjectToPolicy(permission map[string]interface{}) core.PermissionPolicy {
+func (a *Adapter) mapPermissionObjectToPolicy(perm map[string]interface{}) core.PermissionPolicy {
 	editDenied := false
 	bashDenied := false
 	otherDeny := false
 	allAllow := true
 
-	for tool, toolPermissions := range permission {
+	for tool, toolPermissions := range perm {
 		if toolPerms, ok := toolPermissions.(map[string]interface{}); ok {
 			for _, action := range toolPerms {
-				if actionStr, ok := action.(string); ok {
-					if actionStr != "allow" {
-						allAllow = false
-					}
-					if actionStr == "deny" {
-						switch tool {
-						case "edit":
-							editDenied = true
-						case "bash":
-							bashDenied = true
-						default:
-							otherDeny = true
-						}
+				actionStr, ok := action.(string)
+				if !ok {
+					continue
+				}
+				actionConst := permission.Action(actionStr)
+				if actionConst != permission.Allow {
+					allAllow = false
+				}
+				if actionConst == permission.Deny {
+					switch tool {
+					case "edit":
+						editDenied = true
+					case "bash":
+						bashDenied = true
+					default:
+						otherDeny = true
 					}
 				}
 			}
@@ -520,3 +522,6 @@ func (a *Adapter) mapPermissionObjectToPolicy(permission map[string]interface{})
 
 	return core.PermissionPolicyBalanced
 }
+
+// Compile-time check: *Adapter satisfies permission.Adapter. Mirror of cmd/canonicalize_test.go:20 precedent.
+var _ permission.Adapter = (*Adapter)(nil)

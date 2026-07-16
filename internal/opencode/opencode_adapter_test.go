@@ -7,7 +7,7 @@ import (
 )
 
 func TestConvertToolNameCase(t *testing.T) {
-	adapter := New()
+	adapter := OpenCode
 
 	tests := []struct {
 		name     string
@@ -32,7 +32,7 @@ func TestConvertToolNameCase(t *testing.T) {
 }
 
 func TestPermissionPolicyToPlatform(t *testing.T) {
-	adapter := New()
+	adapter := OpenCode
 
 	tests := []struct {
 		name        string
@@ -67,7 +67,7 @@ func TestPermissionPolicyToPlatform(t *testing.T) {
 }
 
 func TestToCanonical(t *testing.T) {
-	adapter := New()
+	adapter := OpenCode
 
 	t.Run("agent with minimal fields", func(t *testing.T) {
 		input := map[string]interface{}{
@@ -158,7 +158,7 @@ func TestToCanonical(t *testing.T) {
 }
 
 func TestToCanonicalCommand(t *testing.T) {
-	adapter := New()
+	adapter := OpenCode
 
 	t.Run("command with minimal fields", func(t *testing.T) {
 		input := map[string]interface{}{
@@ -222,7 +222,7 @@ func TestToCanonicalCommand(t *testing.T) {
 }
 
 func TestToCanonicalSkill(t *testing.T) {
-	adapter := New()
+	adapter := OpenCode
 
 	t.Run("skill with minimal fields", func(t *testing.T) {
 		input := map[string]interface{}{
@@ -304,7 +304,7 @@ func TestToCanonicalSkill(t *testing.T) {
 }
 
 func TestToCanonicalMemory(t *testing.T) {
-	adapter := New()
+	adapter := OpenCode
 
 	t.Run("memory with paths only", func(t *testing.T) {
 		input := map[string]interface{}{
@@ -383,7 +383,7 @@ func TestToCanonicalMemory(t *testing.T) {
 }
 
 func TestFromCanonical(t *testing.T) {
-	adapter := New()
+	adapter := OpenCode
 
 	t.Run("minimal agent", func(t *testing.T) {
 		agent := &canonical.Agent{
@@ -479,7 +479,7 @@ func TestFromCanonical(t *testing.T) {
 }
 
 func TestFromCanonicalCommand(t *testing.T) {
-	adapter := New()
+	adapter := OpenCode
 
 	t.Run("minimal command", func(t *testing.T) {
 		cmd := &canonical.Command{
@@ -559,7 +559,7 @@ func TestFromCanonicalCommand(t *testing.T) {
 }
 
 func TestFromCanonicalSkill(t *testing.T) {
-	adapter := New()
+	adapter := OpenCode
 
 	t.Run("minimal skill", func(t *testing.T) {
 		skill := &canonical.Skill{
@@ -693,7 +693,7 @@ func TestFromCanonicalSkill(t *testing.T) {
 }
 
 func TestFromCanonicalMemory(t *testing.T) {
-	adapter := New()
+	adapter := OpenCode
 
 	t.Run("memory with paths only", func(t *testing.T) {
 		mem := &canonical.Memory{
@@ -776,7 +776,7 @@ func TestFromCanonicalMemory(t *testing.T) {
 }
 
 func TestToCanonicalEdgeCases(t *testing.T) {
-	adapter := New()
+	adapter := OpenCode
 
 	t.Run("missing __type field", func(t *testing.T) {
 		input := map[string]interface{}{
@@ -863,7 +863,7 @@ func TestToCanonicalEdgeCases(t *testing.T) {
 }
 
 func TestFromCanonicalEdgeCases(t *testing.T) {
-	adapter := New()
+	adapter := OpenCode
 
 	t.Run("unknown document type", func(t *testing.T) {
 		_, err := adapter.FromCanonical("unknown", &canonical.Agent{})

@@ -19,19 +19,19 @@ import (
 )
 
 type templateContext struct {
-	Doc     interface{}
-	Adapter interface{}
+	Doc     any
+	Adapter any
 }
 
 type canonicalTemplateContext struct {
-	Doc interface{}
+	Doc any
 }
 
 // RenderDocument renders a document using platform-specific template.
 // The ctx parameter is checked at entry so a cancelled caller terminates
 // before template lookup and execution. The inner os.ReadFile reads bundled
 // templates whose path is independent of ctx, so the entry check is sufficient.
-func RenderDocument(ctx context.Context, doc interface{}, platform string) (string, error) {
+func RenderDocument(ctx context.Context, doc any, platform string) (string, error) {
 	if err := ctx.Err(); err != nil {
 		return "", fmt.Errorf("renderer: render cancelled: %w", err)
 	}
@@ -51,12 +51,12 @@ func RenderDocument(ctx context.Context, doc interface{}, platform string) (stri
 		return "", gerrors.NewFileError(tmplPath, "read", "failed to read template file", err)
 	}
 
-	var adapter interface{}
+	var adapter any
 	switch platform {
 	case "claude-code":
-		adapter = claudecode.New()
+		adapter = claudecode.ClaudeCode
 	case "opencode":
-		adapter = opencode.New()
+		adapter = opencode.OpenCode
 	}
 
 	tmplCtx := templateContext{
@@ -87,15 +87,15 @@ func RenderDocument(ctx context.Context, doc interface{}, platform string) (stri
 //   - convertToolNameCase: converts tool name to platform-specific case
 //
 // Returns:
-//   - map[string]interface{}: Template function map containing Sprig and custom functions
-func createTemplateFuncMap() map[string]interface{} {
+//   - map[string]any: Template function map containing Sprig and custom functions
+func createTemplateFuncMap() map[string]any {
 	funcMap := sprig.FuncMap()
 
 	funcMap["permissionPolicyToClaudeCode"] = func(policy gerrors.PermissionPolicy) string {
 		if policy == "" {
 			return ""
 		}
-		adapter := claudecode.New()
+		adapter := claudecode.ClaudeCode
 		result, err := adapter.PermissionPolicyToPlatform(policy)
 		if err != nil {
 			return ""
@@ -110,7 +110,7 @@ func createTemplateFuncMap() map[string]interface{} {
 		if policy == "" {
 			return ""
 		}
-		adapter := opencode.New()
+		adapter := opencode.OpenCode
 		result, err := adapter.PermissionPolicyToPlatform(policy)
 		if err != nil {
 			return ""
@@ -156,10 +156,10 @@ func createTemplateFuncMap() map[string]interface{} {
 	funcMap["convertToolNameCase"] = func(name string, platform string) string {
 		switch platform {
 		case "claude-code":
-			adapter := claudecode.New()
+			adapter := claudecode.ClaudeCode
 			return adapter.ConvertToolNameCase(name)
 		case "opencode":
-			adapter := opencode.New()
+			adapter := opencode.OpenCode
 			return adapter.ConvertToolNameCase(name)
 		default:
 			return name
@@ -221,7 +221,10 @@ func getTemplatePath(platform string, filename string) (string, error) {
 	return "", gerrors.NewFileError(relPath, "read", "template file not found", nil)
 }
 
-func getDocType(doc interface{}) (string, error) {
+func getDocType(doc any) (string, error) {
+	if doc == nil {
+		return "", gerrors.NewTransformError("marshal", "canonical", "document is nil", nil)
+	}
 	switch d := doc.(type) {
 	case *parser.CanonicalAgent:
 		return "agent", nil
@@ -240,7 +243,7 @@ func getDocType(doc interface{}) (string, error) {
 // The ctx parameter is checked at entry so a cancelled caller terminates
 // before template lookup and execution. The inner os.ReadFile reads bundled
 // templates whose path is independent of ctx, so the entry check is sufficient.
-func MarshalCanonical(ctx context.Context, doc interface{}) (string, error) {
+func MarshalCanonical(ctx context.Context, doc any) (string, error) {
 	if err := ctx.Err(); err != nil {
 		return "", fmt.Errorf("renderer: marshal cancelled: %w", err)
 	}
@@ -291,7 +294,7 @@ func NewSerializer() *Serializer {
 // RenderDocument renders a document to the target platform format.
 // Forwards ctx to the package-level RenderDocument so caller cancellation
 // propagates through template lookup and execution.
-func (s *Serializer) RenderDocument(ctx context.Context, doc interface{}, platform string) (string, error) {
+func (s *Serializer) RenderDocument(ctx context.Context, doc any, platform string) (string, error) {
 	return RenderDocument(ctx, doc, platform)
 }
 
@@ -332,6 +335,6 @@ func getCanonicalTemplatePath(filename string) (string, error) {
 }
 
 // createCanonicalTemplateFuncMap creates and returns a FuncMap with minimal Sprig functions for canonical templates.
-func createCanonicalTemplateFuncMap() map[string]interface{} {
+func createCanonicalTemplateFuncMap() map[string]any {
 	return sprig.FuncMap()
 }

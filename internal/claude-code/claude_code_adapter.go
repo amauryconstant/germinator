@@ -16,10 +16,9 @@ import (
 // Adapter implements the Adapter interface for Claude Code platform.
 type Adapter struct{}
 
-// New creates and returns a new Adapter instance.
-func New() *Adapter {
-	return &Adapter{}
-}
+// ClaudeCode is the package-level singleton for the Claude Code Adapter.
+// The adapter is stateless; a single shared instance is safe to use across goroutines.
+var ClaudeCode = &Adapter{}
 
 // ToCanonical parses Claude Code YAML format into canonical domain models.
 // It identifies the document type from the __type field and returns the appropriate
@@ -534,11 +533,14 @@ func (a *Adapter) mapPermissionModeToPolicy(mode string) core.PermissionPolicy {
 		return core.PermissionPolicyBalanced
 	case "dontAsk":
 		return core.PermissionPolicyPermissive
-	case "plan":
-		return core.PermissionPolicyAnalysis
 	case "bypassPermissions":
 		return core.PermissionPolicyUnrestricted
+	case "plan":
+		return core.PermissionPolicyAnalysis
 	default:
 		return ""
 	}
 }
+
+// Compile-time check: *Adapter satisfies permission.Adapter. Mirror of cmd/canonicalize_test.go:20 precedent.
+var _ permission.Adapter = (*Adapter)(nil)

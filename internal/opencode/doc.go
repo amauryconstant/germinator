@@ -63,7 +63,7 @@ package opencode
 //
 //   import "gitlab.com/amoconst/germinator/internal/opencode"
 //
-//   adapter := opencode.New()
+//   adapter := opencode.OpenCode
 //
 //   // Convert canonical to OpenCode
 //   openCodeYAML, err := adapter.FromCanonical(canonicalAgent)

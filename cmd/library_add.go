@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -625,16 +624,7 @@ func collectDiscoverFailures(opts *addOptions, discResult *library.DiscoverResul
 
 	for _, c := range discResult.Conflicts {
 		ref := c.Orphan.Type + "/" + c.Orphan.Name
-		// Prefer the typed sentinel (library.ErrNameConflict) when the
-		// library surfaced it; fall back to a plain error wrapping the
-		// human-readable Issue string for older data paths.
-		var cause error
-		if c.Cause != nil {
-			cause = c.Cause
-		} else {
-			cause = errors.New(c.Issue)
-		}
-		opErr := core.NewOperationError("register", ref, cause)
+		opErr := core.NewOperationError("register", ref, c.Cause)
 		if opts.Batch {
 			initErrs = append(initErrs, *core.NewInitializeError(ref, c.Orphan.Path, "", opErr))
 		}
