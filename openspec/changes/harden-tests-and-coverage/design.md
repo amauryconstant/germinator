@@ -14,8 +14,9 @@ The 2026-07-08 review identified 17 test-infra findings clustered in 4 areas. Th
 
 1. **Hotfix D-001 lands first**, outside the OpenSpec change. The Blocker finding is a race-detector correctness issue; it must not wait for the larger change.
 2. **Performance findings** (C-010..C-018, C-024, C-025) are deferred to a separate `perf-hardening` change per the reorg plan.
-3. **Test files use `t.Parallel()` carefully** — only tests that don't share `t.Setenv` / `os.Chdir` / Cobra globals. The hotfix removes `t.Parallel()` from `cmd/lint_test.go` because the test forks `mise` processes (not because of Cobra globals; the per-test `cmd.Execute()` calls still race on the same globals).
+3. **Test files use `t.Parallel()` carefully** — only tests that don't share `t.Setenv` / `os.Chdir` / Cobra globals. The hotfix removes `t.Parallel()` from `cmd/lint_test.go` because the test forks `mise` processes *and* the per-test `cmd.Execute()` calls race on Cobra's package-level `OnInitialize` slice; both triggers compound the race.
 4. **Golden test fixtures** are git-tracked and stable (per the review); the change adds new fixtures, never modifies existing ones.
+5. **`errEmptyResources` migration is in this change**, not deferred to `enforce-error-discipline`. The widened forbidigo pattern requires the migration to land concurrently; the constructor call is small and fits Phase 6.
 
 ## Goals / Non-Goals
 
@@ -40,6 +41,7 @@ The 2026-07-08 review identified 17 test-infra findings clustered in 4 areas. Th
 - Changing the `Library` coverage target.
 - Adding new test frameworks.
 - Refactoring existing tests beyond the testify migration.
+- The canary race-safety task (D-029): obsoleted by the `enforce-error-discipline` change which deleted `internal/warning/canary.go`. No race-prone `sync.Once` survives in `cmd/` or `internal/iostreams/`.
 
 ## Decisions
 
@@ -88,47 +90,61 @@ The 2026-07-08 review identified 17 test-infra findings clustered in 4 areas. Th
 - *Per-test file parallelism*: rejected; tests in the same file may share helpers.
 - *No parallelism*: rejected; the project has 100+ tests; parallelism saves ~5s per test run.
 
-### 5. Round-trip test pattern: `ParsePlatformDocument → MarshalCanonical → re-parse → assert equal fields`
+### 5. Round-trip test pattern: canonical-only round-trip in default suite, platform round-trip as a follow-up
 
-**Choice**: Add `TestParseRenderRoundTrip` in `internal/renderer/serializer_test.go` that:
-- Reads a fixture (e.g., `test/fixtures/canonical/agent.md`).
-- Parses it via `parser.ParsePlatformDocument(inputPath, platform, docType)`.
-- Marshals the result via `renderer.MarshalCanonical(doc)`.
-- Re-parses the marshaled output.
-- Asserts that key fields (`Name`, `Description`, `Mode`, etc.) are equal between the two parses.
+**Choice**: Add **two** round-trip tests in `internal/renderer/serializer_test.go`:
 
-**Rationale**: Round-trip tests catch adapter drift and tag collisions in `CanonicalAgent`-style embedding (per the review's D-013). The pattern is the standard idiom for verifying serialization correctness.
+1. **`TestParseRenderRoundTrip` (canonical round-trip)**:
+   - Reads a canonical fixture (e.g., `test/fixtures/canonical/agent-permission-balanced.md`).
+   - Parses it via `parser.ParseDocument(t.Context(), inputPath, "agent")`, returning `*parser.CanonicalAgent`.
+   - Marshals via `renderer.MarshalCanonical(t.Context(), doc)`.
+   - Writes the marshaled string to a `t.TempDir()` file and re-parses it via `parser.ParseDocument(t.Context(), tmpPath, "agent")`.
+   - Asserts the full canonical `core.Agent` field set is equal between the two parses.
 
-**Why this is `SEMANTIC` equality, not byte equality** (resolves the proposal ambiguity): the proposal text says "byte-equivalence" but the design says "semantic equality". The implemented behavior is **semantic** equality — the assertion walks the parsed struct fields rather than comparing raw bytes. This matches the skill's testing guidance: golden files compare *captured output* (bytes for E2E, formatted text for Command), but round-trip tests compare *semantic state* (because YAML serialization is not guaranteed byte-stable across `MarshalCanonical` versions).
+2. **`TestPlatformRoundTrip` (platform round-trip)**:
+   - Reads a platform fixture (e.g., `test/fixtures/claude-code/agent-permission-balanced.md`).
+   - Parses via `parser.ParsePlatformDocument(t.Context(), inputPath, "claude-code", "agent")`.
+   - Marshals via `renderer.MarshalCanonical(t.Context(), doc)`.
+   - Re-parses the canonical marshal output via `parser.ParseDocument`.
+   - Asserts the same canonical fields.
+
+Both tests live in the default suite (no build tag) because semantic equality is deterministic.
+
+**Rationale**: Round-trip tests catch adapter drift and tag collisions in canonical struct embedding (per the review's D-013). The canonical test validates `MarshalCanonical` correctness; the platform test additionally exercises the forward adapter path (`ParsePlatformDocument`) on real fixtures and confirms that the platform→canonical conversion preserves all canonical fields.
+
+**Why semantic equality, not byte equality**: Same as the byte-vs-semantic rationale in `golang-cli-architecture/references/07-testing.md` §Golden Files — YAML serialization is not guaranteed byte-stable across `MarshalCanonical` versions (Cobra, sprig, yaml.v3 dependency drift). The skill's testing guidance distinguishes "captured output" (byte-for-byte golden files in the E2E tier) from "semantic state" (round-trip parses in the default suite).
 
 **Alternatives considered**:
 
+- *Single canonical-only round-trip*: rejected; the platform test catches adapter-specific drift that the canonical-only path cannot see (a `FromCanonical` field omission is not visible without exercising the platform parser first).
 - *Byte-equality assertion*: rejected; YAML serialization can include field order, comments, whitespace — semantic equality is more robust.
 - *Snapshot test*: rejected; golden files are for end-to-end adapter output; round-trip is for canonical marshaling.
 
-### 5a. Golden test build tag `//go:build golden` (deviation from skill)
+Round-trip tests live in default suite per Decision 5; E2E byte-equality tests live in E2E tier per Decision 6.
 
-**Choice**: Gate the new adapter golden tests (`opencode_adapter_golden_test.go`, `claude_code_adapter_golden_test.go`) AND the round-trip test under a `//go:build golden` build tag, runnable via `go test -tags=golden ./...`. The existing golden tests in `test/golden/` remain in the default suite.
+### 6. Byte-equality golden tests live in E2E tier (`//go:build e2e`) with `.md` fixtures
 
-**Why this deviates from the `golang-cli-architecture` skill**: The skill (`07-testing.md`) states "Golden files are a technique within the Command and E2E tiers (capture stdout/stderr, diff against `testdata/*.golden`, refresh with `-update`), **not a separate tier**." Gating tests behind a build tag creates an implicit fourth tier.
+**Choice**: The new byte-equality adapter golden tests (`opencode_adapter_golden_test.go`, `claude_code_adapter_golden_test.go`) live in `test/e2e/` with `//go:build e2e`. They use the existing E2E infrastructure (`gexec.Build` or equivalent binary-build helper, golden-file comparison) and run via `mise run test:e2e`. Fixtures are stored at `test/e2e/testdata/<platform>/agent-balanced.md` — **both** fixtures use the `.md` extension because the renderer emits YAML frontmatter wrapped around a Markdown body for both Claude Code and OpenCode (`config/templates/<platform>/agent.tmpl`). The round-trip tests (`TestParseRenderRoundTrip`, `TestPlatformRoundTrip`) stay in the default suite at `internal/renderer/serializer_test.go` because they assert semantic equality (deterministic), not byte equality.
 
-**Why the deviation is justified for these specific tests**:
-1. The new **adapter golden tests** assert **byte-equality** against `test/golden/<platform>/agent-balanced.{yaml,json}`. Byte-equality golden tests are sensitive to:
-   - YAML field order emitted by `MarshalCanonical`
-   - JSON key order and whitespace from `RenderDocument`
-   - Sprig template whitespace
-   These are NOT controlled by the test author; they are emergent properties of the renderer chain. Putting byte-equality tests in the default suite produces a CI flake whenever any renderer dependency updates (Cobra, sprig, yaml.v3).
-2. The new **round-trip test** asserts **semantic** equality, but runs against **all 4 canonical types** (Agent, Skill, Command, Memory) for **both platforms** (OpenCode, Claude Code). With fixtures and assertions across the full matrix, the round-trip test takes ~3s and is gated for the same CI-flake reasons.
-3. The project's existing golden tests (`test/golden/*.golden`) compare **rendered platform files** (not canonical marshaling), and use `UPDATE_GOLDEN` flag (not `-update`) for refresh — they remain in the default suite because their input is parser output (controlled) rather than renderer output (uncontrolled).
-4. The CI pipeline runs `mise run test` (default) and `mise run test:golden` (with the tag) as separate stages, so the gated tests are still exercised.
+**Why this aligns with the skill**: The skill (`07-testing.md`) states "Golden files are a technique within the Command and E2E tiers, **not a separate tier**." Byte-equality golden tests exercise the full adapter chain end-to-end, so they belong in the E2E tier alongside the existing binary tests. Earlier considered placing them under a custom `//go:build golden` tag — rejected because that creates an implicit fourth tier, contradicting the skill.
+
+Per `golang-spf13-cobra` Testing section: cobra accumulates flag state across `Execute()` calls. The new E2E tests must be **Ginkgo `Describe`/`It` blocks within `package e2e_test`**, NOT standalone `Test*` functions (cobra state would leak).
+
+**Note on existing golden-tagged tests**: The pre-change golden tests at `internal/canonicalize/canonicalize_golden_test.go` (build tag `golden`) cover the *canonicalize* service's byte output and run via `mise run test:golden`. Those tests assert against parser output (stable) and are deliberately separate from the new adapter tests, which assert against renderer output (sensitive to renderer dependency drift). The two tiers coexist; the new adapter tests use the `e2e` build tag deliberately to keep byte-sensitive checks in a single, gated CI stage.
+
+**Rationale for E2E placement over default suite**: Byte-equality golden tests are sensitive to dependency drift:
+- YAML frontmatter field order emitted by `MarshalCanonical`
+- Sprig template whitespace inside the body
+
+These are emergent properties of the renderer chain (Cobra, sprig, yaml.v3), not controlled by the test author. Running them under `mise run test:e2e` (separate CI stage) prevents flakes in `mise run test` while still exercising the tests regularly.
 
 **Alternatives considered**:
 
-- *Move all golden tests under `//go:build golden`*: rejected; the existing `test/golden/*.golden` tests have stable byte output (renderer output is deterministic in those paths) and don't need gating.
-- *Remove the build tag entirely*: rejected; the new adapter byte-equality tests are too sensitive to renderer dependency drift for default-suite inclusion.
+- *Custom `//go:build golden` tag for byte-equality tests*: rejected; creates an implicit fourth tier contrary to the skill and would conflate them with the canonicalize command's existing `golden`-tagged tests.
+- *Remove the build tag entirely and put byte-equality tests in default suite*: rejected; the new adapter byte-equality tests are too sensitive to renderer dependency drift for default-suite inclusion.
 - *Use `t.Skipped` based on `os.Getenv("CI")` or a flag*: rejected; build tags are checked at `go vet` time, skip env-vars are runtime checks (fail CI when CI is unset).
 
-### 6. Forbidigo pattern: widen to catch all package-level mutable vars
+### 7. Forbidigo pattern: widen to catch all package-level mutable vars
 
 **Choice**: Update `.golangci.yml:87` to:
 
@@ -139,7 +155,7 @@ forbidigo:
       msg: 'package-level mutable variables are forbidden per cmd/AGENTS.md:46'
 ```
 
-**Rationale**: The current pattern only catches `var global(Factory|CommandConfig)`. The 6 mutable package-level vars identified in the review slip through. Widening the pattern catches all of them at `go vet` time.
+**Rationale**: The current pattern only catches `var global(Factory|CommandConfig)`. The 6 mutable package-level vars identified in the review slip through. Widening the pattern catches all of them at `go vet` time. The `errEmptyResources` migration (inlining the `core.NewUsageError(...)` construction inside `runCreatePreset`) lands in this change rather than waiting for the deferred `enforce-error-discipline` task 3.12, so the widened pattern applies from day one.
 
 **Alternatives considered**:
 
@@ -149,21 +165,23 @@ forbidigo:
 ## Risks / Trade-offs
 
 - **Hotfix D-001 slows the test suite by 2-3 seconds** (the test no longer runs in parallel with siblings). **Mitigation**: the slowness is acceptable for race-detector correctness.
-- **testify migration is mechanical but spans 7 test files.** A missed `t.Fatal` is hard to detect. **Mitigation**: task 4.1 runs `rg "t\.Fatal|t\.Error" internal/library/*_test.go` after the migration; zero matches expected.
-- **Adapter singleton** is a behavior change for `New()` callers. **Mitigation**: the new `OpenCode` / `ClaudeCode` package-level vars are drop-in replacements; all callers are updated in the same commit.
-- **Round-trip test** uses semantic equality (key fields) rather than byte equality. **Mitigation**: a follow-up "byte-exact" test can be added in `perf-hardening` if profiling shows a need.
+- **testify migration is mechanical but spans 7 test files.** A missed `t.Fatal` is hard to detect. **Mitigation**: task 2.8 runs `rg "t\.Fatal|t\.Error" internal/library/*_test.go` after the migration; zero matches expected.
+- **Adapter singleton** is an internal API change (the `New()` constructor is deleted; no external package imports the adapters). **Mitigation**: the new `OpenCode` / `ClaudeCode` package-level vars are drop-in replacements; all internal callers (`internal/parser`, `internal/renderer`, `internal/opencode/doc.go`) update in the same commit.
+- **Round-trip tests** use semantic equality (key fields) rather than byte equality. **Mitigation**: a follow-up change can add byte-equality coverage if a specific drift is observed (the round-trip pattern already catches field-level drift, so byte equality is rarely needed).
 - **Forbidigo pattern widening** may flag legitimate `var foo` declarations if a contributor names a var with one of the forbidden prefixes. **Mitigation**: the pattern is anchored to specific var names; generic `var foo` is not flagged.
+- **`mise run test:race`** already covers the whole tree (`./...`, including `cmd/`). The task description in `.mise/config.toml` even references this change. The widening is already done; this change only validates it. **Mitigation**: Phase 8.4 runs the existing task; if any non-D-001 race is exposed, it is logged and triaged before merge.
 
 ## Migration Plan
 
 The change ships in **one PR with 6 atomic phases** (each commit is independently testable):
 
-1. **Phase 0 — Hotfix D-001** (lands immediately, outside OpenSpec): remove `t.Parallel()` from `cmd/lint_test.go:19`. Verify `go test -race -count=1 ./cmd/...` passes.
-2. **Phase 1 — Adapter contract + singleton + typed constants + canary mutex** (tasks 5.1-5.7): add `var _ permission.Adapter = (*Adapter)(nil)` to both adapters; replace `New()` with package-level singletons; use typed `permission.Allow` / `permission.Deny` constants; add `any` + nil-check to `getDocType`; wrap `canaryOnce` in mutex; always set `c.Cause` in `checkNameConflict`. Verify `mise run check`.
-3. **Phase 2 — Testify migration** (tasks 5.8-5.14): migrate 7 library test files to testify. Verify `mise run test` and `mise run test:race`.
-4. **Phase 3 — Coverage gap fixes** (tasks 5.15-5.22): add `creator_test.go`, `discovery_test.go`, `methods_test.go` for `CreatePreset`, `resolver_test.go` for `GetOutputPaths`; add coverage to `claude-code` adapter; add `core.Valid` / `Unwrap` tests. Verify `mise run test:coverage` reaches ≥ 70% per package.
-5. **Phase 4 — Golden files + round-trip** (tasks 5.23-5.26): add `opencode_adapter_golden_test.go`, `claude_code_adapter_golden_test.go`, `TestParseRenderRoundTrip`; fix `cmd/canonicalize_golden_test.go:26` CWD-skip. Verify `go test -tags=golden ./...` passes.
-6. **Phase 5 — Test parallelization** (tasks 5.27-5.28): add `t.Parallel()` to fixture-driven subtests in `methods_test.go` and `library_add_test.go`. Verify `mise run test:race` passes.
-7. **Phase 6 — Trivial folds** (tasks 5.29-5.31): widen forbidigo pattern; replace package-level vars in 5 cmd files; replace hard-coded file list in `TestNoNewForbidigoPatterns`. Verify `mise run lint` and `mise run check`.
+1. **Phase 1 — Adapter contract + singleton + typed constants + canary mutex** (tasks 1.1-1.11): add `var _ permission.Adapter = (*Adapter)(nil)` to both adapters; replace `New()` with package-level singletons; use typed `permission.Allow` / `permission.Deny` constants; add `any` + nil-check to `getDocType`; replace `canaryOnce` with `sync.OnceFunc`; always set `c.Cause` in `checkNameConflict`. Verify `mise run check`.
+2. **Phase 2 — Testify migration** (tasks 2.1-2.10): migrate 7 library test files to testify. Verify `mise run test` and `mise run test:race`.
+3. **Phase 3 — Coverage gap fixes** (tasks 3.1-3.7): add `creator_test.go`, `discovery_test.go`, `methods_test.go` for `CreatePreset`, `resolver_test.go` for `GetOutputPaths`; add coverage to `claude-code` adapter; add `core.Valid` / `Unwrap` tests. Verify `mise run test:coverage` reaches ≥ 70% per package.
+4. **Phase 4 — Round-trip + E2E golden tests** (tasks 4.1a-4.4a, 4.5, 4.6a-4.6b, 4.7, 4.8a, 4.9): byte-equality golden tests move to `test/e2e/` under `//go:build e2e` (per design Decision 6); round-trip test stays in default suite. Verify `mise run test:e2e` and `go test ./internal/renderer/...`.
+5. **Phase 5 — Test parallelization** (tasks 5.1-5.4): add `t.Parallel()` to fixture-driven subtests in `methods_test.go` and `library_add_test.go`. Verify `mise run test:race` passes.
+6. **Phase 6 — Trivial folds** (tasks 6.1-6.9): widen forbidigo pattern; replace package-level vars in 5 cmd files; replace hard-coded file list in `TestNoNewForbidigoPatterns`. Verify `mise run lint` and `mise run check`.
 
-**Rollback strategy**: revert each phase commit independently. Phase 0 is a 1-line edit (easy to revert). Phases 1-6 are additive or mechanical; revert restores the prior state.
+The D-001 hotfix (`cmd/lint_test.go:19` `t.Parallel()` removal) lands separately, before this OpenSpec change, and is documented in `proposal.md` Phase 0 only — it is not part of this change's atomic phase sequence.
+
+**Rollback strategy**: revert each phase commit independently. Phases 1-6 are additive or mechanical; revert restores the prior state.

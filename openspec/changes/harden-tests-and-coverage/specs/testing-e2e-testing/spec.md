@@ -20,8 +20,30 @@ The `t.Parallel()` annotation in cmd-side tests SHALL only be used when the test
 - **THEN** zero race conditions SHALL be reported on Cobra globals
 - **AND** zero race conditions SHALL be reported on `t.Setenv` / `os.Chdir` / `t.TempDir` usage
 
-#### Scenario: Non-Cmd tests may use t.Parallel()
+#### Scenario: Non-Cmd tests use t.Parallel() safely
 
 - **WHEN** a test does not call `cmd.Execute()` and does not share `t.Setenv` / `os.Chdir` with sibling tests
-- **THEN** the test MAY use `t.Parallel()`
-- **AND** the test SHALL be safe to run concurrently with other `t.Parallel()` tests
+- **THEN** the test SHALL be safe to run concurrently with other `t.Parallel()` tests
+- **AND** the test SHALL be marked `t.Parallel()` in subtests inside `t.Run(...)` blocks to opt into parallel execution
+
+### Requirement: t.Context() adoption for new tests
+
+New tests added in `cmd/`, `internal/`, or `test/` SHALL use `t.Context()` (Go 1.24+) for tests that need a `context.Context`. Every new test function (regardless of whether it does I/O) SHALL adopt the `t.Context()` pattern. The `t.Context()` is auto-cancelled when the test ends, eliminating explicit `defer cancel()` calls and preventing goroutine leaks.
+
+**Change**: NEW requirement. Pre-change tests use `context.Background()` as the minimum-churn approach; new tests adopt the `t.Context()` pattern universally. The migration of existing tests is a follow-up tracked separately.
+
+#### Scenario: New test uses t.Context()
+
+- **WHEN** a new test is added to any package
+- **THEN** the test SHALL use `t.Context()` instead of `context.Background()`
+- **AND** the test SHALL NOT call `defer cancel()` (the context is auto-cancelled)
+- **AND** the `ctx` returned by `t.Context()` SHALL be forwarded to every function under test that accepts `context.Context`
+
+#### Scenario: Existing tests transition over time
+
+- **WHEN** an existing test is migrated to the new pattern
+- **THEN** the test MAY continue to use `context.Background()` until the next refactor
+- **AND** new tests added in the same file SHALL use `t.Context()` to establish the pattern
+- **WHEN** a new test is added to a file that calls `LoadLibrary(ctx, ...)` or similar context-taking function
+- **THEN** the new test MUST use `t.Context()` if the function is called from the new test's body
+- **AND** if the new test exercises an existing path that uses `context.Background()`, the existing path remains unchanged until refactored

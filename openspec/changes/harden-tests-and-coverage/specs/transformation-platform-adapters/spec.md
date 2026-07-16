@@ -1,6 +1,6 @@
 # transformation-platform-adapters Specification (delta)
 
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: Adapter contract guard
 
@@ -18,13 +18,13 @@ The check is placed at the bottom of the adapter's main file (e.g., `opencode_ad
 
 - **WHEN** `internal/opencode/opencode_adapter.go` is inspected
 - **THEN** the file SHALL declare `var _ permission.Adapter = (*Adapter)(nil)`
-- **AND** the `*Adapter` type SHALL expose all 5 methods of `permission.Adapter` (`ToCanonical`, `FromCanonical`, `ParsePlatformDocument`, `RenderDocument`, plus the permission-mapping helpers)
+- **AND** the `*Adapter` type SHALL expose all 4 methods of `permission.Adapter`: `ToCanonical`, `FromCanonical`, `PermissionPolicyToPlatform`, and `ConvertToolNameCase`
 
 #### Scenario: Claude Code adapter satisfies permission.Adapter
 
 - **WHEN** `internal/claude-code/claude_code_adapter.go` is inspected
 - **THEN** the file SHALL declare `var _ permission.Adapter = (*Adapter)(nil)`
-- **AND** the `*Adapter` type SHALL expose all 5 methods of `permission.Adapter`
+- **AND** the `*Adapter` type SHALL expose all 4 methods of `permission.Adapter`
 
 #### Scenario: Signature drift is caught at compile time
 
@@ -36,7 +36,7 @@ The check is placed at the bottom of the adapter's main file (e.g., `opencode_ad
 
 The `internal/opencode/` and `internal/claude-code/` packages SHALL expose a package-level singleton (`var OpenCode = &Adapter{}` and `var ClaudeCode = &Adapter{}`) instead of a per-call `New()` constructor. The `Adapter` struct is stateless, so a single instance is safe to share.
 
-**Change**: NEW requirement. Pre-change, `New()` returns `&Adapter{}` per call, allocating a new instance each invocation. The singleton eliminates the allocation and makes the stateless nature of the adapter explicit.
+**Change**: NEW requirement. Pre-change, `New()` returns `&Adapter{}` per call, allocating a new instance each invocation. The singleton eliminates the allocation and makes the stateless nature of the adapter explicit. Removing `New()` is an internal API change; no external consumers import these adapter packages outside of `internal/`.
 
 #### Scenario: Package-level singleton exposed
 

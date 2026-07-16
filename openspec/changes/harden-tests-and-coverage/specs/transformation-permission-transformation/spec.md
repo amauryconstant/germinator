@@ -1,12 +1,12 @@
 # transformation-permission-transformation Specification (delta)
 
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: Typed permission constants
 
-The `internal/permission/` package SHALL define typed `Action` constants (`permission.Allow`, `permission.Ask`, `permission.Deny`) that adapter permission maps use instead of raw string literals. The constants are exported and used by `internal/opencode/`, `internal/claude-code/`, and any other adapter that maps canonical permissions to platform-specific actions.
+The `internal/permission/` package SHALL expose typed `Action` constants (`permission.Allow`, `permission.Ask`, `permission.Deny`) that adapter permission maps use instead of raw string literals. The constants are exported and used by `internal/opencode/`, `internal/claude-code/`, and any other adapter that maps canonical permissions to platform-specific actions.
 
-**Change**: NEW requirement. Pre-change, the adapter maps (e.g., `permission.Map` at `internal/permission/permissions.go:41`) compare raw string literals (`"allow"`, `"ask"`, `"deny"`). A typo in a string literal is undetected at compile time; the typed constants catch typos at compile time.
+**Change**: NEW requirement. The typed constants already exist at `internal/permission/permissions.go:38-47`; the work in this change is to ensure adapter permission maps consume the constants instead of raw string literals. Pre-change, the adapter maps embed raw string literals (`"allow"`, `"ask"`, `"deny"`) directly, so a typo in a string literal is undetected at compile time. The typed constants centralize the vocabulary; future unrecognised values are caught at runtime via `*core.ConfigError` from `PermissionPolicyMappings` lookup.
 
 #### Scenario: Action constants are typed
 
@@ -20,14 +20,14 @@ The `internal/permission/` package SHALL define typed `Action` constants (`permi
 - **THEN** the maps SHALL use `permission.Allow` / `permission.Ask` / `permission.Deny` (not the string literals `"allow"` / `"ask"` / `"deny"`)
 - **AND** the maps SHALL be typed as `map[string]permission.Action` (not `map[string]string`)
 
-#### Scenario: Typos in Action are caught at compile time
-
-- **WHEN** a contributor writes `permission.Action("alllow")` (typo) in an adapter
-- **THEN** the build SHALL fail with `cannot use "alllow" (untyped string constant) as permission.Action value`
-- **AND** the contributor SHALL fix the typo (or add a new `Action` constant if the typo is intentional)
-
 #### Scenario: No raw string literals in adapter permission maps
 
 - **WHEN** the codebase is searched for `"allow"` / `"ask"` / `"deny"` in `internal/opencode/` and `internal/claude-code/`
 - **THEN** zero matches SHALL appear in the adapter permission maps (the constants are used instead)
 - **AND** raw string literals SHALL appear only in test fixtures, golden files, and the `permission.Action` constant declarations themselves
+
+#### Scenario: Unknown action string at runtime is rejected
+
+- **WHEN** an adapter receives an action string that is not one of the typed `permission.Action` constants (e.g., a future `"denyUnlessRead"` value)
+- **THEN** the adapter SHALL return `*core.ConfigError` from the lookup
+- **AND** the error message SHALL list the valid `permission.Action` values (`Allow`, `Ask`, `Deny`)
