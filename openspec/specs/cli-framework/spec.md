@@ -474,6 +474,53 @@ The version command SHALL include the Go runtime version (via `runtime.Version()
 - **THEN** the rendered output SHALL contain the Go runtime version string (e.g., `go1.25.5`)
 - **AND** for `--output json`, the `go` key SHALL be populated from `runtime.Version()`
 
+### Requirement: I/O adapter placement
+
+Service-style I/O adapters (Transformer, Validator, Canonicalizer, Initializer, and per-resource adders) MUST live in dedicated `internal/<x>/` shell packages, not in `cmd/`. The Functional Core / Imperative Shell pattern requires that any code performing I/O (filesystem reads/writes, external tool calls, network requests) live at the package boundary (`internal/<shell>/`), not in the action layer (`cmd/`).
+
+**Change**: NEW requirement codifying the post-extraction state. The slice-3 design rationale (`openspec/changes/archive/2026-06-26-migrate-domain-commands/design.md:38-48`) was a one-adapter argument for keeping validator logic in `cmd/`; after `extract-io-adapters` all 5 adapters live in `internal/<x>/`.
+
+#### Scenario: Adapters live in internal/<x>/, not cmd/
+
+- **WHEN** the codebase is searched for `transformerAdapter`, `validatorAdapter`, `canonicalizerAdapter`, `initializerAdapter`, `libraryAdapter`
+- **THEN** zero matches SHALL appear in `cmd/`
+- **AND** matches SHALL appear in `internal/transform/`, `internal/validate/`, `internal/canonicalize/`, `internal/install/`, and `internal/library/` (as methods on `*Library`) respectively
+
+#### Scenario: Cmd-side interfaces remain in cmd/
+
+- **WHEN** the codebase is searched for the `Transformer`, `Validator`, `Canonicalizer`, `Initializer`, `resourceAdder` interfaces
+- **THEN** each interface SHALL be declared in its consumer's `cmd/<command>.go` file (per the skill's "interfaces where consumed" principle)
+- **AND** the interfaces SHALL NOT be re-exported or duplicated in `internal/<x>/` (the cmd-side contract is the canonical declaration)
+
+#### Scenario: NewService constructors live in shell packages
+
+- **WHEN** the codebase is searched for `NewService` or `NewXxx` constructors of the extracted adapters
+- **THEN** each constructor SHALL live in its shell package (`internal/transform/transform.go`, `internal/validate/validate.go`, `internal/canonicalize/canonicalize.go`, `internal/install/install.go`)
+- **AND** each constructor SHALL return the cmd-side interface type (the package implements the interface, the consumer declares it)
+- **AND** `cmd/` SHALL import the shell package only to call the constructor; the cmd file does NOT re-implement the adapter
+
+#### Scenario: Package name `install` (not `init`) avoids Go identifier collision
+
+- **WHEN** a shell package for the init/initialize logic is created
+- **THEN** the package SHALL be named `install`, not `init`
+- **AND** the `Initializer` interface (the cmd-side contract) remains in `cmd/init.go`; only the implementation moves to `internal/install/`
+- **Rationale**: `init` is a reserved Go package name; using it causes issues with Go tooling (`go test ./init/...` triggers linter warnings). `install` is semantically equivalent and avoids the collision (per design Decision 1).
+
+#### Scenario: Library package methods replace the libraryAdapter
+
+- **WHEN** the codebase is searched for `libraryAdapter`
+- **THEN** zero matches SHALL appear (the type was deleted)
+- **AND** `cmd/library_add.go` SHALL declare `var _ adderLibrary = (*library.Library)(nil)` as the compile-time check
+- **AND** `*library.Library` SHALL expose `Add`, `BatchAddResources`, `DiscoverOrphans` methods (per slice-7 decision 6, completed by this change)
+
+#### Scenario: New shell packages follow the internal/library convention
+
+- **WHEN** any of the 4 new shell packages (`internal/validate/`, `internal/canonicalize/`, `internal/transform/`, `internal/install/`) is inspected
+- **THEN** it SHALL have a `Service` interface, `Request`/`Result` types, and a `NewService` constructor
+- **AND** it SHALL return `core.*` types (not package-local types)
+- **AND** it SHALL take `ctx context.Context` as the first parameter of each public method
+- **AND** it SHALL have an `AGENTS.md` following the `internal/library/AGENTS.md` template (Files table + Key Surface + skill reference)
+
 ### Requirement: I/O adapter ctx propagation
 
 Service-style I/O adapters (`Transformer`, `Validator`, `Canonicalizer`, `Initializer`, and the per-resource adders) — implemented in `internal/{transform,validate,canonicalize,install}/` shell packages and as `*Library` methods on `internal/library/library.go` — SHALL accept `ctx context.Context` as the first parameter of every public method. The `ctx` SHALL be forwarded to all downstream calls (`parser.LoadDocument`, `renderer.RenderDocument`, `LoadLibrary`, `SaveLibrary`, `*Library.Refresh`, `*Library.RemoveResource`, `*Library.ResolvePreset`, etc.).
@@ -506,6 +553,19 @@ The adapter SHALL NOT discard `ctx` (e.g., via `_ context.Context`). If a method
 - **AND** every public method on the adapters SHALL have `ctx context.Context` as a named, non-underscore parameter
 
 > **Note:** The pre-change adapters in `cmd/{initializer,transformer,canonicalize,validate}.go` accepted `ctx` but discarded it via the `_` underscore binding. After `extract-io-adapters` relocates the adapters to `internal/<x>/` shell packages, this scenario verifies the future-proofed state. The scenario applies regardless of whether the adapter is currently in `cmd/` (legacy) or `internal/<x>/` (post-extraction). Test fakes in `cmd/*_test.go` are exempt from the underscore-binding check (the rg glob excludes `*_test.go`); test fakes renamed to `ctx context.Context` (zero behavior change) are encouraged but not required.
+
+## Coverage Note
+
+The scenarios above codify **structural invariants** (placement, naming, package conventions) enforced primarily by compile-time checks (`var _ X = (*Y)(nil)`), `go build ./...`, and `rg` patterns from `tasks.md` Task 4.1.
+
+**Behavioral coverage** for the same architectural surface lives in:
+
+- `internal/{validate,canonicalize,transform,install}/*_test.go` — direct exercise of each shell-package `Service` interface
+- `internal/library/methods_test.go` — table-driven coverage of the new `(*Library).Add` / `(*Library).BatchAddResources` / `(*Library).DiscoverOrphans` methods
+- `cmd/library_add_test.go` — runtime mirror of the `var _ adderLibrary = (*library.Library)(nil)` contract assertion
+- `cmd/{adapt,validate,canonicalize,init}_test.go` and `cmd/cmd_test.go` — `runF` injection and direct `xxx.NewService()` calls exercise the cmd→shell wiring
+
+The `mise run test:coverage` threshold (70% per `openspec/config.yaml`) gates the new packages.
 
 ## Fulfilled
 
