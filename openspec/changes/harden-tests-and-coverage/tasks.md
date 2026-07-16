@@ -42,40 +42,46 @@ Per `golang-stretchr-testify` "Rule": use `require` for preconditions (file writ
 
 Per `golang-testing` Best Practice 1: table-driven tests must use named subtests. Per `golang-naming/testing.md`: subtest names are fully lowercase descriptive phrases (e.g., `"dry-run"`, `"force-overwrite"`, `"existing-library-error"`).
 
-- [ ] 3.1a **MODIFY** `internal/library/creator_test.go`: convert the existing `TestCreateLibrary_DryRun_WritesToStdout` (single test function at lines 24-60) into a table-driven `TestCreateLibrary` with named subtests via `t.Run`:
+- [x] 3.1a **MODIFY** `internal/library/creator_test.go`: convert the existing `TestCreateLibrary_DryRun_WritesToStdout` (single test function at lines 24-60) into a table-driven `TestCreateLibrary` with named subtests via `t.Run`:
   - `"dry-run"` (existing — assert each preview substring present in captured `bytes.Buffer`)
   - `"force-overwrite"` (create existing lib, call with `Force: true`, assert success)
   - `"existing-library-error"` (create existing lib, call without `Force`, assert `*core.OperationError`)
   - `"default-path-resolution"` (call without `Path`, assert XDG-derived path used)
-- [ ] 3.1b **NEW** `TestDefaultLibraryYAML` in `internal/library/creator_test.go`: table-driven test for `defaultLibraryYAML` at `creator.go:123`. Cases:
+- [x] 3.1b **NEW** `TestDefaultLibraryYAML` in `internal/library/creator_test.go`: table-driven test for `defaultLibraryYAML` at `creator.go:123`. Cases:
   - `"version field present"` (assert contains `version: "1"`)
   - `"empty resources map"` (assert resources block empty)
   - `"empty presets map"` (assert presets block empty)
 - [ ] 3.2 (DROPPED — `internal/library/discovery_test.go` already has comprehensive coverage: `TestFindLibrary`, `TestDefaultLibraryPath`, `TestDefaultLibraryPathXDGDataHome`, `TestResolveLibrary_FlagOverEnvOverCfgOverDefault`, `TestDefaultLibraryPath_AdoptsXDG`, `TestDefaultLibraryPath_PrefersXDGOverCWDWhenXDGExists`, `TestDefaultLibraryPath_FallsBackToCWDWhenXDGDoesNotExist`, `TestXdgReload`. No new tests needed; coverage is already in place.)
-- [ ] 3.3 In `internal/library/methods_test.go`, add `TestLibrary_CreatePreset` table-driven tests for:
+- [x] 3.3 In `internal/library/methods_test.go`, add `TestLibrary_CreatePreset` table-driven tests for:
   - `(*Library).CreatePreset` (currently 0%): covers success, empty name, duplicate name, references validation.
   - The package-level `CreatePreset`: same scenarios.
-- [ ] 3.4 **NEW** `TestGetOutputPaths` (plural — the map-returning function at `internal/library/resolver.go:185`) in `internal/library/resolver_test.go`. Note: `TestGetOutputPath` (singular) already exists at line 202; do not modify it. The new test covers:
+- [x] 3.4 **NEW** `TestGetOutputPaths` (plural — the map-returning function at `internal/library/resolver.go:185`) in `internal/library/resolver_test.go`. Note: `TestGetOutputPath` (singular) already exists at line 202; do not modify it. The new test covers:
   - All four `ResourceType`s (`skill`, `agent`, `command`, `memory`).
   - `UseSubdirectory` branch (skill uses `.opencode/skills/<name>/SKILL.md`).
   - `*core.ConfigError` paths for invalid platform / invalid type.
   - Mixed valid/invalid refs in the same call (partial-failure semantics).
-- [ ] 3.5 In `internal/claude-code/claude_code_adapter_test.go`, add coverage tests for:
+- [x] 3.5 In `internal/claude-code/claude_code_adapter_test.go`, add coverage tests for:
   - `parseAgent` (51.8% → 90%+): covers all permission modes (`default`, `acceptEdits`, `dontAsk`, `plan`, `bypassPermissions`), and both `tools` / `disallowedTools` array shapes (`[]interface{}` and `[]string`).
   - `parseTargets` (0% → 100%): covers `claude-code` target extraction.
   - `mapPermissionModeToPolicy` (28.6% → 100%): covers all 5 modes plus the unknown-mode fallback.
   - `renderAgent` (65.9% → 90%+): covers non-empty `Targets`, `PermissionPolicy`, `Behavior` (mode, temperature, steps), and `Extensions.Hooks`.
-- [ ] 3.6 In `internal/opencode/opencode_adapter_test.go`, add coverage tests for:
+- [x] 3.6 In `internal/opencode/opencode_adapter_test.go`, add coverage tests for:
   - `parseAgent`: covers tool boolean map splitting (true → tools array, false → disallowedTools array), behavior flattening (mode/temperature/steps/hidden/prompt/disabled), permission dual shape (`permissionMode` string + nested `permission` object).
   - `parseCommand`, `parseSkill`, `parseMemory`: cover each doc-type's shape, including kebab-case keys (`allowed-tools`, `argument-hint`, `user-invocable`).
   - `renderAgent`: covers behavior flattening (canonical `behavior.disabled` → OpenCode `disable`; canonical `behavior.steps` → OpenCode `maxSteps`).
   - `mapPermissionObjectToPolicy` (after task 1.5b): covers edit/bash deny flags and per-tool `Allow`/`Ask`/`Deny` decoding.
-- [ ] 3.7 In `internal/core/results_test.go` (or extend `errors_test.go`), add tests for:
+- [x] 3.7 In `internal/core/results_test.go` (or extend `errors_test.go`), add tests for:
   - `(*core.ValidateResult).Valid()` (currently 0%): covers the empty-errors and non-empty-errors branches; test against real `PermissionPolicy` values (`restrictive`, `balanced`, `permissive`, `analysis`, `unrestricted`).
   - `Unwrap` chains on typed errors that actually implement `Unwrap()`: `ParseError`, `ValidationError`, `TransformError`, `FileError`, `InitializeError`, `OperationError`, `CobraUsageError`. Each test wraps a sentinel cause via `errors.Is` and asserts the cause is reachable through the chain.
   - `Unwrap` does NOT exist on `NotFoundError`, `ConfigError`, `UsageError`, `PartialSuccessError`: tests SHALL assert the wrapped error message instead of a chain (the failure mode is "no chain returned", not "wrong cause").
-- [ ] 3.8 Run `mise run test:coverage` — verify the four target packages (`internal/library`, `internal/claude-code`, `internal/core`, `internal/renderer`) reach ≥ 80% as the aspirational target (≥ 70% is the floor per `config.testing`).
-- [ ] 3.9 Verify all new test code uses `t.TempDir()` (auto-cleanup) and `t.Setenv()` (auto-restore) instead of `os.MkdirTemp` + manual cleanup. Run `rg 'os\.MkdirTemp|os\.Setenv' internal/library/*_test.go` — must return zero matches in NEW tests.
+- [x] 3.8 Run `mise run test:coverage` — verify the four target packages (`internal/library`, `internal/claude-code`, `internal/core`, `internal/renderer`) reach ≥ 80% as the aspirational target (≥ 70% is the floor per `config.testing`).
+- [x] 3.9 Verify all new test code uses `t.TempDir()` (auto-cleanup) and `t.Setenv()` (auto-restore) instead of `os.MkdirTemp` + manual cleanup. Run `rg 'os\.MkdirTemp|os\.Setenv' internal/library/*_test.go` — must return zero matches in NEW tests.
+
+### Phase 3 implementation notes (artifact deviation from proposal)
+
+- **3.7 — `ValidationError` Unwrap semantics**: the proposal listed `ValidationError` in the "Unwrap chain" group, but `ValidationError.Unwrap()` returns `nil` (it's a leaf). The test treats it as a leaf per the implementation. Same goes for `UsageError` and `PartialSuccessError` which DO implement `Unwrap` but return `nil`. The test asserts `Unwrap() == nil` for all three leaf types.
+- **3.4 — "Mixed valid/invalid refs (partial-failure semantics)"**: the proposal text says "partial-failure" but the actual implementation at `resolver.go:185` is fail-fast (returns `nil` map on the first invalid ref). The test exercises and asserts the fail-fast semantic — the implementation is fail-fast, not partial-failure.
+- **3.3 — nil-lib scenarios removed from plan**: `(*Library).CreatePreset` and the package-level `CreatePreset` both lack the standard `if lib == nil || lib.RootPath == ""` guard that the AGENTS.md "All methods assert..." contract requires. Without that guard, calling `lib.CreatePreset(ctx, req)` on a nil lib panics. The proposal did not list nil-lib coverage, so the nil-lib test cases were dropped to keep Phase 3 scoped to test-only changes; the missing nil-receiver guard is a real production-code gap and should be addressed in a follow-up change.
 
 ## 4. Phase 4 — Round-trip + E2E golden tests
 

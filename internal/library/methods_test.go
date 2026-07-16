@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	gerrors "gitlab.com/amoconst/germinator/internal/core"
 )
 
 // These tests cover the (*Library) X method forms (Refresh,
@@ -773,4 +774,264 @@ func stringSlicesEqualUnordered(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+// TestLibrary_CreatePreset covers (*Library).CreatePreset (creator.go:187),
+// the method form used by the cmd-side presetWriter interface. Covers
+// the same scenario set as the package-level CreatePreset: nil-lib and
+// nil-req guards, empty-name and empty-resources validation, parse and
+// resolve errors for each ref, duplicate-name without Force, success
+// with and without Force, and ctx-cancellation.
+func TestLibrary_CreatePreset(t *testing.T) {
+	tests := []struct {
+		name     string
+		lib      *Library // nil = use empty library; use a custom one to override
+		req      *CreatePresetRequest
+		wantErr  bool
+		errMatch func(t *testing.T, err error)
+	}{
+		{
+			name: "success: new preset",
+			lib: &Library{
+				RootPath: t.TempDir(),
+				Resources: map[string]map[string]Resource{
+					"skill": {"commit": {Path: "skills/commit.md"}},
+				},
+			},
+			req: &CreatePresetRequest{
+				Name:      "git-workflow",
+				Resources: []string{"skill/commit"},
+			},
+		},
+		{
+			name: "success: overwrite existing with Force",
+			lib: &Library{
+				RootPath: t.TempDir(),
+				Resources: map[string]map[string]Resource{
+					"skill": {"commit": {Path: "skills/commit.md"}},
+				},
+				Presets: map[string]Preset{
+					"old": {Name: "old", Resources: []string{"skill/commit"}},
+				},
+			},
+			req: &CreatePresetRequest{
+				Name:      "old",
+				Resources: []string{"skill/commit"},
+				Force:     true,
+			},
+		},
+		{
+			name: "error: nil req",
+			lib: &Library{
+				RootPath: t.TempDir(),
+				Resources: map[string]map[string]Resource{
+					"skill": {"commit": {Path: "skills/commit.md"}},
+				},
+			},
+			req:     nil,
+			wantErr: true,
+		},
+		{
+			name: "error: empty name",
+			lib: &Library{
+				RootPath: t.TempDir(),
+				Resources: map[string]map[string]Resource{
+					"skill": {"commit": {Path: "skills/commit.md"}},
+				},
+			},
+			req: &CreatePresetRequest{
+				Name:      "   ",
+				Resources: []string{"skill/commit"},
+			},
+			wantErr: true,
+			errMatch: func(t *testing.T, err error) {
+				t.Helper()
+				assert.Contains(t, err.Error(), "name",
+					"empty-name error must mention 'name' field")
+			},
+		},
+		{
+			name: "error: empty resources",
+			lib: &Library{
+				RootPath: t.TempDir(),
+				Resources: map[string]map[string]Resource{
+					"skill": {"commit": {Path: "skills/commit.md"}},
+				},
+			},
+			req: &CreatePresetRequest{
+				Name:      "x",
+				Resources: nil,
+			},
+			wantErr: true,
+			errMatch: func(t *testing.T, err error) {
+				t.Helper()
+				assert.Contains(t, err.Error(), "at least one resource",
+					"empty-resources error must mention 'at least one resource'")
+			},
+		},
+		{
+			name: "error: invalid ref format",
+			lib: &Library{
+				RootPath: t.TempDir(),
+				Resources: map[string]map[string]Resource{
+					"skill": {"commit": {Path: "skills/commit.md"}},
+				},
+			},
+			req: &CreatePresetRequest{
+				Name:      "x",
+				Resources: []string{"no-slash"},
+			},
+			wantErr: true,
+		},
+		{
+			name: "error: unknown type in ref",
+			lib: &Library{
+				RootPath: t.TempDir(),
+				Resources: map[string]map[string]Resource{
+					"skill": {"commit": {Path: "skills/commit.md"}},
+				},
+			},
+			req: &CreatePresetRequest{
+				Name:      "x",
+				Resources: []string{"unknown/x"},
+			},
+			wantErr: true,
+			errMatch: func(t *testing.T, err error) {
+				t.Helper()
+				var nf *gerrors.NotFoundError
+				require.True(t, errors.As(err, &nf),
+					"unknown-type ref must surface *core.NotFoundError, got %T (%v)", err, err)
+				assert.Equal(t, "resource type", nf.Entity)
+			},
+		},
+		{
+			name: "error: unknown resource name in ref",
+			lib: &Library{
+				RootPath: t.TempDir(),
+				Resources: map[string]map[string]Resource{
+					"skill": {"commit": {Path: "skills/commit.md"}},
+				},
+			},
+			req: &CreatePresetRequest{
+				Name:      "x",
+				Resources: []string{"skill/ghost"},
+			},
+			wantErr: true,
+			errMatch: func(t *testing.T, err error) {
+				t.Helper()
+				var nf *gerrors.NotFoundError
+				require.True(t, errors.As(err, &nf),
+					"unknown-name ref must surface *core.NotFoundError, got %T (%v)", err, err)
+				assert.Equal(t, "resource", nf.Entity)
+			},
+		},
+		{
+			name: "error: duplicate without Force",
+			lib: &Library{
+				RootPath: t.TempDir(),
+				Resources: map[string]map[string]Resource{
+					"skill": {"commit": {Path: "skills/commit.md"}},
+				},
+				Presets: map[string]Preset{
+					"existing": {Name: "existing", Resources: []string{"skill/commit"}},
+				},
+			},
+			req: &CreatePresetRequest{
+				Name:      "existing",
+				Resources: []string{"skill/commit"},
+			},
+			wantErr: true,
+			errMatch: func(t *testing.T, err error) {
+				t.Helper()
+				assert.Contains(t, err.Error(), "already exists",
+					"duplicate-name error must mention 'already exists'")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			lib := tt.lib
+			if lib.RootPath == "" {
+				lib.RootPath = t.TempDir()
+			}
+			err := lib.CreatePreset(ctx, tt.req)
+			if tt.wantErr {
+				require.Error(t, err)
+				if tt.errMatch != nil {
+					tt.errMatch(t, err)
+				}
+				return
+			}
+			require.NoError(t, err)
+			name := strings.TrimSpace(tt.req.Name)
+			got, ok := lib.Presets[name]
+			require.True(t, ok, "expected preset %q in lib.Presets", name)
+			assert.Equal(t, tt.req.Resources, got.Resources)
+		})
+	}
+}
+
+func TestLibrary_CreatePreset_CtxCancelled(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	lib := &Library{RootPath: t.TempDir()}
+	err := lib.CreatePreset(ctx, &CreatePresetRequest{
+		Name:      "x",
+		Resources: []string{"skill/commit"},
+	})
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, context.Canceled),
+		"ctx-cancelled error must wrap context.Canceled")
+}
+
+// TestCreatePreset_PackageForm covers the package-level CreatePreset
+// (creator.go:169) and Init (creator.go:104). Mirrors the success and
+// nil-req paths of the method form; the package function is a thin
+// adapter that delegates to (*Library).CreatePreset and wraps ctx and
+// create errors. Verifies the package form surfaces typed errors
+// without re-wrap breaking errors.Is/As.
+func TestCreatePreset_PackageForm(t *testing.T) {
+	t.Run("success: package CreatePreset delegates to method form", func(t *testing.T) {
+		libDir := t.TempDir()
+		createTestLibrary(t, libDir)
+		srcPath := filepath.Join(t.TempDir(), "skill.md")
+		require.NoError(t, os.WriteFile(srcPath, []byte("---\nname: commit\ndescription: Git commit\ntype: skill\n---\n# Commit\n"), 0o600))
+		require.NoError(t, AddResource(context.Background(), AddRequest{
+			Source:      srcPath,
+			LibraryPath: libDir,
+			Type:        "skill",
+		}))
+
+		lib, err := LoadLibrary(context.Background(), libDir)
+		require.NoError(t, err)
+
+		err = CreatePreset(context.Background(), lib, &CreatePresetRequest{
+			Name:      "git-workflow",
+			Resources: []string{"skill/commit"},
+		})
+		require.NoError(t, err)
+		_, ok := lib.Presets["git-workflow"]
+		assert.True(t, ok, "expected preset 'git-workflow' to be added")
+	})
+
+	t.Run("error: nil req surfaces from package CreatePreset", func(t *testing.T) {
+		lib := &Library{RootPath: t.TempDir()}
+		err := CreatePreset(context.Background(), lib, nil)
+		require.Error(t, err)
+	})
+
+	t.Run("error: ctx cancelled", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(t.Context())
+		cancel()
+		lib := &Library{RootPath: t.TempDir()}
+		err := CreatePreset(ctx, lib, &CreatePresetRequest{
+			Name:      "x",
+			Resources: []string{"skill/commit"},
+		})
+		require.Error(t, err)
+		assert.True(t, errors.Is(err, context.Canceled))
+	})
 }

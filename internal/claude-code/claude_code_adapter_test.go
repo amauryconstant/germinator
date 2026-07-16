@@ -3,6 +3,8 @@ package claudecode
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	canonical "gitlab.com/amoconst/germinator/internal/core"
 )
 
@@ -1016,5 +1018,255 @@ func TestToCanonicalEdgeCases(t *testing.T) {
 		if err == nil {
 			t.Error("FromCanonical() expected error for unknown type, got nil")
 		}
+	})
+}
+
+// TestParseAgent_AllPermissionModes covers mapPermissionModeToPolicy
+// (claude_code_adapter.go:528) for all five permission-mode strings
+// plus the unknown-mode fallback. The mode-to-policy mapping is the
+// inverse of PermissionPolicyToPlatform; coverage was 28.6% before
+// (only "acceptEdits" path exercised).
+func TestParseAgent_AllPermissionModes(t *testing.T) {
+	adapter := ClaudeCode
+
+	tests := []struct {
+		name string
+		mode string
+		want canonical.PermissionPolicy
+	}{
+		{"default", "default", canonical.PermissionPolicyRestrictive},
+		{"acceptEdits", "acceptEdits", canonical.PermissionPolicyBalanced},
+		{"dontAsk", "dontAsk", canonical.PermissionPolicyPermissive},
+		{"plan", "plan", canonical.PermissionPolicyAnalysis},
+		{"bypassPermissions", "bypassPermissions", canonical.PermissionPolicyUnrestricted},
+		{"unknown mode", "unknown", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			input := map[string]interface{}{
+				"__type":         "agent",
+				"description":    "test",
+				"permissionMode": tt.mode,
+			}
+			agent, _, _, _, err := adapter.ToCanonical(input)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, agent.PermissionPolicy,
+				"permissionMode %q must map to %q", tt.mode, tt.want)
+		})
+	}
+}
+
+// TestParseAgent_DisallowedTools covers parseAgent's disallowedTools
+// handling (claude_code_adapter.go:122-132), including both
+// []interface{} and []string shapes.
+func TestParseAgent_DisallowedTools(t *testing.T) {
+	adapter := ClaudeCode
+
+	t.Run("disallowedTools []interface{}", func(t *testing.T) {
+		input := map[string]interface{}{
+			"__type":          "agent",
+			"description":     "test",
+			"disallowedTools": []interface{}{"Bash", "Edit"},
+		}
+		agent, _, _, _, err := adapter.ToCanonical(input)
+		require.NoError(t, err)
+		assert.Equal(t, []string{"bash", "edit"}, agent.DisallowedTools)
+	})
+
+	t.Run("disallowedTools []string", func(t *testing.T) {
+		input := map[string]interface{}{
+			"__type":          "agent",
+			"description":     "test",
+			"disallowedTools": []string{"Bash", "Edit"},
+		}
+		agent, _, _, _, err := adapter.ToCanonical(input)
+		require.NoError(t, err)
+		assert.Equal(t, []string{"bash", "edit"}, agent.DisallowedTools)
+	})
+}
+
+// TestParseAgent_HooksAndModel covers parseAgent's hooks and model
+// extraction (claude_code_adapter.go:158-170). Extensions.Hooks is
+// currently 0% coverage.
+func TestParseAgent_HooksAndModel(t *testing.T) {
+	adapter := ClaudeCode
+
+	t.Run("hooks", func(t *testing.T) {
+		input := map[string]interface{}{
+			"__type":      "agent",
+			"description": "test",
+			"hooks": map[string]interface{}{
+				"pre":  "echo before",
+				"post": "echo after",
+			},
+		}
+		agent, _, _, _, err := adapter.ToCanonical(input)
+		require.NoError(t, err)
+		assert.Equal(t, "echo before", agent.Extensions.Hooks["pre"])
+		assert.Equal(t, "echo after", agent.Extensions.Hooks["post"])
+	})
+
+	t.Run("model", func(t *testing.T) {
+		input := map[string]interface{}{
+			"__type":      "agent",
+			"description": "test",
+			"model":       "gpt-4",
+		}
+		agent, _, _, _, err := adapter.ToCanonical(input)
+		require.NoError(t, err)
+		assert.Equal(t, "gpt-4", agent.Model)
+	})
+}
+
+// TestParseAgent_TargetsAndSkills covers parseAgent's targets and
+// skills extraction (claude_code_adapter.go:172-191). parseTargets
+// (the helper at line 518) is currently 0%.
+func TestParseAgent_TargetsAndSkills(t *testing.T) {
+	adapter := ClaudeCode
+
+	t.Run("targets with multiple platforms", func(t *testing.T) {
+		input := map[string]interface{}{
+			"__type":      "agent",
+			"description": "test",
+			"targets": map[string]interface{}{
+				"claude-code": map[string]interface{}{"foo": "bar"},
+				"opencode":    map[string]interface{}{"baz": "qux"},
+			},
+		}
+		agent, _, _, _, err := adapter.ToCanonical(input)
+		require.NoError(t, err)
+		require.NotNil(t, agent.Targets)
+		ccCfg := agent.Targets["claude-code"]
+		require.NotNil(t, ccCfg)
+		assert.Equal(t, "bar", ccCfg["foo"])
+		ocCfg := agent.Targets["opencode"]
+		require.NotNil(t, ocCfg)
+		assert.Equal(t, "qux", ocCfg["baz"])
+	})
+
+	t.Run("skills list", func(t *testing.T) {
+		input := map[string]interface{}{
+			"__type":      "agent",
+			"description": "test",
+			"skills":      []interface{}{"commit", "pr"},
+		}
+		agent, _, _, _, err := adapter.ToCanonical(input)
+		require.NoError(t, err)
+		ccCfg := agent.Targets["claude-code"]
+		require.NotNil(t, ccCfg)
+		skills, ok := ccCfg["skills"].([]string)
+		require.True(t, ok)
+		assert.Equal(t, []string{"commit", "pr"}, skills)
+	})
+
+	t.Run("targets with non-map values are skipped", func(t *testing.T) {
+		input := map[string]interface{}{
+			"__type":      "agent",
+			"description": "test",
+			"targets": map[string]interface{}{
+				"claude-code": "raw-string-not-a-map",
+				"opencode":    map[string]interface{}{"k": "v"},
+			},
+		}
+		agent, _, _, _, err := adapter.ToCanonical(input)
+		require.NoError(t, err)
+		_, ok := agent.Targets["claude-code"]
+		assert.False(t, ok, "non-map target value must be skipped")
+		_, ok = agent.Targets["opencode"]
+		assert.True(t, ok)
+	})
+}
+
+// TestParseAgent_BehaviorFields covers parseAgent's remaining behavior
+// fields (claude_code_adapter.go:148-156): prompt, hidden, disabled.
+func TestParseAgent_BehaviorFields(t *testing.T) {
+	adapter := ClaudeCode
+
+	t.Run("prompt", func(t *testing.T) {
+		input := map[string]interface{}{
+			"__type":      "agent",
+			"description": "test",
+			"prompt":      "Be concise.",
+		}
+		agent, _, _, _, err := adapter.ToCanonical(input)
+		require.NoError(t, err)
+		assert.Equal(t, "Be concise.", agent.Behavior.Prompt)
+	})
+
+	t.Run("hidden", func(t *testing.T) {
+		input := map[string]interface{}{
+			"__type":      "agent",
+			"description": "test",
+			"hidden":      true,
+		}
+		agent, _, _, _, err := adapter.ToCanonical(input)
+		require.NoError(t, err)
+		assert.True(t, agent.Behavior.Hidden)
+	})
+
+	t.Run("disabled", func(t *testing.T) {
+		input := map[string]interface{}{
+			"__type":      "agent",
+			"description": "test",
+			"disabled":    true,
+		}
+		agent, _, _, _, err := adapter.ToCanonical(input)
+		require.NoError(t, err)
+		assert.True(t, agent.Behavior.Disabled)
+	})
+}
+
+// TestRenderAgent_AllFields covers renderAgent (claude_code_adapter.go:196)
+// for hooks, behavior.Disabled, and the claude-code-specific target
+// flags (skills, disable-model-invocation). These branches were not
+// covered by the existing TestFromCanonical.
+func TestRenderAgent_AllFields(t *testing.T) {
+	adapter := ClaudeCode
+
+	t.Run("hooks", func(t *testing.T) {
+		agent := &canonical.Agent{
+			Description: "test",
+			Extensions: canonical.AgentExtensions{
+				Hooks: map[string]string{"pre": "echo a"},
+			},
+		}
+		out, err := adapter.FromCanonical("agent", agent)
+		require.NoError(t, err)
+		hooks, ok := out["hooks"].(map[string]string)
+		require.True(t, ok)
+		assert.Equal(t, "echo a", hooks["pre"])
+	})
+
+	t.Run("behavior disabled", func(t *testing.T) {
+		agent := &canonical.Agent{
+			Description: "test",
+			Behavior:    canonical.AgentBehavior{Disabled: true},
+		}
+		out, err := adapter.FromCanonical("agent", agent)
+		require.NoError(t, err)
+		disabled, ok := out["disabled"].(bool)
+		require.True(t, ok)
+		assert.True(t, disabled)
+	})
+
+	t.Run("claude-code-specific targets", func(t *testing.T) {
+		agent := &canonical.Agent{
+			Description: "test",
+			Targets: canonical.PlatformConfig{
+				"claude-code": map[string]interface{}{
+					"skills":                   []string{"commit", "pr"},
+					"disable-model-invocation": true,
+				},
+			},
+		}
+		out, err := adapter.FromCanonical("agent", agent)
+		require.NoError(t, err)
+		skills, ok := out["skills"].([]string)
+		require.True(t, ok)
+		assert.Equal(t, []string{"commit", "pr"}, skills)
+		disableMI, ok := out["disable-model-invocation"].(bool)
+		require.True(t, ok)
+		assert.True(t, disableMI)
 	})
 }

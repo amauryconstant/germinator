@@ -3,6 +3,8 @@ package opencode
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	canonical "gitlab.com/amoconst/germinator/internal/core"
 )
 
@@ -898,5 +900,282 @@ func TestFromCanonicalEdgeCases(t *testing.T) {
 		if err == nil {
 			t.Error("FromCanonical() expected error for nil document, got nil")
 		}
+	})
+}
+
+// TestParseAgent_PermissionModeString covers mapPermissionModeToPolicy
+// (opencode_adapter.go:468) for all five permission-mode strings plus
+// the unknown-mode fallback. The mode string field on OpenCode YAML
+// was previously untested; the helper was at 0% coverage.
+func TestParseAgent_PermissionModeString(t *testing.T) {
+	adapter := OpenCode
+
+	tests := []struct {
+		name string
+		mode string
+		want canonical.PermissionPolicy
+	}{
+		{"default", "default", canonical.PermissionPolicyRestrictive},
+		{"acceptEdits", "acceptEdits", canonical.PermissionPolicyBalanced},
+		{"dontAsk", "dontAsk", canonical.PermissionPolicyPermissive},
+		{"plan", "plan", canonical.PermissionPolicyAnalysis},
+		{"bypassPermissions", "bypassPermissions", canonical.PermissionPolicyUnrestricted},
+		{"unknown mode", "unknown", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			input := map[string]interface{}{
+				"__type":         "agent",
+				"description":    "test",
+				"permissionMode": tt.mode,
+			}
+			agent, _, _, _, err := adapter.ToCanonical(input)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, agent.PermissionPolicy,
+				"permissionMode %q must map to %q", tt.mode, tt.want)
+		})
+	}
+}
+
+// TestParseAgent_AllFields covers the remaining parseAgent fields not
+// exercised by the existing TestToCanonical subtests: name extraction
+// (in the minimal path), prompt, hidden, disable, model, and the
+// targets-and-skills extraction logic.
+func TestParseAgent_AllFields(t *testing.T) {
+	adapter := OpenCode
+
+	t.Run("name extraction", func(t *testing.T) {
+		input := map[string]interface{}{
+			"__type":      "agent",
+			"name":        "custom-name",
+			"description": "test",
+		}
+		agent, _, _, _, err := adapter.ToCanonical(input)
+		require.NoError(t, err)
+		assert.Equal(t, "custom-name", agent.Name)
+	})
+
+	t.Run("prompt", func(t *testing.T) {
+		input := map[string]interface{}{
+			"__type":      "agent",
+			"description": "test",
+			"prompt":      "Be concise.",
+		}
+		agent, _, _, _, err := adapter.ToCanonical(input)
+		require.NoError(t, err)
+		assert.Equal(t, "Be concise.", agent.Behavior.Prompt)
+	})
+
+	t.Run("hidden", func(t *testing.T) {
+		input := map[string]interface{}{
+			"__type":      "agent",
+			"description": "test",
+			"hidden":      true,
+		}
+		agent, _, _, _, err := adapter.ToCanonical(input)
+		require.NoError(t, err)
+		assert.True(t, agent.Behavior.Hidden)
+	})
+
+	t.Run("disable (canonical behavior.disabled)", func(t *testing.T) {
+		input := map[string]interface{}{
+			"__type":      "agent",
+			"description": "test",
+			"disable":     true,
+		}
+		agent, _, _, _, err := adapter.ToCanonical(input)
+		require.NoError(t, err)
+		assert.True(t, agent.Behavior.Disabled)
+	})
+
+	t.Run("model", func(t *testing.T) {
+		input := map[string]interface{}{
+			"__type":      "agent",
+			"description": "test",
+			"model":       "gpt-4",
+		}
+		agent, _, _, _, err := adapter.ToCanonical(input)
+		require.NoError(t, err)
+		assert.Equal(t, "gpt-4", agent.Model)
+	})
+
+	t.Run("targets with multiple platforms", func(t *testing.T) {
+		input := map[string]interface{}{
+			"__type":      "agent",
+			"description": "test",
+			"targets": map[string]interface{}{
+				"claude-code": map[string]interface{}{"foo": "bar"},
+				"opencode":    map[string]interface{}{"baz": "qux"},
+			},
+		}
+		agent, _, _, _, err := adapter.ToCanonical(input)
+		require.NoError(t, err)
+		require.NotNil(t, agent.Targets)
+		ccCfg := agent.Targets["claude-code"]
+		require.NotNil(t, ccCfg)
+		assert.Equal(t, "bar", ccCfg["foo"])
+		ocCfg := agent.Targets["opencode"]
+		require.NotNil(t, ocCfg)
+		assert.Equal(t, "qux", ocCfg["baz"])
+	})
+
+	t.Run("skills list populates Targets['opencode']", func(t *testing.T) {
+		input := map[string]interface{}{
+			"__type":      "agent",
+			"description": "test",
+			"skills":      []interface{}{"commit", "pr"},
+		}
+		agent, _, _, _, err := adapter.ToCanonical(input)
+		require.NoError(t, err)
+		ocCfg := agent.Targets["opencode"]
+		require.NotNil(t, ocCfg)
+		skills, ok := ocCfg["skills"].([]string)
+		require.True(t, ok)
+		assert.Equal(t, []string{"commit", "pr"}, skills)
+	})
+
+	t.Run("targets with non-map values are skipped", func(t *testing.T) {
+		input := map[string]interface{}{
+			"__type":      "agent",
+			"description": "test",
+			"targets": map[string]interface{}{
+				"opencode":    "raw-string-not-a-map",
+				"claude-code": map[string]interface{}{"k": "v"},
+			},
+		}
+		agent, _, _, _, err := adapter.ToCanonical(input)
+		require.NoError(t, err)
+		_, ok := agent.Targets["opencode"]
+		assert.False(t, ok, "non-map target value must be skipped")
+		_, ok = agent.Targets["claude-code"]
+		assert.True(t, ok)
+	})
+}
+
+// TestMapPermissionObjectToPolicy covers the policy-inference logic at
+// opencode_adapter.go:485. The function inspects the nested permission
+// object and infers a PermissionPolicy based on which tools are denied.
+// All four branches (all-allow → Permissive, edit+bash deny → Analysis,
+// mixed → Balanced, no-object/default → empty) are exercised.
+func TestMapPermissionObjectToPolicy(t *testing.T) {
+	adapter := OpenCode
+
+	tests := []struct {
+		name string
+		perm map[string]interface{}
+		want canonical.PermissionPolicy
+	}{
+		{
+			name: "all allow → Permissive",
+			perm: map[string]interface{}{
+				"edit": map[string]interface{}{"*": "allow"},
+				"bash": map[string]interface{}{"*": "allow"},
+			},
+			want: canonical.PermissionPolicyPermissive,
+		},
+		{
+			name: "edit + bash deny (no other) → Analysis",
+			perm: map[string]interface{}{
+				"edit": map[string]interface{}{"*": "deny"},
+				"bash": map[string]interface{}{"*": "deny"},
+			},
+			want: canonical.PermissionPolicyAnalysis,
+		},
+		{
+			name: "other tool deny → Balanced",
+			perm: map[string]interface{}{
+				"edit": map[string]interface{}{"*": "allow"},
+				"bash": map[string]interface{}{"*": "allow"},
+				"read": map[string]interface{}{"*": "deny"},
+			},
+			want: canonical.PermissionPolicyBalanced,
+		},
+		{
+			name: "mixed (allow + deny) → Balanced",
+			perm: map[string]interface{}{
+				"edit": map[string]interface{}{"*": "allow"},
+				"bash": map[string]interface{}{"*": "deny"},
+			},
+			want: canonical.PermissionPolicyBalanced,
+		},
+		{
+			name: "non-string action values are skipped → Balanced (no triggers)",
+			perm: map[string]interface{}{
+				"edit": map[string]interface{}{"*": 42},
+			},
+			want: canonical.PermissionPolicyPermissive, // allAllow stays true
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			input := map[string]interface{}{
+				"__type":      "agent",
+				"description": "test",
+				"permission":  tt.perm,
+			}
+			agent, _, _, _, err := adapter.ToCanonical(input)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, agent.PermissionPolicy)
+		})
+	}
+}
+
+// TestRenderAgent_AllFields covers renderAgent (opencode_adapter.go:173)
+// for behavior.Disabled → output["disable"], behavior.Hidden → output["hidden"],
+// behavior.Prompt → output["prompt"], and Extensions.Hooks → output["hooks"].
+// These branches were not covered by the existing TestFromCanonical.
+func TestRenderAgent_AllFields(t *testing.T) {
+	adapter := OpenCode
+
+	t.Run("behavior disabled renders as 'disable'", func(t *testing.T) {
+		agent := &canonical.Agent{
+			Description: "test",
+			Behavior:    canonical.AgentBehavior{Disabled: true},
+		}
+		out, err := adapter.FromCanonical("agent", agent)
+		require.NoError(t, err)
+		disable, ok := out["disable"].(bool)
+		require.True(t, ok)
+		assert.True(t, disable)
+	})
+
+	t.Run("behavior hidden", func(t *testing.T) {
+		agent := &canonical.Agent{
+			Description: "test",
+			Behavior:    canonical.AgentBehavior{Hidden: true},
+		}
+		out, err := adapter.FromCanonical("agent", agent)
+		require.NoError(t, err)
+		hidden, ok := out["hidden"].(bool)
+		require.True(t, ok)
+		assert.True(t, hidden)
+	})
+
+	t.Run("behavior prompt", func(t *testing.T) {
+		agent := &canonical.Agent{
+			Description: "test",
+			Behavior:    canonical.AgentBehavior{Prompt: "Be concise."},
+		}
+		out, err := adapter.FromCanonical("agent", agent)
+		require.NoError(t, err)
+		assert.Equal(t, "Be concise.", out["prompt"])
+	})
+
+	t.Run("opencode-specific targets (skills)", func(t *testing.T) {
+		agent := &canonical.Agent{
+			Description: "test",
+			Targets: canonical.PlatformConfig{
+				"opencode": map[string]interface{}{
+					"skills": []string{"commit", "pr"},
+				},
+			},
+		}
+		out, err := adapter.FromCanonical("agent", agent)
+		require.NoError(t, err)
+		skills, ok := out["skills"].([]string)
+		require.True(t, ok)
+		assert.Equal(t, []string{"commit", "pr"}, skills)
 	})
 }
