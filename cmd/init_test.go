@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/spf13/cobra"
+
 	"gitlab.com/amoconst/germinator/internal/cmdutil"
 	"gitlab.com/amoconst/germinator/internal/core"
 	"gitlab.com/amoconst/germinator/internal/install"
@@ -406,25 +408,25 @@ func TestRunInit_RefsAndPresetMutex(t *testing.T) {
 // f.Library, c.Context(), and the parsed flags.
 func TestNewCmdInit_RunFInjectionCapturesOpts(t *testing.T) {
 	var captured *initOptions
-	runF := func(opts *initOptions) error {
+	runF := func(opts *initOptions) error { //nolint:unparam // runF is a test callback; success is the only meaningful return
 		captured = opts
 		return nil
 	}
 
 	io := iostreams.Test()
 	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
-	cmd := NewCmdInit(f, runF)
-	cmd.SetArgs([]string{
+	require.NoError(t, executeCmd(t, func() any {
+		cmd := NewCmdInit(f, runF)
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		return cmd
+	},
 		"--platform", "opencode",
 		"--resources", "skill/commit,skill/merge-request",
 		"--output-dir", "/tmp/out",
 		"--dry-run",
 		"--force",
-	})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
-
-	require.NoError(t, cmd.Execute())
+	))
 	require.NotNil(t, captured)
 	assert.Equal(t, io, captured.IO)
 	assert.Equal(t, "opencode", captured.Platform)
@@ -445,22 +447,22 @@ func TestNewCmdInit_OutputDirFlagWiredToOpts(t *testing.T) {
 	t.Parallel()
 
 	var captured *initOptions
-	runF := func(opts *initOptions) error {
+	runF := func(opts *initOptions) error { //nolint:unparam // runF is a test callback; success is the only meaningful return
 		captured = opts
 		return nil
 	}
 
 	f := cmdutil.NewFactory(context.Background(), iostreams.Test(), "test", "germinator")
-	cmd := NewCmdInit(f, runF)
-	cmd.SetArgs([]string{
+	require.NoError(t, executeCmd(t, func() any {
+		cmd := NewCmdInit(f, runF)
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		return cmd
+	},
 		"--platform", "opencode",
 		"--resources", "skill/commit",
 		"--output-dir", "/target/project",
-	})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
-
-	require.NoError(t, cmd.Execute())
+	))
 	require.NotNil(t, captured)
 	assert.Equal(t, "/target/project", captured.OutputDir,
 		"--output-dir flag must populate opts.OutputDir verbatim")
@@ -474,18 +476,18 @@ func TestNewCmdInit_OutputDirFlagWiredToOpts(t *testing.T) {
 // Constructor with --preset wires the Preset field.
 func TestNewCmdInit_PresetFlagWiredToOpts(t *testing.T) {
 	var captured *initOptions
-	runF := func(opts *initOptions) error {
+	runF := func(opts *initOptions) error { //nolint:unparam // runF is a test callback; success is the only meaningful return
 		captured = opts
 		return nil
 	}
 
 	f := cmdutil.NewFactory(context.Background(), iostreams.Test(), "test", "germinator")
-	cmd := NewCmdInit(f, runF)
-	cmd.SetArgs([]string{"--platform", "opencode", "--preset", "git-workflow"})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
-
-	require.NoError(t, cmd.Execute())
+	require.NoError(t, executeCmd(t, func() any {
+		cmd := NewCmdInit(f, runF)
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		return cmd
+	}, "--platform", "opencode", "--preset", "git-workflow"))
 	require.NotNil(t, captured)
 	assert.Equal(t, "git-workflow", captured.Preset)
 	assert.Empty(t, captured.Refs, "--resources is empty when only --preset is set")
@@ -495,15 +497,15 @@ func TestNewCmdInit_PresetFlagWiredToOpts(t *testing.T) {
 func TestNewCmdInit_NilRunFFallsBackToProduction(t *testing.T) {
 	io := iostreams.Test()
 	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
-	cmd := NewCmdInit(f, nil)
-	cmd.SetArgs([]string{
+	err := executeCmd(t, func() any {
+		cmd := NewCmdInit(f, nil)
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		return cmd
+	},
 		"--platform", "windows-95",
 		"--resources", "skill/commit",
-	})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
-
-	err := cmd.Execute()
+	)
 	require.Error(t, err, "invalid platform must surface as an error")
 	assert.Contains(t, err.Error(), `unknown platform "windows-95"`)
 }
@@ -511,12 +513,12 @@ func TestNewCmdInit_NilRunFFallsBackToProduction(t *testing.T) {
 // Constructor requires --platform.
 func TestNewCmdInit_RequiresPlatformFlag(t *testing.T) {
 	f := cmdutil.NewFactory(context.Background(), iostreams.Test(), "test", "germinator")
-	cmd := NewCmdInit(f, func(*initOptions) error { return nil })
-	cmd.SetArgs([]string{"--resources", "skill/commit"})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
-
-	err := cmd.Execute()
+	err := executeCmd(t, func() any {
+		cmd := NewCmdInit(f, func(*initOptions) error { return nil })
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		return cmd
+	}, "--resources", "skill/commit")
 	require.Error(t, err, "missing required --platform flag must fail")
 }
 
@@ -616,14 +618,20 @@ func TestNewCmdInit_HelpOutput_ListsFlags(t *testing.T) {
 	t.Parallel()
 
 	f := cmdutil.NewFactory(context.Background(), iostreams.Test(), "test", "germinator")
-	cmd := NewCmdInit(f, func(*initOptions) error { return nil })
+	withCmd(t, func() any {
+		return NewCmdInit(f, func(*initOptions) error { return nil })
+	}, func(cmd *cobra.Command) {
+		buf := &bytes.Buffer{}
+		cmd.SetOut(buf)
+		cmd.SetErr(buf)
+		require.NoError(t, cmd.Help())
+		out := buf.String()
+		assertFlagsInOutput(t, out)
+	})
+}
 
-	buf := &bytes.Buffer{}
-	cmd.SetOut(buf)
-	cmd.SetErr(buf)
-
-	require.NoError(t, cmd.Help())
-	out := buf.String()
+func assertFlagsInOutput(t *testing.T, out string) {
+	t.Helper()
 	for _, flag := range []string{
 		"--platform",
 		"--output-dir",

@@ -74,8 +74,9 @@ var _ refresherLibrary = (*library.Library)(nil)
 // re-registered here.
 func NewCmdRefresh(f *cmdutil.Factory, libraryPath *string, runF func(*refreshOptions) error) *cobra.Command {
 	var (
-		dryRun bool
-		force  bool
+		dryRun     bool
+		force      bool
+		outputFlag string
 	)
 
 	cmd := &cobra.Command{
@@ -99,7 +100,7 @@ Examples:
 				Ctx:             c.Context(),
 				DryRun:          dryRun,
 				Force:           force,
-				Output:          outputFormatRefresh,
+				Output:          outputFlag,
 				CompletionCache: f.CompletionCache,
 			}
 			var cfgPath string
@@ -122,17 +123,10 @@ Examples:
 
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview changes without modifying library.yaml")
 	cmd.Flags().BoolVar(&force, "force", false, "Skip resources with conflicts")
-	output.AddOutputFlags(cmd, &outputFormatRefresh)
+	output.AddOutputFlags(cmd, &outputFlag)
 
 	return cmd
 }
-
-// outputFormatRefresh is the package-level string used by
-// AddOutputFlags. Must be a package-level variable (not a stack-local)
-// because Cobra binds the flag via StringVar into its backing
-// storage; the runF closure captures &outputFormatRefresh when
-// opts.Output is set in RunE.
-var outputFormatRefresh string
 
 // refreshChangedRow is the per-resource shape for refreshed entries.
 // The dual json/tab tags mirror the slice-6 discoverRow pattern so the

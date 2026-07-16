@@ -201,19 +201,19 @@ func TestRunResources_LibraryLoadError(t *testing.T) {
 
 func TestNewCmdResources_RunFInjectionCapturesOpts(t *testing.T) {
 	var captured *libraryResourcesOptions
-	runF := func(opts *libraryResourcesOptions) error {
+	runF := func(opts *libraryResourcesOptions) error { //nolint:unparam // runF is a test callback; success is the only meaningful return
 		captured = opts
 		return nil
 	}
 
 	io := iostreams.Test()
 	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
-	cmd := NewCmdResources(f, nil, runF)
-	cmd.SetArgs([]string{})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
-
-	require.NoError(t, cmd.Execute())
+	require.NoError(t, executeCmd(t, func() any {
+		cmd := NewCmdResources(f, nil, runF)
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		return cmd
+	}))
 	require.NotNil(t, captured, "runF must be invoked")
 	require.NotNil(t, captured.IO)
 	assert.Equal(t, io, captured.IO, "opts.IO must be the Factory's IOStreams")
@@ -241,12 +241,12 @@ func TestNewCmdResources_PassesLibraryFlagToLoader(t *testing.T) {
 	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
 
 	libraryFlag := fixturePath
-	cmd := NewCmdResources(f, &libraryFlag, runF)
-	cmd.SetArgs([]string{})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
-
-	require.NoError(t, cmd.Execute())
+	require.NoError(t, executeCmd(t, func() any {
+		cmd := NewCmdResources(f, &libraryFlag, runF)
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		return cmd
+	}))
 	require.NotNil(t, runOpts)
 	assert.Equal(t, fixturePath, capturedPath,
 		"--library flag value must drive the resolved library path")
@@ -257,12 +257,12 @@ func TestNewCmdResources_OldJSONFlagIsRejected(t *testing.T) {
 	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
 
 	var buf bytes.Buffer
-	cmd := NewCmdResources(f, nil, func(*libraryResourcesOptions) error { return nil })
-	cmd.SetArgs([]string{"--json"})
-	cmd.SetOut(&buf)
-	cmd.SetErr(&buf)
-
-	err := cmd.Execute()
+	err := executeCmd(t, func() any {
+		cmd := NewCmdResources(f, nil, func(*libraryResourcesOptions) error { return nil })
+		cmd.SetOut(&buf)
+		cmd.SetErr(&buf)
+		return cmd
+	}, "--json")
 	require.Error(t, err, "old --json flag must be rejected as unknown")
 
 	// Spec: process exits with code 2 (ExitCodeUsage) when an unknown flag
@@ -288,12 +288,12 @@ func TestNewCmdResources_HonorsOutputFlagValue(t *testing.T) {
 
 			io := iostreams.Test()
 			f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
-			cmd := NewCmdResources(f, nil, runF)
-			cmd.SetArgs([]string{"--output", format})
-			cmd.SetOut(&bytes.Buffer{})
-			cmd.SetErr(&bytes.Buffer{})
-
-			require.NoError(t, cmd.Execute())
+			require.NoError(t, executeCmd(t, func() any {
+				cmd := NewCmdResources(f, nil, runF)
+				cmd.SetOut(&bytes.Buffer{})
+				cmd.SetErr(&bytes.Buffer{})
+				return cmd
+			}, "--output", format))
 			assert.Equal(t, format, capturedOutput,
 				"--output flag value must reach opts.Output")
 		})

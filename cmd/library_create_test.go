@@ -59,7 +59,7 @@ func presetTestResources() map[string]map[string]library.Resource {
 // flags and the Factory.
 func TestNewCmdCreatePreset_ValidatesArgs(t *testing.T) {
 	var captured *createPresetOptions
-	runF := func(opts *createPresetOptions) error {
+	runF := func(opts *createPresetOptions) error { //nolint:unparam // runF is a test callback; success is the only meaningful return
 		captured = opts
 		return nil
 	}
@@ -67,13 +67,15 @@ func TestNewCmdCreatePreset_ValidatesArgs(t *testing.T) {
 	ios, _, _ := newCreatePresetTestIO()
 	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
 	libPath := ""
-	cmd := NewCmdCreatePreset(f, &libPath, runF)
-	cmd.SetArgs([]string{"dev-setup", "--resources", "skill/commit,agent/reviewer",
-		"--description", "Dev environment", "--force"})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
-
-	require.NoError(t, cmd.Execute())
+	require.NoError(t, executeCmd(t, func() any {
+		cmd := NewCmdCreatePreset(f, &libPath, runF)
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		return cmd
+	},
+		"dev-setup", "--resources", "skill/commit,agent/reviewer",
+		"--description", "Dev environment", "--force",
+	))
 	require.NotNil(t, captured)
 	assert.Equal(t, []string{"skill/commit", "agent/reviewer"}, captured.Resources)
 	assert.Equal(t, "Dev environment", captured.Description)
@@ -190,12 +192,12 @@ func TestNewCmdCreatePreset_RequiresResources(t *testing.T) {
 	ios, _, _ := newCreatePresetTestIO()
 	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
 	libPath := ""
-	cmd := NewCmdCreatePreset(f, &libPath, func(*createPresetOptions) error { return nil })
-	cmd.SetArgs([]string{"dev-setup"})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
-
-	err := cmd.Execute()
+	err := executeCmd(t, func() any {
+		cmd := NewCmdCreatePreset(f, &libPath, func(*createPresetOptions) error { return nil })
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		return cmd
+	}, "dev-setup")
 	require.Error(t, err, "missing --resources flag must fail")
 	assert.Equal(t, cmdutil.ExitCodeError, cmdutil.ExitCodeFor(err),
 		"missing required --resources falls through to ExitCodeError (1) after Phase 1.2")

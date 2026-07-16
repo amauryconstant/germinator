@@ -145,7 +145,7 @@ func removeConflictFixture(t *testing.T) string {
 // preserved (no --type / --name flag substitution).
 func TestNewCmdRemove_Resource_ValidatesArgs(t *testing.T) {
 	var captured *removeOptions
-	runF := func(opts *removeOptions) error {
+	runF := func(opts *removeOptions) error { //nolint:unparam // runF is a test callback; success is the only meaningful return
 		captured = opts
 		return nil
 	}
@@ -155,12 +155,12 @@ func TestNewCmdRemove_Resource_ValidatesArgs(t *testing.T) {
 	f.Library = func() (*library.Library, error) {
 		return library.LoadLibrary(context.Background(), t.TempDir())
 	}
-	cmd := NewCmdRemove(f, nil, runF)
-	cmd.SetArgs([]string{"resource", "skill/commit", "--force", "--output", "json"})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
-
-	require.NoError(t, cmd.Execute())
+	require.NoError(t, executeCmd(t, func() any {
+		cmd := NewCmdRemove(f, nil, runF)
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		return cmd
+	}, "resource", "skill/commit", "--force", "--output", "json"))
 	require.NotNil(t, captured)
 	assert.Equal(t, "skill/commit", captured.Ref)
 	assert.Empty(t, captured.PresetName,
@@ -177,7 +177,7 @@ func TestNewCmdRemove_Resource_ValidatesArgs(t *testing.T) {
 // preserved.
 func TestNewCmdRemove_Preset_ValidatesArgs(t *testing.T) {
 	var captured *removeOptions
-	runF := func(opts *removeOptions) error {
+	runF := func(opts *removeOptions) error { //nolint:unparam // runF is a test callback; success is the only meaningful return
 		captured = opts
 		return nil
 	}
@@ -187,12 +187,12 @@ func TestNewCmdRemove_Preset_ValidatesArgs(t *testing.T) {
 	f.Library = func() (*library.Library, error) {
 		return library.LoadLibrary(context.Background(), t.TempDir())
 	}
-	cmd := NewCmdRemove(f, nil, runF)
-	cmd.SetArgs([]string{"preset", "git-workflow", "--force", "--output", "json"})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
-
-	require.NoError(t, cmd.Execute())
+	require.NoError(t, executeCmd(t, func() any {
+		cmd := NewCmdRemove(f, nil, runF)
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		return cmd
+	}, "preset", "git-workflow", "--force", "--output", "json"))
 	require.NotNil(t, captured)
 	assert.Equal(t, "git-workflow", captured.PresetName)
 	assert.Empty(t, captured.Ref,
@@ -213,12 +213,12 @@ func TestNewCmdRemove_Preset_ValidatesArgs(t *testing.T) {
 func TestNewCmdRemove_Resource_RequiresArg(t *testing.T) {
 	ios, _, _ := newRemoveTestIO()
 	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
-	cmd := NewCmdRemove(f, nil, func(*removeOptions) error { return nil })
-	cmd.SetArgs([]string{"resource"})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
-
-	err := cmd.Execute()
+	err := executeCmd(t, func() any {
+		cmd := NewCmdRemove(f, nil, func(*removeOptions) error { return nil })
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		return cmd
+	}, "resource")
 	require.Error(t, err, "missing ref must fail Cobra ExactArgs(1)")
 	assert.Contains(t, err.Error(), "accepts",
 		"cobra ExactArgs(1) error must mention the arg count")
@@ -228,12 +228,12 @@ func TestNewCmdRemove_Resource_RequiresArg(t *testing.T) {
 func TestNewCmdRemove_Preset_RequiresArg(t *testing.T) {
 	ios, _, _ := newRemoveTestIO()
 	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
-	cmd := NewCmdRemove(f, nil, func(*removeOptions) error { return nil })
-	cmd.SetArgs([]string{"preset"})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
-
-	err := cmd.Execute()
+	err := executeCmd(t, func() any {
+		cmd := NewCmdRemove(f, nil, func(*removeOptions) error { return nil })
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		return cmd
+	}, "preset")
 	require.Error(t, err, "missing preset name must fail Cobra ExactArgs(1)")
 	assert.Contains(t, err.Error(), "accepts",
 		"cobra ExactArgs(1) error must mention the arg count")
@@ -648,21 +648,21 @@ func TestNewCmdRemove_ParentHasNoRun(t *testing.T) {
 // in the spec).
 func TestNewCmdRemove_OutputFlagOnSubcommand(t *testing.T) {
 	var captured *removeOptions
-	runF := func(opts *removeOptions) error {
+	runF := func(opts *removeOptions) error { //nolint:unparam // runF is a test callback; success is the only meaningful return
 		captured = opts
 		return nil
 	}
 
 	ios, _, _ := newRemoveTestIO()
 	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
-	cmd := NewCmdRemove(f, nil, runF)
 	// Put --output AFTER the sub-command to exercise PersistentFlags
 	// inheritance (the spec's "JSON output" scenario).
-	cmd.SetArgs([]string{"resource", "skill/commit", "--output", "json"})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
-
-	require.NoError(t, cmd.Execute())
+	require.NoError(t, executeCmd(t, func() any {
+		cmd := NewCmdRemove(f, nil, runF)
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		return cmd
+	}, "resource", "skill/commit", "--output", "json"))
 	require.NotNil(t, captured)
 	assert.Equal(t, "json", captured.Output,
 		"--output after the sub-command must be inherited from the parent")

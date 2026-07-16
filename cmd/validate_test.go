@@ -246,19 +246,19 @@ func TestRunValidate_VerboseProgressToStderr(t *testing.T) {
 
 func TestNewCmdValidate_RunFCapturesOpts(t *testing.T) {
 	var captured *validateOptions
-	runF := func(opts *validateOptions) error {
+	runF := func(opts *validateOptions) error { //nolint:unparam // runF is a test callback; success is the only meaningful return
 		captured = opts
 		return nil
 	}
 
 	io := iostreams.Test()
 	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
-	cmd := NewCmdValidate(f, runF)
-	cmd.SetArgs([]string{"/tmp/agent.md", "--platform", "opencode"})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
-
-	require.NoError(t, cmd.Execute())
+	require.NoError(t, executeCmd(t, func() any {
+		cmd := NewCmdValidate(f, runF)
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		return cmd
+	}, "/tmp/agent.md", "--platform", "opencode"))
 	require.NotNil(t, captured, "runF must be invoked")
 	assert.Equal(t, "/tmp/agent.md", captured.InputPath)
 	assert.Equal(t, "opencode", captured.Platform)
@@ -270,12 +270,12 @@ func TestNewCmdValidate_RunFCapturesOpts(t *testing.T) {
 func TestNewCmdValidate_RequiresPlatformFlag(t *testing.T) {
 	io := iostreams.Test()
 	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
-	cmd := NewCmdValidate(f, func(*validateOptions) error { return nil })
-	cmd.SetArgs([]string{"/tmp/agent.md"})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
-
-	err := cmd.Execute()
+	err := executeCmd(t, func() any {
+		cmd := NewCmdValidate(f, func(*validateOptions) error { return nil })
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		return cmd
+	}, "/tmp/agent.md")
 	require.Error(t, err, "missing required --platform flag must fail")
 }
 

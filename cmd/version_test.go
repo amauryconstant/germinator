@@ -90,11 +90,12 @@ func TestNewCmdVersion_runFRoundTrip(t *testing.T) {
 	f := cmdutil.NewFactory(context.Background(), ios, "sentinel-app-version", "germinator")
 
 	var gotOpts *versionOptions
-	cmd := NewCmdVersion(f, func(opts *versionOptions) error {
-		gotOpts = opts
-		return nil
-	})
-	require.NoError(t, cmd.Execute())
+	require.NoError(t, executeCmd(t, func() any {
+		return NewCmdVersion(f, func(opts *versionOptions) error {
+			gotOpts = opts
+			return nil
+		})
+	}))
 
 	require.NotNil(t, gotOpts)
 	assert.Same(t, ios, gotOpts.IO,
@@ -125,8 +126,10 @@ func TestNewCmdVersion_ExecuteExitCode0(t *testing.T) {
 	t.Parallel()
 	ios := iostreams.Test()
 	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
-	cmd := NewCmdVersion(f, nil)
-	cmd.SetOut(&bytes.Buffer{}) // prevent help/version noise on stdout
-	require.NoError(t, cmd.Execute(),
+	require.NoError(t, executeCmd(t, func() any {
+		cmd := NewCmdVersion(f, nil)
+		cmd.SetOut(&bytes.Buffer{}) // prevent help/version noise on stdout
+		return cmd
+	}),
 		"version command should exit 0 via Cobra Execute")
 }

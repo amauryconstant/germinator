@@ -27,10 +27,9 @@ func TestLibraryCommand_Resources(t *testing.T) {
 	require.True(t, ok, "ios.Out must be a *bytes.Buffer")
 
 	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
-	cmd := NewLibraryCommand(f, nil)
-	cmd.SetArgs([]string{"resources"})
-
-	require.NoError(t, cmd.Execute())
+	require.NoError(t, executeCmd(t, func() any {
+		return NewLibraryCommand(f, nil)
+	}, "resources"))
 
 	assert.NotEmpty(t, outBuf.String(),
 		"Expected output from library resources command")
@@ -49,12 +48,12 @@ func TestLibraryCommand_Presets(t *testing.T) {
 	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
 
 	var buf bytes.Buffer
-	cmd := NewLibraryCommand(f, nil)
-	cmd.SetArgs([]string{"presets"})
-	cmd.SetOut(&buf)
-	cmd.SetErr(&buf)
-
-	require.NoError(t, cmd.Execute())
+	require.NoError(t, executeCmd(t, func() any {
+		cmd := NewLibraryCommand(f, nil)
+		cmd.SetOut(&buf)
+		cmd.SetErr(&buf)
+		return cmd
+	}, "presets"))
 
 	assert.NotEmpty(t, outBuf.String(),
 		"Expected output from library presets command")
@@ -73,12 +72,12 @@ func TestLibraryCommand_Show(t *testing.T) {
 	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
 
 	var buf bytes.Buffer
-	cmd := NewLibraryCommand(f, nil)
-	cmd.SetArgs([]string{"show", "skill/commit"})
-	cmd.SetOut(&buf)
-	cmd.SetErr(&buf)
-
-	require.NoError(t, cmd.Execute())
+	require.NoError(t, executeCmd(t, func() any {
+		cmd := NewLibraryCommand(f, nil)
+		cmd.SetOut(&buf)
+		cmd.SetErr(&buf)
+		return cmd
+	}, "show", "skill/commit"))
 
 	assert.NotEmpty(t, outBuf.String(),
 		"Expected output from library show command")
@@ -92,10 +91,10 @@ func TestLibraryCommand_InvalidRef(t *testing.T) {
 
 	ios := iostreams.Test()
 	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
-	cmd := NewLibraryCommand(f, nil)
-	cmd.SetArgs([]string{"show", "invalidformat"})
 
-	err = cmd.Execute()
+	err = executeCmd(t, func() any {
+		return NewLibraryCommand(f, nil)
+	}, "show", "invalidformat")
 	require.Error(t, err, "invalid ref must produce an error")
 
 	// Phase 3.20: an unparseable ref (no "/" separator) now surfaces

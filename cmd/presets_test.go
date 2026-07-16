@@ -163,19 +163,19 @@ func TestRunPresets_LibraryLoadError(t *testing.T) {
 
 func TestNewCmdPresets_RunFInjectionCapturesOpts(t *testing.T) {
 	var captured *presetsOptions
-	runF := func(opts *presetsOptions) error {
+	runF := func(opts *presetsOptions) error { //nolint:unparam // runF is a test callback; success is the only meaningful return
 		captured = opts
 		return nil
 	}
 
 	io := iostreams.Test()
 	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
-	cmd := NewCmdPresets(f, nil, runF)
-	cmd.SetArgs([]string{})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
-
-	require.NoError(t, cmd.Execute())
+	require.NoError(t, executeCmd(t, func() any {
+		cmd := NewCmdPresets(f, nil, runF)
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		return cmd
+	}))
 	require.NotNil(t, captured, "runF must be invoked")
 	require.NotNil(t, captured.IO)
 	assert.Equal(t, io, captured.IO, "opts.IO must be the Factory's IOStreams")
@@ -203,12 +203,12 @@ func TestNewCmdPresets_PassesLibraryFlagToLoader(t *testing.T) {
 	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
 
 	libraryFlag := fixtureRel
-	cmd := NewCmdPresets(f, &libraryFlag, runF)
-	cmd.SetArgs([]string{})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
-
-	require.NoError(t, cmd.Execute())
+	require.NoError(t, executeCmd(t, func() any {
+		cmd := NewCmdPresets(f, &libraryFlag, runF)
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		return cmd
+	}))
 	require.NotNil(t, runOpts)
 	assert.Equal(t, fixtureRel, capturedPath,
 		"--library flag value must drive the resolved library path")
@@ -228,12 +228,12 @@ func TestNewCmdPresets_HonorsOutputFlagValue(t *testing.T) {
 
 			io := iostreams.Test()
 			f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
-			cmd := NewCmdPresets(f, nil, runF)
-			cmd.SetArgs([]string{"--output", format})
-			cmd.SetOut(&bytes.Buffer{})
-			cmd.SetErr(&bytes.Buffer{})
-
-			require.NoError(t, cmd.Execute())
+			require.NoError(t, executeCmd(t, func() any {
+				cmd := NewCmdPresets(f, nil, runF)
+				cmd.SetOut(&bytes.Buffer{})
+				cmd.SetErr(&bytes.Buffer{})
+				return cmd
+			}, "--output", format))
 			assert.Equal(t, format, capturedOutput,
 				"--output flag value must reach opts.Output")
 		})

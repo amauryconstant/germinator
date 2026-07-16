@@ -103,6 +103,7 @@ func NewCmdAdd(f *cmdutil.Factory, libraryPath *string, runF func(*addOptions) e
 		batch       bool
 		force       bool
 		dryRun      bool
+		outputFlag  string
 	)
 
 	cmd := &cobra.Command{
@@ -148,7 +149,7 @@ Other examples:
 				Batch:           batch,
 				Force:           force,
 				DryRun:          dryRun,
-				Output:          outputFormat,
+				Output:          outputFlag,
 				CompletionCache: f.CompletionCache,
 			}
 
@@ -172,7 +173,6 @@ Other examples:
 			return runAdd(opts)
 		},
 	}
-
 	cmd.Flags().StringVar(&name, "name", "", "Resource name")
 	cmd.Flags().StringVar(&description, "description", "", "Resource description")
 	cmd.Flags().StringVar(&resType, "type", "", "Resource type (skill, agent, command, memory)")
@@ -181,16 +181,15 @@ Other examples:
 	cmd.Flags().BoolVar(&batch, "batch", false, "Batch mode: process all orphans continuously (use with --discover --force)")
 	cmd.Flags().BoolVar(&force, "force", false, "Overwrite existing resource")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview changes without adding")
-	output.AddOutputFlags(cmd, &outputFormat)
+	output.AddOutputFlags(cmd, &outputFlag)
 
 	return cmd
 }
 
-// outputFormat is the package-level string used by AddOutputFlags. It
-// must be a package-level variable (not a stack-local) because Cobra
-// binds the flag via StringVar into its backing storage; the runF
-// closure captures &outputFormat when opts.Output is set in RunE.
-var outputFormat string
+// derefString safely dereferences a *string for FindLibrary. Cobra
+// always passes a non-nil pointer when the flag is registered as a
+// PersistentFlag on the parent; the explicit nil check guards
+// against tests that pass nil to NewCmdAdd.
 
 // derefString safely dereferences a *string for FindLibrary. Cobra
 // always passes a non-nil pointer when the flag is registered as a

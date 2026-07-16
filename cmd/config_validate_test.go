@@ -61,19 +61,19 @@ func writeConfig(t *testing.T, path, body string) {
 // scenario "config validate supports runF injection").
 func TestNewCmdConfigValidate_ConstructorWiresOpts(t *testing.T) {
 	var captured *configValidateOptions
-	runF := func(opts *configValidateOptions) error {
+	runF := func(opts *configValidateOptions) error { //nolint:unparam // runF is a test callback; success is the only meaningful return
 		captured = opts
 		return nil
 	}
 
 	ios, _, _ := newConfigValidateTestIO()
 	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
-	cmd := NewCmdConfigValidate(f, runF)
-	cmd.SetArgs([]string{"--output-path", "/tmp/wired.toml"})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
-
-	require.NoError(t, cmd.Execute())
+	require.NoError(t, executeCmd(t, func() any {
+		cmd := NewCmdConfigValidate(f, runF)
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		return cmd
+	}, "--output-path", "/tmp/wired.toml"))
 	require.NotNil(t, captured, "runF must be invoked")
 	assert.Equal(t, "/tmp/wired.toml", captured.OutputPath)
 	assert.NotNil(t, captured.IO, "opts.IO must be wired from f.IOStreams")
@@ -201,12 +201,12 @@ func TestRunConfigValidate_SuccessOnStdout(t *testing.T) {
 func TestRunConfigValidate_RejectsLegacyOutputFlag(t *testing.T) {
 	ios, _, errOut := newConfigValidateTestIO()
 	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
-	cmd := NewCmdConfigValidate(f, nil)
-	cmd.SetArgs([]string{"--output", "/tmp/foo.toml"})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(errOut)
-
-	err := cmd.Execute()
+	err := executeCmd(t, func() any {
+		cmd := NewCmdConfigValidate(f, nil)
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(errOut)
+		return cmd
+	}, "--output", "/tmp/foo.toml")
 	require.Error(t, err)
 	assert.Equal(t, cmdutil.ExitCodeUsage, cmdutil.ExitCodeFor(err),
 		"unknown --output flag must map to ExitCodeUsage (2)")

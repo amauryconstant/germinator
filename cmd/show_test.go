@@ -292,19 +292,19 @@ func TestRunShow_LibraryLoadError(t *testing.T) {
 
 func TestNewCmdShow_RunFInjectionCapturesOpts(t *testing.T) {
 	var captured *showOptions
-	runF := func(opts *showOptions) error {
+	runF := func(opts *showOptions) error { //nolint:unparam // runF is a test callback; success is the only meaningful return
 		captured = opts
 		return nil
 	}
 
 	io := iostreams.Test()
 	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
-	cmd := NewCmdShow(f, nil, runF)
-	cmd.SetArgs([]string{"skill/commit"})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
-
-	require.NoError(t, cmd.Execute())
+	require.NoError(t, executeCmd(t, func() any {
+		cmd := NewCmdShow(f, nil, runF)
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		return cmd
+	}, "skill/commit"))
 	require.NotNil(t, captured, "runF must be invoked")
 	require.NotNil(t, captured.IO)
 	assert.Equal(t, io, captured.IO, "opts.IO must be the Factory's IOStreams")
@@ -327,12 +327,12 @@ func TestNewCmdShow_HonorsOutputFlagValue(t *testing.T) {
 
 			io := iostreams.Test()
 			f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
-			cmd := NewCmdShow(f, nil, runF)
-			cmd.SetArgs([]string{"skill/commit", "--output", format})
-			cmd.SetOut(&bytes.Buffer{})
-			cmd.SetErr(&bytes.Buffer{})
-
-			require.NoError(t, cmd.Execute())
+			require.NoError(t, executeCmd(t, func() any {
+				cmd := NewCmdShow(f, nil, runF)
+				cmd.SetOut(&bytes.Buffer{})
+				cmd.SetErr(&bytes.Buffer{})
+				return cmd
+			}, "skill/commit", "--output", format))
 			assert.Equal(t, format, capturedOutput,
 				"--output flag value must reach opts.Output")
 		})
@@ -344,12 +344,12 @@ func TestNewCmdShow_OldJSONFlagIsRejected(t *testing.T) {
 	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
 
 	var buf bytes.Buffer
-	cmd := NewCmdShow(f, nil, func(*showOptions) error { return nil })
-	cmd.SetArgs([]string{"skill/commit", "--json"})
-	cmd.SetOut(&buf)
-	cmd.SetErr(&buf)
-
-	err := cmd.Execute()
+	err := executeCmd(t, func() any {
+		cmd := NewCmdShow(f, nil, func(*showOptions) error { return nil })
+		cmd.SetOut(&buf)
+		cmd.SetErr(&buf)
+		return cmd
+	}, "skill/commit", "--json")
 	require.Error(t, err, "old --json flag must be rejected as unknown")
 	assert.Contains(t, err.Error(), "unknown flag",
 		"error must indicate the rejected flag: %v", err)
@@ -375,12 +375,12 @@ func TestNewCmdShow_PassesLibraryFlagToLoader(t *testing.T) {
 	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
 
 	libraryFlag := fixtureRel
-	cmd := NewCmdShow(f, &libraryFlag, runF)
-	cmd.SetArgs([]string{"skill/commit"})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
-
-	require.NoError(t, cmd.Execute())
+	require.NoError(t, executeCmd(t, func() any {
+		cmd := NewCmdShow(f, &libraryFlag, runF)
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		return cmd
+	}, "skill/commit"))
 	require.NotNil(t, runOpts)
 	assert.Equal(t, fixtureRel, capturedPath,
 		"--library flag value must drive the resolved library path")

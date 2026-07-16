@@ -247,7 +247,8 @@ func TestDefaultLibraryPath_FallsBackToCWDWhenXDGDoesNotExist(t *testing.T) {
 }
 
 // TestXdgReload verifies that DefaultLibraryPath picks up env mutations
-// (the production xdgReload wrapper calls xdg.Reload under a mutex).
+// (the production wrapper holds xdgReloadMu across both xdg.Reload and
+// the subsequent xdg.DataHome read).
 func TestXdgReload(t *testing.T) {
 	t.Setenv("XDG_DATA_HOME", "/custom/data")
 	t.Setenv("HOME", "/nonexistent")

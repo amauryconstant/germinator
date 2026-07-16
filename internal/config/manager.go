@@ -132,16 +132,16 @@ func (m *koanfConfigManager) GetConfig() *Config {
 // The returned path may not exist — a missing config file is not an
 // error at the caller level (`Load()` falls through to defaults).
 //
-// Calls `xdgReload()` (mutex-protected) before each lookup so parallel
-// tests that mutate XDG env vars via `t.Setenv` see updated base
-// directories. The hot path is cheap: `xdg.Reload` writes package-level
-// caches and returns immediately. Tests that mutate XDG env vars pair
-// `t.Setenv` with a fresh `resolveConfigPath` call — no explicit
-// `Reload` needed because `xdgReload` handles it under `xdgReloadMu`.
-// See manager_xdg_test.go.
+// Reads xdg state through `currentXDGConfigFile` which holds
+// xdgReloadMu across both the Reload and the read of xdg.ConfigFile
+// return value so parallel callers see either pre-reload or
+// post-reload state atomically. The hot path is cheap: `xdg.Reload`
+// writes package-level caches and returns immediately. Tests that
+// mutate XDG env vars pair `t.Setenv` with a fresh `resolveConfigPath`
+// call — no explicit `Reload` needed because the helper handles it
+// under xdgReloadMu. See manager_xdg_test.go.
 func resolveConfigPath() string {
-	xdgReload()
-	if path, err := xdg.ConfigFile("germinator/config.toml"); err == nil && path != "" {
+	if path, err := currentXDGConfigFile("germinator/config.toml"); err == nil && path != "" {
 		return path
 	}
 	if cwd, err := os.Getwd(); err == nil {
@@ -155,9 +155,8 @@ func resolveConfigPath() string {
 // It returns the XDG-resolved path even if the file does not exist
 // (does NOT attempt to create the directory).
 func GetConfigPath() (string, error) {
-	xdgReload()
-	if xdg.ConfigHome != "" {
-		return filepath.Join(xdg.ConfigHome, "germinator", "config.toml"), nil
+	if home := currentXDGConfigHome(); home != "" {
+		return filepath.Join(home, "germinator", "config.toml"), nil
 	}
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -170,13 +169,37 @@ func GetConfigPath() (string, error) {
 // package-level caches in the third-party library without internal
 // locking. Parallel tests that mutate XDG_* via t.Setenv and then
 // invoke resolveConfigPath / GetConfigPath would race on those caches
-// without serialization. We hold the mutex only across xdg.Reload
-// itself (cheap; no I/O) so concurrent callers see either pre-reload
-// or post-reload state atomically.
+// without serialization. We serialize the calls AND the subsequent
+// reads of xdg's package-level fields under the same mutex so
+// concurrent callers see either pre-reload or post-reload state
+// atomically; holding the mutex across the reload only would leave
+// a window where another goroutine can Reload and produce a torn
+// read. The mutex is package-private and only held across the cheap
+// (no-I/O) reload + read.
 var xdgReloadMu sync.Mutex
 
-func xdgReload() {
+// currentXDGConfigFile returns xdg.ConfigFile(name) after a serialized
+// Reload, so concurrent callers see either the pre-reload or
+// post-reload result atomically. The mutex is held across both the
+// Reload write and the ConfigFile read.
+func currentXDGConfigFile(name string) (string, error) {
 	xdgReloadMu.Lock()
 	defer xdgReloadMu.Unlock()
 	xdg.Reload()
+	path, err := xdg.ConfigFile(name)
+	if err != nil {
+		return "", fmt.Errorf("xdg config file %q: %w", name, err)
+	}
+	return path, nil
+}
+
+// currentXDGConfigHome returns xdg.ConfigHome after a serialized
+// Reload, so concurrent callers see either the pre-reload or
+// post-reload value atomically. The mutex is held across both the
+// Reload write and the ConfigHome read.
+func currentXDGConfigHome() string {
+	xdgReloadMu.Lock()
+	defer xdgReloadMu.Unlock()
+	xdg.Reload()
+	return xdg.ConfigHome
 }

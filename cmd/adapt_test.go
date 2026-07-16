@@ -215,19 +215,19 @@ func TestRunAdapt_TransformerReceivesExactRequest(t *testing.T) {
 
 func TestNewCmdAdapt_RunFInjectionCapturesOpts(t *testing.T) {
 	var captured *adaptOptions
-	runF := func(opts *adaptOptions) error {
+	runF := func(opts *adaptOptions) error { //nolint:unparam // runF is a test callback; success is the only meaningful return
 		captured = opts
 		return nil
 	}
 
 	io := iostreams.Test()
 	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
-	cmd := NewCmdAdapt(f, runF)
-	cmd.SetArgs([]string{"/tmp/in.md", "/tmp/out.md", "--platform", "opencode"})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
-
-	require.NoError(t, cmd.Execute())
+	require.NoError(t, executeCmd(t, func() any {
+		cmd := NewCmdAdapt(f, runF)
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		return cmd
+	}, "/tmp/in.md", "/tmp/out.md", "--platform", "opencode"))
 	require.NotNil(t, captured, "runF must be invoked")
 	assert.Equal(t, "/tmp/in.md", captured.InputPath)
 	assert.Equal(t, "/tmp/out.md", captured.OutputPath)
@@ -248,12 +248,12 @@ func TestNewCmdAdapt_NilRunFFallsBackToProduction(t *testing.T) {
 	// parse → render → write pipeline. With a valid platform but a
 	// missing input file, parse fails and the error surfaces through
 	// cmdutil.ExitCodeFor → ExitCodeError (1).
-	cmd := NewCmdAdapt(f, nil)
-	cmd.SetArgs([]string{"/nonexistent.md", "/tmp/out.md", "--platform", "opencode"})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
-
-	err := cmd.Execute()
+	err := executeCmd(t, func() any {
+		cmd := NewCmdAdapt(f, nil)
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		return cmd
+	}, "/nonexistent.md", "/tmp/out.md", "--platform", "opencode")
 	require.Error(t, err, "missing input file must surface as an error")
 	assert.Empty(t, io.Out.(*bytes.Buffer).String(),
 		"stdout must remain empty on the error path")
@@ -262,12 +262,12 @@ func TestNewCmdAdapt_NilRunFFallsBackToProduction(t *testing.T) {
 func TestNewCmdAdapt_RequiresPlatformFlag(t *testing.T) {
 	io := iostreams.Test()
 	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
-	cmd := NewCmdAdapt(f, func(*adaptOptions) error { return nil })
-	cmd.SetArgs([]string{"/tmp/in.md", "/tmp/out.md"})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
-
-	err := cmd.Execute()
+	err := executeCmd(t, func() any {
+		cmd := NewCmdAdapt(f, func(*adaptOptions) error { return nil })
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		return cmd
+	}, "/tmp/in.md", "/tmp/out.md")
 	require.Error(t, err, "missing required --platform flag must fail")
 }
 

@@ -44,13 +44,6 @@ type initRow struct {
 	Created bool   `json:"created" tab:"CREATED"`
 }
 
-// initOutputFormat is the package-level string used by AddOutputFlags.
-// It must be a package-level variable (not a stack-local) because
-// Cobra binds the flag via StringVar into its backing storage; the
-// runF closure captures &initOutputFormat when opts.Output is set
-// in RunE (same pattern as the slice-6 library_add.go outputFormat).
-var initOutputFormat string
-
 // NewCmdLibraryInit creates the `library init` command via the
 // canonical NewCmdXxx(f, runF) pattern. Migrated in slice 7.
 //
@@ -73,11 +66,17 @@ var initOutputFormat string
 //
 // The legacy --json flag is replaced by --output json; invoking
 // --json now triggers a Cobra usage error mapped to ExitCodeUsage.
+//
+// `output` is a per-command local (captured by the RunE closure) so
+// concurrent NewCmdLibraryInit calls don't race on a shared package-
+// level storage slot when pflag writes the default value during
+// registration.
 func NewCmdLibraryInit(f *cmdutil.Factory, runF func(*libraryInitOptions) error) *cobra.Command {
 	var (
-		path   string
-		force  bool
-		dryRun bool
+		path       string
+		force      bool
+		dryRun     bool
+		outputFlag string
 	)
 
 	cmd := &cobra.Command{
@@ -106,7 +105,7 @@ Examples:
 				Path:            path,
 				Force:           force,
 				DryRun:          dryRun,
-				Output:          initOutputFormat,
+				Output:          outputFlag,
 				CompletionCache: f.CompletionCache,
 			}
 			if runF != nil {
@@ -115,14 +114,13 @@ Examples:
 			return runLibraryInit(opts)
 		},
 	}
-
 	cmd.Flags().StringVar(&path, "path", "",
 		"Path to create library (default: "+library.DefaultLibraryPath()+")")
 	cmd.Flags().BoolVar(&force, "force", false,
 		"Overwrite existing library at target path")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false,
 		"Preview changes without creating files")
-	output.AddOutputFlags(cmd, &initOutputFormat)
+	output.AddOutputFlags(cmd, &outputFlag)
 
 	return cmd
 }

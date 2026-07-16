@@ -45,11 +45,14 @@ func FindLibrary(flagPath, envPath, cfgPath string) string {
 //
 // The function does NOT call `xdg.DataFile` directly because that
 // helper attempts to create the directory on disk; we only need the
-// path string. `xdg.DataHome` is computed from the env on `Reload()`
-// (called below under xdgReloadMu to serialize concurrent updates).
+// path string. `xdg.DataHome` is read from `currentXDGDataHome()`
+// which holds xdgReloadMu across both the Reload and the read so
+// concurrent callers see either pre-reload or post-reload state
+// atomically (the third-party xdg package does not lock its own
+// caches).
 func DefaultLibraryPath() string {
-	xdgReload()
-	path := filepath.Join(xdg.DataHome, "germinator", "library")
+	home := currentXDGDataHome()
+	path := filepath.Join(home, "germinator", "library")
 	if Exists(path) {
 		return path
 	}
@@ -77,17 +80,25 @@ func YAMLExists(path string) bool {
 
 // xdgReloadMu serializes calls to adrg/xdg.Reload, which mutates
 // package-level caches in the third-party library without internal
-// locking. Calling xdg.Reload from concurrent goroutines (e.g., parallel
-// tests both invoking DefaultLibraryPath / resolveConfigPath after one
-// mutated XDG_* via t.Setenv) races on those caches. We serialize the
-// calls here so the global state is updated atomically; concurrent
-// readers either see the pre-reload or post-reload value, never a
-// torn update. The mutex is package-private and only held across
-// xdg.Reload (cheap; no I/O).
+// locking. Calling xdg.Reload from concurrent goroutines (e.g.,
+// parallel tests both invoking DefaultLibraryPath after one mutated
+// XDG_* via t.Setenv) races on those caches. We serialize the
+// calls AND the subsequent reads of xdg's package-level fields
+// (xdg.DataHome / xdg.ConfigHome / xdg.ConfigFile return values)
+// under the same mutex so concurrent callers see either pre-reload
+// or post-reload state atomically; holding the mutex across the
+// reload only would leave a window where another goroutine can
+// Reload and produce a torn read. The mutex is package-private and
+// only held across the cheap (no-I/O) reload + read.
 var xdgReloadMu sync.Mutex
 
-func xdgReload() {
+// currentXDGDataHome returns xdg.DataHome after a serialized Reload,
+// so concurrent callers see either the pre-reload or post-reload
+// value atomically. The mutex is held across both the Reload write
+// and the DataHome read.
+func currentXDGDataHome() string {
 	xdgReloadMu.Lock()
 	defer xdgReloadMu.Unlock()
 	xdg.Reload()
+	return xdg.DataHome
 }

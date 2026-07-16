@@ -58,24 +58,24 @@ func makeStubLibrary(t *testing.T, path string) {
 // flag is parsed and propagated to the captured opts.
 func TestNewCmdLibraryInit_ConstructorWiresOpts(t *testing.T) {
 	var captured *libraryInitOptions
-	runF := func(opts *libraryInitOptions) error {
+	runF := func(opts *libraryInitOptions) error { //nolint:unparam // runF is a test callback; success is the only meaningful return
 		captured = opts
 		return nil
 	}
 
 	ios, _, _ := newLibraryInitTestIO()
 	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
-	cmd := NewCmdLibraryInit(f, runF)
-	cmd.SetArgs([]string{
+	require.NoError(t, executeCmd(t, func() any {
+		cmd := NewCmdLibraryInit(f, runF)
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		return cmd
+	},
 		"--path", "/tmp/wired-lib",
 		"--force",
 		"--dry-run",
 		"--output", "json",
-	})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
-
-	require.NoError(t, cmd.Execute())
+	))
 	require.NotNil(t, captured, "runF must be invoked")
 	assert.Equal(t, "/tmp/wired-lib", captured.Path)
 	assert.True(t, captured.Force, "opts.Force must be true")
@@ -301,12 +301,12 @@ func TestRunLibraryInit_Cancellation(t *testing.T) {
 func TestRunLibraryInit_RejectsLegacyJSONFlag(t *testing.T) {
 	ios, _, errOut := newLibraryInitTestIO()
 	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
-	cmd := NewCmdLibraryInit(f, nil)
-	cmd.SetArgs([]string{"--json"})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(errOut)
-
-	err := cmd.Execute()
+	err := executeCmd(t, func() any {
+		cmd := NewCmdLibraryInit(f, nil)
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(errOut)
+		return cmd
+	}, "--json")
 	require.Error(t, err)
 	assert.Equal(t, cmdutil.ExitCodeUsage, cmdutil.ExitCodeFor(err),
 		"unknown --json flag must map to ExitCodeUsage (2)")

@@ -320,19 +320,19 @@ func TestRunCanonicalize_CanonicalizerReceivesExactRequest(t *testing.T) {
 
 func TestNewCmdCanonicalize_RunFCapturesOpts(t *testing.T) {
 	var captured *canonicalizeOptions
-	runF := func(opts *canonicalizeOptions) error {
+	runF := func(opts *canonicalizeOptions) error { //nolint:unparam // runF is a test callback; success is the only meaningful return
 		captured = opts
 		return nil
 	}
 
 	io := iostreams.Test()
 	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
-	cmd := NewCmdCanonicalize(f, runF)
-	cmd.SetArgs([]string{"/tmp/in.md", "/tmp/out.yaml", "--platform", "opencode", "--type", "command"})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
-
-	require.NoError(t, cmd.Execute())
+	require.NoError(t, executeCmd(t, func() any {
+		cmd := NewCmdCanonicalize(f, runF)
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		return cmd
+	}, "/tmp/in.md", "/tmp/out.yaml", "--platform", "opencode", "--type", "command"))
 	require.NotNil(t, captured, "runF must be invoked")
 	assert.Equal(t, "/tmp/in.md", captured.InputPath)
 	assert.Equal(t, "/tmp/out.yaml", captured.OutputPath)
@@ -345,24 +345,24 @@ func TestNewCmdCanonicalize_RunFCapturesOpts(t *testing.T) {
 func TestNewCmdCanonicalize_RequiresPlatformAndTypeFlags(t *testing.T) {
 	io := iostreams.Test()
 	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
-	cmd := NewCmdCanonicalize(f, func(*canonicalizeOptions) error { return nil })
-	cmd.SetArgs([]string{"/tmp/in.md", "/tmp/out.yaml"})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
-
-	err := cmd.Execute()
+	err := executeCmd(t, func() any {
+		cmd := NewCmdCanonicalize(f, func(*canonicalizeOptions) error { return nil })
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		return cmd
+	}, "/tmp/in.md", "/tmp/out.yaml")
 	require.Error(t, err, "missing required --platform and --type flags must fail")
 }
 
 func TestNewCmdCanonicalize_RequiresTypeFlag(t *testing.T) {
 	io := iostreams.Test()
 	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
-	cmd := NewCmdCanonicalize(f, func(*canonicalizeOptions) error { return nil })
-	cmd.SetArgs([]string{"/tmp/in.md", "/tmp/out.yaml", "--platform", "opencode"})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
-
-	err := cmd.Execute()
+	err := executeCmd(t, func() any {
+		cmd := NewCmdCanonicalize(f, func(*canonicalizeOptions) error { return nil })
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		return cmd
+	}, "/tmp/in.md", "/tmp/out.yaml", "--platform", "opencode")
 	require.Error(t, err, "missing --type flag must fail")
 }
 

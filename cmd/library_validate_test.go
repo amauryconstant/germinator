@@ -70,15 +70,15 @@ func captureOptsViaRunF(t *testing.T, args []string) *libraryValidateOptions {
 	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
 
 	captured := &libraryValidateOptions{}
-	cmd := NewCmdLibraryValidate(f, func(opts *libraryValidateOptions) error {
-		captured = opts
-		return nil
-	})
-	cmd.SetArgs(args)
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
-
-	require.NoError(t, cmd.Execute(), "runF must succeed")
+	require.NoError(t, executeCmd(t, func() any {
+		cmd := NewCmdLibraryValidate(f, func(opts *libraryValidateOptions) error {
+			captured = opts
+			return nil
+		})
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		return cmd
+	}, args...), "runF must succeed")
 	return captured
 }
 
@@ -616,12 +616,12 @@ func TestNewCmdLibraryValidate_OldJSONFlagIsRejected(t *testing.T) {
 	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
 
 	var buf bytes.Buffer
-	cmd := NewCmdLibraryValidate(f, func(*libraryValidateOptions) error { return nil })
-	cmd.SetArgs([]string{"--json"})
-	cmd.SetOut(&buf)
-	cmd.SetErr(&buf)
-
-	err := cmd.Execute()
+	err := executeCmd(t, func() any {
+		cmd := NewCmdLibraryValidate(f, func(*libraryValidateOptions) error { return nil })
+		cmd.SetOut(&buf)
+		cmd.SetErr(&buf)
+		return cmd
+	}, "--json")
 	require.Error(t, err, "legacy --json flag must be rejected")
 	assert.True(t,
 		strings.Contains(err.Error(), "unknown flag") ||

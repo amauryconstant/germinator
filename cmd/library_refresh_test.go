@@ -80,7 +80,7 @@ func makeRefreshTestLibrary(
 // Factory-derived IO / Library / Ctx fields.
 func TestNewCmdRefresh_ValidatesArgs(t *testing.T) {
 	var captured *refreshOptions
-	runF := func(opts *refreshOptions) error {
+	runF := func(opts *refreshOptions) error { //nolint:unparam // runF is a test callback; success is the only meaningful return
 		captured = opts
 		return nil
 	}
@@ -88,12 +88,12 @@ func TestNewCmdRefresh_ValidatesArgs(t *testing.T) {
 	ios, _, _ := newRefreshTestIO()
 	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
 	libPath := ""
-	cmd := NewCmdRefresh(f, &libPath, runF)
-	cmd.SetArgs([]string{"--dry-run", "--force", "--output", "json"})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
-
-	require.NoError(t, cmd.Execute())
+	require.NoError(t, executeCmd(t, func() any {
+		cmd := NewCmdRefresh(f, &libPath, runF)
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		return cmd
+	}, "--dry-run", "--force", "--output", "json"))
 	require.NotNil(t, captured)
 	assert.True(t, captured.DryRun, "--dry-run must populate opts.DryRun")
 	assert.True(t, captured.Force, "--force must populate opts.Force")

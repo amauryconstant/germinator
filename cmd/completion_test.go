@@ -22,17 +22,17 @@ func TestNewCmdCompletion_RegistersAllShells(t *testing.T) {
 
 	ios := iostreams.Test()
 	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
-	cmd := NewCmdCompletion(f, nil)
-
-	names := map[string]bool{}
-	for _, sub := range cmd.Commands() {
-		names[sub.Name()] = true
-	}
-	for _, shell := range completionShells {
-		assert.True(t, names[shell], "expected subcommand %q to be registered", shell)
-	}
-	assert.Len(t, cmd.Commands(), len(completionShells),
-		"completion command should register exactly one subcommand per shell")
+	withCmd(t, func() any { return NewCmdCompletion(f, nil) }, func(cmd *cobra.Command) {
+		names := map[string]bool{}
+		for _, sub := range cmd.Commands() {
+			names[sub.Name()] = true
+		}
+		for _, shell := range completionShells {
+			assert.True(t, names[shell], "expected subcommand %q to be registered", shell)
+		}
+		assert.Len(t, cmd.Commands(), len(completionShells),
+			"completion command should register exactly one subcommand per shell")
+	})
 }
 
 // TestNewCmdCompletion_RunFInjection verifies the runF seam captures
@@ -41,19 +41,19 @@ func TestNewCmdCompletion_RunFInjection(t *testing.T) {
 	t.Parallel()
 
 	captured := make(chan *completionOptions, 1)
-	runF := func(opts *completionOptions) error {
+	runF := func(opts *completionOptions) error { //nolint:unparam // runF is a test callback; success is the only meaningful return
 		captured <- opts
 		return nil
 	}
 
 	ios := iostreams.Test()
 	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
-	cmd := NewCmdCompletion(f, runF)
-	cmd.SetArgs([]string{"bash"})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
-
-	require.NoError(t, cmd.Execute())
+	require.NoError(t, executeCmd(t, func() any {
+		cmd := NewCmdCompletion(f, runF)
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		return cmd
+	}, "bash"))
 	close(captured)
 	opts := <-captured
 	require.NotNil(t, opts, "runF must be invoked")
@@ -74,16 +74,25 @@ func TestRunCompletion_WritesSnippet(t *testing.T) {
 
 			ios := iostreams.Test()
 			f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
-			root := NewRootCommand(f)
-			// Locate the per-shell leaf command so runCompletion has a
-			// Root() to call carapace.Gen against.
+			// runCompletion reads the per-shell leaf's Root() and
+			// calls carapace.Gen on it; both root construction and
+			// snippet generation mutate carapace's package-level
+			// state, so serialise through testExecMu.
+			var (
+				root *cobra.Command
+				err  error
+			)
+			testExecMu.Lock()
+			root = NewRootCommand(f)
 			sub := findShellLeaf(t, root, shell)
 			opts := &completionOptions{
 				IO:    ios,
 				Ctx:   context.Background(),
 				Shell: shell,
 			}
-			require.NoError(t, runCompletion(sub, opts))
+			err = runCompletion(sub, opts)
+			testExecMu.Unlock()
+			require.NoError(t, err)
 			out, ok := ios.Out.(*bytes.Buffer)
 			require.True(t, ok, "iostreams.Test must return *bytes.Buffer-backed Out")
 			assert.NotEmpty(t, out.String(), "snippet for %s must be non-empty", shell)

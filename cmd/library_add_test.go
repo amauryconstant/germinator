@@ -77,7 +77,7 @@ func makeTestSkillFile(t *testing.T, dir, name, description string) string {
 // T1 — Constructor wires opts correctly via runF injection.
 func TestNewCmdAdd_ValidatesArgs(t *testing.T) {
 	var captured *addOptions
-	runF := func(opts *addOptions) error {
+	runF := func(opts *addOptions) error { //nolint:unparam // runF is a test callback; success is the only meaningful return
 		captured = opts
 		return nil
 	}
@@ -85,14 +85,16 @@ func TestNewCmdAdd_ValidatesArgs(t *testing.T) {
 	ios, _, _ := newAddTestIO()
 	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
 	libPath := ""
-	cmd := NewCmdAdd(f, &libPath, runF)
-	cmd.SetArgs([]string{"/tmp/skill-test.md", "--type", "skill", "--name", "test",
+	require.NoError(t, executeCmd(t, func() any {
+		cmd := NewCmdAdd(f, &libPath, runF)
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		return cmd
+	},
+		"/tmp/skill-test.md", "--type", "skill", "--name", "test",
 		"--platform", "opencode", "--description", "desc",
-		"--force", "--dry-run", "--output", "json"})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
-
-	require.NoError(t, cmd.Execute())
+		"--force", "--dry-run", "--output", "json",
+	))
 	require.NotNil(t, captured)
 	assert.Equal(t, []string{"/tmp/skill-test.md"}, captured.InputPaths)
 	assert.Equal(t, "skill", captured.Type)
@@ -113,12 +115,12 @@ func TestNewCmdAdd_RequiresDiscoverOrInput(t *testing.T) {
 	ios, _, _ := newAddTestIO()
 	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
 	libPath := ""
-	cmd := NewCmdAdd(f, &libPath, func(*addOptions) error { return nil })
-	cmd.SetArgs([]string{})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
-
-	err := cmd.Execute()
+	err := executeCmd(t, func() any {
+		cmd := NewCmdAdd(f, &libPath, func(*addOptions) error { return nil })
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		return cmd
+	})
 	require.Error(t, err)
 	// Per enforce-error-discipline (Phase 1.2): the cobra substring-prefix
 	// dispatch fallback was dropped. The cobra `accepts at most 1 arg(s)`
@@ -132,7 +134,7 @@ func TestNewCmdAdd_RequiresDiscoverOrInput(t *testing.T) {
 // T3 — --discover with no positional args is accepted by Cobra's Args closure.
 func TestNewCmdAdd_AcceptsDiscoverFlag(t *testing.T) {
 	var captured *addOptions
-	runF := func(opts *addOptions) error {
+	runF := func(opts *addOptions) error { //nolint:unparam // runF is a test callback; success is the only meaningful return
 		captured = opts
 		return nil
 	}
@@ -140,12 +142,12 @@ func TestNewCmdAdd_AcceptsDiscoverFlag(t *testing.T) {
 	ios, _, _ := newAddTestIO()
 	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
 	libPath := ""
-	cmd := NewCmdAdd(f, &libPath, runF)
-	cmd.SetArgs([]string{"--discover"})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
-
-	require.NoError(t, cmd.Execute())
+	require.NoError(t, executeCmd(t, func() any {
+		cmd := NewCmdAdd(f, &libPath, runF)
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		return cmd
+	}, "--discover"))
 	require.NotNil(t, captured)
 	assert.True(t, captured.Discover, "--discover must populate opts.Discover")
 }
@@ -992,12 +994,12 @@ func TestRunAdd_RejectsLegacyJSONFlag(t *testing.T) {
 	ios, _, errOut := newAddTestIO()
 	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
 	libPath := ""
-	cmd := NewCmdAdd(f, &libPath, nil)
-	cmd.SetArgs([]string{"./missing.md", "--type", "skill", "--name", "x", "--json"})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(errOut)
-
-	err := cmd.Execute()
+	err := executeCmd(t, func() any {
+		cmd := NewCmdAdd(f, &libPath, nil)
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(errOut)
+		return cmd
+	}, "./missing.md", "--type", "skill", "--name", "x", "--json")
 	require.Error(t, err)
 	assert.Equal(t, cmdutil.ExitCodeUsage, cmdutil.ExitCodeFor(err),
 		"unknown --json flag must map to ExitCodeUsage (2)")

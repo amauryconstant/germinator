@@ -50,22 +50,22 @@ func newConfigInitOpts(t *testing.T, mut func(*configInitOptions)) *configInitOp
 // "config init supports runF injection").
 func TestNewCmdConfigInit_ConstructorWiresOpts(t *testing.T) {
 	var captured *configInitOptions
-	runF := func(opts *configInitOptions) error {
+	runF := func(opts *configInitOptions) error { //nolint:unparam // runF is a test callback; success is the only meaningful return
 		captured = opts
 		return nil
 	}
 
 	ios, _, _ := newConfigInitTestIO()
 	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
-	cmd := NewCmdConfigInit(f, runF)
-	cmd.SetArgs([]string{
+	require.NoError(t, executeCmd(t, func() any {
+		cmd := NewCmdConfigInit(f, runF)
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		return cmd
+	},
 		"--output-path", "/tmp/wired",
 		"--force",
-	})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
-
-	require.NoError(t, cmd.Execute())
+	))
 	require.NotNil(t, captured, "runF must be invoked")
 	assert.Equal(t, "/tmp/wired", captured.OutputPath)
 	assert.True(t, captured.Force, "opts.Force must be true")
@@ -224,12 +224,12 @@ func TestRunConfigInit_SuccessOnStdout(t *testing.T) {
 func TestRunConfigInit_RejectsLegacyOutputFlag(t *testing.T) {
 	ios, _, errOut := newConfigInitTestIO()
 	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
-	cmd := NewCmdConfigInit(f, nil)
-	cmd.SetArgs([]string{"--output", "/tmp/foo.toml"})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(errOut)
-
-	err := cmd.Execute()
+	err := executeCmd(t, func() any {
+		cmd := NewCmdConfigInit(f, nil)
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(errOut)
+		return cmd
+	}, "--output", "/tmp/foo.toml")
 	require.Error(t, err)
 	assert.Equal(t, cmdutil.ExitCodeUsage, cmdutil.ExitCodeFor(err),
 		"unknown --output flag must map to ExitCodeUsage (2)")
