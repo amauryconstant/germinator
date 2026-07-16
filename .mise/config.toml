@@ -69,8 +69,8 @@ description = "Run E2E tests (full CLI workflow)"
 run = "go test -tags=e2e ./test/e2e/..."
 
 [tasks."test:race"]
-description = "Run unit tests with race detector (catches data races on shared state)"
-run = "go test -race ./internal/..."
+description = "Run unit tests with race detector across the whole tree, including cmd/ (catches data races on Cobra globals and shared state). Required by harden-tests-and-coverage task 7.4."
+run = "go test -race -count=1 ./..."
 
 [tasks."test:e2e:race"]
 description = "Run E2E tests with race detector"
