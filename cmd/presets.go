@@ -99,6 +99,11 @@ func runPresets(opts *presetsOptions) error {
 	switch opts.Output {
 	case "json":
 		rows := flattenPresets(lib)
+		// Project decision: emit wrapped-object shape (`{"presets": [...]}`)
+		// rather than the skill's top-level array default. Documented in
+		// openspec/specs/library-library-json-output/spec.md so future
+		// contributors see the rationale (cross-command shape consistency,
+		// room for future sibling fields like metadata/resources).
 		if err := output.NewJSONExporter().Write(opts.IO, struct {
 			Presets []presetsRow `json:"presets"`
 		}{Presets: rows}); err != nil {

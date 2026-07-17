@@ -30,7 +30,7 @@ Error formatting SHALL be centralized in `output.FormatError(io *iostreams.IOStr
 - `*core.ConfigError` → render: `Error: config: <message>`
 - `*core.PartialSuccessError` → render: `partial success: N succeeded, M failed` followed by per-error lines (**partial-success supersedes not-found for wrapped chains**; placed before NotFound in the canonical order)
 - `*core.NotFoundError` → render: `Error: not found: <key>`
-- `*core.OperationError` → render: `Error: <op> failed: <resource>: <message>`
+- `*core.OperationError` → render: `Error: <op>: <resource>` followed by an indented dim-styled `Cause` line when present (matches `OperationError.Error()` at `internal/core/errors.go:755-757` which is the canonical single source of truth: `"<op>: <resource>"`)
 - `*core.InitializeError` → render: `Error: <e.Error()>` (delegates to `InitializeError.Error()` which renders `initialize failed: <ref>: output: <outputPath>: <cause.Error()>` as a single colon-joined line per `internal/core/errors.go:670-687` — parts joined by `: `; `output` segment optional; cause optional; optional `(context)` suffix; optional `\n💡 <suggestions>` block)
 - `*core.UsageError` → render: `Error: <flag>: <reason>`
 - `*config.WriteError` → render: `Error: <op> <path>: <message>`

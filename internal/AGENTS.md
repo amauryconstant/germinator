@@ -68,20 +68,34 @@ Everything that does I/O lives here. Each shell package owns one cohesive concer
 # Package Dependency Rules
 
 ```
-cmd/ ───────────► internal/output/
+cmd/ ───────────► internal/output/  ─────► internal/core/
+  │                    ├─────────────────► internal/config/
+  │                    └─────────────────► internal/library/
   │                    │
   │                    ▼
   ├───────────► internal/iostreams/
+  │
+  ├───────────► internal/cmdutil/  ─────► internal/config/
+  │                    └────────────► internal/library/
   │
   ├───────────► internal/core/ ◄────── (no outbound deps)
   │                    ▲
   ├───────────► internal/claude-code/ ─────► internal/core/
   │                    ▲
   ├───────────► internal/opencode/   ─────► internal/core/
-  │
-  ├───────────► internal/config/    ─────► internal/core/  (optional)
+  │                    ▲
+  ├───────────► internal/config/    ─────────► internal/paths/
+  │                    └─────────────────► internal/core/  (optional)
   │
   ├───────────► internal/library/   ─────► internal/core/
+  │
+  ├───────────► internal/parser/   ─────► internal/claude-code/  ─────► internal/core/
+  │                    ├────────────► internal/core/
+  │                    └────────────► internal/opencode/    ─────► internal/core/
+  │
+  ├───────────► internal/renderer/ ─────► internal/claude-code/  ─────► internal/core/
+  │                    ├────────────► internal/opencode/    ─────► internal/core/
+  │                    └────────────► internal/permission/
   │
   ├───────────► internal/transform/     ─────► internal/core/
   │                  ├────────────► internal/parser/   ─────► internal/core/
@@ -98,11 +112,13 @@ cmd/ ───────────► internal/output/
 ```
 
 - `cmd/` imports everything (composition root)
-- `internal/core/` imports nothing (stdlib + `lo` only)
+- `internal/core/` imports nothing (stdlib + `lo` only); the one allowed self-import exception is `internal/core/opencode` for its OpenCode-specific validators (documented in `internal/core/AGENTS.md`)
 - Adapter packages (`claude-code/`, `opencode/`) depend on `core/` and return core types
+- `internal/parser/` and `internal/renderer/` both depend on the platform adapters (`claude-code/`, `opencode/`) for the parse and render paths; each declares its own narrow consumer-side interface (`platformAdapter`, `templateAdapter`) per the "interfaces where consumed" rule
 - Service-style I/O adapters (`transform/`, `validate/`, `canonicalize/`, `install/`) depend on `core/` plus `parser/`, `renderer/`, and (for `install/`) `library/`
 - `internal/install/` depends on `internal/library/` for resource resolution; `library/` does **not** depend on `install/` (one-way dependency, enforced by `go build ./...`)
-- `internal/output/` imports `core/` (formats core errors)
+- `internal/output/` imports `core/` (formats core errors), `config/` (renders `*config.WriteError`), and `library/` (`FormatResourcesList`)
+- `internal/cmdutil/` imports `config/` (exit-code mapping for `*config.WriteError`) and `library/` (CompletionCache type)
 - `internal/library/`, `internal/config/` are independent (or import `core/` for shared types)
 
 **Enforced by `depguard`** in `.golangci.yml` — core allows stdlib + `samber/lo` only; see `.golangci.yml` for the full rule.

@@ -74,7 +74,7 @@ linters:
             - gitlab.com/amoconst/germinator/internal/core
           deny:
             - pkg: "github.com/*"
-              desc: "core allows only stdlib and lo"
+              desc: "core allows only stdlib and lo; self-import permitted only for internal/core/opencode subpackage validators"
     gosec:
       excludes:
         - G104 # unchecked errors (defer/test)

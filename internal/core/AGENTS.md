@@ -12,6 +12,10 @@
 
 This package has **zero external dependencies** (only stdlib and `samber/lo`). Enforced via `depguard` in `.golangci.yml` (see rule in `/internal/AGENTS.md`). Prevents architectural drift — core types remain pure and independent.
 
+### The one self-import exception
+
+`internal/core/opencode/validators.go` is the only file in the entire `internal/core/` tree with a non-stdlib production import — it imports `gitlab.com/amoconst/germinator/internal/core` to reach the canonical document types (`*core.Agent`, `*core.Command`, etc.) when applying the OpenCode-specific validation rules. The depguard rule accommodates this via its third allow-list entry. **No other file in `internal/core/` may import a project-internal package**; this is the documented exception.
+
 ---
 
 # Document Types

@@ -211,6 +211,8 @@ Test files of note:
 
 > The `test/mocks/` package is **deprecated**. New tests use `runF` injection with `iostreams.Test()` buffers.
 
+**Goroutine leak detection (`goleak`)**: intentionally **not** wired in `cmd/`. The `cmd` package never launches goroutines in production code (`grep 'go func' cmd/` returns no hits in non-test files), so there is nothing for `goleak` to detect. `internal/library/` is the only goroutine-spawning package and it wires `goleak.VerifyTestMain(m)` in its `TestMain` at `internal/library/library_test.go:25-27`. If a future change adds `go func(...)` to a `cmd/` file, wire `goleak` at that point.
+
 **Debug logging**: `IOStreams.SetDebug(bool)` driven by `cfg.Debug` from `main.go` after `config.Load()`. `GERMINATOR_DEBUG` env → koanf env provider → `cfg.Debug`. The env is **not** read directly by `iostreams.System()`; `main.go`'s fail-fast `BuildFactory` is the single source of truth.
 
 ---
