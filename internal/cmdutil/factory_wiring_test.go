@@ -28,7 +28,7 @@ func TestBuildFactory_ConfigIsLazy(t *testing.T) {
 		return config.DefaultConfig(), nil
 	}))
 
-	f, err := BuildFactory(context.Background(), ios, "v0.0.0", "germinator")
+	f, err := BuildFactory(context.Background(), ios)
 	require.NoError(t, err)
 	require.NotNil(t, f)
 	defer f.Close()
@@ -56,7 +56,7 @@ func TestBuildFactory_ConfigCachedAcrossCallsConcurrent(t *testing.T) {
 		return config.DefaultConfig(), nil
 	}))
 
-	f, err := BuildFactory(context.Background(), ios, "v0.0.0", "germinator")
+	f, err := BuildFactory(context.Background(), ios)
 	require.NoError(t, err)
 	defer f.Close()
 
@@ -85,7 +85,7 @@ func TestBuildFactory_DebugEnablesLogger(t *testing.T) {
 		return cfg, nil
 	}))
 
-	f, err := BuildFactory(context.Background(), ios, "v0.0.0", "germinator")
+	f, err := BuildFactory(context.Background(), ios)
 	require.NoError(t, err)
 	defer f.Close()
 
@@ -103,7 +103,7 @@ func TestBuildFactory_DebugDisabledByDefault(t *testing.T) {
 		return config.DefaultConfig(), nil
 	}))
 
-	f, err := BuildFactory(context.Background(), ios, "v0.0.0", "germinator")
+	f, err := BuildFactory(context.Background(), ios)
 	require.NoError(t, err)
 	defer f.Close()
 
@@ -123,7 +123,7 @@ func TestBuildFactory_ConfigLoadErrorSurfaces(t *testing.T) {
 		return config.DefaultConfig(), wantErr
 	}))
 
-	f, err := BuildFactory(context.Background(), ios, "v0.0.0", "germinator")
+	f, err := BuildFactory(context.Background(), ios)
 	require.Error(t, err)
 	require.NotNil(t, f, "BuildFactory MUST return a non-nil Factory even when config load errors")
 	defer f.Close()
@@ -132,25 +132,6 @@ func TestBuildFactory_ConfigLoadErrorSurfaces(t *testing.T) {
 	if !errors.As(err, &cfgErr) {
 		t.Errorf("BuildFactory error = %T, want *core.ConfigError", err)
 	}
-}
-
-// TestBuildFactory_LibraryLeftNil verifies that BuildFactory does NOT
-// wire f.Library — the field is preserved on the Factory struct (per
-// cli-cli-factory/spec.md) but left nil so each RunE builds its own
-// opts.Library closure from c.Context(). Pins the Phase 1 change
-// (propagate-context-through-shell design.md Decision 6).
-func TestBuildFactory_LibraryLeftNil(t *testing.T) {
-	ios := iostreams.Test()
-	t.Cleanup(swapConfigLoadForTest(func() (*config.Config, error) {
-		return config.DefaultConfig(), nil
-	}))
-
-	f, err := BuildFactory(context.Background(), ios, "v0.0.0", "germinator")
-	require.NoError(t, err)
-	defer f.Close()
-
-	assert.Nil(t, f.Library,
-		"BuildFactory MUST NOT wire f.Library; each RunE builds its own closure from c.Context()")
 }
 
 // TestBuildFactory_CompletionCacheAssigned verifies that
@@ -162,7 +143,7 @@ func TestBuildFactory_CompletionCacheAssigned(t *testing.T) {
 		return config.DefaultConfig(), nil
 	}))
 
-	f, err := BuildFactory(context.Background(), ios, "v0.0.0", "germinator")
+	f, err := BuildFactory(context.Background(), ios)
 	require.NoError(t, err)
 	defer f.Close()
 
@@ -188,7 +169,7 @@ func TestBuildFactory_NoEnvStillBuilds(t *testing.T) {
 	require.NoError(t, os.Chdir(tmpDir))
 	t.Cleanup(func() { _ = os.Chdir(origWd) })
 
-	f, err := BuildFactory(context.Background(), ios, "v0.0.0", "germinator")
+	f, err := BuildFactory(context.Background(), ios)
 	require.NoError(t, err, "BuildFactory MUST succeed with zero configuration")
 	defer f.Close()
 

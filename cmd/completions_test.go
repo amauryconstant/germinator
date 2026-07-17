@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -316,7 +315,7 @@ func TestLibraryRefActionFromLibrary(t *testing.T) {
 // =============================================================================
 // loadLibraryForCompletion — slice 9.1 implementation tests
 // (covers shell-completion spec "actionResources loads library with timeout
-// and bypasses f.Library" + "Timeout returns empty completion")
+// and reads directly via library.LoadLibrary" + "Timeout returns empty completion")
 // =============================================================================
 
 // newFactoryWithCache returns a Factory wired with a fresh CompletionCache.
@@ -397,27 +396,6 @@ func TestLoadLibraryForCompletion_Timeout(t *testing.T) {
 
 	assert.Nil(t, loadLibraryForCompletion(f, libDir),
 		"cancelled context must produce nil (timeout branch)")
-}
-
-// TestLoadLibraryForCompletion_BypassesFLibrary pins the design decision
-// documented in cmd/completions.go:88-95 — completion lookups MUST bypass
-// f.Library() because it is sync.OnceValues-cached and would permanently
-// pin the first error. We force f.Library to return an error and verify
-// loadLibraryForCompletion still succeeds by loading the library directly.
-func TestLoadLibraryForCompletion_BypassesFLibrary(t *testing.T) {
-	t.Parallel()
-
-	libDir := makeCompletionTestLibrary(t)
-
-	f := newFactoryWithCache(context.Background())
-	f.Library = func() (*library.Library, error) {
-		return nil, errors.New("f.Library deliberately pinned to error")
-	}
-
-	got := loadLibraryForCompletion(f, libDir)
-	require.NotNil(t, got,
-		"loadLibraryForCompletion MUST bypass f.Library and use library.LoadLibrary directly")
-	assert.Equal(t, libDir, got.RootPath)
 }
 
 // TestLoadLibraryForCompletion_HonorsConfigTimeout verifies that the

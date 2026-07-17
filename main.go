@@ -12,7 +12,6 @@ import (
 	"gitlab.com/amoconst/germinator/internal/cmdutil"
 	"gitlab.com/amoconst/germinator/internal/iostreams"
 	"gitlab.com/amoconst/germinator/internal/output"
-	"gitlab.com/amoconst/germinator/internal/version"
 )
 
 func main() {
@@ -26,7 +25,7 @@ func main() {
 	// wires Library with the flag > env > cfg > XDG default priority
 	// chain. main.go is the only composition root — BuildFactory
 	// remains testable in cmdutil.
-	f, err := cmdutil.BuildFactory(ctx, io, version.Version, "germinator")
+	f, err := cmdutil.BuildFactory(ctx, io)
 	if err != nil {
 		output.FormatError(io, err)
 		os.Exit(int(cmdutil.ExitCodeFor(err)))

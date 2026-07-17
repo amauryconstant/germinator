@@ -26,7 +26,7 @@ func outString(t *testing.T, ios *iostreams.IOStreams) string {
 
 // TestRunVersion covers the formatted output of runVersion. Per design
 // Decision 3b, runVersion reads from the internal/version package (set
-// via -ldflags), NOT from Factory.AppVersion.
+// via -ldflags); the Factory has no AppVersion field.
 func TestRunVersion(t *testing.T) {
 	t.Parallel()
 
@@ -87,7 +87,7 @@ func TestRunVersion(t *testing.T) {
 func TestNewCmdVersion_runFRoundTrip(t *testing.T) {
 	t.Parallel()
 	ios := iostreams.Test()
-	f := cmdutil.NewFactory(context.Background(), ios, "sentinel-app-version", "germinator")
+	f := cmdutil.NewFactory(context.Background(), ios)
 
 	var gotOpts *versionOptions
 	require.NoError(t, executeCmd(t, func() any {
@@ -102,30 +102,12 @@ func TestNewCmdVersion_runFRoundTrip(t *testing.T) {
 		"opts.IO should be the Factory's IOStreams")
 }
 
-// TestNewCmdVersion_AppVersionIgnored pins design Decision 3b: the
-// version subcommand reads from internal/version, NOT from
-// Factory.AppVersion. Setting AppVersion to a sentinel must not
-// influence the output.
-func TestNewCmdVersion_AppVersionIgnored(t *testing.T) {
-	t.Parallel()
-	ios := iostreams.Test()
-	_ = cmdutil.NewFactory(context.Background(), ios, "IGNORE-ME-SENTINEL", "germinator")
-
-	require.NoError(t, runVersion(&versionOptions{IO: ios}))
-	out := outString(t, ios)
-
-	assert.NotContains(t, out, "IGNORE-ME-SENTINEL",
-		"Factory.AppVersion sentinel must not appear in version output (Decision 3b)")
-	assert.Contains(t, out, "germinator",
-		"version output should always contain the binary name")
-}
-
 // TestNewCmdVersion_ExecuteExitCode0 confirms Cobra's Execute returns
 // nil (exit 0) for the version subcommand end-to-end.
 func TestNewCmdVersion_ExecuteExitCode0(t *testing.T) {
 	t.Parallel()
 	ios := iostreams.Test()
-	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), ios)
 	require.NoError(t, executeCmd(t, func() any {
 		cmd := NewCmdVersion(f, nil)
 		cmd.SetOut(&bytes.Buffer{}) // prevent help/version noise on stdout

@@ -151,10 +151,7 @@ func TestNewCmdRemove_Resource_ValidatesArgs(t *testing.T) {
 	}
 
 	ios, _, _ := newRemoveTestIO()
-	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
-	f.Library = func() (*library.Library, error) {
-		return library.LoadLibrary(context.Background(), t.TempDir())
-	}
+	f := cmdutil.NewFactory(context.Background(), ios)
 	require.NoError(t, executeCmd(t, func() any {
 		cmd := NewCmdRemove(f, nil, runF)
 		cmd.SetOut(&bytes.Buffer{})
@@ -183,10 +180,7 @@ func TestNewCmdRemove_Preset_ValidatesArgs(t *testing.T) {
 	}
 
 	ios, _, _ := newRemoveTestIO()
-	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
-	f.Library = func() (*library.Library, error) {
-		return library.LoadLibrary(context.Background(), t.TempDir())
-	}
+	f := cmdutil.NewFactory(context.Background(), ios)
 	require.NoError(t, executeCmd(t, func() any {
 		cmd := NewCmdRemove(f, nil, runF)
 		cmd.SetOut(&bytes.Buffer{})
@@ -212,7 +206,7 @@ func TestNewCmdRemove_Preset_ValidatesArgs(t *testing.T) {
 // mapping is a separate concern tracked outside this task.
 func TestNewCmdRemove_Resource_RequiresArg(t *testing.T) {
 	ios, _, _ := newRemoveTestIO()
-	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), ios)
 	err := executeCmd(t, func() any {
 		cmd := NewCmdRemove(f, nil, func(*removeOptions) error { return nil })
 		cmd.SetOut(&bytes.Buffer{})
@@ -227,7 +221,7 @@ func TestNewCmdRemove_Resource_RequiresArg(t *testing.T) {
 // T4 — Preset sub-command requires exactly 1 positional arg.
 func TestNewCmdRemove_Preset_RequiresArg(t *testing.T) {
 	ios, _, _ := newRemoveTestIO()
-	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), ios)
 	err := executeCmd(t, func() any {
 		cmd := NewCmdRemove(f, nil, func(*removeOptions) error { return nil })
 		cmd.SetOut(&bytes.Buffer{})
@@ -610,7 +604,7 @@ func TestNewCmdRemove_HasSubcommands(t *testing.T) {
 	t.Parallel()
 
 	ios := iostreams.Test()
-	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), ios)
 	cmd := NewCmdRemove(f, nil, func(*removeOptions) error { return nil })
 
 	var sawResource, sawPreset bool
@@ -635,7 +629,7 @@ func TestNewCmdRemove_ParentHasNoRun(t *testing.T) {
 	t.Parallel()
 
 	ios := iostreams.Test()
-	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), ios)
 	cmd := NewCmdRemove(f, nil, func(*removeOptions) error { return nil })
 	assert.Nil(t, cmd.RunE,
 		"parent library remove must not have a RunE (sub-commands handle dispatch)")
@@ -654,7 +648,7 @@ func TestNewCmdRemove_OutputFlagOnSubcommand(t *testing.T) {
 	}
 
 	ios, _, _ := newRemoveTestIO()
-	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), ios)
 	// Put --output AFTER the sub-command to exercise PersistentFlags
 	// inheritance (the spec's "JSON output" scenario).
 	require.NoError(t, executeCmd(t, func() any {

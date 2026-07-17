@@ -86,7 +86,7 @@ func TestNewCmdRefresh_ValidatesArgs(t *testing.T) {
 	}
 
 	ios, _, _ := newRefreshTestIO()
-	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), ios)
 	libPath := ""
 	require.NoError(t, executeCmd(t, func() any {
 		cmd := NewCmdRefresh(f, &libPath, runF)

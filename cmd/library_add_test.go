@@ -83,7 +83,7 @@ func TestNewCmdAdd_ValidatesArgs(t *testing.T) {
 	}
 
 	ios, _, _ := newAddTestIO()
-	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), ios)
 	libPath := ""
 	require.NoError(t, executeCmd(t, func() any {
 		cmd := NewCmdAdd(f, &libPath, runF)
@@ -113,7 +113,7 @@ func TestNewCmdAdd_ValidatesArgs(t *testing.T) {
 // cmdutil.ExitCodeFor maps the "requires at least" message to exit 2.
 func TestNewCmdAdd_RequiresDiscoverOrInput(t *testing.T) {
 	ios, _, _ := newAddTestIO()
-	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), ios)
 	libPath := ""
 	err := executeCmd(t, func() any {
 		cmd := NewCmdAdd(f, &libPath, func(*addOptions) error { return nil })
@@ -140,7 +140,7 @@ func TestNewCmdAdd_AcceptsDiscoverFlag(t *testing.T) {
 	}
 
 	ios, _, _ := newAddTestIO()
-	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), ios)
 	libPath := ""
 	require.NoError(t, executeCmd(t, func() any {
 		cmd := NewCmdAdd(f, &libPath, runF)
@@ -994,7 +994,7 @@ func TestRunAdd_RejectsLegacyJSONFlag(t *testing.T) {
 	t.Parallel()
 
 	ios, _, errOut := newAddTestIO()
-	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), ios)
 	libPath := ""
 	err := executeCmd(t, func() any {
 		cmd := NewCmdAdd(f, &libPath, nil)

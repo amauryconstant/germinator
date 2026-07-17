@@ -169,7 +169,7 @@ func TestNewCmdPresets_RunFInjectionCapturesOpts(t *testing.T) {
 	}
 
 	io := iostreams.Test()
-	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), io)
 	require.NoError(t, executeCmd(t, func() any {
 		cmd := NewCmdPresets(f, nil, runF)
 		cmd.SetOut(&bytes.Buffer{})
@@ -200,7 +200,7 @@ func TestNewCmdPresets_PassesLibraryFlagToLoader(t *testing.T) {
 	}
 
 	io := iostreams.Test()
-	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), io)
 
 	libraryFlag := fixtureRel
 	require.NoError(t, executeCmd(t, func() any {
@@ -227,7 +227,7 @@ func TestNewCmdPresets_HonorsOutputFlagValue(t *testing.T) {
 			}
 
 			io := iostreams.Test()
-			f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
+			f := cmdutil.NewFactory(context.Background(), io)
 			require.NoError(t, executeCmd(t, func() any {
 				cmd := NewCmdPresets(f, nil, runF)
 				cmd.SetOut(&bytes.Buffer{})

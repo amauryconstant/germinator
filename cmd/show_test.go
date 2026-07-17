@@ -298,7 +298,7 @@ func TestNewCmdShow_RunFInjectionCapturesOpts(t *testing.T) {
 	}
 
 	io := iostreams.Test()
-	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), io)
 	require.NoError(t, executeCmd(t, func() any {
 		cmd := NewCmdShow(f, nil, runF)
 		cmd.SetOut(&bytes.Buffer{})
@@ -326,7 +326,7 @@ func TestNewCmdShow_HonorsOutputFlagValue(t *testing.T) {
 			}
 
 			io := iostreams.Test()
-			f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
+			f := cmdutil.NewFactory(context.Background(), io)
 			require.NoError(t, executeCmd(t, func() any {
 				cmd := NewCmdShow(f, nil, runF)
 				cmd.SetOut(&bytes.Buffer{})
@@ -341,7 +341,7 @@ func TestNewCmdShow_HonorsOutputFlagValue(t *testing.T) {
 
 func TestNewCmdShow_OldJSONFlagIsRejected(t *testing.T) {
 	io := iostreams.Test()
-	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), io)
 
 	var buf bytes.Buffer
 	err := executeCmd(t, func() any {
@@ -372,7 +372,7 @@ func TestNewCmdShow_PassesLibraryFlagToLoader(t *testing.T) {
 	}
 
 	io := iostreams.Test()
-	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), io)
 
 	libraryFlag := fixtureRel
 	require.NoError(t, executeCmd(t, func() any {

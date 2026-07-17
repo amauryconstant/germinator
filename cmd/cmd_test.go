@@ -116,7 +116,7 @@ Command content`
 // matching the slice-2+ Factory.IOStreams pattern.
 func TestRootCommand_RunHelp(t *testing.T) {
 	ios := iostreams.Test()
-	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), ios)
 	rootCmd := NewRootCommand(f)
 	out := &bytes.Buffer{}
 	rootCmd.SetOut(out)

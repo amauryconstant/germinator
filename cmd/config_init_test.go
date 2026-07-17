@@ -56,7 +56,7 @@ func TestNewCmdConfigInit_ConstructorWiresOpts(t *testing.T) {
 	}
 
 	ios, _, _ := newConfigInitTestIO()
-	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), ios)
 	require.NoError(t, executeCmd(t, func() any {
 		cmd := NewCmdConfigInit(f, runF)
 		cmd.SetOut(&bytes.Buffer{})
@@ -223,7 +223,7 @@ func TestRunConfigInit_SuccessOnStdout(t *testing.T) {
 // now yields a Cobra usage error mapped to ExitCodeUsage (2).
 func TestRunConfigInit_RejectsLegacyOutputFlag(t *testing.T) {
 	ios, _, errOut := newConfigInitTestIO()
-	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), ios)
 	err := executeCmd(t, func() any {
 		cmd := NewCmdConfigInit(f, nil)
 		cmd.SetOut(&bytes.Buffer{})
@@ -265,7 +265,7 @@ func TestConfigInitOptions_StructShape(t *testing.T) {
 // future change might drop an AddCommand call.
 func TestNewConfigCommand_RegistersSubcommands(t *testing.T) {
 	ios, _, _ := newConfigInitTestIO()
-	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), ios)
 	cmd := NewConfigCommand(f)
 
 	// Both subcommands must be registered

@@ -65,7 +65,7 @@ func TestNewCmdCreatePreset_ValidatesArgs(t *testing.T) {
 	}
 
 	ios, _, _ := newCreatePresetTestIO()
-	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), ios)
 	libPath := ""
 	require.NoError(t, executeCmd(t, func() any {
 		cmd := NewCmdCreatePreset(f, &libPath, runF)
@@ -190,7 +190,7 @@ func TestRunCreatePreset_EmptyResourcesValue(t *testing.T) {
 // ExitCodeError (1).
 func TestNewCmdCreatePreset_RequiresResources(t *testing.T) {
 	ios, _, _ := newCreatePresetTestIO()
-	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), ios)
 	libPath := ""
 	err := executeCmd(t, func() any {
 		cmd := NewCmdCreatePreset(f, &libPath, func(*createPresetOptions) error { return nil })
@@ -432,7 +432,7 @@ func TestNewCmdCreatePreset_HelpOutput_NoOutputFlag(t *testing.T) {
 	t.Parallel()
 
 	ios := iostreams.Test()
-	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), ios)
 	cmd := NewCmdCreatePreset(f, nil, func(*createPresetOptions) error { return nil })
 
 	buf := &bytes.Buffer{}
@@ -452,7 +452,7 @@ func TestNewCmdCreatePreset_NoSubcommands(t *testing.T) {
 	t.Parallel()
 
 	ios := iostreams.Test()
-	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), ios)
 	cmd := NewCmdCreatePreset(f, nil, func(*createPresetOptions) error { return nil })
 
 	assert.Empty(t, cmd.Commands(),
@@ -469,7 +469,7 @@ func TestNewCmdCreate_ShowsPresetAsChild(t *testing.T) {
 	t.Parallel()
 
 	ios := iostreams.Test()
-	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), ios)
 	libPath := ""
 	cmd := NewCmdCreate(f, &libPath)
 

@@ -326,7 +326,7 @@ func TestNewCmdCanonicalize_RunFCapturesOpts(t *testing.T) {
 	}
 
 	io := iostreams.Test()
-	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), io)
 	require.NoError(t, executeCmd(t, func() any {
 		cmd := NewCmdCanonicalize(f, runF)
 		cmd.SetOut(&bytes.Buffer{})
@@ -344,7 +344,7 @@ func TestNewCmdCanonicalize_RunFCapturesOpts(t *testing.T) {
 
 func TestNewCmdCanonicalize_RequiresPlatformAndTypeFlags(t *testing.T) {
 	io := iostreams.Test()
-	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), io)
 	err := executeCmd(t, func() any {
 		cmd := NewCmdCanonicalize(f, func(*canonicalizeOptions) error { return nil })
 		cmd.SetOut(&bytes.Buffer{})
@@ -356,7 +356,7 @@ func TestNewCmdCanonicalize_RequiresPlatformAndTypeFlags(t *testing.T) {
 
 func TestNewCmdCanonicalize_RequiresTypeFlag(t *testing.T) {
 	io := iostreams.Test()
-	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), io)
 	err := executeCmd(t, func() any {
 		cmd := NewCmdCanonicalize(f, func(*canonicalizeOptions) error { return nil })
 		cmd.SetOut(&bytes.Buffer{})

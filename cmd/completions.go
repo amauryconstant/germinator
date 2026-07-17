@@ -89,12 +89,13 @@ func actionPlatforms(_ *cmdutil.Factory) carapace.Action {
 
 // loadLibraryForCompletion returns the library for libPath, consulting
 // the Factory's CompletionCache first. On cache miss it loads the
-// library directly via library.LoadLibrary (bypassing f.Library, which
-// uses sync.OnceValues and would permanently cache the first error),
-// wrapping f.RootContext with a per-lookup timeout. The cache stores
-// the successful result with a TTL so subsequent completions within
-// the TTL are fast. Errors (including timeouts) return nil so the
-// caller surfaces an empty completion rather than an error.
+// library directly via library.LoadLibrary (the Factory has no Library
+// lazy field — each lookup loads afresh so transient errors do not get
+// pinned in a sync.OnceValues cache), wrapping f.RootContext with a
+// per-lookup timeout. The cache stores the successful result with a TTL
+// so subsequent completions within the TTL are fast. Errors (including
+// timeouts) return nil so the caller surfaces an empty completion
+// rather than an error.
 //
 // cfg is loaded via the explicit nil-safe pattern (per task 5.1): if
 // f.Config is wired (production main.go path) and returns a non-nil

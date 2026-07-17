@@ -67,7 +67,7 @@ func writeLibraryFile(t *testing.T, yamlBody string, skills map[string]string) s
 func captureOptsViaRunF(t *testing.T, args []string) *libraryValidateOptions {
 	t.Helper()
 	io, _, _ := newLibraryValidateTestIO()
-	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), io)
 
 	captured := &libraryValidateOptions{}
 	require.NoError(t, executeCmd(t, func() any {
@@ -613,7 +613,7 @@ func TestNewCmdLibraryValidate_OldJSONFlagIsRejected(t *testing.T) {
 	t.Parallel()
 
 	io, _, _ := newLibraryValidateTestIO()
-	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), io)
 
 	var buf bytes.Buffer
 	err := executeCmd(t, func() any {

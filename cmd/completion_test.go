@@ -21,7 +21,7 @@ func TestNewCmdCompletion_RegistersAllShells(t *testing.T) {
 	t.Parallel()
 
 	ios := iostreams.Test()
-	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), ios)
 	withCmd(t, func() any { return NewCmdCompletion(f, nil) }, func(cmd *cobra.Command) {
 		names := map[string]bool{}
 		for _, sub := range cmd.Commands() {
@@ -47,7 +47,7 @@ func TestNewCmdCompletion_RunFInjection(t *testing.T) {
 	}
 
 	ios := iostreams.Test()
-	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), ios)
 	require.NoError(t, executeCmd(t, func() any {
 		cmd := NewCmdCompletion(f, runF)
 		cmd.SetOut(&bytes.Buffer{})
@@ -73,7 +73,7 @@ func TestRunCompletion_WritesSnippet(t *testing.T) {
 			t.Parallel()
 
 			ios := iostreams.Test()
-			f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
+			f := cmdutil.NewFactory(context.Background(), ios)
 			// runCompletion reads the per-shell leaf's Root() and
 			// calls carapace.Gen on it; both root construction and
 			// snippet generation mutate carapace's package-level

@@ -221,7 +221,7 @@ func TestNewCmdAdapt_RunFInjectionCapturesOpts(t *testing.T) {
 	}
 
 	io := iostreams.Test()
-	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), io)
 	require.NoError(t, executeCmd(t, func() any {
 		cmd := NewCmdAdapt(f, runF)
 		cmd.SetOut(&bytes.Buffer{})
@@ -239,7 +239,7 @@ func TestNewCmdAdapt_RunFInjectionCapturesOpts(t *testing.T) {
 
 func TestNewCmdAdapt_NilRunFFallsBackToProduction(t *testing.T) {
 	io := iostreams.Test()
-	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), io)
 
 	// NewCmdAdapt's production wiring constructs the Transformer
 	// lazily inside runAdapt via
@@ -261,7 +261,7 @@ func TestNewCmdAdapt_NilRunFFallsBackToProduction(t *testing.T) {
 
 func TestNewCmdAdapt_RequiresPlatformFlag(t *testing.T) {
 	io := iostreams.Test()
-	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), io)
 	err := executeCmd(t, func() any {
 		cmd := NewCmdAdapt(f, func(*adaptOptions) error { return nil })
 		cmd.SetOut(&bytes.Buffer{})

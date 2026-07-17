@@ -26,7 +26,7 @@ func TestLibraryCommand_Resources(t *testing.T) {
 	outBuf, ok := ios.Out.(*bytes.Buffer)
 	require.True(t, ok, "ios.Out must be a *bytes.Buffer")
 
-	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), ios)
 	require.NoError(t, executeCmd(t, func() any {
 		return NewLibraryCommand(f, nil)
 	}, "resources"))
@@ -45,7 +45,7 @@ func TestLibraryCommand_Presets(t *testing.T) {
 	outBuf, ok := ios.Out.(*bytes.Buffer)
 	require.True(t, ok, "io.Out must be a *bytes.Buffer")
 
-	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), ios)
 
 	var buf bytes.Buffer
 	require.NoError(t, executeCmd(t, func() any {
@@ -69,7 +69,7 @@ func TestLibraryCommand_Show(t *testing.T) {
 	outBuf, ok := ios.Out.(*bytes.Buffer)
 	require.True(t, ok, "io.Out must be a *bytes.Buffer")
 
-	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), ios)
 
 	var buf bytes.Buffer
 	require.NoError(t, executeCmd(t, func() any {
@@ -90,7 +90,7 @@ func TestLibraryCommand_InvalidRef(t *testing.T) {
 	t.Setenv("GERMINATOR_LIBRARY", absPath)
 
 	ios := iostreams.Test()
-	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), ios)
 
 	err = executeCmd(t, func() any {
 		return NewLibraryCommand(f, nil)

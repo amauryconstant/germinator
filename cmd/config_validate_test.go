@@ -67,7 +67,7 @@ func TestNewCmdConfigValidate_ConstructorWiresOpts(t *testing.T) {
 	}
 
 	ios, _, _ := newConfigValidateTestIO()
-	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), ios)
 	require.NoError(t, executeCmd(t, func() any {
 		cmd := NewCmdConfigValidate(f, runF)
 		cmd.SetOut(&bytes.Buffer{})
@@ -200,7 +200,7 @@ func TestRunConfigValidate_SuccessOnStdout(t *testing.T) {
 // now yields a Cobra usage error mapped to ExitCodeUsage (2).
 func TestRunConfigValidate_RejectsLegacyOutputFlag(t *testing.T) {
 	ios, _, errOut := newConfigValidateTestIO()
-	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), ios)
 	err := executeCmd(t, func() any {
 		cmd := NewCmdConfigValidate(f, nil)
 		cmd.SetOut(&bytes.Buffer{})

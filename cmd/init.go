@@ -48,10 +48,9 @@ type initOptions struct {
 // NewCmdInit creates the `init` command via the canonical
 // NewCmdXxx(f, runF) pattern. Migrated in slice 5.
 //
-// RunE populates opts from f.IOStreams, f.Library, c.Context(), and
-// the parsed flags, then dispatches to runF or runInit. Test
-// injection: tests pass a non-nil runF to capture options without
-// invoking runInit.
+// RunE populates opts from f.IOStreams, c.Context(), and the parsed
+// flags, then dispatches to runF or runInit. Test injection: tests pass
+// a non-nil runF to capture options without invoking runInit.
 func NewCmdInit(f *cmdutil.Factory, runF func(*initOptions) error) *cobra.Command {
 	var (
 		platform    string

@@ -15,25 +15,23 @@ func TestFactoryEagerFields(t *testing.T) {
 	t.Parallel()
 
 	io := iostreams.Test()
-	f := NewFactory(context.Background(), io, "1.2.3", "germinator")
+	f := NewFactory(context.Background(), io)
 	assert.Equal(t, io, f.IOStreams)
-	assert.Equal(t, "1.2.3", f.AppVersion)
-	assert.Equal(t, "germinator", f.Executable)
 	assert.NotNil(t, f.RootContext)
 	f.Close()
 }
 
-// TestFactory_OnlyConfigAndLibraryAreLazyFields enforces the
+// TestFactory_OnlyConfigIsLazyField enforces the
 // cli-cli-factory/spec.md "No additional lazy service fields" scenario
-// via reflection: the Factory struct MUST expose exactly Config and
-// Library as func()-typed EXPORTED fields. Adding Transformer, Validator,
+// via reflection: the Factory struct MUST expose exactly Config as a
+// func()-typed EXPORTED field. Adding Library, Transformer, Validator,
 // Canonicalizer, or Initializer would fail this test.
 //
 // Note: rootCancel is an unexported context.CancelFunc for the Factory's
 // internal Close() lifecycle. Unexported fields are ignored — only
 // exported func fields are subject to the contract (callers cannot
 // depend on unexported fields anyway).
-func TestFactory_OnlyConfigAndLibraryAreLazyFields(t *testing.T) {
+func TestFactory_OnlyConfigIsLazyField(t *testing.T) {
 	t.Parallel()
 
 	factoryType := reflect.TypeOf(Factory{})
@@ -49,14 +47,13 @@ func TestFactory_OnlyConfigAndLibraryAreLazyFields(t *testing.T) {
 		lazyFuncs = append(lazyFuncs, f.Name)
 	}
 
-	assert.ElementsMatch(t, []string{"Config", "Library"}, lazyFuncs,
-		"Factory MUST expose exactly Config and Library as lazy func() fields")
+	assert.ElementsMatch(t, []string{"Config"}, lazyFuncs,
+		"Factory MUST expose exactly Config as a lazy func() field")
 }
 
-// TestFactory_LazyFieldTypes verifies the func signatures of the
-// allowed lazy fields so a future type change to either field is
-// caught at test time.
-func TestFactory_LazyFieldTypes(t *testing.T) {
+// TestFactory_LazyFieldType verifies the func signature of the
+// Config lazy field so a future type change is caught at test time.
+func TestFactory_LazyFieldType(t *testing.T) {
 	t.Parallel()
 
 	factoryType := reflect.TypeOf(Factory{})
@@ -65,9 +62,4 @@ func TestFactory_LazyFieldTypes(t *testing.T) {
 	require.True(t, ok, "Factory MUST have a Config field")
 	assert.Equal(t, "func() (*config.Config, error)", configField.Type.String(),
 		"Factory.Config MUST be func() (*config.Config, error)")
-
-	libraryField, ok := factoryType.FieldByName("Library")
-	require.True(t, ok, "Factory MUST have a Library field")
-	assert.Equal(t, "func() (*library.Library, error)", libraryField.Type.String(),
-		"Factory.Library MUST be func() (*library.Library, error)")
 }

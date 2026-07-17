@@ -69,9 +69,9 @@ Example:
 			opts.IO = f.IOStreams
 			opts.Ctx = c.Context()
 			// Resolve library path per invocation so changes to
-			// --library between calls are respected (the Factory's
-			// f.Library uses the env var only; the --library flag
-			// is parent-persistent and lives on libraryPath).
+			// --library between calls are respected (the Factory has
+			// no Library lazy field; the --library flag is parent-
+			// persistent and lives on libraryPath).
 			lp := ""
 			if libraryPath != nil {
 				lp = *libraryPath
@@ -113,6 +113,11 @@ func runResources(opts *libraryResourcesOptions) error {
 	switch opts.Output {
 	case "json":
 		rows := flattenResources(lib)
+		// Project decision: emit wrapped-object shape (`{"resources": [...]}`)
+		// rather than the skill's top-level array default. Documented in
+		// openspec/specs/library-library-json-output/spec.md so future
+		// contributors see the rationale (cross-command shape consistency,
+		// room for future sibling fields like metadata/presets).
 		if err := output.NewJSONExporter().Write(opts.IO, struct {
 			Resources []resourcesRow `json:"resources"`
 		}{Resources: rows}); err != nil {

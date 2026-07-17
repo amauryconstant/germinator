@@ -405,7 +405,7 @@ func TestRunInit_RefsAndPresetMutex(t *testing.T) {
 // TestNewCmdInit_RunFInjectionCapturesOpts — slice-7 simplified: the
 // f.Initializer lazy field and opts.Initializer lazy field both
 // removed. The constructor's only remaining wiring is f.IOStreams,
-// f.Library, c.Context(), and the parsed flags.
+// c.Context(), and the parsed flags.
 func TestNewCmdInit_RunFInjectionCapturesOpts(t *testing.T) {
 	var captured *initOptions
 	runF := func(opts *initOptions) error { //nolint:unparam // runF is a test callback; success is the only meaningful return
@@ -414,7 +414,7 @@ func TestNewCmdInit_RunFInjectionCapturesOpts(t *testing.T) {
 	}
 
 	io := iostreams.Test()
-	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), io)
 	require.NoError(t, executeCmd(t, func() any {
 		cmd := NewCmdInit(f, runF)
 		cmd.SetOut(&bytes.Buffer{})
@@ -452,7 +452,7 @@ func TestNewCmdInit_OutputDirFlagWiredToOpts(t *testing.T) {
 		return nil
 	}
 
-	f := cmdutil.NewFactory(context.Background(), iostreams.Test(), "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), iostreams.Test())
 	require.NoError(t, executeCmd(t, func() any {
 		cmd := NewCmdInit(f, runF)
 		cmd.SetOut(&bytes.Buffer{})
@@ -481,7 +481,7 @@ func TestNewCmdInit_PresetFlagWiredToOpts(t *testing.T) {
 		return nil
 	}
 
-	f := cmdutil.NewFactory(context.Background(), iostreams.Test(), "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), iostreams.Test())
 	require.NoError(t, executeCmd(t, func() any {
 		cmd := NewCmdInit(f, runF)
 		cmd.SetOut(&bytes.Buffer{})
@@ -496,7 +496,7 @@ func TestNewCmdInit_PresetFlagWiredToOpts(t *testing.T) {
 // Constructor with nil runF falls back to production runInit.
 func TestNewCmdInit_NilRunFFallsBackToProduction(t *testing.T) {
 	io := iostreams.Test()
-	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), io)
 	err := executeCmd(t, func() any {
 		cmd := NewCmdInit(f, nil)
 		cmd.SetOut(&bytes.Buffer{})
@@ -512,7 +512,7 @@ func TestNewCmdInit_NilRunFFallsBackToProduction(t *testing.T) {
 
 // Constructor requires --platform.
 func TestNewCmdInit_RequiresPlatformFlag(t *testing.T) {
-	f := cmdutil.NewFactory(context.Background(), iostreams.Test(), "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), iostreams.Test())
 	err := executeCmd(t, func() any {
 		cmd := NewCmdInit(f, func(*initOptions) error { return nil })
 		cmd.SetOut(&bytes.Buffer{})
@@ -587,7 +587,7 @@ func TestInitLibrary_HonorsExplicitPath(t *testing.T) {
 	tmp := t.TempDir()
 
 	io := iostreams.Test()
-	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), io)
 
 	// Mirror the RunE inline closure pattern (Phase 1: per-RunE
 	// lazy loader built from f.Config + FindLibrary).
@@ -617,7 +617,7 @@ func TestInitLibrary_HonorsExplicitPath(t *testing.T) {
 func TestNewCmdInit_HelpOutput_ListsFlags(t *testing.T) {
 	t.Parallel()
 
-	f := cmdutil.NewFactory(context.Background(), iostreams.Test(), "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), iostreams.Test())
 	withCmd(t, func() any {
 		return NewCmdInit(f, func(*initOptions) error { return nil })
 	}, func(cmd *cobra.Command) {

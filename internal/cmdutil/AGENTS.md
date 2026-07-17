@@ -12,7 +12,7 @@ Lazy DI (`Factory`), per-Factory completion cache, exit-code mapping, and shared
 
 | File | Purpose |
 |------|---------|
-| `factory.go` | `Factory` struct (eager `IOStreams`/`AppVersion`/`Executable`/`RootContext`/`CompletionCache`; lazy `func() (T, error)` fields for `Config`/`Library`); `NewFactory(ctx, io, ver, exe)`; `BuildFactory(ctx, io, ver, exe)` — eagerly loads `Config` and creates the `CompletionCache`; `Close()`; `OnceValuesFunc[T]` helper; `swapConfigLoadForTest` test seam (mutex-protected package-level swap of the config loader, used via `t.Cleanup`) |
+| `factory.go` | `Factory` struct (eager `IOStreams`/`RootContext`/`CompletionCache`; lazy `func() (T, error)` field for `Config`); `NewFactory(ctx, io)`; `BuildFactory(ctx, io)` — eagerly loads `Config` and creates the `CompletionCache`; `Close()`; `OnceValuesFunc[T]` helper; `swapConfigLoadForTest` test seam (mutex-protected package-level swap of the config loader, used via `t.Cleanup`) |
 | `completion_cache.go` | `CompletionCache` type — per-Factory TTL cache for shell-completion library snapshots; `Get`/`Set`/`Reset`/`Invalidate` (concurrency-safe) |
 | `exit.go` | `ExitCode` (`int`), `ExitCodeSuccess=0`/`ExitCodeError=1`/`ExitCodeUsage=2`; `ExitCodeFor(err)` via typed `errors.As` dispatch on `*pflag.{NotExist,ValueRequired,InvalidValue,InvalidSyntax}Error`, `*core.{Usage,CobraUsage}Error` (both → 2), `*core.NotFoundError` (1), `*core.PartialSuccessError` (0 if `Succeeded>0`, else 1), `*config.WriteError` (1); default `ExitCodeError` |
 | `factory_test.go` | Lazy caching, cross-field caching, concurrent first-call, transient-error caching, `BuildFactory` wiring |
@@ -22,8 +22,8 @@ Lazy DI (`Factory`), per-Factory completion cache, exit-code mapping, and shared
 
 ## Key Surface
 
-- `NewFactory(ctx, io, appVersion, executable)` — eager values only; the lazy `Config`/`Library` fields are nil at return; `BuildFactory` is the post-`NewFactory` constructor used by `main.go`.
-- `BuildFactory(ctx, io, appVersion, executable)` — assigns `CompletionCache = NewCompletionCache()`, wraps `config.Load` in `OnceValuesFunc` for `Config`, eagerly calls `f.Config()` to surface I/O errors, and activates `io.SetDebug(cfg.Debug)`. `Library` remains nil.
+- `NewFactory(ctx, io)` — eager values only; the lazy `Config` field is nil at return; `BuildFactory` is the post-`NewFactory` constructor used by `main.go`.
+- `BuildFactory(ctx, io)` — assigns `CompletionCache = NewCompletionCache()`, wraps `config.Load` in `OnceValuesFunc` for `Config`, eagerly calls `f.Config()` to surface I/O errors, and activates `io.SetDebug(cfg.Debug)`.
 - `Factory.Close()` — cancels `RootContext` (caller is `main.go`)
 - `Factory.CompletionCache` — `*CompletionCache`; `Invalidate()` is called by every mutating library command (`runAdd`, `runRemove`, `runCreate`, `runLibraryInit`, `runRefresh`, `runLibraryValidate`) so the next completion reflects the new state
 - `NewCompletionCache()` — fresh cache; populated once in `main.go`

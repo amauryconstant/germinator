@@ -252,7 +252,7 @@ func TestNewCmdValidate_RunFCapturesOpts(t *testing.T) {
 	}
 
 	io := iostreams.Test()
-	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), io)
 	require.NoError(t, executeCmd(t, func() any {
 		cmd := NewCmdValidate(f, runF)
 		cmd.SetOut(&bytes.Buffer{})
@@ -269,7 +269,7 @@ func TestNewCmdValidate_RunFCapturesOpts(t *testing.T) {
 
 func TestNewCmdValidate_RequiresPlatformFlag(t *testing.T) {
 	io := iostreams.Test()
-	f := cmdutil.NewFactory(context.Background(), io, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), io)
 	err := executeCmd(t, func() any {
 		cmd := NewCmdValidate(f, func(*validateOptions) error { return nil })
 		cmd.SetOut(&bytes.Buffer{})

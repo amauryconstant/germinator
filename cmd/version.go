@@ -12,10 +12,9 @@ import (
 )
 
 // versionOptions holds the runtime state for a `version` invocation.
-// Per design Decision 3b, runVersion reads from the internal/version
-// package (set via -ldflags at build time), NOT from Factory.AppVersion
-// — AppVersion remains a short-form string used elsewhere; the version
-// subcommand is the authoritative detailed view.
+// runVersion reads from the internal/version package (set via -ldflags
+// at build time); the Factory no longer carries an AppVersion field —
+// the version subcommand is the authoritative detailed view.
 type versionOptions struct {
 	IO  *iostreams.IOStreams
 	Ctx context.Context

@@ -64,7 +64,7 @@ func TestNewCmdLibraryInit_ConstructorWiresOpts(t *testing.T) {
 	}
 
 	ios, _, _ := newLibraryInitTestIO()
-	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), ios)
 	require.NoError(t, executeCmd(t, func() any {
 		cmd := NewCmdLibraryInit(f, runF)
 		cmd.SetOut(&bytes.Buffer{})
@@ -300,7 +300,7 @@ func TestRunLibraryInit_Cancellation(t *testing.T) {
 // to ExitCodeUsage (2).
 func TestRunLibraryInit_RejectsLegacyJSONFlag(t *testing.T) {
 	ios, _, errOut := newLibraryInitTestIO()
-	f := cmdutil.NewFactory(context.Background(), ios, "test", "germinator")
+	f := cmdutil.NewFactory(context.Background(), ios)
 	err := executeCmd(t, func() any {
 		cmd := NewCmdLibraryInit(f, nil)
 		cmd.SetOut(&bytes.Buffer{})

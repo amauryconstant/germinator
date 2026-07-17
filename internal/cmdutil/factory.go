@@ -5,31 +5,22 @@ package cmdutil
 
 import (
 	"context"
-	"os"
-	"os/signal"
 	"sync"
-	"syscall"
 
 	"gitlab.com/amoconst/germinator/internal/config"
 	"gitlab.com/amoconst/germinator/internal/iostreams"
-	"gitlab.com/amoconst/germinator/internal/library"
 )
 
 // Factory is the only composition root in the new CLI architecture.
-// Eager values (IOStreams, AppVersion, Executable, RootContext) are
-// populated at construction. All other dependencies are exposed as
-// lazy function fields that callers are expected to wrap in
-// sync.OnceValues before assigning to the Factory.
+// Eager values (IOStreams, RootContext) are populated at construction.
+// All other dependencies are exposed as lazy function fields that
+// callers are expected to wrap in sync.OnceValues before assigning
+// to the Factory.
 type Factory struct {
 	IOStreams   *iostreams.IOStreams
-	AppVersion  string
-	Executable  string
 	RootContext context.Context
 
-	rootCancel context.CancelFunc
-
-	Config  func() (*config.Config, error)
-	Library func() (*library.Library, error)
+	Config func() (*config.Config, error)
 
 	// CompletionCache memoizes library snapshots for shell completion
 	// lookups with a per-entry TTL. Populated in main.go; each Factory
@@ -38,31 +29,26 @@ type Factory struct {
 }
 
 // NewFactory constructs a Factory with eager values populated. The
-// signal-aware context is supplied by the caller (typically
-// signal.NotifyContext in main.go) so the composition root owns the
-// context lifecycle; Factory.Close cancels the same context. Lazy
-// function fields are left nil and must be assigned by main.go (the
-// only composition root) using OnceValuesFunc wrappers.
-func NewFactory(ctx context.Context, io *iostreams.IOStreams, appVersion, executable string) *Factory {
-	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+// caller supplies the (already signal-aware) context — typically
+// signal.NotifyContext in main.go — and is therefore the sole owner
+// of the context lifecycle. NewFactory does NOT re-wrap with
+// signal.NotifyContext; doing so previously created a double-wrap
+// that contradicted the package's own contract and made every
+// cmdutil.NewFactory() call register a second signal handler
+// (N4/N17 in the architecture review).
+func NewFactory(ctx context.Context, io *iostreams.IOStreams) *Factory {
 	return &Factory{
 		IOStreams:   io,
-		AppVersion:  appVersion,
-		Executable:  executable,
 		RootContext: ctx,
-		rootCancel:  cancel,
 	}
 }
 
-// Close releases Factory-owned resources. Currently this cancels the
-// root context so signal-driven cleanup propagates to consumers.
+// Close releases Factory-owned resources. Currently a nil-safe
+// no-op preserved as the API surface for future Factory-owned
+// resources; the root context's cancellation lifecycle is owned by
+// main.go, not by the Factory.
 func (f *Factory) Close() {
-	if f == nil {
-		return
-	}
-	if f.rootCancel != nil {
-		f.rootCancel()
-	}
+	_ = f
 }
 
 // configLoadForTest is a package-level seam for BuildFactory tests.
@@ -99,7 +85,7 @@ func swapConfigLoadForTest(fn func() (*config.Config, error)) func() {
 	}
 }
 
-// BuildFactory wires the lazy Factory dependencies (Config, Library,
+// BuildFactory wires the lazy Factory dependencies (Config,
 // CompletionCache) in a single testable function. It returns a
 // fully-wired Factory plus any error from the first config load. main.go
 // remains the only place that translates errors to exit codes via
@@ -108,8 +94,8 @@ func swapConfigLoadForTest(fn func() (*config.Config, error)) func() {
 // Side effect: activates debug logging on io via IOStreams.SetDebug
 // when cfg.Debug is true (the env-driven GERMINATOR_DEBUG flows through
 // koanf → cfg.Debug → SetDebug, single source of truth).
-func BuildFactory(ctx context.Context, io *iostreams.IOStreams, appVersion, executable string) (*Factory, error) {
-	f := NewFactory(ctx, io, appVersion, executable)
+func BuildFactory(ctx context.Context, io *iostreams.IOStreams) (*Factory, error) {
+	f := NewFactory(ctx, io)
 	f.CompletionCache = NewCompletionCache()
 
 	// Config is wired through OnceValuesFunc so subsequent calls from
@@ -128,10 +114,6 @@ func BuildFactory(ctx context.Context, io *iostreams.IOStreams, appVersion, exec
 	// Activate debug logging based on the loaded config.
 	io.SetDebug(cfg.Debug)
 
-	// Library is reserved for future per-Factory lazy loading; each
-	// RunE currently builds its own opts.Library closure from
-	// c.Context(). See cli-cli-factory/spec.md for the field-presence
-	// contract.
 	return f, nil
 }
 
