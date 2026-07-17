@@ -1,6 +1,6 @@
 # Tasks — Harden tests and coverage
 
-The 17 findings from the 2026-07-08 code review ship in **one PR with 6 atomic phases** (each commit is independently testable). The D-001 hotfix (`cmd/lint_test.go:19` `t.Parallel()` removal) lands separately, before this OpenSpec change, and is documented in `proposal.md` Phase 0 only.
+The 17 findings from the 2026-07-08 code review ship in **one PR with 6 atomic phases** (each commit is independently testable). The D-001 hotfix (`cmd/lint_test.go:19` `t.Parallel()` removal) was originally planned to land separately, before this OpenSpec change, and was documented in `proposal.md` Phase 0. Per the test-compliance review surfaced during `/osc-verify`, the D-001 hotfix is **reconciled by the non-normative note on `testing-e2e-testing/spec.md`** Scenario "cmd.Execute() tests are sequential": `exec.Command(...)` shell-out tests are exempt from the sequential constraint because they do not call Cobra's `AddCommand` / `OnInitialize` machinery in the test process. No code change is required.
 
 ## 1. Phase 1 — Adapter contract + singleton + typed constants
 

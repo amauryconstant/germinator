@@ -14,6 +14,14 @@ The `t.Parallel()` annotation in cmd-side tests SHALL only be used when the test
 - **THEN** the test SHALL NOT use `t.Parallel()`
 - **AND** sibling tests in the same package SHALL run sequentially with respect to it
 
+> **Note (non-normative):** tests that shell out via `exec.Command(...)` to
+> subprocesses (e.g., `cmd/lint_test.go:TestLintBaseline` shells out to
+> `mise run lint`; `cmd/lint_test.go:TestNoNewForbidigoPatterns` shells out
+> to `go list ...`) are NOT in-process callers of Cobra's `AddCommand` /
+> `OnInitialize` machinery, and therefore remain eligible for `t.Parallel()`.
+> The pre-change `tasks.md:3` D-001 hotfix claim is reconciled by this note
+> (Phase 0 was a documentation error, not a code change).
+
 #### Scenario: Race detector passes
 
 - **WHEN** `go test -race -count=1 ./...` is run
