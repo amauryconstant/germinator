@@ -87,6 +87,8 @@ linters:
         - pattern: 'var global(Factory|CommandConfig)'
         - pattern: 'SetGlobal(Factory|CommandConfig)'
         - pattern: 'context\.Background\(\)'
+        - pattern: 'var (defaultAdder|outputFormat|initOutputFormat|outputFormatRefresh|completionShells|errEmptyResources)\b'
+          msg: 'package-level mutable variables are forbidden per cmd/AGENTS.md:46'
     nolintlint:
       require-explanation: true
       require-specific: true

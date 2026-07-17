@@ -161,19 +161,19 @@ Per `golang-testing` Best Practice 4: independent tests SHOULD use `t.Parallel()
 
 ## 6. Phase 6 — Trivial folds
 
-- [ ] 6.1 In `.golangci.yml:87`, widen the forbidigo pattern:
+- [x] 6.1 In `.golangci.yml:87`, widen the forbidigo pattern:
   ```yaml
   forbidigo:
     patterns:
       - pattern: 'var (defaultAdder|outputFormat|initOutputFormat|outputFormatRefresh|completionShells|errEmptyResources)\b'
         msg: 'package-level mutable variables are forbidden per cmd/AGENTS.md:46'
   ```
-- [ ] 6.2 In `cmd/library_add.go:120`, replace `var defaultAdder resourceAdder` with a per-options field `defaultAdder` (or use a constant if the value is immutable).
-- [ ] 6.3 In `cmd/library_add.go`, replace `var outputFormat` with a per-options field. In `cmd/library_init.go`, replace `var initOutputFormat` with a per-options field.
-- [ ] 6.4 In `cmd/library_refresh.go`, replace `var outputFormatRefresh` with a per-options field.
-- [ ] 6.5 In `cmd/completion.go`, replace `var completionShells` with a per-command constant or per-options field.
-- [ ] 6.6 In `cmd/library_create.go:67`, migrate the package-level `var errEmptyResources = core.NewUsageError(...)` to an inline construction inside `runCreatePreset`. At the return site around `cmd/library_create.go:173`, return `core.NewUsageError("--resources", "must be non-empty list of refs")` directly; delete the `var errEmptyResources` declaration. The `enforce-error-discipline` change does not need to revisit this file.
-- [ ] 6.7 In `cmd/lint_test.go:96` (`TestNoNewForbidigoPatterns`), replace the hard-coded `[]string{"adapt.go", "resources.go", "presets.go", "show.go"}` slice with a dynamic file list. The `go list ./cmd` invocation alone returns the package import path, not file names — use the GoFiles template instead:
+- [x] 6.2 In `cmd/library_add.go:120`, replace `var defaultAdder resourceAdder` with a per-options field `defaultAdder` (or use a constant if the value is immutable). **[no-op — `defaultAdder` already migrated in earlier slice; not present in the codebase]**
+- [x] 6.3 In `cmd/library_add.go`, replace `var outputFormat` with a per-options field. In `cmd/library_init.go`, replace `var initOutputFormat` with a per-options field. **[no-op — neither exists; the only `outputFormat` is `var outputFormat string` inside `NewCmdValidate` (cmd/library_validate.go:76), which is a per-command local — the desired state]**
+- [x] 6.4 In `cmd/library_refresh.go`, replace `var outputFormatRefresh` with a per-options field. **[no-op — already migrated]**
+- [x] 6.5 In `cmd/completion.go`, replace `var completionShells` with a per-command constant or per-options field.
+- [x] 6.6 In `cmd/library_create.go:67`, migrate the package-level `var errEmptyResources = core.NewUsageError(...)` to an inline construction inside `runCreatePreset`. At the return site around `cmd/library_create.go:173`, return `core.NewUsageError("--resources", "must be non-empty list of refs")` directly; delete the `var errEmptyResources` declaration. The `enforce-error-discipline` change does not need to revisit this file.
+- [x] 6.7 In `cmd/lint_test.go:96` (`TestNoNewForbidigoPatterns`), replace the hard-coded `[]string{"adapt.go", "resources.go", "presets.go", "show.go"}` slice with a dynamic file list. The `go list ./cmd` invocation alone returns the package import path, not file names — use the GoFiles template instead:
   ```go
   out, _ := exec.Command("go", "list", "-f", "{{range .GoFiles}}{{.}}\n{{end}}", "./cmd").Output()
   nonTestFiles := lo.Filter(
@@ -182,9 +182,21 @@ Per `golang-testing` Best Practice 4: independent tests SHOULD use `t.Parallel()
   )
   ```
   This emits one filename per line; the `lo.Filter` call (or equivalent hand-written filter) excludes test files since forbidigo runs against production code.
-- [ ] 6.8 Run `golangci-lint run --verbose` to verify the widened forbidigo pattern catches exactly 6 declarations (`defaultAdder`, `outputFormat`, `initOutputFormat`, `outputFormatRefresh`, `completionShells`, `errEmptyResources`) with zero false positives.
-- [ ] 6.9 Run `mise run lint` — must report 0 issues.
-- [ ] 6.10 Run `mise run check` — full validation passes.
+- [x] 6.8 Run `golangci-lint run --verbose` to verify the widened forbidigo pattern catches exactly 6 declarations (`defaultAdder`, `outputFormat`, `initOutputFormat`, `outputFormatRefresh`, `completionShells`, `errEmptyResources`) with zero false positives.
+- [x] 6.9 Run `mise run lint` — must report 0 issues.
+- [x] 6.10 Run `mise run check` — full validation passes.
+
+### Phase 6 implementation notes (artifact deviations from proposal)
+
+- **6.2/6.3/6.4 — four vars were already migrated**: the proposal assumes `defaultAdder`, `outputFormat`, `initOutputFormat`, and `outputFormatRefresh` exist as package-level vars in `cmd/`. None do (verified by `grep -rn "^var \(defaultAdder\|outputFormat\|initOutputFormat\|outputFormatRefresh\)" cmd/`). They were eliminated in earlier slices (likely `enforce-cmd-pattern`, `enforce-error-discipline`, `no-globals`). Tasks marked complete as no-ops; no production code changed.
+
+- **6.5 — `var completionShells` migrated to `func shells() []string`**: Go does not allow `const` of slice/array literal types at package level, so per the proposal's "per-command constant or per-options field" guidance, I introduced a private `func shells() []string` returning a fresh slice on each call. This satisfies the "no package-level mutable state" rule (callers cannot mutate the source-of-truth storage) while keeping the existing test API stable (`len(shells())` instead of `len(completionShells)`). Three call sites updated: `cmd/completion.go:115` (production), `cmd/completion_test.go:30/33/70` (tests).
+
+- **6.6 — `errEmptyResources` migrated to inline construction**: deletion of the `var errEmptyResources = core.NewUsageError(...)` declaration at `cmd/library_create.go:67` and replacement of the single return site (`return errEmptyResources`) with `return core.NewUsageError(...)`. The 11-line doc-comment block above the var (explaining the Phase 3.12 migration) was deleted because the name no longer exists in the package; the doc-comment at the call site (in `runCreatePreset`) was updated to refer to "inline `core.NewUsageError`" instead of the var. The `revive` linter's `package-comments` rule flagged the now-orphaned block in the catch-up lint pass; resolved by deletion.
+
+- **6.7 — `go list` CWD adjustment**: the proposal shows `go list -f "..." ./cmd`, but `go test`'s test binary runs with CWD set to the package directory (`cmd/`), so `./cmd` resolves to `cmd/cmd/` and `go list` exits 1. Replaced `./cmd` with `.` (current package), so the test binary's inherited CWD resolves correctly. Also captured and surfaced the `err` from `exec.Command` (proposal code used `_` to discard the error, which would have allowed a broken `go list` to silently pass the test). Hand-rolled the non-test file filter (the proposal uses `lo.Filter`, but `samber/lo` is not yet a `cmd/` dependency, and a 3-line `for` loop is equivalent). Added a `len(files) == 0` guard to fail loudly if `go list` returns an empty list.
+
+- **6.8 — widened forbidigo matches 0 declarations, not 6**: the proposal expected 6 matches against the pre-migration code. After migrating `completionShells` (6.5) and `errEmptyResources` (6.6), the matched set is empty. The pattern remains in `.golangci.yml` as a regression guard against future re-introduction of these names (and the 4 names already eliminated by prior slices, which catch any drift there too).
 
 ## 7. Goroutine leak detection
 

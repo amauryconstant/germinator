@@ -83,40 +83,53 @@ func readFile(p string) ([]byte, error) {
 }
 
 // TestNoNewForbidigoPatterns is a regression smoke test for the slice-2
-// migration: ensure the migrated pilot commands (cmd/adapt.go and
-// cmd/resources.go) do not re-introduce forbidden patterns like
-// `fmt.Fprintf(os.Stdout|Stderr)` or `os.Exit(`. The check is
-// grep-based so it does not require a full golangci-lint run.
+// migration: ensure the cmd package does not re-introduce forbidden
+// patterns like `fmt.Fprintf(os.Stdout|Stderr)` or `os.Exit(`. The
+// check is grep-based so it does not require a full golangci-lint run
+// and complements the lint baseline test above.
+//
+// As of Phase 6 the file list is computed dynamically via `go list
+// -f '{{range .GoFiles}}{{.}}\n{{end}}' ./cmd` so adding new commands
+// (e.g., a future cmd/foo.go) does not require updating this test.
+// Test files (`*_test.go`) are excluded because the lint baseline
+// gates production code only.
 //
 // If a new intentional pattern is added (e.g., a debug print during
 // refactoring), update this test alongside the change. It is NOT a
-// replacement for the lint baseline test above; it complements it by
-// catching the specific patterns that the forbidigo linter enforces
-// for the pilot commands without depending on golangci-lint's binary.
+// replacement for the lint baseline test above.
 func TestNoNewForbidigoPatterns(t *testing.T) {
 	t.Parallel()
 
-	patterns := []struct {
-		path    string
-		pattern string
-	}{
-		{path: "adapt.go", pattern: `fmt\.Fprintf\(os\.`},
-		{path: "adapt.go", pattern: `os\.Exit\(`},
-		{path: "resources.go", pattern: `fmt\.Fprintf\(os\.`},
-		{path: "resources.go", pattern: `os\.Exit\(`},
-		{path: "presets.go", pattern: `fmt\.Fprintf\(os\.`},
-		{path: "presets.go", pattern: `os\.Exit\(`},
-		{path: "show.go", pattern: `fmt\.Fprintf\(os\.`},
-		{path: "show.go", pattern: `os\.Exit\(`},
+	out, err := exec.Command("go", "list", "-f",
+		"{{range .GoFiles}}{{.}}\n{{end}}", ".").Output()
+	if err != nil {
+		t.Fatalf("go list .GoFiles: %v", err)
+	}
+	var files []string
+	for _, f := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if f == "" || strings.HasSuffix(f, "_test.go") {
+			continue
+		}
+		files = append(files, f)
+	}
+	if len(files) == 0 {
+		t.Fatalf("go list returned no production .go files; cannot enforce patterns")
 	}
 
-	for _, p := range patterns {
-		data, err := os.ReadFile(p.path)
+	forbidPatterns := []string{
+		`fmt\.Fprintf\(os\.`,
+		`os\.Exit\(`,
+	}
+
+	for _, file := range files {
+		data, err := os.ReadFile(file)
 		if err != nil {
-			t.Fatalf("read %s: %v", p.path, err)
+			t.Fatalf("read %s: %v", file, err)
 		}
-		if regexp.MustCompile(p.pattern).Match(data) {
-			t.Errorf("%s contains forbidden pattern %q; use opts.IO.Out/ErrOut instead of os.Stdout/Stderr, and use cmdutil.ExitCodeFor instead of os.Exit", p.path, p.pattern)
+		for _, pat := range forbidPatterns {
+			if regexp.MustCompile(pat).Match(data) {
+				t.Errorf("%s contains forbidden pattern %q; use opts.IO.Out/ErrOut instead of os.Stdout/Stderr, and use cmdutil.ExitCodeFor instead of os.Exit", file, pat)
+			}
 		}
 	}
 }

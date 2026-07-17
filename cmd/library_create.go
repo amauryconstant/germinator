@@ -52,20 +52,6 @@ type presetWriter interface {
 // no suppression directive is required.
 var _ presetWriter = (*library.Library)(nil)
 
-// errEmptyResources is returned by runCreatePreset when --resources
-// is present but empty. Migrated to *core.UsageError in
-// enforce-error-discipline Phase 3.12 so cmdutil.ExitCodeFor's
-// typed-error dispatch maps it to ExitCodeUsage (2) per the spec
-// scenario "Empty resources flag fails pre-flight validation". The
-// flag string matches the cobra --resources spelling; the reason
-// omits the flag prefix (FormatError renders the prefix from the
-// typed error's Flag() getter).
-//
-// errEmptyResources is package-level (rather than a fmt.Errorf
-// inline) so the value is stable across runs and equal-by-identity
-// comparisons in tests remain meaningful.
-var errEmptyResources = core.NewUsageError("--resources", "must be non-empty list of refs")
-
 // NewCmdCreatePreset creates the `library create preset` command via
 // the canonical NewCmdXxx(f, libraryPath, runF) pattern. Migrated in
 // slice 6.
@@ -150,10 +136,12 @@ Examples:
 //  2. opts.Resources non-empty check. Cobra's MarkFlagRequired emits
 //     a "required flag(s) \"resources\" not set" message when
 //     --resources is absent; this branch handles the "flag present but
-//     empty" case via errEmptyResources, a *core.UsageError mapped to
-//     ExitCodeUsage (2) by the typed-error dispatch in
+//     empty" case via an inline core.NewUsageError, a *core.UsageError
+//     mapped to ExitCodeUsage (2) by the typed-error dispatch in
 //     cmdutil.ExitCodeFor (Phase 3.12 migration; the prior
-//     cobraUsagePrefixes substring fallback was dropped in Phase 1).
+//     cobraUsagePrefixes substring fallback was dropped in Phase 1;
+//     Phase 6 inline construction removed the package-level
+//     errEmptyResources var).
 //  3. For each ref, core.CanInstallResource pre-flight check. The
 //     first malformed ref short-circuits the loop with a
 //     *core.ValidationError (exit 1 via default-error case).
@@ -170,7 +158,7 @@ func runCreatePreset(opts *createPresetOptions, presetName string) error {
 	}
 
 	if len(opts.Resources) == 0 || opts.Resources[0] == "" {
-		return errEmptyResources
+		return core.NewUsageError("--resources", "must be non-empty list of refs")
 	}
 
 	for _, ref := range opts.Resources {

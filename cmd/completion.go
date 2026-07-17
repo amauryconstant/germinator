@@ -11,10 +11,17 @@ import (
 	"gitlab.com/amoconst/germinator/internal/iostreams"
 )
 
-// completionShells contains all supported shell names.
-var completionShells = []string{
-	"bash", "zsh", "fish", "powershell", "elvish",
-	"nushell", "oil", "tcsh", "xonsh", "cmd-clink",
+// shells returns the list of supported completion shell names. A
+// fresh slice is returned on each call so callers cannot mutate the
+// underlying storage, satisfying the cmd/AGENTS.md "no package-level
+// mutable state" rule (Phase 6 migration; replacing the previous
+// `var completionShells = []string{...}` declaration that the widened
+// forbidigo pattern in .golangci.yml now flags as forbidden).
+func shells() []string {
+	return []string{
+		"bash", "zsh", "fish", "powershell", "elvish",
+		"nushell", "oil", "tcsh", "xonsh", "cmd-clink",
+	}
 }
 
 // getShellInstructions returns installation instructions for a given shell.
@@ -112,7 +119,7 @@ Examples:
 		Run: func(c *cobra.Command, _ []string) { _ = c.Help() },
 	}
 
-	for _, shell := range completionShells {
+	for _, shell := range shells() {
 		shell := shell // capture for closure
 		cmd.AddCommand(newCompletionShellCommand(f, runF, shell))
 	}

@@ -16,7 +16,7 @@ import (
 
 // TestNewCmdCompletion_RegistersAllShells asserts the parent
 // `completion` command registers exactly one subcommand per entry in
-// completionShells.
+// the supported shells list returned by shells().
 func TestNewCmdCompletion_RegistersAllShells(t *testing.T) {
 	t.Parallel()
 
@@ -27,10 +27,10 @@ func TestNewCmdCompletion_RegistersAllShells(t *testing.T) {
 		for _, sub := range cmd.Commands() {
 			names[sub.Name()] = true
 		}
-		for _, shell := range completionShells {
+		for _, shell := range shells() {
 			assert.True(t, names[shell], "expected subcommand %q to be registered", shell)
 		}
-		assert.Len(t, cmd.Commands(), len(completionShells),
+		assert.Len(t, cmd.Commands(), len(shells()),
 			"completion command should register exactly one subcommand per shell")
 	})
 }
@@ -67,7 +67,7 @@ func TestNewCmdCompletion_RunFInjection(t *testing.T) {
 func TestRunCompletion_WritesSnippet(t *testing.T) {
 	t.Parallel()
 
-	for _, shell := range completionShells {
+	for _, shell := range shells() {
 		shell := shell
 		t.Run(shell, func(t *testing.T) {
 			t.Parallel()
