@@ -25,6 +25,14 @@ func (e *NotFoundError) Error() string {
 	return "not found: " + e.Key
 }
 
+// Unwrap returns nil so NotFoundError satisfies the same typed-error
+// contract as the other 10 core errors (all declare Unwrap even when
+// it returns nil). The symmetry matters for future cause-aware
+// extensions and for error-chain introspection via errors.Is.
+func (e *NotFoundError) Unwrap() error {
+	return nil
+}
+
 // ParseError represents a parsing failure with immutable builders for fluent construction.
 type ParseError struct {
 	path        string

@@ -1425,3 +1425,15 @@ func TestUsageError_WithSuggestions_DefensiveInputCopy(t *testing.T) {
 	assert.Equal(t, "a", got[0],
 		"UsageError.WithSuggestions must clone the input slice so caller mutation cannot change the stored suggestions")
 }
+
+// TestNotFoundError_Unwrap verifies the symmetry contract: every other
+// typed error in this package declares Unwrap (even when it returns
+// nil). NotFoundError must match that pattern.
+func TestNotFoundError_Unwrap(t *testing.T) {
+	t.Parallel()
+
+	err := NewNotFoundError("library ref", "skill/missing")
+
+	assert.Nil(t, err.Unwrap(),
+		"NotFoundError.Unwrap must return nil for symmetry with the other typed errors")
+}
