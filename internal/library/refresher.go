@@ -56,30 +56,50 @@ type RefreshError struct {
 // It updates descriptions when they differ from frontmatter, updates paths when files
 // are renamed (if frontmatter name matches), and detects conflicts. The ctx parameter
 // is forwarded to LoadLibrary so caller cancellation propagates through the refresh.
+//
+// Concurrency: the load → process → save cycle is wrapped in
+// withFileLock so two concurrent refresh invocations don't each read
+// the same baseline and clobber each other's mutations on the final
+// save. Without the lock, refresh would still atomically write
+// library.yaml (via SaveLibrary's atomicWriteFile), but the in-memory
+// diff applied to the lock-stepped snapshot could overwrite a
+// concurrent add or remove. See references/10-state.md §"Concurrent
+// Invocation".
 func RefreshLibrary(ctx context.Context, opts RefreshOptions) (*RefreshResult, error) {
-	// Load the library
-	lib, err := LoadLibrary(ctx, opts.LibraryPath)
+	var result *RefreshResult
+
+	err := withFileLock(opts.LibraryPath, func() error {
+		// Load the library
+		lib, err := LoadLibrary(ctx, opts.LibraryPath)
+		if err != nil {
+			return fmt.Errorf("loading library: %w", err)
+		}
+
+		result = &RefreshResult{}
+
+		// Process each resource type
+		for resType, resources := range lib.Resources {
+			for name, res := range resources {
+				ref := FormatRef(resType, name)
+				processResource(opts, lib, ref, resType, name, res, result)
+			}
+		}
+
+		// Save if not dry-run and we have changes. Call the
+		// unlocked variant because we already hold the file lock for
+		// the refresh cycle; calling SaveLibrary would re-acquire
+		// and deadlock on the same goroutine.
+		if !opts.DryRun && len(result.Refreshed) > 0 {
+			if err := saveLibraryUnlocked(lib); err != nil {
+				return fmt.Errorf("saving library: %w", err)
+			}
+		}
+
+		return nil
+	})
 	if err != nil {
-		return nil, fmt.Errorf("loading library: %w", err)
+		return nil, err
 	}
-
-	result := &RefreshResult{}
-
-	// Process each resource type
-	for resType, resources := range lib.Resources {
-		for name, res := range resources {
-			ref := FormatRef(resType, name)
-			processResource(opts, lib, ref, resType, name, res, result)
-		}
-	}
-
-	// Save if not dry-run and we have changes
-	if !opts.DryRun && len(result.Refreshed) > 0 {
-		if err := SaveLibrary(lib); err != nil {
-			return nil, fmt.Errorf("saving library: %w", err)
-		}
-	}
-
 	return result, nil
 }
 

@@ -28,14 +28,23 @@ func atomicWriteFile(path string, data []byte, perm os.FileMode) error { //nolin
 	if err := os.WriteFile(tmpPath, data, perm); err != nil {
 		return gerrors.NewFileError(tmpPath, "write", "failed to write temp", err)
 	}
+	// Clean up the freshly-written tmp file on any rename failure
+	// (unless the EXDEV fallback will pick it up). Without this,
+	// non-EXDEV failures leave <path>.tmp behind and the directory
+	// accumulates stale files over time. See N12 in the
+	// architecture review.
+	cleanupTmp := func() { _ = os.Remove(tmpPath) }
 	rename := defaultRenameFunc
 	if renameFunc != nil {
 		rename = renameFunc
 	}
 	if err := rename(tmpPath, path); err != nil {
 		if errors.Is(err, syscall.EXDEV) {
+			// EXDEV fallback copies the tmp file into place; do not
+			// clean up here — atomicWriteFileCrossFS owns removal.
 			return atomicWriteFileCrossFS(tmpPath, path, perm)
 		}
+		cleanupTmp()
 		return gerrors.NewFileError(path, "rename", "failed to update file", err)
 	}
 	return nil
@@ -85,18 +94,37 @@ var renameFunc func(oldPath, newPath string) error
 // It marshals the entire library structure and writes it to disk via
 // the atomicWriteFile helper (atomic temp+rename on the same
 // filesystem; copy+remove fallback across filesystems).
+//
+// Concurrency: SaveLibrary acquires the library's file lock
+// (withFileLock) before mutating disk state so two concurrent
+// `germinator library …` invocations cannot clobber each other's
+// library.yaml. The directory must exist before the lock is acquired
+// because flock needs to open library.lock inside RootPath; mkdir is
+// therefore performed outside the lock and is idempotent.
 func SaveLibrary(lib *Library) error {
 	if lib.RootPath == "" {
 		return gerrors.NewFileError("", "write", "library has no root path set", nil)
 	}
 
-	// Ensure directory exists.
+	// Ensure directory exists before acquiring the lock — flock
+	// cannot create library.lock if its parent directory is missing.
 	// Unix permission bits (0o750) are no-ops on Windows; Windows
 	// support is out of scope.
 	if err := os.MkdirAll(lib.RootPath, 0o750); err != nil {
 		return gerrors.NewFileError(lib.RootPath, "create", "failed to create library directory", err)
 	}
 
+	return withFileLock(lib.RootPath, func() error {
+		return saveLibraryUnlocked(lib)
+	})
+}
+
+// saveLibraryUnlocked performs the disk write for SaveLibrary without
+// acquiring the file lock. Callers MUST already hold the file lock
+// for lib.RootPath (typically via withFileLock). Used by RefreshLibrary
+// to avoid reentrant lock acquisition when the refresh cycle spans
+// load → process → save under a single withFileLock scope.
+func saveLibraryUnlocked(lib *Library) error {
 	// Marshal library to YAML
 	data, err := yaml.Marshal(lib)
 	if err != nil {

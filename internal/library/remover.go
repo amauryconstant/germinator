@@ -164,65 +164,77 @@ func RemovePreset(ctx context.Context, opts RemovePresetOptions) (*RemovePresetO
 	}, nil
 }
 
+// removeResourceFromLibrary removes a single resource entry from
+// library.yaml. The full read-modify-write cycle is wrapped in
+// withFileLock so concurrent `germinator library remove resource …`
+// invocations serialise against each other and against add/refresh.
 func removeResourceFromLibrary(libraryPath, typ, name string) error {
-	yamlPath := filepath.Join(libraryPath, "library.yaml")
+	return withFileLock(libraryPath, func() error {
+		yamlPath := filepath.Join(libraryPath, "library.yaml")
 
-	content, err := os.ReadFile(yamlPath) //nolint:gosec // G304: User provides library path, must read fixed library.yaml
-	if err != nil {
-		return gerrors.NewFileError(yamlPath, "read", "failed to read library.yaml", err)
-	}
-
-	var lib libraryYAML
-	if err := yaml.Unmarshal(content, &lib); err != nil {
-		return gerrors.NewParseError(yamlPath, "failed to parse library.yaml", err)
-	}
-
-	if lib.Resources != nil && lib.Resources[typ] != nil {
-		delete(lib.Resources[typ], name)
-		if len(lib.Resources[typ]) == 0 {
-			delete(lib.Resources, typ)
+		content, err := os.ReadFile(yamlPath) //nolint:gosec // G304: User provides library path, must read fixed library.yaml
+		if err != nil {
+			return gerrors.NewFileError(yamlPath, "read", "failed to read library.yaml", err)
 		}
-	}
 
-	output, err := yaml.Marshal(lib)
-	if err != nil {
-		return gerrors.NewParseError(yamlPath, "failed to marshal library.yaml", err)
-	}
+		var lib libraryYAML
+		if err := yaml.Unmarshal(content, &lib); err != nil {
+			return gerrors.NewParseError(yamlPath, "failed to parse library.yaml", err)
+		}
 
-	// Write atomically via atomicWriteFile (temp+rename with EXDEV fallback).
-	if err := atomicWriteFile(yamlPath, output, 0o600); err != nil {
-		return err
-	}
+		if lib.Resources != nil && lib.Resources[typ] != nil {
+			delete(lib.Resources[typ], name)
+			if len(lib.Resources[typ]) == 0 {
+				delete(lib.Resources, typ)
+			}
+		}
 
-	return nil
+		output, err := yaml.Marshal(lib)
+		if err != nil {
+			return gerrors.NewParseError(yamlPath, "failed to marshal library.yaml", err)
+		}
+
+		// Write atomically via atomicWriteFile (temp+rename with EXDEV fallback).
+		if err := atomicWriteFile(yamlPath, output, 0o600); err != nil {
+			return err
+		}
+
+		return nil
+	})
 }
 
+// removePresetFromLibrary removes a single preset entry from
+// library.yaml. The full read-modify-write cycle is wrapped in
+// withFileLock so concurrent preset mutations serialise against each
+// other and against resource mutations.
 func removePresetFromLibrary(libraryPath, name string) error {
-	yamlPath := filepath.Join(libraryPath, "library.yaml")
+	return withFileLock(libraryPath, func() error {
+		yamlPath := filepath.Join(libraryPath, "library.yaml")
 
-	content, err := os.ReadFile(yamlPath) //nolint:gosec // G304: User provides library path, must read fixed library.yaml
-	if err != nil {
-		return gerrors.NewFileError(yamlPath, "read", "failed to read library.yaml", err)
-	}
+		content, err := os.ReadFile(yamlPath) //nolint:gosec // G304: User provides library path, must read fixed library.yaml
+		if err != nil {
+			return gerrors.NewFileError(yamlPath, "read", "failed to read library.yaml", err)
+		}
 
-	var lib libraryYAML
-	if err := yaml.Unmarshal(content, &lib); err != nil {
-		return gerrors.NewParseError(yamlPath, "failed to parse library.yaml", err)
-	}
+		var lib libraryYAML
+		if err := yaml.Unmarshal(content, &lib); err != nil {
+			return gerrors.NewParseError(yamlPath, "failed to parse library.yaml", err)
+		}
 
-	if lib.Presets != nil {
-		delete(lib.Presets, name)
-	}
+		if lib.Presets != nil {
+			delete(lib.Presets, name)
+		}
 
-	output, err := yaml.Marshal(lib)
-	if err != nil {
-		return gerrors.NewParseError(yamlPath, "failed to marshal library.yaml", err)
-	}
+		output, err := yaml.Marshal(lib)
+		if err != nil {
+			return gerrors.NewParseError(yamlPath, "failed to marshal library.yaml", err)
+		}
 
-	// Write atomically via atomicWriteFile (temp+rename with EXDEV fallback).
-	if err := atomicWriteFile(yamlPath, output, 0o600); err != nil {
-		return err
-	}
+		// Write atomically via atomicWriteFile (temp+rename with EXDEV fallback).
+		if err := atomicWriteFile(yamlPath, output, 0o600); err != nil {
+			return err
+		}
 
-	return nil
+		return nil
+	})
 }

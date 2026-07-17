@@ -219,52 +219,64 @@ func IsCanonicalFormat(source, docType string) bool {
 }
 
 // addResourceToLibrary adds a resource entry to library.yaml.
+//
+// Concurrency: this helper does its own read-modify-write cycle
+// (read disk → parse → mutate in-memory → marshal → atomic rename),
+// so it acquires the library file lock via withFileLock for the
+// entire cycle. Without this, two concurrent `germinator library
+// add …` invocations could each read the same baseline, each apply
+// their mutation, and each rename — with the second rename
+// clobbering the first's commit. Locking across the full cycle is
+// the only safe ordering; see references/10-state.md §"Concurrent
+// Invocation".
 func addResourceToLibrary(libraryPath, docType, name, filePath, description string) error {
-	yamlPath := filepath.Join(libraryPath, "library.yaml")
+	return withFileLock(libraryPath, func() error {
+		yamlPath := filepath.Join(libraryPath, "library.yaml")
 
-	// Read current library.yaml
-	content, err := os.ReadFile(yamlPath) //nolint:gosec // G304: User provides library path, must read fixed library.yaml
-	if err != nil {
-		return core.NewFileError(yamlPath, "read", "failed to read library.yaml", err)
-	}
+		// Read current library.yaml
+		content, err := os.ReadFile(yamlPath) //nolint:gosec // G304: User provides library path, must read fixed library.yaml
+		if err != nil {
+			return core.NewFileError(yamlPath, "read", "failed to read library.yaml", err)
+		}
 
-	var lib libraryYAML
-	if err := yaml.Unmarshal(content, &lib); err != nil {
-		return core.NewParseError(yamlPath, "failed to parse library.yaml", err)
-	}
+		var lib libraryYAML
+		if err := yaml.Unmarshal(content, &lib); err != nil {
+			return core.NewParseError(yamlPath, "failed to parse library.yaml", err)
+		}
 
-	// Initialize maps if nil
-	if lib.Resources == nil {
-		lib.Resources = make(map[string]map[string]Resource)
-	}
-	if lib.Resources[docType] == nil {
-		lib.Resources[docType] = make(map[string]Resource)
-	}
+		// Initialize maps if nil
+		if lib.Resources == nil {
+			lib.Resources = make(map[string]map[string]Resource)
+		}
+		if lib.Resources[docType] == nil {
+			lib.Resources[docType] = make(map[string]Resource)
+		}
 
-	// Compute relative path from library root
-	relPath, err := filepath.Rel(libraryPath, filePath)
-	if err != nil {
-		return fmt.Errorf("computing relative path: %w", err)
-	}
+		// Compute relative path from library root
+		relPath, err := filepath.Rel(libraryPath, filePath)
+		if err != nil {
+			return fmt.Errorf("computing relative path: %w", err)
+		}
 
-	// Add/update resource entry
-	lib.Resources[docType][name] = Resource{
-		Path:        relPath,
-		Description: description,
-	}
+		// Add/update resource entry
+		lib.Resources[docType][name] = Resource{
+			Path:        relPath,
+			Description: description,
+		}
 
-	// Marshal back to YAML
-	output, err := yaml.Marshal(lib)
-	if err != nil {
-		return core.NewParseError(yamlPath, "failed to marshal library.yaml", err)
-	}
+		// Marshal back to YAML
+		output, err := yaml.Marshal(lib)
+		if err != nil {
+			return core.NewParseError(yamlPath, "failed to marshal library.yaml", err)
+		}
 
-	// Write atomically via atomicWriteFile (temp+rename with EXDEV fallback).
-	if err := atomicWriteFile(yamlPath, output, 0o600); err != nil {
-		return err
-	}
+		// Write atomically via atomicWriteFile (temp+rename with EXDEV fallback).
+		if err := atomicWriteFile(yamlPath, output, 0o600); err != nil {
+			return err
+		}
 
-	return nil
+		return nil
+	})
 }
 
 // extractFrontmatter extracts YAML frontmatter from a markdown file.

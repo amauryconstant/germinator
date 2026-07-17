@@ -3,14 +3,20 @@ package library
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"syscall"
 	"testing"
+	"time"
 
+	"github.com/gofrs/flock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
+
+	gerrors "gitlab.com/amoconst/germinator/internal/core"
 )
 
 // withRenameFunc installs a test-only rename function for
@@ -384,4 +390,111 @@ func TestPresetExists_EmptyLibrary(t *testing.T) {
 	}
 
 	assert.False(t, PresetExists(lib, "any"), "PresetExists() should return false for empty Presets")
+}
+
+// TestWithFileLock_HappyPath verifies that withFileLock runs fn and
+// releases the lock so subsequent calls succeed. Uses SaveLibrary as
+// the canonical call shape.
+func TestWithFileLock_HappyPath(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	lib := &Library{
+		Version:   "1",
+		RootPath:  tmpDir,
+		Resources: make(map[string]map[string]Resource),
+		Presets:   make(map[string]Preset),
+	}
+
+	require.NoError(t, SaveLibrary(lib))
+	require.NoError(t, SaveLibrary(lib), "second SaveLibrary must succeed after first releases lock")
+}
+
+// TestWithFileLock_ContentionTimeout verifies that withFileLock
+// returns *core.FileError(op="lock") when another holder keeps the
+// lock beyond the retry budget.
+func TestWithFileLock_ContentionTimeout(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	external := flock.New(filepath.Join(tmpDir, "library.lock"))
+	require.NoError(t, external.Lock(), "external lock acquire should succeed")
+	defer func() { _ = external.Unlock() }()
+
+	start := time.Now()
+	lib := &Library{Version: "1", RootPath: tmpDir,
+		Resources: make(map[string]map[string]Resource),
+		Presets:   make(map[string]Preset)}
+	err := SaveLibrary(lib)
+	elapsed := time.Since(start)
+
+	require.Error(t, err, "SaveLibrary must return error when lock is held externally")
+	var fileErr *gerrors.FileError
+	require.True(t, errors.As(err, &fileErr), "error must be *core.FileError, got %T", err)
+	assert.Equal(t, "lock", fileErr.Operation(),
+		"FileError.Operation must be 'lock' so output.FormatError renders the contention message")
+	assert.GreaterOrEqual(t, elapsed, lockMaxWait,
+		"SaveLibrary must wait the full lockMaxWait budget before erroring (got %s)", elapsed)
+	assert.Less(t, elapsed, lockMaxWait+500*time.Millisecond,
+		"SaveLibrary must not wait significantly beyond lockMaxWait (got %s)", elapsed)
+}
+
+// TestWithFileLock_EmptyPath verifies the empty-path guard returns
+// *core.FileError without touching the filesystem.
+func TestWithFileLock_EmptyPath(t *testing.T) {
+	err := withFileLock("", func() error { return nil })
+	require.Error(t, err)
+	var fileErr *gerrors.FileError
+	require.True(t, errors.As(err, &fileErr))
+	assert.Equal(t, "lock", fileErr.Operation())
+}
+
+// TestSaveLibrary_ConcurrentWritesDoNotCorrupt fans out N goroutines
+// each saving a distinct resource set to the same library, then
+// verifies the final library.yaml has exactly one consistent state —
+// no torn writes, no lost entries. With file locking, exactly one
+// writer runs at a time; without it, multiple rename() calls could
+// race and clobber each other.
+func TestSaveLibrary_ConcurrentWritesDoNotCorrupt(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	const N = 8
+	var wg sync.WaitGroup
+	errs := make(chan error, N)
+
+	for i := 0; i < N; i++ {
+		i := i
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			lib := &Library{
+				Version:  "1",
+				RootPath: tmpDir,
+				Resources: map[string]map[string]Resource{
+					"skill": {
+						fmt.Sprintf("writer-%d", i): {
+							Path:        fmt.Sprintf("skills/writer-%d.md", i),
+							Description: fmt.Sprintf("writer %d", i),
+						},
+					},
+				},
+				Presets: make(map[string]Preset),
+			}
+			if err := SaveLibrary(lib); err != nil {
+				errs <- err
+			}
+		}()
+	}
+	wg.Wait()
+	close(errs)
+
+	for err := range errs {
+		t.Errorf("concurrent SaveLibrary error: %v", err)
+	}
+
+	// Load the final state and verify it is exactly one of the
+	// N writes (the one that ran last under the lock) — no torn
+	// writes, no missing entries.
+	final, err := LoadLibrary(context.Background(), tmpDir)
+	require.NoError(t, err)
+	require.Len(t, final.Resources["skill"], 1,
+		"final library must have exactly one writer's resource (got %d)", len(final.Resources["skill"]))
 }

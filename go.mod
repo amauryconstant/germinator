@@ -7,6 +7,7 @@ require (
 	github.com/adrg/xdg v0.5.3
 	github.com/carapace-sh/carapace v1.11.1
 	github.com/charmbracelet/lipgloss v1.1.0
+	github.com/gofrs/flock v0.13.0
 	github.com/knadh/koanf/parsers/toml/v2 v2.2.0
 	github.com/knadh/koanf/providers/env v1.1.0
 	github.com/knadh/koanf/providers/file v1.2.1
