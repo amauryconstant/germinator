@@ -87,6 +87,7 @@ resources: {}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			tmpDir := t.TempDir()
 
 			if tt.name == "error: nil lib" {
@@ -131,6 +132,7 @@ resources: {}
 }
 
 func TestLibrary_Refresh_CtxCancelled(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
@@ -188,6 +190,7 @@ func TestLibrary_RemoveResource(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			libDir := t.TempDir()
 			tt.setupLib(t, libDir)
 
@@ -214,6 +217,7 @@ func TestLibrary_RemoveResource(t *testing.T) {
 }
 
 func TestLibrary_RemoveResource_CtxCancelled(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
@@ -271,6 +275,7 @@ func TestLibrary_RemovePreset(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			libDir := t.TempDir()
 			tt.setupLib(t, libDir)
 
@@ -297,6 +302,7 @@ func TestLibrary_RemovePreset(t *testing.T) {
 }
 
 func TestLibrary_RemovePreset_CtxCancelled(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
@@ -359,6 +365,7 @@ func TestLibrary_Validate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			libDir := t.TempDir()
 			tt.setupLib(t, libDir)
 
@@ -392,6 +399,7 @@ func TestLibrary_Validate(t *testing.T) {
 }
 
 func TestLibrary_Validate_CtxCancelled(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
@@ -435,6 +443,7 @@ func TestLibrary_Fix(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			libDir := t.TempDir()
 			tt.setupLib(t, libDir)
 
@@ -461,6 +470,7 @@ func TestLibrary_Fix(t *testing.T) {
 }
 
 func TestLibrary_Fix_CtxCancelled(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
@@ -493,6 +503,7 @@ func TestInit(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			err := Init(context.Background(), tt.req, io.Discard)
 			if tt.wantErr {
 				require.Error(t, err)
@@ -504,6 +515,7 @@ func TestInit(t *testing.T) {
 }
 
 func TestInit_CtxCancelled(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
@@ -543,6 +555,7 @@ func TestLibrary_Add(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			libDir := t.TempDir()
 			tt.prepare(t, libDir)
 
@@ -584,6 +597,7 @@ func TestLibrary_Add(t *testing.T) {
 }
 
 func TestLibrary_Add_CtxCancelled(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
@@ -636,6 +650,7 @@ func TestLibrary_BatchAddResources(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			libDir := t.TempDir()
 			sources := tt.prepare(t, libDir)
 			opts := tt.opts(libDir, sources)
@@ -669,6 +684,7 @@ func TestLibrary_BatchAddResources(t *testing.T) {
 }
 
 func TestLibrary_BatchAddResources_CtxCancelled(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
@@ -709,6 +725,7 @@ func TestLibrary_DiscoverOrphans(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			libDir := t.TempDir()
 			tt.prepare(t, libDir)
 
@@ -744,6 +761,7 @@ func TestLibrary_DiscoverOrphans(t *testing.T) {
 }
 
 func TestLibrary_DiscoverOrphans_CtxCancelled(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
@@ -951,6 +969,7 @@ func TestLibrary_CreatePreset(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			ctx := context.Background()
 			lib := tt.lib
 			if lib.RootPath == "" {
@@ -974,6 +993,7 @@ func TestLibrary_CreatePreset(t *testing.T) {
 }
 
 func TestLibrary_CreatePreset_CtxCancelled(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
@@ -995,6 +1015,7 @@ func TestLibrary_CreatePreset_CtxCancelled(t *testing.T) {
 // without re-wrap breaking errors.Is/As.
 func TestCreatePreset_PackageForm(t *testing.T) {
 	t.Run("success: package CreatePreset delegates to method form", func(t *testing.T) {
+		t.Parallel()
 		libDir := t.TempDir()
 		createTestLibrary(t, libDir)
 		srcPath := filepath.Join(t.TempDir(), "skill.md")
@@ -1018,12 +1039,14 @@ func TestCreatePreset_PackageForm(t *testing.T) {
 	})
 
 	t.Run("error: nil req surfaces from package CreatePreset", func(t *testing.T) {
+		t.Parallel()
 		lib := &Library{RootPath: t.TempDir()}
 		err := CreatePreset(context.Background(), lib, nil)
 		require.Error(t, err)
 	})
 
 	t.Run("error: ctx cancelled", func(t *testing.T) {
+		t.Parallel()
 		ctx, cancel := context.WithCancel(t.Context())
 		cancel()
 		lib := &Library{RootPath: t.TempDir()}

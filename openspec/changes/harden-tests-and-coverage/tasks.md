@@ -144,10 +144,20 @@ Per `golang-spf13-cobra` Testing section: cobra accumulates flag state across `E
 
 Per `golang-testing` Best Practice 4: independent tests SHOULD use `t.Parallel()`. Per `golang-lint` (`tparallel` linter, already enabled): requires all-or-none parallelism per parent test (mixed parallelism is forbidden).
 
-- [ ] 5.1 In `internal/library/methods_test.go`, add `t.Parallel()` to fixture-driven subtests within `t.Run(...)` blocks that don't share `t.Setenv` or `os.Chdir`. Specifically: `TestLibrary_X_CtxCancelled` subtests.
-- [ ] 5.2 In `cmd/library_add_test.go`, add `t.Parallel()` ONLY to subtests inside `t.Run(...)` blocks that don't share `t.Setenv` / `os.Chdir` / `t.TempDir` with sibling subtests in the same parent test. Specifically target `TestLibrary_X_CtxCancelled` subtests at line 383+. Verify with `golangci-lint run --enable-only tparallel ./...` to confirm `tparallel` compliance.
-- [ ] 5.3 Run `mise run test:race` — no race conditions from the new `t.Parallel()` calls. The existing `mise run test:race` task already covers `./...` (including `cmd/`); no widening needed.
-- [ ] 5.4 Run `mise run test:coverage` — coverage unchanged (parallel subtests don't reduce coverage).
+- [x] 5.1 In `internal/library/methods_test.go`, add `t.Parallel()` to fixture-driven subtests within `t.Run(...)` blocks that don't share `t.Setenv` or `os.Chdir`. Specifically: `TestLibrary_X_CtxCancelled` subtests.
+- [x] 5.2 In `cmd/library_add_test.go`, add `t.Parallel()` ONLY to subtests inside `t.Run(...)` blocks that don't share `t.Setenv` / `os.Chdir` / `t.TempDir` with sibling subtests in the same parent test. Specifically target `TestLibrary_X_CtxCancelled` subtests at line 383+. Verify with `golangci-lint run --enable-only tparallel ./...` to confirm `tparallel` compliance.
+- [x] 5.3 Run `mise run test:race` — no race conditions from the new `t.Parallel()` calls. The existing `mise run test:race` task already covers `./...` (including `cmd/`); no widening needed.
+- [x] 5.4 Run `mise run test:coverage` — coverage unchanged (parallel subtests don't reduce coverage).
+
+### Phase 5 implementation notes (artifact deviations from proposal)
+
+- **5.1 — `*_CtxCancelled` functions are top-level, not `t.Run` subtests**: the proposal wording ("subtests within `t.Run(...)` blocks") is inaccurate for the actual code. Each `*_CtxCancelled` is a standalone test function (e.g., `TestLibrary_Refresh_CtxCancelled`), not a subtest group. `t.Parallel()` was added as the first statement of each function body, which has the same parallel-scheduling effect on the Go runtime as a subtest-level call.
+
+- **5.1 — scope expanded per checkpoint**: per a checkpoint decision during the Phase 5 plan, scope widened to cover all 38 table-driven `t.Run(tt.name, ...)` subtests across 11 parent tests in `methods_test.go`, plus the 3 literal-name subtests in `TestCreatePreset_PackageForm` (also part of the `internal/library/methods_test.go` file). All 41 subtests were verified parallel-safe (each allocates its own `t.TempDir()` and does not share state). Total parallel regions added: 41 subtests + 10 top-level `*_CtxCancelled` functions + 1 cmd-side `TestRunAdd_BatchMode_Cancellation` = **52 parallel regions**.
+
+- **5.2 — `TestRunAdd_BatchMode_Cancellation` is the cmd-side analog**: the task description references "subtests at line 383+", but the actual code has only one top-level cancellation test in `cmd/library_add_test.go`. `t.Parallel()` added at L361 (signature is L360-395; insertion is the second line of the body, after `makeTestLibrary` would run if not deferred — moved it before `makeTestLibrary` to signal parallel eligibility before any disk touch).
+
+- **ReplaceAll side-effect**: the initial `replaceAll` of `\tctx, cancel := context.WithCancel(t.Context())` (one-tab prefix) inadvertently de-indented one match — the `"error: ctx cancelled"` subtest inside `TestCreatePreset_PackageForm`, which lives at 2-tab indent. The Edit tool's substring match consumed only one leading tab when two were present, breaking indentation. Fixed by re-editing the subtest body to restore 2-tab indent. The other 10 matches (top-level `*_CtxCancelled` functions, all 1-tab indent) were unaffected.
 
 ## 6. Phase 6 — Trivial folds
 

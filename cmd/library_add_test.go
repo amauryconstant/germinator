@@ -358,6 +358,8 @@ func TestRunAdd_BatchMode_NameConflict(t *testing.T) {
 // the function returns a wrapped ctx.Err() and partial successes are
 // accumulated.
 func TestRunAdd_BatchMode_Cancellation(t *testing.T) {
+	t.Parallel()
+
 	libDir := makeTestLibrary(t, map[string]map[string]library.Resource{})
 	// Create multiple orphan skills so cancellation has something to interrupt.
 	srcDir := t.TempDir()
