@@ -3,9 +3,28 @@ package library
 import (
 	"testing"
 
+	"go.uber.org/goleak"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// TestMain is the package-level test entry point. goleak.VerifyTestMain
+// wraps m.Run() and verifies that no goroutines remain after the test
+// suite completes — guarding against leaks from the errgroup.SetLimit
+// concurrent orphan scan in adder.go:scanDirectory / scanLevel.
+//
+// Per `golang-testing` Best Practice 6 (packages with goroutines
+// SHOULD use goleak.VerifyTestMain), introduced in harden-tests-and-
+// coverage Phase 7 alongside the Phase 5 t.Parallel() additions.
+//
+// Note: do not append `os.Exit(m.Run())` after goleak.VerifyTestMain;
+// VerifyTestMain already wraps m.Run() and exits the process on
+// completion. Adding m.Run() a second time would run the test suite
+// twice.
+func TestMain(m *testing.M) {
+	goleak.VerifyTestMain(m)
+}
 
 func TestResourceType_IsValid(t *testing.T) {
 	tests := []struct {

@@ -24,7 +24,7 @@ Library management for canonical resources (skills, agents, commands, memory).
 | `remover.go` | `RemoveResource()`, `RemovePreset()` - remove resources/presets |
 | `validator.go` | `ValidateLibrary()` - checks library integrity (missing files, ghosts, orphans, malformed) |
 | `requests.go` | Request/result types for `(*Library) X` methods (`InitRequest`, `RefreshRequest`, `RemoveResourceRequest`, `RemovePresetRequest`, `ValidateRequest`, `FixRequest`, `RefreshUnchanged`, `FixResult`) |
-| `library_test.go` | Tests for Library struct and Exists |
+| `library_test.go` | Tests for Library struct and Exists; declares `TestMain` for `goleak.VerifyTestMain` (goroutine leak detection) |
 | `methods_test.go` | Table-driven tests for each `(*Library) X` method (success + each error path + ctx cancellation) |
 | `loader_test.go` | Tests for LoadLibrary |
 | `lister_test.go` | Tests for ListResources |
@@ -486,3 +486,30 @@ When `--batch` is enabled with `--force`:
 - Skips individual registration errors without stopping
 - Reports TotalAdded, TotalSkipped, TotalFailed in summary
 - Use `--dry-run` to preview without modifying
+
+## Goroutine Leak Detection
+
+The package uses `go.uber.org/goleak` via a package-level `TestMain` in
+`library_test.go`:
+
+```go
+func TestMain(m *testing.M) {
+    goleak.VerifyTestMain(m)
+}
+```
+
+`goleak.VerifyTestMain` wraps `m.Run()` and verifies that no goroutines
+remain after the test suite completes. This catches leaks from
+`adder.go:scanDirectory` / `scanLevel`, which use `errgroup.SetLimit`
+to fan out concurrent orphan scans. The `t.Parallel()` calls added in
+Phase 5 exercised the errgroup paths more aggressively, surfacing the
+need for leak detection (best practice 6 in `golang-testing`).
+
+**Note**: `VerifyTestMain` already wraps `m.Run()` and exits the
+process on completion; do not append `os.Exit(m.Run())` after it —
+that would run the test suite twice.
+
+If a new test legitimately needs to spawn a long-lived goroutine
+(e.g., a watcher), use `goleak.IgnoreTopFunction` in the relevant
+test or exclude the goroutine's function name via
+`goleak.VerifyTestMain`'s `opts...Ignore*` parameters.

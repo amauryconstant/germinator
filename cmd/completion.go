@@ -14,9 +14,9 @@ import (
 // shells returns the list of supported completion shell names. A
 // fresh slice is returned on each call so callers cannot mutate the
 // underlying storage, satisfying the cmd/AGENTS.md "no package-level
-// mutable state" rule (Phase 6 migration; replacing the previous
-// `var completionShells = []string{...}` declaration that the widened
-// forbidigo pattern in .golangci.yml now flags as forbidden).
+// mutable state" rule. Replaced a prior package-level slice
+// declaration in Phase 6 (now forbidden by the widened forbidigo
+// pattern in .golangci.yml).
 func shells() []string {
 	return []string{
 		"bash", "zsh", "fish", "powershell", "elvish",
