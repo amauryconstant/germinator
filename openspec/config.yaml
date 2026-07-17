@@ -101,16 +101,53 @@ context: |
   - Notes: Documents are concise overviews, not implementation guidance
 
   Spec organization (project-specific, overrides osx-concepts defaults):
-  - Layout: openspec/specs/<category>-<spec-name>/spec.md. Categories are
-    encoded as a name prefix (cli-, core-, library-, models-,
-    transformation-, validation-, application-, errors-, infrastructure-,
-    testing-) and grouped in openspec/specs/AGENTS.md.
-  - Source of truth: openspec/specs/AGENTS.md. Consult it before creating,
-    syncing, or moving a spec to pick the correct category prefix.
-  - All specs MUST live one folder deep under openspec/specs/. Files
-    directly at openspec/specs/ are not permitted, and category
-    subdirectories are not used — the category is a name prefix only.
-  - This flat layout matches what the OpenSpec CLI reads natively.
+  - Source of truth: this section of openspec/config.yaml. Consult it before
+    creating, syncing, or moving a spec to pick the correct category prefix.
+  - Layout: openspec/specs/<category>-<spec-name>/spec.md. The category is a
+    NAME PREFIX only — no category subdirectories. Specs MUST live one folder
+    deep under openspec/specs/. Files directly at openspec/specs/ are not
+    permitted. This flat layout matches what the OpenSpec CLI reads natively.
+  - Naming caveat: a few specs end up with a doubled prefix where the spec
+    name already starts with the category word (e.g., `library-library-batch-add`
+    or `validation-validation-pipeline`). This is intentional — keeping a uniform
+    `<category>-<spec-name>` rule is simpler than special-casing names.
+  - Naming convention: lowercase, hyphen-separated, always prefixed with a
+    category. Pick the shortest unambiguous prefix when adding a new spec;
+    only invent a new prefix if none of the categories below fit.
+
+  Spec categories (10 active; pick the shortest unambiguous prefix):
+
+  - `application-` — application architecture, wiring, configuration
+    (alignment: internal/cmdutil, internal/config). Examples: dependency
+    injection, three-concerns, configuration loading.
+  - `cli-` — command-line interface layer (alignment: cmd/). Examples:
+    cobra framework setup, exit codes, output formats, shell completion,
+    error formatting, stdin composability, interactive prompts.
+  - `core-` — document I/O primitives and the Functional Core purity policy
+    (alignment: internal/core/). Examples: document loading, YAML parsing,
+    purity policy (no os/net/exec in core/).
+  - `errors-` — typed error definitions and handling patterns
+    (alignment: internal/core/errors.go). Examples: typed-error system,
+    operation errors, enhanced errors with builders.
+  - `infrastructure-` — DevOps, CI/CD, project-level tooling
+    (alignment: .github/, mise.toml, project root). Examples: CI workflow,
+    golangci-lint config, release management, mise tasks.
+  - `library-` — resource management and installation
+    (alignment: internal/library/, internal/install/). Examples: library
+    loading, resource import, batch add, refresh, validation, removal.
+  - `models-` — domain models and source file formats
+    (alignment: internal/core/types). Examples: Agent/Command/Skill/Memory
+    canonical types, canonical source format YAML.
+  - `testing-` — end-to-end test infrastructure
+    (alignment: test/). Examples: e2e suite, golden tests, round-trip tests,
+    iostreams injection pattern.
+  - `transformation-` — document transformation pipeline
+    (alignment: internal/claude-code, internal/opencode, internal/parser,
+    internal/renderer, internal/permission). Examples: platform adapters,
+    field mappings, permission mapping, template rendering.
+  - `validation-` — document validation system
+    (alignment: internal/validate/, internal/core/opencode). Examples:
+    composable validators, validation pipeline, OpenCode-specific rules.
 
 rules:
   proposal:
@@ -129,7 +166,8 @@ rules:
     - Scenarios are testable and verify specific behaviors
     - All specs MUST live at openspec/specs/<category>-<spec-name>/spec.md
       (one folder deep; no files directly under openspec/specs/, no
-      category subdirectories); see openspec/specs/AGENTS.md
+      category subdirectories); see the Spec organization section in
+      this file's context block for the category reference
 
   design:
     - Include Context (current state, constraints, assumptions)

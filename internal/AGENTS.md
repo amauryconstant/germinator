@@ -27,6 +27,7 @@ internal/
 ├── claude-code/         ← Claude Code platform adapter
 ├── opencode/            ← OpenCode platform adapter
 ├── permission/          ← Permission-rule mapping for platform output
+├── paths/               ← Shared filesystem path helpers (tilde expansion); leaf shell package, no internal deps
 └── version/             ← Build-time version metadata (ldflags injection point)
 ```
 
@@ -82,6 +83,10 @@ Everything that does I/O lives here.
 - Each provides: `ParsePlatformDocument(path, docType) (*core.Document, error)` and `RenderDocument(doc, docType) (string, error)`
 - Platform-specific validation (e.g. OpenCode mode/temperature rules)
 - Returns core types; depends on `internal/core/`
+
+#### `internal/paths/`
+- `ExpandHome(path) (string, error)` — canonical tilde-expansion used by both `internal/config` and `cmd/completions`
+- Leaf shell package: depends only on stdlib
 
 ---
 

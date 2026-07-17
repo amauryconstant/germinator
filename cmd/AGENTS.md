@@ -12,7 +12,6 @@ Cobra-based CLI built on the `NewCmdXxx(f *Factory, runF func(*XxxOptions) error
 
 | File | Purpose |
 |------|---------|
-| `main.go` | Composition root — constructs `*cmdutil.Factory`, registers commands, deferred exit-code handler |
 | `root.go` | Root command with subcommand registration |
 | `adapt.go` | `adapt <input> <output> --platform ...` — canonical `NewCmdAdapt` example (see below) |
 | `validate.go` | Validate document against platform rules |
@@ -32,6 +31,8 @@ Cobra-based CLI built on the `NewCmdXxx(f *Factory, runF func(*XxxOptions) error
 | `config.go` | Config command group (`init`, `validate`) |
 | `lint_test.go` | Lint baseline enforcement test (see [Lint Enforcement](#lint-enforcement)) |
 | `testdata/lint_baseline.txt` | Captured `mise run lint` output; the baseline against which `lint_test.go` diffs |
+
+> The composition root (`main.go`) lives at the project root. See [`/AGENTS.md`](../AGENTS.md) for the entry-point layout.
 
 ---
 
@@ -250,7 +251,7 @@ Example: `germinator v0.3.20 (abc123def) 2026-02-04`
 
 Table-driven tests with descriptive names. Each command has a dedicated `*_test.go`. Two test seams:
 
-- `runF` injection — tests pass a stub `runF func(*XxxOptions) error` to skip the real body and assert the constructor wired flags / options correctly.
+- `runF` injection — tests pass a stub `runF func(*XxxOptions) error` to skip the real body and assert the constructor wired flags / options as the test specifies.
 - `iostreams.Test()` — buffer-backed `IOStreams` so tests assert on `Out` / `ErrOut` contents.
 
 Test files of note:

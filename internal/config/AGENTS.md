@@ -1,6 +1,6 @@
 **Location**: `internal/config/`
 **Parent**: See [`/internal/AGENTS.md`](../AGENTS.md) for package overview
-**Skill reference**: `@.opencode/skills/golang-cli-architecture/references/03-input-config.md`
+**Skill references**: `@.opencode/skills/golang-cli-architecture/references/03-input-config.md`, `@.opencode/skills/golang-error-handling/SKILL.md` (for the typed `WriteError` constructor + `errors.Join` patterns)
 
 ---
 

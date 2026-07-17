@@ -1,6 +1,6 @@
 **Location**: `internal/library/`
 **Parent**: See `/internal/AGENTS.md` for package overview
-**Skill reference**: `@.opencode/skills/golang-cli-architecture/references/01-architecture.md`
+**Skill references**: `@.opencode/skills/golang-cli-architecture/references/01-architecture.md`, `@.opencode/skills/golang-testing/SKILL.md` (for the `goleak` test-main / `t.Parallel` patterns)
 
 ---
 
@@ -133,73 +133,42 @@ ResolveResource(libPath, ref string) (string, error)
 
 ```go
 type AddRequest struct {
-    Source      string  // Source file to import
-    Name        string  // Resource name (auto-detected if empty)
-    Description string  // Resource description (auto-detected if empty)
-    Type        string  // Resource type: agent, command, skill, memory (auto-detected)
-    LibraryPath string  // Target library path
-    DryRun      bool    // Preview without modifying
-    Force       bool    // Overwrite existing
+    Source, Name, Description, Type, LibraryPath string
+    DryRun, Force                                bool
 }
 
-// Add resource to library (imports, canonicalizes if needed, validates, registers).
-// ctx is checked before each I/O step; on cancellation it returns wrapped ctx.Err().
+// AddResource imports, canonicalizes, validates, and registers a resource.
+// ctx is checked before each I/O step; on cancellation returns wrapped ctx.Err().
 AddResource(ctx context.Context, opts AddRequest) error
 ```
 
-Type detection priority: `--type` flag > frontmatter `type:` > filename pattern
-Platform detection: `--platform` flag > frontmatter `platform:` > auto-detect from content
-Target path: `{library}/{type}s/{name}.md` (e.g., `library/agents/reviewer.md`)
+| Detection | Priority order |
+|---|---|
+| Type | `--type` flag > frontmatter `type:` > filename pattern |
+| Platform | `--platform` flag > frontmatter `platform:` > auto-detect from content |
 
-Validation: Validates canonical document before adding; validates library.yaml after update.
+Target path: `{library}/{type}s/{name}.md` (e.g., `library/agents/reviewer.md`). Validates canonical document before adding; validates `library.yaml` after update.
 
 ## Batch Adding Resources
 
 ```go
 type BatchAddResult struct {
-    Added   []BatchAddSuccess  `json:"added"`
-    Skipped []BatchSkipInfo   `json:"skipped"`
-    Failed  []BatchFailureInfo `json:"failed"`
-    Summary BatchSummary       `json:"summary"`
-}
-
-type BatchAddSuccess struct {
-    Ref  string `json:"ref"`  // Resource reference (e.g., "skill/commit")
-    Path string `json:"path"` // Path in library
-}
-
-type BatchSkipInfo struct {
-    Source string `json:"source"` // Original source path
-    Issue  string `json:"issue"`  // "already_exists" or "conflict"
-}
-
-type BatchFailureInfo struct {
-    Source string `json:"source"` // Original source path
-    Error  string `json:"error"`  // Error message
-}
-
-type BatchSummary struct {
-    Total   int `json:"total"`
-    Added   int `json:"added"`
-    Skipped int `json:"skipped"`
-    Failed  int `json:"failed"`
+    Added   []BatchAddSuccess        `json:"added"`
+    Skipped []BatchSkipInfo          `json:"skipped"`
+    Failed  []BatchFailureInfo       `json:"failed"`
+    Summary BatchSummary             `json:"summary"`
 }
 
 type BatchAddOptions struct {
-    Sources     []string     // Source files/directories to add
-    LibraryPath string       // Path to the library
-    DryRun      bool         // Preview without modifying
-    Force       bool         // Overwrite existing resources
-    Name        string       // Optional resource name override
-    Description string       // Optional resource description override
-    Type        string       // Optional resource type override
-    Platform    string       // Optional platform override
-    Orphans     []Orphan     // Orphan info for discovered resources (provides type/name)
+    Sources                                 []string // files/dirs to add
+    LibraryPath, Name, Description          string
+    Type, Platform                          string
+    Orphans                                 []Orphan  // from DiscoverOrphans
+    DryRun, Force                           bool
 }
 
-// BatchAddResources adds multiple resources to the library in batch mode.
-// ctx is checked between files; on cancellation partial results are returned
-// alongside wrapped ctx.Err().
+// BatchAddResources adds multiple resources in batch mode.
+// ctx is checked between files; on cancellation returns partial results + wrapped ctx.Err().
 BatchAddResources(ctx context.Context, opts BatchAddOptions) (*BatchAddResult, error)
 ```
 
@@ -284,25 +253,7 @@ RemovePreset(ctx context.Context, opts RemovePresetOptions) error
 
 ### JSON Output
 
-**Resource removal:**
-```json
-{
-  "type": "resource",
-  "resourceType": "skill",
-  "name": "commit",
-  "fileDeleted": "/path/to/library/skills/commit.md",
-  "libraryPath": "/path/to/library"
-}
-```
-
-**Preset removal:**
-```json
-{
-  "type": "preset",
-  "name": "git-workflow",
-  "resourcesRemoved": ["skill/commit", "skill/pr"]
-}
-```
+`{type, resourceType, name, fileDeleted, libraryPath}` for resources; `{type, name, resourcesRemoved}` for presets.
 
 ## Validation
 
@@ -333,43 +284,13 @@ FixLibrary(libPath string) ([]Issue, error)
 ## Refresh
 
 ```go
-type RefreshOptions struct {
-    LibraryPath string
-    DryRun      bool
-    Force       bool
-}
+type RefreshOptions struct { LibraryPath string; DryRun, Force bool }
+type RefreshResult   struct { Refreshed []RefreshChange; Unchanged []RefreshUnchanged; Skipped []SkipInfo; Errors []RefreshError }
+type RefreshChange   struct { Ref, Field, Old, New string }                                       // Field: "description" | "path"
+type RefreshUnchanged struct { Ref, LastSynced string }                                           // LastSynced: RFC3339 mtime or ""
+type SkipInfo         struct { Ref, Reason string }                                               // Reason: "missing_file"
+type RefreshError     struct { Ref, Field, Type string }
 
-type RefreshResult struct {
-    Refreshed []RefreshChange
-    Unchanged []RefreshUnchanged   // always populated when present in the library
-    Skipped   []SkipInfo
-    Errors    []RefreshError
-}
-
-type RefreshUnchanged struct {
-    Ref        string
-    LastSynced string  // RFC3339 mtime, or "" when not determinable
-}
-
-type RefreshChange struct {
-    Ref   string
-    Field string // "description" or "path"
-    Old   string
-    New   string
-}
-
-type SkipInfo struct {
-    Ref    string
-    Reason string // "missing_file"
-}
-
-type RefreshError struct {
-    Ref   string
-    Field string
-    Type  string
-}
-
-// RefreshLibrary syncs metadata from registered resource files into library.yaml
 RefreshLibrary(ctx context.Context, opts RefreshOptions) (*RefreshResult, error)
 ```
 
@@ -383,9 +304,7 @@ RefreshLibrary(ctx context.Context, opts RefreshOptions) (*RefreshResult, error)
 | File missing | Skip silently |
 | Malformed frontmatter | Error (use `--force` to skip) |
 
-- **Collects all errors**: Does not fail on first error; reports all at end
-- **Exit code 1** if any errors occurred
-- **--force** skips conflicting resources instead of erroring
+**--force** skips conflicting resources instead of erroring. **Exit code 1** if any errors occurred (all errors collected; no fail-fast).
 
 ## Methods on `*Library`
 
@@ -406,70 +325,37 @@ func (lib *Library) DiscoverOrphans(ctx context.Context, opts *DiscoverOptions) 
 func Init(ctx context.Context, req *InitRequest) error
 ```
 
-All methods assert `lib != nil && lib.RootPath != ""` at entry. See `methods_test.go` for table-driven coverage. The package-level functions `RefreshLibrary(ctx, opts)`, `RemoveResource(ctx, opts)`, `RemovePreset(ctx, opts)`, `AddResource(ctx, req)`, `BatchAddResources(ctx, opts)`, `DiscoverOrphans(ctx, opts)`, and `CreateLibrary(ctx, opts, stdout)` accept `ctx context.Context` as the first parameter (per the cli-framework/spec.md ctx-propagation contract) and forward it to internal `LoadLibrary` calls; `ValidateLibrary(lib)` and `FixLibrary(lib)` are pure in-memory operations and do not take ctx. The methods delegate to the package-level forms, passing the receiver's ctx through. The `*Library` methods satisfy the cmd-side `adderLibrary` interface in `cmd/library_add.go` directly (no adapter shim — the `libraryAdapter` debt was retired by `extract-io-adapters`).
+All methods assert `lib != nil && lib.RootPath != ""` at entry (see `methods_test.go` for table-driven coverage). The methods delegate to the package-level functions (`RefreshLibrary`, `RemoveResource`, `RemovePreset`, `AddResource`, `BatchAddResources`, `DiscoverOrphans`, `CreateLibrary`), forwarding `ctx` through. `ValidateLibrary(lib)` and `FixLibrary(lib)` are pure in-memory operations and do not take ctx. The `*Library` methods satisfy the cmd-side `adderLibrary` interface in `cmd/library_add.go` directly — no adapter shim.
 
 ## Orphan Discovery
 
 ```go
-// ErrNameConflict is returned by checkNameConflict when an orphan name
-// collides with an existing resource of a different type. Callers use
-// errors.Is(err, ErrNameConflict) to detect a typed name-conflict error
-// (this is the producer-side half of the contract; the consumer-side
-// half is verified in task 6.4's runAdd tests via *core.OperationError's
-// Unwrap chain).
 var ErrNameConflict = errors.New("name conflict with existing resource")
 
 type DiscoverOptions struct {
     LibraryPath string
-    DryRun      bool
-    Force       bool
-    Batch       bool // Process all orphans continuously
+    DryRun, Force, Batch bool // Batch: process all orphans continuously
 }
 
-type Orphan struct {
-    Path  string `json:"path"`
-    Type  string `json:"type"` // "skill", "agent", "command", "memory"
-    Name  string `json:"name"`
-    Issue string `json:"issue,omitempty"` // "name_conflict" or empty
-}
-
-type ConflictInfo struct {
-    Orphan Orphan `json:"orphan"`
-    Issue  string `json:"issue"` // "<type>/<name>: <wrapped ErrNameConflict>"
-}
-
-type AddSuccess struct {
-    Type string `json:"type"`
-    Name string `json:"name"`
-    Path string `json:"path"`
-}
-
+type Orphan       struct { Path, Type, Name string; Issue string `json:"issue,omitempty"` }
+type ConflictInfo struct { Orphan Orphan; Issue string }
+type AddSuccess   struct { Type, Name, Path string }
 type DiscoverSummary struct {
-    TotalScanned  int `json:"totalScanned"`
-    TotalOrphans  int `json:"totalOrphans"`
-    TotalAdded    int `json:"totalAdded"`
-    TotalSkipped  int `json:"totalSkipped"`
-    TotalFailed   int `json:"totalFailed"`
+    TotalScanned, TotalOrphans, TotalAdded, TotalSkipped, TotalFailed int
 }
 
 type DiscoverResult struct {
-    Orphans   []Orphan   `json:"orphans"`
-    Added     []AddSuccess   `json:"added"`
-    Conflicts []ConflictInfo `json:"conflicts"`
-    Summary   DiscoverSummary `json:"summary"`
+    Orphans   []Orphan
+    Added     []AddSuccess
+    Conflicts []ConflictInfo
+    Summary   DiscoverSummary
 }
 
-// DiscoverOrphans finds resource files not registered in library.yaml.
-// ctx is checked between files; on cancellation a partial DiscoverResult
-// is returned alongside wrapped ctx.Err().
 DiscoverOrphans(ctx context.Context, opts DiscoverOptions) (*DiscoverResult, error)
-
-// checkNameConflict returns ErrNameConflict wrapped with the offending
-// "<type>/<name>" ref when the orphan collides with an existing
-// resource of a different type; nil otherwise. Same-type duplicates
-// are handled elsewhere (isRegistered + AddResource).
-checkNameConflict(lib *Library, orphan *Orphan) error
+checkNameConflict(lib *Library, orphan *Orphan) error // wraps ErrNameConflict on type-conflict
 ```
+
+`ErrNameConflict` is the typed name-conflict sentinel — callers detect it via `errors.Is`. `DiscoverOrphans` checks `ctx` between files; on cancellation a partial `DiscoverResult` is returned alongside wrapped `ctx.Err()`.
 
 ### Discover Behavior
 
@@ -479,18 +365,13 @@ checkNameConflict(lib *Library, orphan *Orphan) error
 - **Report-only by default**: Use `--force` to actually register orphans
 - **Conflict detection**: Orphan name matching existing resource is flagged with `Issue: "name_conflict"`
 
-### Batch Mode
+### Batch Mode (`--batch --force`)
 
-When `--batch` is enabled with `--force`:
-- Processes all discovered orphans continuously
-- Skips individual registration errors without stopping
-- Reports TotalAdded, TotalSkipped, TotalFailed in summary
-- Use `--dry-run` to preview without modifying
+Processes all discovered orphans continuously; skips individual registration errors. Reports `TotalAdded`, `TotalSkipped`, `TotalFailed` in `Summary`. Use `--dry-run` to preview.
 
 ## Goroutine Leak Detection
 
-The package uses `go.uber.org/goleak` via a package-level `TestMain` in
-`library_test.go`:
+The package uses `go.uber.org/goleak` via a package-level `TestMain` in `library_test.go`:
 
 ```go
 func TestMain(m *testing.M) {
@@ -498,18 +379,6 @@ func TestMain(m *testing.M) {
 }
 ```
 
-`goleak.VerifyTestMain` wraps `m.Run()` and verifies that no goroutines
-remain after the test suite completes. This catches leaks from
-`adder.go:scanDirectory` / `scanLevel`, which use `errgroup.SetLimit`
-to fan out concurrent orphan scans. The `t.Parallel()` calls added in
-Phase 5 exercised the errgroup paths more aggressively, surfacing the
-need for leak detection (best practice 6 in `golang-testing`).
+`goleak.VerifyTestMain` wraps `m.Run()` and verifies no goroutines remain after the suite completes — catching leaks from `adder.go:scanDirectory` / `scanLevel` (which use `errgroup.SetLimit` for concurrent orphan scans).
 
-**Note**: `VerifyTestMain` already wraps `m.Run()` and exits the
-process on completion; do not append `os.Exit(m.Run())` after it —
-that would run the test suite twice.
-
-If a new test legitimately needs to spawn a long-lived goroutine
-(e.g., a watcher), use `goleak.IgnoreTopFunction` in the relevant
-test or exclude the goroutine's function name via
-`goleak.VerifyTestMain`'s `opts...Ignore*` parameters.
+> **Note**: `VerifyTestMain` already wraps `m.Run()` and exits the process. Do **NOT** append `os.Exit(m.Run())` after it — that runs the suite twice. If a legitimate test must spawn a long-lived goroutine (e.g., a watcher), use `goleak.IgnoreTopFunction` for the relevant test or exclude the goroutine's function name via `goleak.VerifyTestMain`'s `opts...Ignore*` parameters.

@@ -157,7 +157,7 @@ Valid types: `skill`, `agent`, `command`, `memory`
 `library resources` outputs grouped sections:
 ```
 Skills:
-  skill/commit - Git commit best practices
+  skill/commit - Conventional git commit message guidance
   skill/merge-request - Generate merge request descriptions
 
 Agents:

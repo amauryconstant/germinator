@@ -1,6 +1,6 @@
 **Location**: `internal/core/`
 **Parent**: See `/internal/AGENTS.md` for core patterns
-**Skill reference**: `@.opencode/skills/golang-cli-architecture/references/01-architecture.md`
+**Skill references**: `@.opencode/skills/golang-cli-architecture/references/01-architecture.md`, `@.opencode/skills/golang-error-handling/SKILL.md` (typed-error builder / `Unwrap` / `errors.As` patterns), `@.opencode/skills/golang-samber-lo/SKILL.md` (allowed collection helpers in this package)
 
 ---
 

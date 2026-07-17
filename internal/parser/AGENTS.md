@@ -41,6 +41,6 @@ Each extends the embedded `core.*` type with `FilePath string` and `Content stri
 
 **Dependencies.** Imports `internal/core` (types + errors) and, via `platform_parser.go`, the platform adapters `internal/claude-code` and `internal/opencode`. YAML decoding uses `gopkg.in/yaml.v3`.
 
-**Filename convention.** `DetectType` is the only source of truth for "what type is this file?" — both `LoadDocument` and the library discovery walk rely on it. New doc-type patterns must be added here (and only here).
+**Filename convention.** `DetectType` is the only source of truth for doc-type file recognition — both `LoadDocument` and the library discovery walk rely on it. Add new doc-type patterns here, and nowhere else.
 
 **Frontmatter handling.** `parseMemory` is dual-mode: it accepts either a body-only file or a `---`-delimited frontmatter + body file. `parseDocumentWithFrontmatter` always requires frontmatter for agent/command/skill. The shared `extractFrontmatter` helper returns `(yaml, body, err)` and never errors by design (annotated `//nolint:unparam`).

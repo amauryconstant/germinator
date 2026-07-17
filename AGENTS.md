@@ -142,7 +142,7 @@ always-loaded primary above). Do not load all skills — pick by intent.
 
 | Category        | Skills                                                                                                                       |
 |-----------------|------------------------------------------------------------------------------------------------------------------------------|
-| Code Quality    | `golang-code-style`, `golang-naming`, `golang-documentation`, `golang-lint`, `golang-safety`                                 |
+| Style & docs    | `golang-code-style`, `golang-naming`, `golang-documentation`, `golang-lint`, `golang-safety`                                 |
 | Architecture    | `golang-design-patterns`, `golang-structs-interfaces`, `golang-context`, `golang-data-structures`                           |
 | Errors          | `golang-error-handling`                                                                                                      |
 | Testing         | `golang-testing`, `golang-stretchr-testify`                                                                                  |
@@ -198,161 +198,23 @@ Domain-mismatched skills (also not loaded): `golang-database`, `golang-graphql`,
 
 ## Library Commands
 
-| Command                              | Purpose                                      |
-| ------------------------------------ | -------------------------------------------- |
-| `germinator library init`            | Scaffold a new library directory structure   |
-| `germinator library add`              | Import a resource to the library             |
-| `germinator library create preset`   | Create a new preset in the library           |
-| `germinator library resources`      | List all resources (grouped by type)         |
-| `germinator library presets`         | List all presets                             |
-| `germinator library show <ref>`      | Display resource or preset details            |
-| `germinator library refresh`         | Sync metadata from resource files             |
-| `germinator library remove`          | Remove resource or preset                    |
-| `germinator library validate`        | Check library integrity                      |
+Nine subcommands for managing the canonical resource library (skills, agents, commands, memory). All support `--output plain|json|table` via `output.AddOutputFlags`; `--library` overrides `$GERMINATOR_LIBRARY` and the XDG default. See [`cmd/commands/AGENTS.md`](cmd/commands/AGENTS.md) for full flag tables, output formats, discover/batch modes, and examples.
 
-**Global `--output` flag:** All `germinator library` subcommands support `--output plain|json|table` via `output.AddOutputFlags`. `json` is for scripts, `table` for humans, `plain` is the default.
+| Command | Purpose |
+|---|---|
+| `library init` | Scaffold library directory structure |
+| `library add` | Import a resource (`--discover`/`--batch` modes too) |
+| `library create preset` | Create a preset referencing resources |
+| `library resources` | List all resources grouped by type |
+| `library presets` | List all presets |
+| `library show <ref>` | Display resource or preset details |
+| `library refresh` | Sync metadata from resource files into `library.yaml` |
+| `library remove` | Remove resource (`resource <ref>`) or preset (`preset <name>`) |
+| `library validate` | Check library integrity (`--fix` for auto-cleanup) |
 
-**Library init flags:**
-- `--path <path>` - Library location (default: `$XDG_DATA_HOME/germinator/library/` or `~/.local/share/germinator/library/`)
-- `--dry-run` - Preview changes without creating files
-- `--force` - Overwrite existing library
-- `--output <format>` - `plain` (default), `json`, or `table`
-
-**Examples:**
-```bash
-germinator library init                          # Create at default path
-germinator library init --path /tmp/my-library   # Custom location
-germinator library init --dry-run                # Preview only
-germinator library init --force                 # Overwrite existing
-germinator library init --output json            # Machine-readable
-```
-
-**Library add flags:**
-- `--name <name>` - Resource name (auto-detected from frontmatter or filename if omitted)
-- `--description <desc>` - Resource description (auto-detected if omitted)
-- `--type <type>` - Resource type: `agent`, `command`, `skill`, or `memory` (auto-detected if omitted)
-- `--platform <platform>` - Source platform: `opencode` or `claude-code` (auto-detected if omitted)
-- `--library <path>` - Library path (uses `GERMINATOR_LIBRARY` env or default if omitted)
-- `--dry-run` - Preview changes without modifying library
-- `--force` - Overwrite existing resource with same name
-- `--discover` - Find orphaned files not in library.yaml (recursive, report-only unless `--force` is also specified)
-- `--batch` - Batch mode: process all discovered orphans continuously (use with `--discover --force`)
-- `--output <format>` - Output format: `plain` (default, byte-identical to legacy), `json`, or `table`
-
-**Discover behavior:**
-- Scans `skills/`, `agents/`, `commands/`, `memory/` directories recursively
-- Returns orphan info with path, type, name, and optional issue (e.g., "name_conflict")
-- Summary includes: TotalScanned, TotalOrphans, TotalAdded, TotalSkipped, TotalFailed
-- Batch mode continues processing on individual errors (skips failed orphans)
-
-**Examples:**
-```bash
-germinator library add ~/code-reviewer.md --type agent          # Import agent
-germinator library add ./skill-commit.md --platform opencode    # Import OpenCode skill
-germinator library add resource.md --dry-run                    # Preview only
-germinator library add resource.md --force                      # Replace if exists
-germinator library add --discover                               # Find orphaned files (recursive)
-germinator library add --discover --force                        # Find and register orphans
-germinator library add --discover --batch --force                # Batch: discover all, add all (skip conflicts)
-```
-
-**Library create preset flags:**
-- `--resources <refs>` - Comma-separated resource references (required, e.g., `skill/commit,agent/reviewer`)
-- `--description <desc>` - Preset description (optional)
-- `--force` - Overwrite existing preset
-- `--library <path>` - Library path (uses `GERMINATOR_LIBRARY` env or default if omitted)
-
-**Examples:**
-```bash
-germinator library create preset git-workflow --resources skill/commit,skill/pr
-germinator library create preset dev-setup --resources skill/build,agent/reviewer --description "Development setup"
-germinator library create preset old-preset --resources skill/commit --force
-```
-
-**Library resources flags:**
-- `--library <path>` - Library path (uses `GERMINATOR_LIBRARY` env or default if omitted)
-- `--output <format>` - `plain` (default), `json`, or `table`
-
-**Examples:**
-```bash
-germinator library resources                              # List all resources grouped by type
-germinator library resources --output json                 # JSON output: {"resources": {...}}
-```
-
-**Library presets flags:**
-- `--library <path>` - Library path (uses `GERMINATOR_LIBRARY` env or default if omitted)
-- `--output <format>` - `plain` (default), `json`, or `table`
-
-**Examples:**
-```bash
-germinator library presets                               # List all presets
-germinator library presets --output json                  # JSON output: {"presets": {...}}
-```
-
-**Library show flags:**
-- `--library <path>` - Library path (uses `GERMINATOR_LIBRARY` env or default if omitted)
-- `--output <format>` - `plain` (default), `json`, or `table`
-
-**Examples:**
-```bash
-germinator library show skill/commit                     # Show resource details
-germinator library show skill/commit --output json        # JSON output
-germinator library show preset/git-workflow --output json # Show preset as JSON
-```
-
-**Library remove resource flags:**
-- `--library <path>` - Library path (uses `GERMINATOR_LIBRARY` env or default if omitted)
-- `--force` - Skip confirmation prompts and remove unconditionally
-- `--output <format>` - `plain` (default), `json`, or `table`
-
-**Library remove preset flags:**
-- `--library <path>` - Library path (uses `GERMINATOR_LIBRARY` env or default if omitted)
-- `--force` - No-op for preset removal (no physical file to force); accepted for parent-child flag symmetry
-- `--output <format>` - `plain` (default), `json`, or `table`
-
-**Examples:**
-```bash
-germinator library remove resource skill/commit                      # Remove a skill
-germinator library remove resource agent/reviewer --output json      # Remove with JSON output
-germinator library remove preset git-workflow                         # Remove a preset
-germinator library remove resource skill/test --force                # Skip confirmation
-```
-
-**Library validate flags:**
-- `--library <path>` - Library path (uses `GERMINATOR_LIBRARY` env or default if omitted)
-- `--fix` - Auto-cleanup `library.yaml` (removes missing entries, strips ghost preset refs)
-- `--output <format>` - `plain` (default), `json`, or `table`
-
-**Examples:**
-```bash
-germinator library validate                              # Check library integrity
-germinator library validate --output json                 # JSON output for scripts
-germinator library validate --fix                         # Auto-fix issues
-germinator library validate --fix --output json           # Machine-readable fix report
-germinator library validate --fix --output table          # Action/ref table
-```
-
-**Library refresh flags:**
-- `--library <path>` - Library path (uses `GERMINATOR_LIBRARY` env or default if omitted)
-- `--dry-run` - Preview changes without modifying library
-- `--force` - Skip resources with conflicts (name mismatch)
-- `--output <format>` - `plain` (default), `json`, or `table`
-
-**Examples:**
-```bash
-germinator library refresh                              # Sync metadata from files
-germinator library refresh --dry-run                    # Preview what would change
-germinator library refresh --force                       # Skip conflicts
-germinator library refresh --output json                 # JSON output for scripts
-germinator library refresh --output table                # Per-change table
-```
-
-**What it does:**
-- Updates `description` from frontmatter when stale
-- Updates `path` when file renamed (if frontmatter name matches entry key)
-- Skips missing files silently (use `validate --fix` to remove entries)
-- Reports `Refreshed`, `Unchanged`, `Skipped`, `Errors` sections in plain output
-- Exit code 1 if any errors occurred
+**Library path discovery:** `--library` flag > `$GERMINATOR_LIBRARY` env > `$XDG_DATA_HOME/germinator/library/` (or `~/.local/share/germinator/library/`).
+**Resource references:** format `type/name` (e.g., `skill/commit`, `agent/reviewer`); valid types are `skill`, `agent`, `command`, `memory`.
+**Library init only subcommand without `--library`:** uses `--path <path>` instead.
 
 ## Release
 
@@ -383,7 +245,7 @@ Hooks: gofmt, govet, golangci-lint, YAML/TOML/JSON validation, file hygiene.
 
 **Config**: `openspec/config.yaml` (spec-driven schema)
 
-> **Spec organization** — Specs follow the flat layout described in [`openspec/specs/AGENTS.md`](openspec/specs/AGENTS.md): `openspec/specs/<category>-<spec-name>/spec.md`. Always consult the local AGENTS.md before creating, syncing, or moving a spec to pick the right category prefix.
+> **Spec organization** — Specs follow the flat layout described in the "Spec organization" section of [`openspec/config.yaml`](openspec/config.yaml): `openspec/specs/<category>-<spec-name>/spec.md`. Always consult the source-of-truth section in `config.yaml` before creating, syncing, or moving a spec to pick the right category prefix.
 
 ### When to Use
 
@@ -482,6 +344,7 @@ graph TB
 | [internal/opencode/AGENTS.md](internal/opencode/AGENTS.md) | OpenCode platform adapter                                    |
 | [internal/AGENTS.md](internal/AGENTS.md)                   | Internal package patterns                                    |
 | [config/AGENTS.md](config/AGENTS.md)                       | Template patterns, permission mappings                       |
-| [openspec/specs/AGENTS.md](openspec/specs/AGENTS.md)       | Spec layout (`<category>-<spec-name>/spec.md`)                |
 | [test/AGENTS.md](test/AGENTS.md)                           | Golden file testing, E2E testing, runF injection, fixture conventions |
 | [openspec/research/AGENTS.md](openspec/research/AGENTS.md) | Platform research documentation usage                        |
+
+**Removed**: `openspec/specs/AGENTS.md` (deleted; spec-organization rules now live in the `context` block of [`openspec/config.yaml`](openspec/config.yaml) under "Spec organization").
