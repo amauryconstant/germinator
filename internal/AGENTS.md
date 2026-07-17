@@ -47,46 +47,21 @@ Pure computation with no I/O. Types with behavior, validation, business rules, d
 
 ### Imperative Shell
 
-Everything that does I/O lives here.
+Everything that does I/O lives here. Each shell package owns one cohesive concern — see per-package AGENTS.md (`internal/<x>/AGENTS.md`) for the full surface area. High-level responsibilities:
 
-#### `internal/iostreams/`
-- `IOStreams` struct: `In`, `Out`, `ErrOut`, `Verbose`, `Logger`, `Styles`, TTY detection
-- `System()` constructor (real I/O), `Test()` constructor (buffer-backed for tests)
-- `IsStdoutTTY()`, `IsInteractive()`, `Verbosef()` methods
-
-#### `internal/output/`
-- `FormatError(io, err)` — dispatches on error type via `errors.As`, formats to stderr
-- `Exporter` interface + `JSONExporter` (2-space indent) + `TableExporter` (`tab:"HEADER"` struct tag)
-- `AddOutputFlags(cmd, *string)` — wires `--output` (`json`/`table`/`plain`) with shell completion
-- `FormatResourcesList(lib)` — stable plain rendering of `library resources`
-
-#### `internal/cmdutil/`
-- `Factory` struct: `IOStreams`, `AppVersion`, `Executable`, `RootContext`, `CompletionCache`, plus **lazy function fields** for dependencies (`Config func() (*config.Config, error)`, `Library func() (*library.Library, error)`) with `sync.Once` caching
-- `ExitCodeFor(err)` — maps errors to 0/1/2 (no 3–6)
-- `CompletionCache` — per-Factory TTL cache for shell-completion library snapshots; `Invalidate()` called by mutating library commands
-
-#### `internal/config/`
-- `Config` struct with `koanf` tags (`Library`, `PlatformDefault`, `Debug`, `Completion`)
-- `Load()` top-level wrapper, `DefaultConfig()`, XDG path resolution via `adrg/xdg`
-- Koanf env provider merges `GERMINATOR_*` env vars (defaults → file → env)
-- `Library: ""` is the canonical "no config-file override" signal; falls through to `library.DefaultLibraryPath()`
-- Missing file falls back to defaults (not an error); validation uses `errors.Join` collect mode
-
-#### `internal/library/`
-- `Library` struct with `Resources`, `Presets`
-- Operations: `Load`, `Resolve`, `List`, `Add`, `Create`, `Remove`, `Refresh`, `Validate`, `Save`
-- Path resolution: `--library` flag > `GERMINATOR_LIBRARY` env > XDG default
-- Returns core types; no business logic
-
-#### `internal/{claude-code,opencode}/`
-- One package per platform
-- Each provides: `ParsePlatformDocument(path, docType) (*core.Document, error)` and `RenderDocument(doc, docType) (string, error)`
-- Platform-specific validation (e.g. OpenCode mode/temperature rules)
-- Returns core types; depends on `internal/core/`
-
-#### `internal/paths/`
-- `ExpandHome(path) (string, error)` — canonical tilde-expansion used by both `internal/config` and `cmd/completions`
-- Leaf shell package: depends only on stdlib
+| Package | Concern |
+|---|---|
+| `iostreams` | Terminal I/O boundary, TTY detection, `Verbosef`, `Styles` |
+| `output` | `FormatError`, `Exporter`/`JSONExporter`/`TableExporter`, `AddOutputFlags`, `FormatResourcesList` |
+| `cmdutil` | `Factory` (lazy fn fields), `ExitCodeFor`, `CompletionCache`, cmd helpers |
+| `config` | `Config` struct + `koanf` loading, XDG resolution via `adrg/xdg`, `GERMINATOR_*` env merge |
+| `library` | Library I/O (load/resolve/list/add/create/remove/refresh/validate/save); path priority: flag > env > XDG |
+| `parser`, `renderer` | Frontmatter parsing + template rendering (consumed by transform/validate/canonicalize/install) |
+| `transform`, `validate`, `canonicalize`, `install` | Service-style I/O adapters over parser + renderer + library |
+| `claude-code`, `opencode` | One per platform; parse + render + platform-specific validation; return core types |
+| `permission` | Permission-rule mapping for platform output |
+| `paths` | `ExpandHome` tilde-expansion; leaf package (stdlib only) |
+| `version` | Build-time version metadata (ldflags injection point) |
 
 ---
 
@@ -130,21 +105,7 @@ cmd/ ───────────► internal/output/
 - `internal/output/` imports `core/` (formats core errors)
 - `internal/library/`, `internal/config/` are independent (or import `core/` for shared types)
 
-**Enforced by `depguard`** in `.golangci.yml`:
-```yaml
-linters-settings:
-  depguard:
-    rules:
-      core-isolation:
-        files:
-          - "**/core/**"
-        allow:
-          - $gostd
-          - github.com/samber/lo
-        deny:
-          - pkg: "github.com/*"
-            desc: "core allows only stdlib and lo"
-```
+**Enforced by `depguard`** in `.golangci.yml` — core allows stdlib + `samber/lo` only; see `.golangci.yml` for the full rule.
 
 ---
 
@@ -161,19 +122,4 @@ Table-driven tests with descriptive names. End-to-end: `LoadDocument → Validat
 | `internal/claude-code/` / `internal/opencode/` | Use real templates + `t.TempDir()` fixtures |
 | E2E behavior | Full binary via `testscript` / Ginkgo |
 
-The `test/mocks/` package is **deprecated**. New tests use `runF` injection with `iostreams.Test()`.
-
----
-
-# File Organization
-
-## Test Files
-
-- `<package>_test.go` — unit tests
-- `integration_test.go` — integration tests (build tag `//go:build integration`)
-- `<package>_golden_test.go` — golden file tests (build tag `//go:build golden`)
-
-## Source Files
-
-- `<package>.go` — main implementation
-- `doc.go` — package documentation
+The `test/mocks/` package is deprecated. New tests use `runF` injection with `iostreams.Test()` buffers (see `cmd/AGENTS.md` → Testing).

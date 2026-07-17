@@ -98,9 +98,7 @@ at the start of **every** Go task. It is the source of truth for:
 - CLI testing pyramid (Core unit → Command via `runF` → Integration → E2E)
 - Three-concern model (Parse / Execute / Respond)
 
-> **Token budget.** Always-loaded skills add their description tokens to every
-> session (~100 tokens per skill). `golang-cli-architecture` is the only Go skill
-> with mandatory session-startup load.
+> `golang-cli-architecture` is the only Go skill with mandatory session-startup load.
 
 ### Intent-based skill loading
 
@@ -133,10 +131,6 @@ always-loaded primary above). Do not load all skills — pick by intent.
 > `golang-cli-architecture` for the CLI testing pyramid
 > (Core → Command via `runF` → Integration → E2E). It is kept for
 > table-driven patterns, fuzzing, goleak, and coverage idioms.
->
-> **Note on configuration:** germinator uses **`koanf`**, not `viper`.
-> `golang-spf13-viper` is intentionally not listed. Library rationale:
-> `@.opencode/skills/golang-cli-architecture/references/14-libraries.md`.
 
 ### Skill catalog (secondary)
 
@@ -148,23 +142,6 @@ always-loaded primary above). Do not load all skills — pick by intent.
 | Testing         | `golang-testing`, `golang-stretchr-testify`                                                                                  |
 | Libraries       | `golang-spf13-cobra`, `golang-samber-lo`                                                                                     |
 | Tools           | `golang-troubleshooting`, `golang-modernize`, `golang-gopls`, `golang-pkg-go-dev`                                             |
-
-### Supersession — DO NOT load these `samber/cc-skills-golang` skills
-
-The following samber skills are explicitly overridden by local skills or by
-project decisions and should NOT be loaded for germinator work:
-
-- `samber/cc-skills-golang@golang-cli` → superseded by `golang-cli-architecture`
-- `samber/cc-skills-golang@golang-dependency-injection` → Factory pattern replaces DI containers
-- `samber/cc-skills-golang@golang-project-layout` → CLI-specific Tier 1/2/3 layouts
-- `samber/cc-skills-golang@golang-concurrency` → sequential-first for CLIs
-- `samber/cc-skills-golang@golang-spf13-viper` → we use **koanf**, not viper
-
-Domain-mismatched skills (also not loaded): `golang-database`, `golang-graphql`,
-`golang-grpc`, `golang-swagger`, `golang-observability`, `golang-benchmark`,
-`golang-performance`, all DI container skills (`golang-google-wire`,
-`golang-uber-dig`, `golang-uber-fx`, `golang-samber-do`), and all other
-`samber/*` skills not listed in the catalog above.
 
 ## Essential Commands
 
@@ -212,117 +189,13 @@ Nine subcommands for managing the canonical resource library (skills, agents, co
 | `library remove` | Remove resource (`resource <ref>`) or preset (`preset <name>`) |
 | `library validate` | Check library integrity (`--fix` for auto-cleanup) |
 
-**Library path discovery:** `--library` flag > `$GERMINATOR_LIBRARY` env > `$XDG_DATA_HOME/germinator/library/` (or `~/.local/share/germinator/library/`).
+**Library path discovery:** `--library` flag > `$GERMINATOR_LIBRARY` env > `Config.Library` > `$XDG_DATA_HOME/germinator/library/` (or `~/.local/share/germinator/library/`). Canonical chain in [`internal/library/AGENTS.md`](internal/library/AGENTS.md) → Library Discovery.
 **Resource references:** format `type/name` (e.g., `skill/commit`, `agent/reviewer`); valid types are `skill`, `agent`, `command`, `memory`.
 **Library init only subcommand without `--library`:** uses `--path <path>` instead.
 
-## Release
-
-| Command              | Purpose                                        |
-| -------------------- | ---------------------------------------------- |
-| mise run release     | Validate, update changelog, commit, and tag   |
-| mise run release:check | Validate prerequisites (no execution)         |
-| mise run release:prepare | Validate and preview operations             |
-| mise run test:release | Test GoReleaser release flow (build only)     |
-
-Workflow:
-1. `mise run osx-changelog` - Generate changelog from archived OpenSpec changes
-2. `mise run release:check` - Validate prerequisites
-3. `mise run release:prepare <patch|minor|major>` - Preview what would happen
-4. `mise run release <patch|minor|major>` - Execute release when ready
-
-Optional: `mise run test:release` - Test goreleaser build without publishing
-
 ## Pre-Commit Hooks
 
-Setup: `pre-commit install`
-Run: `pre-commit run --all-files`
-Skip: `git commit -m "msg" --no-verify`
-
-Hooks: gofmt, govet, golangci-lint, YAML/TOML/JSON validation, file hygiene.
-
-## OpenSpec Workflow
-
-**Config**: `openspec/config.yaml` (spec-driven schema)
-
-> **Spec organization** — Specs follow the flat layout described in the "Spec organization" section of [`openspec/config.yaml`](openspec/config.yaml): `openspec/specs/<category>-<spec-name>/spec.md`. Always consult the source-of-truth section in `config.yaml` before creating, syncing, or moving a spec to pick the right category prefix.
-
-### When to Use
-
-| Situation                       | Action                 |
-| ------------------------------- | ---------------------- |
-| Multi-step change (3+ tasks)    | Use OpenSpec           |
-| New platform support            | Use OpenSpec           |
-| Refactor / architectural change | Use OpenSpec           |
-| Quick fix (1-2 lines)           | Skip OpenSpec          |
-| Unclear requirements            | osc-explore first |
-
-### Lifecycle
-
-```mermaid
-graph TB
-    subgraph Exploration["Exploration"]
-        E1[osc-explore]
-    end
-
-    subgraph Planning["Planning"]
-        P1[osc-new-change]
-        P2[osc-continue-change<br/>or osc-ff-change]
-        P3[osx-review-artifacts]
-        P4[osx-modify-artifacts]
-    end
-
-    subgraph Implementation["Implementation"]
-        I1[osc-apply-change]
-        I2[osx-review-test-compliance]
-    end
-
-    subgraph Completion["Completion"]
-        C1[osc-verify-change]
-        C2[osx-maintain-ai-docs]
-        C3[osc-sync-specs]
-        C4[osc-archive-change<br/>or bulk-archive]
-        C5[osx-generate-changelog]
-    end
-
-    E1 --> P1 --> P2 --> P3 --> I1 --> C1 --> C2 --> C4 --> C5
-    C2 -.->|optional| C3 --> C4
-
-    P3 -.->|issues found| P4
-    P4 -.-> P3
-    I1 -.->|reality diverges| P4
-    I1 -.->|test gaps| I2
-    I2 -.->|implement tests| I1
-    C1 -.->|with| I2
-```
-
-### Skills by Phase
-
-| Phase              | Skill                             | Purpose                                          |
-| ------------------ | --------------------------------- | ------------------------------------------------ |
-| **Exploration**    | `osc-explore`                | Think through ideas                              |
-| **Planning**       | `osc-new-change`             | Create change folder                             |
-|                    | `osc-continue-change`        | Create one artifact                              |
-|                    | `osc-ff-change`              | Create all artifacts at once                     |
-|                    | `osx-review-artifacts`       | Review for quality                               |
-|                    | `osx-modify-artifacts`       | Update artifacts _(also in Implementation)_      |
-| **Implementation** | `osc-apply-change`           | Implement tasks                                  |
-|                    | `osx-review-test-compliance` | Check spec→test alignment _(also in Completion)_ |
-| **Completion**     | `osc-verify-change`          | Validate implementation                          |
-|                    | `osx-maintain-ai-docs`       | Update AGENTS.md                                 |
-|                    | `osc-sync-specs`             | Merge delta specs (optional)                     |
-|                    | `osc-archive-change`         | Finalize single change                           |
-|                    | `osc-bulk-archive-change`    | Archive multiple changes                         |
-|                    | `osx-generate-changelog`     | Generate CHANGELOG.md                            |
-
-### Project Conventions
-
-| Rule      | Detail                                                                             |
-| --------- | ---------------------------------------------------------------------------------- |
-| Tests     | Unit tests alongside code, golden file tests for transformations, E2E for CLI, mocks for isolated unit testing      |
-| Progress  | Check tasks.md in change folder for completion status                              |
-| Artifacts | Follow openspec/config.yaml rules section                                          |
-| Archive   | See openspec/changes/archive/ for examples                                         |
+Setup: `pre-commit install`. Run: `pre-commit run --all-files`. Skip per-commit: `git commit -m "msg" --no-verify`. Hook list lives in `.pre-commit-config.yaml`.
 
 ## Location-Specific Guides
 

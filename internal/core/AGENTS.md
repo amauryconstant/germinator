@@ -10,24 +10,7 @@
 
 ## Core Purity
 
-This package has **zero external dependencies** (only stdlib and `samber/lo`).
-
-Enforced via depguard in `.golangci.yml`:
-```yaml
-depguard:
-  rules:
-    core-isolation:
-      files:
-        - "**/core/**"
-      allow:
-        - $gostd
-        - github.com/samber/lo
-      deny:
-        - pkg: "github.com/*"
-          desc: "core allows only stdlib and lo"
-```
-
-**Purpose**: Prevents architectural drift - core types remain pure and independent.
+This package has **zero external dependencies** (only stdlib and `samber/lo`). Enforced via `depguard` in `.golangci.yml` (see rule in `/internal/AGENTS.md`). Prevents architectural drift — core types remain pure and independent.
 
 ---
 
@@ -63,19 +46,7 @@ depguard:
 | UsageError | CLI flag validation failure (carries `Flag`, `Reason`, optional `Suggestions`); `output.FormatError` renders `Error: <flag>: <reason>` to stderr; maps to exit 2 |
 | CobraUsageError | Sentinel wrapping Cobra arg-validation errors (`MustNewCobraUsageError` panics on nil cause); maps to exit 2 |
 
-## Builder Pattern
-
-```go
-err := NewParseError("invalid YAML", "msg", nil).
-    WithSuggestions([]string{"Check YAML syntax"}).
-    WithContext("line 42")
-```
-
-Features:
-- `WithSuggestions()` - Add remediation hints
-- `WithContext()` - Add debugging context
-- `Unwrap()` - Error chaining support
-- Getters for programmatic access (`Suggestions()`, `Context()`)
+Errors carry semantic meaning only — no exit codes. Builder pattern (`WithSuggestions`, `WithContext`, `Unwrap`); see `golang-error-handling` skill for full reference.
 
 ---
 
@@ -148,23 +119,3 @@ if !result.IsOk() {
 | InitializeResult | Per-resource installation result |
 
 **Used by**: cmd-layer run functions and shell-package operations that need to surface domain-typed failures.
-
----
-
-# File Organization
-
-| File | Purpose |
-|------|---------|
-| `doc.go` | Package documentation (`type Domain = core` alias retained for external consumers) |
-| `agent.go` | Agent type |
-| `command.go` | Command type |
-| `skill.go` | Skill type |
-| `memory.go` | Memory type |
-| `platform.go` | Platform/PermissionPolicy types |
-| `errors.go` | Typed errors with builder (incl. `InitializeError`, `PartialSuccessError`) |
-| `validation.go` | Generic validators |
-| `result.go` | Result[T] type |
-| `results.go` | Service result types |
-| `pipeline.go` | ValidationPipeline[T] |
-| `rules.go` | Pure business rules: `ValidatePlatform(s)`, `ResolveOutputPath(docType, name, platform)` |
-| `opencode/` | OpenCode validators (subdirectory) |

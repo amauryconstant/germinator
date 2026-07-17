@@ -29,6 +29,8 @@ Cobra-based CLI built on the `NewCmdXxx(f *Factory, runF func(*XxxOptions) error
 | `completion.go` | Shell completion command (carapace-based, multi-shell) |
 | `completions.go` | Dynamic completion actions with `Factory.CompletionCache` |
 | `config.go` | Config command group (`init`, `validate`) |
+| `config_init.go` | `config init` subcommand (scaffold config file) |
+| `config_validate.go` | `config validate` subcommand (validate config file) |
 | `lint_test.go` | Lint baseline enforcement test (see [Lint Enforcement](#lint-enforcement)) |
 | `testdata/lint_baseline.txt` | Captured `mise run lint` output; the baseline against which `lint_test.go` diffs |
 
@@ -117,36 +119,7 @@ func NewCmdAdapt(f *cmdutil.Factory, runF func(*adaptOptions) error) *cobra.Comm
 
 ## 4. `runAdapt(opts)` — production body
 
-Pure function over `*adaptOptions`. Validates input (`core.ValidatePlatform`), resolves the lazy dependency with a nil-safe fallback, calls the contract, writes success to `opts.IO.Out`, and wraps every failure path with `fmt.Errorf("...: %w", err)` so `output.FormatError` + `cmdutil.ExitCodeFor` can dispatch by type.
-
-```go
-func runAdapt(opts *adaptOptions) error {
-    if err := core.ValidatePlatform(opts.Platform); err != nil {
-        return fmt.Errorf("validating platform: %w", err)
-    }
-    opts.IO.Verbosef("transforming %s → %s", opts.InputPath, opts.OutputPath)
-
-    resolve := opts.Transformer
-    if resolve == nil {
-        resolve = func() (Transformer, error) {
-            return transform.NewService(parser.NewParser(), renderer.NewSerializer()), nil
-        }
-    }
-    t, err := resolve()
-    if err != nil {
-        return fmt.Errorf("resolving transformer: %w", err)
-    }
-    if _, err := t.Transform(opts.Ctx, &transform.Request{
-        InputPath:  opts.InputPath,
-        OutputPath: opts.OutputPath,
-        Platform:   opts.Platform,
-    }); err != nil {
-        return fmt.Errorf("transforming document: %w", err)
-    }
-    _, _ = fmt.Fprintf(opts.IO.Out, "wrote %s\n", opts.OutputPath)
-    return nil
-}
-```
+Pure function over `*adaptOptions`. Validates input (`core.ValidatePlatform`), resolves the lazy dependency with a nil-safe fallback, calls the contract, writes success to `opts.IO.Out`, and wraps every failure path with `fmt.Errorf("...: %w", err)` so `output.FormatError` + `cmdutil.ExitCodeFor` can dispatch by type. Full body in `cmd/adapt.go`.
 
 ---
 
@@ -166,17 +139,6 @@ if err := core.ValidatePlatform(opts.Platform); err != nil {
 
 Use `core.PlatformClaudeCode` / `core.PlatformOpenCode` constants (defined in `internal/core/rules.go` alongside `ValidatePlatform`).
 
-## Supported Platforms
-
-- `claude-code` - Claude Code document format
-- `opencode` - OpenCode document format
-
----
-
-# Verbosity
-
-`-v` / `-vv` on the root command toggles `IOStreams.Verbose`. Commands call `opts.IO.Verbosef(format, args...)` (writes to `ErrOut`, auto-trailing newline, no-op when `Verbose == false`). Stdout stays clean for piping.
-
 ---
 
 # Exit Codes
@@ -185,7 +147,7 @@ Three-value scheme:
 
 - `0` (Success) — command completed; also returned for `*core.PartialSuccessError` with `Succeeded > 0`
 - `1` (Error) — general errors (transform, file, unexpected)
-- `2` (Usage) — Cobra argument/validation errors (invalid flags, missing args) detected via typed dispatch against `*pflag.{NotExist,ValueRequired,InvalidValue,InvalidSyntax}Error` and `*core.{Usage,CobraUsage}Error` (per `internal/cmdutil/exit.go`)
+- `2` (Usage) — Cobra argument/validation errors; full type → code mapping in [`internal/cmdutil/AGENTS.md`](../internal/cmdutil/AGENTS.md)
 
 Mapping: `cmdutil.ExitCodeFor(err)` inspects the error chain with `errors.As` and returns the code. `main.go` calls it from a deferred handler — never call `os.Exit` directly (enforced by `forbidigo`).
 
@@ -228,22 +190,9 @@ core.NewPartialSuccessError(succeeded, failed, errors)
 
 ---
 
-# Argument Count
+# Version Output
 
-`adapt` and `validate` use `cobra.ExactArgs(2)` and `cobra.ExactArgs(1)` respectively.
-`root` and `version` use default (no arguments).
-
----
-
-# Version Output Format
-
-```go
-fmt.Fprintf(opts.IO.Out, "germinator %s (%s) %s\n", version.Version, version.Commit, version.Date)
-```
-
-Example: `germinator v0.3.20 (abc123def) 2026-02-04`
-
-`internal/version` is the source of truth (populated via `-ldflags` at build time). `Factory.AppVersion` is a separate short-form string used elsewhere and is **not** read by `runVersion` (see `cmd/version.go`).
+`fmt.Fprintf(opts.IO.Out, "germinator %s (%s) %s\n", version.Version, version.Commit, version.Date)` — example: `germinator v0.3.20 (abc123def) 2026-02-04`. `internal/version` is the source of truth (populated via `-ldflags` at build time).
 
 ---
 
@@ -262,25 +211,7 @@ Test files of note:
 
 > The `test/mocks/` package is **deprecated**. New tests use `runF` injection with `iostreams.Test()` buffers.
 
----
-
-# Foundation Units
-
-The shell units consumed by `cmd/`:
-
-| Unit | Package | Purpose |
-|------|---------|---------|
-| `iostreams.IOStreams` | `internal/iostreams/` | Single terminal I/O boundary; `System()` (real) and `Test()` (buffer) constructors; `Verbosef`, TTY detection, `Styles` |
-| `iostreams.Styles` | `internal/iostreams/styles.go` | `Error`/`Success`/`Warning`/`Dim`/`Bold` via `lipgloss`; respects `NO_COLOR` and TTY |
-| `output.FormatError` | `internal/output/errors.go` | Dispatches on typed `*core.*Error` via `errors.As`; writes to `io.ErrOut` |
-| `output.Exporter` + `JSONExporter` + `TableExporter` | `internal/output/exporter.go` | Format-flexible output (`tab:"HEADER"` struct tag) |
-| `output.AddOutputFlags` | `internal/output/output_flags.go` | Wires `--output` (`json`/`table`/`plain`) with completion |
-| `cmdutil.Factory` | `internal/cmdutil/factory.go` | Lazy `func() (T, error)` fields; `Config` is wired by `BuildFactory` (cached via `OnceValuesFunc`), `Library` field is **preserved** (per `cli-cli-factory/spec.md`) but left nil — each `RunE` builds its own `opts.Library` closure from `c.Context()` wrapped in `OnceValuesFunc`; `NewFactory(ctx, io, appVersion, executable)` |
-| `cmdutil.ExitCodeFor` | `internal/cmdutil/exit.go` | Maps `error` → 0/1/2 (0 if `*core.PartialSuccessError{Succeeded>0}`) |
-| `core.ValidatePlatform` | `internal/core/rules.go` | Returns `*core.ValidationError` for unknown platform strings |
-| `core.ResolveOutputPath` | `internal/core/rules.go` | `(docType, name, platform) → path` (e.g., `agents/reviewer.claude-code.md`) |
-
-**Debug logging** is activated via `IOStreams.SetDebug(bool)`, driven by `cfg.Debug` from `main.go` after `config.Load()` succeeds. `GERMINATOR_DEBUG` env → koanf env provider (`internal/config/manager.go::Load()`) → `cfg.Debug` → `IOStreams.SetDebug(cfg.Debug)`. Default (unset or false) = no-op handler. The env is **not** read directly by `iostreams.System()`; `main.go`'s fail-fast `BuildFactory` is the single source of truth.
+**Debug logging**: `IOStreams.SetDebug(bool)` driven by `cfg.Debug` from `main.go` after `config.Load()`. `GERMINATOR_DEBUG` env → koanf env provider → `cfg.Debug`. The env is **not** read directly by `iostreams.System()`; `main.go`'s fail-fast `BuildFactory` is the single source of truth.
 
 ---
 

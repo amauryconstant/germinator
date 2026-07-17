@@ -29,7 +29,7 @@ Loads Germinator's TOML configuration from disk using koanf, with XDG path resol
 
 | Field | Type | Default | Source |
 |-------|------|---------|--------|
-| `Library` | `string` | `""` (XDG falls through) | koanf `library`, env `GERMINATOR_LIBRARY` |
+| `Library` | `string` | `""` (XDG falls through) | koanf `library`, env `GERMINATOR_LIBRARY` — consumed by `internal/library.FindLibrary` as the 3rd tier (cfgPath) |
 | `PlatformDefault` | `string` | `""` | koanf `platform`, env `GERMINATOR_PLATFORM` (lowercased) |
 | `Debug` | `bool` | `false` | koanf `debug`, env `GERMINATOR_DEBUG` (strconv.ParseBool) |
 | `Completion` | `CompletionConfig` | `Timeout:"500ms"`, `CacheTTL:"5s"` | koanf `completion.*` |

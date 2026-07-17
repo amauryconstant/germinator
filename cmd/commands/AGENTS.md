@@ -38,20 +38,6 @@ Scaffolds a new library directory with `library.yaml` and empty resource directo
 | `--dry-run` | false | Preview changes without creating files |
 | `--force` | false | Overwrite existing library |
 
-```bash
-# Create at default path
-germinator library init
-
-# Custom location
-germinator library init --path /tmp/my-library
-
-# Preview
-germinator library init --dry-run
-
-# Overwrite existing
-germinator library init --force
-```
-
 ## Library Refresh
 
 Syncs metadata from registered resource files into `library.yaml`. Updates description from frontmatter when stale, discovers renamed files by searching directories.
@@ -62,23 +48,6 @@ Syncs metadata from registered resource files into `library.yaml`. Updates descr
 | `--dry-run` | false | Preview changes without modifying |
 | `--force` | false | Skip resources with conflicts |
 | `--output` | `plain` | `plain` (default, per-section `Refreshed/Unchanged/Skipped/Errors` report), `json`, or `table` |
-
-```bash
-# Sync metadata from files
-germinator library refresh
-
-# Preview what would change
-germinator library refresh --dry-run
-
-# Skip conflicts
-germinator library refresh --force
-
-# JSON output for scripting
-germinator library refresh --output json
-
-# Per-change table
-germinator library refresh --output table
-```
 
 **What it does:**
 - Updates `description` from frontmatter when stale
@@ -100,51 +69,15 @@ Removes a resource (deletes file + YAML entry) or a preset (YAML entry only). On
 
 **Flags** (inherited from parent): `--library` (XDG default), `--force` (no-op for preset), `--output plain|json|table`. See `cmd/library_remove.go` for full type/error mapping.
 
-```bash
-# Remove a skill (and its file)
-germinator library remove resource skill/commit
-
-# JSON for scripts
-germinator library remove resource agent/reviewer --output json
-
-# Remove a preset
-germinator library remove preset git-workflow
-```
-
 ## Library Validate
 
 Checks library integrity against four issue types: `missing-file` / `ghost-resource` / `orphan` / `malformed-frontmatter`. Use `--fix` to auto-clean `library.yaml` (removes missing entries, strips ghost preset refs).
 
 **Flags**: `--library` (XDG default), `--fix` (mutating; opt-in), `--output plain|json|table`. Without `--fix`, validate is read-only — `library.yaml` is never modified. Exit codes via `cmdutil.ExitCodeFor`: `0` clean/warnings-only, `1` load failure, `2` Cobra usage error. See `cmd/library_validate.go` for full output-shape details.
 
-```bash
-# Check integrity
-germinator library validate
-
-# JSON for CI scripts
-germinator library validate --output json
-
-# Auto-fix
-germinator library validate --fix
-
-# Machine-readable fix report
-germinator library validate --fix --output json
-```
-
 ## Library Path Discovery
 
-Priority: `--library` flag > `GERMINATOR_LIBRARY` env > `$XDG_DATA_HOME/germinator/library/` or `~/.local/share/germinator/library/`
-
-```bash
-# Use default path
-germinator library resources
-
-# Use custom path via flag
-germinator library resources --library /path/to/library
-
-# Use custom path via environment
-GERMINATOR_LIBRARY=/path/to/library germinator library resources
-```
+Priority: `--library` flag > `GERMINATOR_LIBRARY` env > `Config.Library` > `$XDG_DATA_HOME/germinator/library/` (or `~/.local/share/germinator/library/`). See [`internal/library/AGENTS.md`](../internal/library/AGENTS.md) → Library Discovery.
 
 ## Resource References
 
@@ -190,20 +123,6 @@ supported `--json` get `--output`" rule.
 
 Validation: Fails if referenced resources don't exist; fails if preset exists without `--force`. Empty `--resources` returns a usage error (exit 2).
 
-```bash
-# Create preset with single resource
-germinator library create preset commit-tools --resources skill/commit
-
-# Create preset with multiple resources
-germinator library create preset git-workflow --resources skill/commit,skill/pr
-
-# Create with description
-germinator library create preset dev-setup --resources skill/build,agent/reviewer --description "Development setup"
-
-# Overwrite existing preset
-germinator library create preset git-workflow --resources skill/commit --force
-```
-
 **Output:** Displays preset name, description, and resources on success.
 
 ## Library Add
@@ -215,8 +134,6 @@ the `--discover` and `--batch` flags.
 
 ```bash
 germinator library add <file> --type skill --name test
-germinator library add <file> --type skill --name test --dry-run
-germinator library add <file> --force
 ```
 
 ### Mode 2: `--discover` (report-only)
@@ -224,11 +141,6 @@ germinator library add <file> --force
 Scans `skills/`, `agents/`, `commands/`, `memory/` directories for
 orphan files (not registered in `library.yaml`) and reports them.
 Without `--batch --force`, this is report-only.
-
-```bash
-germinator library add --discover
-germinator library add --discover --dry-run
-```
 
 `name_conflict` (orphan name already registered under a different
 type) is recorded as a `*core.OperationError` per file and counts
@@ -241,35 +153,11 @@ Continuously processes all orphans, registering them in
 `library.yaml`. On cancellation (Ctrl-C), partial successes are
 reported and the function returns wrapped `ctx.Err()`.
 
-```bash
-germinator library add --discover --batch --force
-germinator library add --discover --batch --force --dry-run
-```
-
 ### Output formats
 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--output` | `plain` | `plain` (byte-identical to legacy format), `json` (via `output.NewJSONExporter`), or `table` (via `output.NewTableExporter`) |
-
-```bash
-# Plain (default)
-germinator library add --discover --batch --force
-# -> Added resource: skill/foo
-# -> Orphaned resources:
-# ->   skill/foo (/path/to/skills/foo.md)
-# -> Summary: scanned=N, orphans=N, added=N, skipped=N, failed=N
-# -> Added N, skipped N, failed N
-
-# JSON
-germinator library add --discover --batch --force --output json
-# -> { "added": [...], "summary": { "totalScanned": N, ... } }
-
-# Table
-germinator library add --discover --output table
-# -> TYPE   NAME   PATH
-# -> skill  foo    /path/to/skills/foo.md
-```
 
 ### Stream discipline
 
@@ -312,25 +200,6 @@ Install resources from the library to a target project directory.
 | command | `.opencode/commands/<name>.md` | `.claude/commands/<name>.md` |
 | memory | `.opencode/memory/<name>.md` | `.claude/memory/<name>.md` |
 
-## Examples
-
-```bash
-# Install specific resources
-germinator init --platform opencode --resources skill/commit,skill/merge-request
-
-# Install from preset
-germinator init --platform opencode --preset git-workflow
-
-# Preview changes
-germinator init --platform opencode --preset git-workflow --dry-run
-
-# Overwrite existing files
-germinator init --platform opencode --resources skill/commit --force
-
-# Install to custom directory
-germinator init --platform opencode --preset git-workflow --output /project
-```
-
 ## Error Handling
 
 **Partial Processing**: The init command processes all resources regardless of individual failures, collecting per-resource results.
@@ -343,15 +212,6 @@ germinator init --platform opencode --preset git-workflow --output /project
 | Resource not found | Returns error for that resource, continues with others |
 
 **Result reporting**: Each resource gets its own `InitializeResult` with individual error status. Use `--json` for structured output.
-
-**Examples**:
-```bash
-# See all successes and failures in one run
-germinator init --platform opencode --resources skill/commit,skill/invalid,skill/pr
-
-# JSON output for scripting
-germinator init --platform opencode --resources skill/commit,skill/invalid --json
-```
 
 ---
 
@@ -377,17 +237,6 @@ Scaffolds `~/.config/germinator/config.toml` (or custom path) with **all setting
 
 Settings are commented to allow selective override; users uncomment only what they need.
 
-```bash
-# Scaffold default config
-germinator config init
-
-# Custom output path
-germinator config init --output-path /path/to/config.toml
-
-# Overwrite existing
-germinator config init --force
-```
-
 ## Config Validate
 
 Validates a config file is parseable and conformant.
@@ -396,75 +245,10 @@ Validates a config file is parseable and conformant.
 |------|---------|-------------|
 | `--output-path` | XDG config path | Config file to validate |
 
-```bash
-# Validate default config
-germinator config validate
-
-# Validate custom path
-germinator config validate --output-path /path/to/config.toml
-```
-
 **Returns:** Success (0), Error (1), Usage (2)
 
 ---
 
 # Completion Command
 
-Generate shell completion scripts for 10+ shells via carapace.
-
-## Supported Shells
-
-| Shell | Subcommand |
-|-------|------------|
-| Bash | `completion bash` |
-| Zsh | `completion zsh` |
-| Fish | `completion fish` |
-| PowerShell | `completion powershell` |
-| Elvish | `completion elvish` |
-| Nushell | `completion nushell` |
-| Oil | `completion oil` |
-| Tcsh | `completion tcsh` |
-| Xonsh | `completion xonsh` |
-| Clink (Windows) | `completion cmd-clink` |
-
-## Installation Examples
-
-```bash
-# Bash
-echo 'source <(germinator completion bash)' >> ~/.bashrc
-
-# Zsh
-germinator completion zsh > ~/.zfunc/_germinator
-
-# Fish
-germinator completion fish > ~/.config/fish/completions/germinator.fish
-```
-
-## Dynamic Completions
-
-| Flag/Argument | Source |
-|---------------|--------|
-| `--resources` | Library resources (e.g., `skill/commit`) |
-| `--preset` | Library presets |
-| `library show <ref>` | Resources + presets |
-| `--platform` | Static: `claude-code`, `opencode` |
-
-## Completion Actions (completions.go)
-
-| Function | Purpose |
-|----------|---------|
-| `actionPlatforms()` | Static platform values |
-| `actionResources(cmd)` | Dynamic from library with caching |
-| `actionPresets(cmd)` | Dynamic from library with caching |
-| `actionLibraryRefs(cmd)` | Combined resources + presets |
-
-## Caching
-
-- Package-level cache with mutex for thread safety
-- 5-second TTL (configurable via `completion.cache_ttl`)
-- 500ms timeout for library loading (configurable via `completion.timeout`)
-- Silent fallback to empty completions on error/timeout
-
-## Library Path Resolution
-
-Priority: `--library` flag > `GERMINATOR_LIBRARY` env > config > default
+Generate shell completion scripts for 10+ shells via carapace. Dynamic completion actions (`actionPlatforms`, `actionResources`, `actionPresets`, `actionLibraryRefs`) live in `cmd/completions.go` with caching; see `internal/cmdutil/AGENTS.md` for the cache contract.

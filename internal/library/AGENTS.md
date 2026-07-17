@@ -38,26 +38,7 @@ Library management for canonical resources (skills, agents, commands, memory).
 
 ## Core Types
 
-### Library
-
-```go
-type Library struct {
-    Version   string
-    Resources Resources
-    Presets   map[string]Preset
-}
-```
-
-### Resources
-
-```go
-type Resources struct {
-    Skill    map[string]SkillRef
-    Agent    map[string]AgentRef
-    Command  map[string]CommandRef
-    Memory   map[string]MemoryRef
-}
-```
+`Library` (`library.go`) wraps `Resources` (per-type maps: skill / agent / command / memory) and `Presets` (`map[string]Preset`). See source for field tags.
 
 ## Library Discovery
 
@@ -113,13 +94,6 @@ Post-creation: Validates by calling `LoadLibrary()` to ensure well-formed struct
 ```go
 // List all resources grouped by type
 ListResources(lib *Library) ResourceList
-
-type ResourceList struct {
-    Skills    []Resource
-    Agents    []Resource
-    Commands  []Resource
-    Memories  []Resource
-}
 ```
 
 ## Resolution
@@ -132,11 +106,6 @@ ResolveResource(libPath, ref string) (string, error)
 ## Adding Resources
 
 ```go
-type AddRequest struct {
-    Source, Name, Description, Type, LibraryPath string
-    DryRun, Force                                bool
-}
-
 // AddResource imports, canonicalizes, validates, and registers a resource.
 // ctx is checked before each I/O step; on cancellation returns wrapped ctx.Err().
 AddResource(ctx context.Context, opts AddRequest) error
@@ -152,21 +121,6 @@ Target path: `{library}/{type}s/{name}.md` (e.g., `library/agents/reviewer.md`).
 ## Batch Adding Resources
 
 ```go
-type BatchAddResult struct {
-    Added   []BatchAddSuccess        `json:"added"`
-    Skipped []BatchSkipInfo          `json:"skipped"`
-    Failed  []BatchFailureInfo       `json:"failed"`
-    Summary BatchSummary             `json:"summary"`
-}
-
-type BatchAddOptions struct {
-    Sources                                 []string // files/dirs to add
-    LibraryPath, Name, Description          string
-    Type, Platform                          string
-    Orphans                                 []Orphan  // from DiscoverOrphans
-    DryRun, Force                           bool
-}
-
 // BatchAddResources adds multiple resources in batch mode.
 // ctx is checked between files; on cancellation returns partial results + wrapped ctx.Err().
 BatchAddResources(ctx context.Context, opts BatchAddOptions) (*BatchAddResult, error)
@@ -211,18 +165,6 @@ PresetExists(lib *Library, name string) bool
 ## Removing Resources
 
 ```go
-type RemoveResourceOptions struct {
-    Ref        string // e.g., "skill/commit"
-    LibraryPath string
-    JSON       bool
-}
-
-type RemovePresetOptions struct {
-    Name        string
-    LibraryPath string
-    JSON       bool
-}
-
 // RemoveResource removes a resource from the library (deletes file + YAML entry)
 RemoveResource(ctx context.Context, opts RemoveResourceOptions) error
 
@@ -230,30 +172,7 @@ RemoveResource(ctx context.Context, opts RemoveResourceOptions) error
 RemovePreset(ctx context.Context, opts RemovePresetOptions) error
 ```
 
-### RemoveResource Flow
-
-1. Parse ref (e.g., "skill/commit") → type, name
-2. Load library from `{libraryPath}/library.yaml`
-3. Verify resource exists → error if not
-4. Check no presets reference this resource → error if in use
-5. Delete physical file: `{libraryPath}/{type}s/{name}.md`
-6. Remove from library.yaml: `Resources[type][name]`
-7. Save library.yaml
-8. Output (--json or human)
-
-### RemovePreset Flow
-
-1. Parse name (e.g., "git-workflow")
-2. Load library from `{libraryPath}/library.yaml`
-3. Verify preset exists → error if not
-4. Capture resources list for output
-5. Remove from library.yaml: `Presets[name]`
-6. Save library.yaml
-7. Output (--json or human)
-
-### JSON Output
-
-`{type, resourceType, name, fileDeleted, libraryPath}` for resources; `{type, name, resourcesRemoved}` for presets.
+Both flows parse input → load library → verify existence → mutate (file + YAML for resources, YAML-only for presets) → save → emit JSON or human output. JSON shape: `{type, resourceType, name, fileDeleted, libraryPath}` for resources; `{type, name, resourcesRemoved}` for presets.
 
 ## Validation
 
@@ -284,13 +203,6 @@ FixLibrary(libPath string) ([]Issue, error)
 ## Refresh
 
 ```go
-type RefreshOptions struct { LibraryPath string; DryRun, Force bool }
-type RefreshResult   struct { Refreshed []RefreshChange; Unchanged []RefreshUnchanged; Skipped []SkipInfo; Errors []RefreshError }
-type RefreshChange   struct { Ref, Field, Old, New string }                                       // Field: "description" | "path"
-type RefreshUnchanged struct { Ref, LastSynced string }                                           // LastSynced: RFC3339 mtime or ""
-type SkipInfo         struct { Ref, Reason string }                                               // Reason: "missing_file"
-type RefreshError     struct { Ref, Field, Type string }
-
 RefreshLibrary(ctx context.Context, opts RefreshOptions) (*RefreshResult, error)
 ```
 
@@ -308,51 +220,14 @@ RefreshLibrary(ctx context.Context, opts RefreshOptions) (*RefreshResult, error)
 
 ## Methods on `*Library`
 
-Mutating operations live as methods on `*Library` so the cmd-side can declare a minimal interface per command (no `*LibraryService` wrapper). Mirrors the `(*Library).CreatePreset` precedent at `internal/library/creator.go`.
-
-```go
-func (lib *Library) Refresh(ctx context.Context, req *RefreshRequest) (*RefreshResult, error)
-func (lib *Library) RemoveResource(ctx context.Context, req *RemoveResourceRequest) error
-func (lib *Library) RemovePreset(ctx context.Context, req *RemovePresetRequest) error
-func (lib *Library) Validate(ctx context.Context, req *ValidateRequest) (*ValidationResult, error)
-func (lib *Library) Fix(ctx context.Context, _ *FixRequest) (*FixResult, error)
-func (lib *Library) ResolvePreset(ctx context.Context, name string) ([]string, error) // ctx accept-and-may-ignore (pure in-memory lookup)
-func (lib *Library) Add(ctx context.Context, req *AddRequest) error
-func (lib *Library) BatchAddResources(ctx context.Context, opts *BatchAddOptions) (*BatchAddResult, error)
-func (lib *Library) DiscoverOrphans(ctx context.Context, opts *DiscoverOptions) (*DiscoverResult, error)
-
-// Init is a package function (no pre-existing *Library to receive a method)
-func Init(ctx context.Context, req *InitRequest) error
-```
-
-All methods assert `lib != nil && lib.RootPath != ""` at entry (see `methods_test.go` for table-driven coverage). The methods delegate to the package-level functions (`RefreshLibrary`, `RemoveResource`, `RemovePreset`, `AddResource`, `BatchAddResources`, `DiscoverOrphans`, `CreateLibrary`), forwarding `ctx` through. `ValidateLibrary(lib)` and `FixLibrary(lib)` are pure in-memory operations and do not take ctx. The `*Library` methods satisfy the cmd-side `adderLibrary` interface in `cmd/library_add.go` directly — no adapter shim.
+Mutating operations live as methods on `*Library` so the cmd-side can declare a minimal interface per command (no `*LibraryService` wrapper). Mirrors the `(*Library).CreatePreset` precedent at `internal/library/creator.go`. All methods assert `lib != nil && lib.RootPath != ""` at entry and delegate to the package-level functions, forwarding `ctx` through. `ValidateLibrary(lib)` and `FixLibrary(lib)` are pure in-memory operations and do not take ctx. The `*Library` methods satisfy the cmd-side `adderLibrary` interface in `cmd/library_add.go` directly — no adapter shim.
 
 ## Orphan Discovery
 
 ```go
 var ErrNameConflict = errors.New("name conflict with existing resource")
 
-type DiscoverOptions struct {
-    LibraryPath string
-    DryRun, Force, Batch bool // Batch: process all orphans continuously
-}
-
-type Orphan       struct { Path, Type, Name string; Issue string `json:"issue,omitempty"` }
-type ConflictInfo struct { Orphan Orphan; Issue string }
-type AddSuccess   struct { Type, Name, Path string }
-type DiscoverSummary struct {
-    TotalScanned, TotalOrphans, TotalAdded, TotalSkipped, TotalFailed int
-}
-
-type DiscoverResult struct {
-    Orphans   []Orphan
-    Added     []AddSuccess
-    Conflicts []ConflictInfo
-    Summary   DiscoverSummary
-}
-
 DiscoverOrphans(ctx context.Context, opts DiscoverOptions) (*DiscoverResult, error)
-checkNameConflict(lib *Library, orphan *Orphan) error // wraps ErrNameConflict on type-conflict
 ```
 
 `ErrNameConflict` is the typed name-conflict sentinel — callers detect it via `errors.Is`. `DiscoverOrphans` checks `ctx` between files; on cancellation a partial `DiscoverResult` is returned alongside wrapped `ctx.Err()`.

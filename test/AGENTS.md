@@ -13,7 +13,7 @@
 - `e2e/` - E2E tests (CLI behavior validation)
 - `helpers/` - Shared test utilities (future)
 
-> The `test/mocks/` package was deprecated when the project migrated to `runF` injection with `iostreams.Test()` buffers (see `cmd/AGENTS.md` → Testing). New tests do not use mocks.
+> Tests use `runF` injection with `iostreams.Test()` buffers; `test/mocks/` is deprecated (see `cmd/AGENTS.md` → Testing).
 
 ---
 
@@ -24,11 +24,7 @@
 
 ### Running E2E Tests
 
-```bash
-mise run test:e2e          # E2E tests only
-mise run test              # All tests (unit + golden + integration + e2e)
-go test -tags=e2e ./test/e2e/... -run TestValidate -v  # Specific test
-```
+See "Essential Commands" in `/AGENTS.md` for `mise run test*` invocations. For specific tests: `go test -tags=e2e ./test/e2e/... -run TestValidate -v`.
 
 ### E2E Test Structure
 
@@ -63,11 +59,7 @@ cli.ShouldOutput(session, "Document is valid")
 
 ### Running Integration Tests
 
-```bash
-mise run test:integration              # All integration tests
-mise run test:coverage:integration     # Integration tests with coverage
-go test -tags=integration ./internal/core -v
-```
+See "Essential Commands" in `/AGENTS.md` for `mise run test*` invocations. For specific tests: `go test -tags=integration ./internal/core -v`.
 
 ### Integration Test Structure
 
@@ -95,20 +87,11 @@ Located in `internal/parser/integration_test.go` and `internal/cmdutil/integrati
 
 ### Running Tests
 
-```bash
-mise run test:golden              # All golden file tests
-mise run test:coverage:golden      # Golden tests with coverage
-go test -tags=golden ./cmd -v                 # CLI golden tests
-go test -tags=golden ./internal/opencode -v   # Adapter golden tests
-```
+See "Essential Commands" in `/AGENTS.md` for `mise run test:golden` / `mise run test:coverage:golden`. For specific suites: `go test -tags=golden ./cmd -v` or `go test -tags=golden ./internal/opencode -v`.
 
 ### Updating Golden Files
 
-```bash
-UPDATE_GOLDEN=true mise run test:golden
-```
-
-Commit updated golden files. Verify without flag: `mise run test:golden`
+Run `UPDATE_GOLDEN=true mise run test:golden`, commit the updated `.golden` files, then verify without the flag.
 
 ### Adding New Golden File Tests
 
@@ -185,56 +168,6 @@ Pattern: `<doc-type>-<scenario>.md`
 - `agent-full.md` - agent with all fields
 - `command-test.md` - test command example
 - `memory-paths-only.md` - memory with only paths
-
----
-
-## Platform Testing Expectations
-
-### Required Platforms
-
-All tests with `platform` parameter MUST test both `claude-code` and `opencode`
-
-### Test Structure
-
-```go
-tests := []struct {
-    name     string
-    platform  string
-    input     string
-    wantError bool
-}{
-    {name: "valid agent (claude-code)", platform: "claude-code", input: validAgent, wantError: false},
-    {name: "valid agent (opencode)", platform: "opencode", input: validAgent, wantError: false},
-}
-```
-
-### Platform-Specific Validation
-
-- **Claude Code**: Short model names (sonnet, opus, haiku), permissionMode enum
-- **OpenCode**: Mode values (primary/subagent/all), temperature range (0.0-1.0), maxSteps (> 0)
-
----
-
-## Table-Driven Test Pattern
-
-See Go testing documentation for standard table-driven test pattern.
-
-## Error Counting Patterns
-
-Use explicit `errorCount` field in table tests when validation functions return `[]error` and exact error count matters.
-
-```go
-tests := []struct {
-    name       string
-    input      string
-    errorCount int
-}{
-    {name: "valid input", input: validData, errorCount: 0},
-    {name: "missing name", input: invalidData, errorCount: 1},
-}
-```
-
-Use `len(errs) > 0` for simple pass/fail checks.
 
 ---
 
