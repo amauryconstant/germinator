@@ -90,7 +90,7 @@ func (a *Adapter) ConvertToolNameCase(name string) string {
 	return permission.ToLowerCase(name)
 }
 
-//nolint:gocognit,unparam // parseAgent has high cognitive complexity due to nested map structure
+//nolint:gocognit // parseAgent has high cognitive complexity due to nested map structure
 func (a *Adapter) parseAgent(input map[string]interface{}) (*core.Agent, error) {
 	agent := &core.Agent{}
 
@@ -135,8 +135,11 @@ func (a *Adapter) parseAgent(input map[string]interface{}) (*core.Agent, error) 
 
 	if permissionMode, ok := input["permissionMode"].(string); ok {
 		agent.PermissionPolicy = a.mapPermissionModeToPolicy(permissionMode)
-	} else if permission, ok := input["permission"].(map[string]interface{}); ok {
-		agent.PermissionPolicy = a.mapPermissionObjectToPolicy(permission)
+	} else if perm, ok := input["permission"].(map[string]interface{}); ok {
+		if err := permission.ValidateActionStrings(perm); err != nil {
+			return nil, err //nolint:wrapcheck // typed *core.ConfigError propagates as-is for callers to errors.As dispatch
+		}
+		agent.PermissionPolicy = a.mapPermissionObjectToPolicy(perm)
 	}
 
 	if model, ok := input["model"].(string); ok {

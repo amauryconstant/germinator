@@ -29,7 +29,7 @@ Bidirectional converter between canonical Germinator models and Claude Code's YA
 
 **Adapter contract.** The five-method surface (`ToCanonical`/`FromCanonical`/`PermissionPolicyToPlatform`/`ConvertToolNameCase` plus the constructor) is shared verbatim with `internal/opencode`. `internal/parser.ParsePlatformDocument` calls `ToCanonical` through an inline anonymous interface assertion rather than importing a shared interface type — both adapters must keep the exact signature in sync.
 
-**Permission mapping.** `parseAgent` reads Claude Code's `permissionMode` string and maps it back to canonical via `mapPermissionModeToPolicy` (the inverse of `PermissionPolicyToPlatform`). The mapping table lives in `internal/permission`.
+**Permission mapping.** `parseAgent` reads Claude Code's `permissionMode` string and maps it back to canonical via `mapPermissionModeToPolicy` (the inverse of `PermissionPolicyToPlatform`). The mapping table lives in `internal/permission`. If/when `parseAgent` is extended to read a nested `permission:` object (analogous to `internal/opencode/opencode_adapter.go`), it SHALL reuse `permission.ValidateActionStrings` to satisfy the spec scenario "Unknown action string at runtime is rejected" in `openspec/changes/harden-tests-and-coverage/specs/transformation-permission-transformation/spec.md`.
 
 **Claude Code-specific fields.** Skills list (`skills:`), `disableModelInvocation`, and `permissionMode` are read from / written to the `targets["claude-code"]` sub-map on canonical models, so cross-platform fidelity is preserved.
 

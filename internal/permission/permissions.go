@@ -3,6 +3,8 @@ package permission
 import (
 	"strings"
 	"unicode"
+
+	"gitlab.com/amoconst/germinator/internal/core"
 )
 
 // ToPascalCase converts a string to PascalCase.
@@ -132,4 +134,44 @@ var PermissionPolicyMappings = map[string]Mapping{
 			WebSearch: Allow,
 		},
 	},
+}
+
+// ValidateActionStrings scans a nested permission object for unknown
+// action strings and returns *core.ConfigError listing the valid
+// permission.Action values if any are found. The expected shape is:
+//
+//	{ "<tool>": { "<pattern>": "<action>" }, ... }
+//
+// where <action> must be one of Allow, Ask, Deny. Action values that
+// are not strings (e.g. bool, int) are skipped silently, matching the
+// type-assertion tolerance of mapPermissionObjectToPolicy in the
+// OpenCode adapter. The tool name is not validated; only the action
+// strings are checked.
+//
+// Used by adapter code that consumes raw YAML permission maps before
+// inferring a canonical PermissionPolicy.
+func ValidateActionStrings(perm map[string]interface{}) error {
+	for _, toolPerms := range perm {
+		inner, ok := toolPerms.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		for _, raw := range inner {
+			actionStr, ok := raw.(string)
+			if !ok {
+				continue
+			}
+			switch Action(actionStr) {
+			case Allow, Ask, Deny:
+				continue
+			default:
+				return core.NewConfigError(
+					"permission-action",
+					actionStr,
+					"unknown permission action: "+actionStr,
+				).WithSuggestions([]string{string(Allow), string(Ask), string(Deny)})
+			}
+		}
+	}
+	return nil
 }

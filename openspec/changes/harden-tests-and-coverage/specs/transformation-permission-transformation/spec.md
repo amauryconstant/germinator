@@ -32,6 +32,16 @@ The `internal/permission/` package SHALL expose typed `Action` constants (`permi
 - **THEN** the adapter SHALL return `*core.ConfigError` from the lookup
 - **AND** the error message SHALL list the valid `permission.Action` values (`Allow`, `Ask`, `Deny`)
 
+> **Implementation (non-normative):** the shared validator
+> `permission.ValidateActionStrings` (`internal/permission/permissions.go`)
+> is the spec-mandated gate. It is wired into
+> `internal/opencode/opencode_adapter.go::parseAgent` before
+> `mapPermissionObjectToPolicy` runs. `internal/claude-code/` does not
+> currently parse a nested `permission:` object (its `parseAgent` reads
+> only the `permissionMode` string); if/when it adds nested-object
+> parsing, it SHALL reuse `permission.ValidateActionStrings` to satisfy
+> this scenario.
+
 ### Requirement: Core error Unwrap semantics for typed permission errors
 
 The `internal/core/errors.go` error types consumed by the permission transformation pipeline SHALL implement `Unwrap()` consistently: `ParseError`, `TransformError`, `FileError`, `InitializeError`, `OperationError`, and `CobraUsageError` SHALL return a non-nil cause when wrapped via `fmt.Errorf("%w", err)` so callers can `errors.Is` / `errors.As` the cause. `ValidationError`, `UsageError`, and `PartialSuccessError` SHALL return `nil` from `Unwrap()` (leaf errors). Tests in `internal/core/results_test.go` (or `errors_test.go`) SHALL assert the leaf-vs-chain distinction explicitly so future implementations preserve the contract.

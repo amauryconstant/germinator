@@ -1,11 +1,13 @@
 package opencode
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	canonical "gitlab.com/amoconst/germinator/internal/core"
+	"gitlab.com/amoconst/germinator/internal/permission"
 )
 
 func TestConvertToolNameCase(t *testing.T) {
@@ -1178,4 +1180,114 @@ func TestRenderAgent_AllFields(t *testing.T) {
 		require.True(t, ok)
 		assert.Equal(t, []string{"commit", "pr"}, skills)
 	})
+}
+
+// TestValidateActionStrings exercises the shared helper at
+// internal/permission/permissions.go::ValidateActionStrings. The helper
+// is the spec-mandated gate for unknown permission action strings; the
+// adapter invokes it before mapPermissionObjectToPolicy.
+func TestValidateActionStrings(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		perm     map[string]interface{}
+		wantErr  bool
+		errField string
+		errValue string
+	}{
+		{
+			name: "all known actions are accepted",
+			perm: map[string]interface{}{
+				"edit": map[string]interface{}{"*": "allow"},
+				"bash": map[string]interface{}{"*": "ask"},
+				"read": map[string]interface{}{"*": "deny"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "unknown action returns ConfigError listing valid actions",
+			perm: map[string]interface{}{
+				"edit": map[string]interface{}{"*": "denyUnlessRead"},
+			},
+			wantErr:  true,
+			errField: "permission-action",
+			errValue: "denyUnlessRead",
+		},
+		{
+			name: "non-string action values are skipped",
+			perm: map[string]interface{}{
+				"edit": map[string]interface{}{"*": 42},
+			},
+			wantErr: false,
+		},
+		{
+			name: "non-map tool values are skipped",
+			perm: map[string]interface{}{
+				"edit": "allow",
+			},
+			wantErr: false,
+		},
+		{
+			name: "first unknown action wins (fail-fast)",
+			perm: map[string]interface{}{
+				"edit": map[string]interface{}{"*": "allow"},
+				"bash": map[string]interface{}{"*": "futureThing"},
+			},
+			wantErr:  true,
+			errField: "permission-action",
+			errValue: "futureThing",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := permission.ValidateActionStrings(tt.perm)
+			if !tt.wantErr {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			var cfgErr *canonical.ConfigError
+			require.True(t, errors.As(err, &cfgErr), "error must be *core.ConfigError")
+			assert.Equal(t, tt.errField, cfgErr.Field())
+			assert.Equal(t, tt.errValue, cfgErr.Value())
+			suggestions := cfgErr.Suggestions()
+			require.Contains(t, suggestions, "allow")
+			require.Contains(t, suggestions, "ask")
+			require.Contains(t, suggestions, "deny")
+		})
+	}
+}
+
+// TestParseAgent_UnknownPermissionActionReturnsError verifies the
+// wiring between the OpenCode adapter's parseAgent and the shared
+// permission.ValidateActionStrings helper. The spec scenario
+// "Unknown action string at runtime is rejected" requires that an
+// unknown action string (e.g., a future "denyUnlessRead") surfaced
+// through ToCanonical produces *core.ConfigError, listing valid
+// permission.Action values.
+func TestParseAgent_UnknownPermissionActionReturnsError(t *testing.T) {
+	t.Parallel()
+
+	adapter := OpenCode
+	input := map[string]interface{}{
+		"__type":      "agent",
+		"description": "test",
+		"permission": map[string]interface{}{
+			"edit": map[string]interface{}{"*": "denyUnlessRead"},
+		},
+	}
+
+	_, _, _, _, err := adapter.ToCanonical(input)
+	require.Error(t, err)
+	var cfgErr *canonical.ConfigError
+	require.True(t, errors.As(err, &cfgErr),
+		"error chain must surface *core.ConfigError, got %T (%v)", err, err)
+	assert.Equal(t, "permission-action", cfgErr.Field())
+	assert.Equal(t, "denyUnlessRead", cfgErr.Value())
+	require.Contains(t, cfgErr.Suggestions(), "allow")
+	require.Contains(t, cfgErr.Suggestions(), "ask")
+	require.Contains(t, cfgErr.Suggestions(), "deny")
 }
