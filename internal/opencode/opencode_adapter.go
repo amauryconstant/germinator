@@ -525,6 +525,3 @@ func (a *Adapter) mapPermissionObjectToPolicy(perm map[string]interface{}) core.
 
 	return core.PermissionPolicyBalanced
 }
-
-// Compile-time check: *Adapter satisfies permission.Adapter. Mirror of cmd/canonicalize_test.go:20 precedent.
-var _ permission.Adapter = (*Adapter)(nil)

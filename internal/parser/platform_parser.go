@@ -12,6 +12,15 @@ import (
 	yaml "gopkg.in/yaml.v3"
 )
 
+// platformAdapter is the narrow contract parser needs from a platform
+// adapter. Defined here (the consumer) per the "interfaces where
+// consumed" rule (references/01-architecture.md); both
+// internal/claude-code and internal/opencode satisfy it via structural
+// typing, so no shim or compile-time tag is required.
+type platformAdapter interface {
+	ToCanonical(input map[string]interface{}) (*core.Agent, *core.Command, *core.Skill, *core.Memory, error)
+}
+
 // ParsePlatformDocument parses a platform YAML file and converts it to a canonical model.
 // The ctx parameter is checked before the file read so caller cancellation
 // propagates before blocking I/O is attempted.
@@ -40,7 +49,7 @@ func ParsePlatformDocument(ctx context.Context, path string, platform string, do
 		input = make(map[string]interface{})
 	}
 
-	var adapter interface{}
+	var adapter platformAdapter
 	switch platform {
 	case "claude-code":
 		adapter = claudecode.ClaudeCode
@@ -52,9 +61,7 @@ func ParsePlatformDocument(ctx context.Context, path string, platform string, do
 
 	input["__type"] = docType
 
-	agent, command, skill, memory, err := adapter.(interface {
-		ToCanonical(map[string]interface{}) (*core.Agent, *core.Command, *core.Skill, *core.Memory, error)
-	}).ToCanonical(input)
+	agent, command, skill, memory, err := adapter.ToCanonical(input)
 
 	if err != nil {
 		return nil, core.NewParseError(path, "failed to convert to canonical", err)

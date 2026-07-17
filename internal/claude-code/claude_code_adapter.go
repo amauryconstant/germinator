@@ -541,6 +541,3 @@ func (a *Adapter) mapPermissionModeToPolicy(mode string) core.PermissionPolicy {
 		return ""
 	}
 }
-
-// Compile-time check: *Adapter satisfies permission.Adapter. Mirror of cmd/canonicalize_test.go:20 precedent.
-var _ permission.Adapter = (*Adapter)(nil)
