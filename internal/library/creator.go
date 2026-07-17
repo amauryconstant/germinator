@@ -167,6 +167,10 @@ type CreatePresetRequest struct {
 // Returns wrapped errors using fmt.Errorf("%w", err) so callers can
 // errors.Is / errors.As the typed core errors without losing context.
 func CreatePreset(ctx context.Context, lib *Library, req *CreatePresetRequest) error {
+	if lib == nil || lib.RootPath == "" {
+		return gerrors.NewValidationError("library create preset", "rootPath", "",
+			"library is not loaded (RootPath is empty)")
+	}
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("create preset: %w", err)
 	}
@@ -185,6 +189,10 @@ func CreatePreset(ctx context.Context, lib *Library, req *CreatePresetRequest) e
 // mutating operation against the live in-memory library state;
 // subsequent SaveLibrary persists the mutation to library.yaml.
 func (lib *Library) CreatePreset(ctx context.Context, req *CreatePresetRequest) error {
+	if lib == nil || lib.RootPath == "" {
+		return gerrors.NewValidationError("library create preset", "rootPath", "",
+			"library is not loaded (RootPath is empty)")
+	}
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("create preset: %w", err)
 	}

@@ -839,6 +839,36 @@ func TestLibrary_CreatePreset(t *testing.T) {
 			},
 		},
 		{
+			name: "error: nil lib",
+			lib:  nil,
+			req: &CreatePresetRequest{
+				Name:      "git-workflow",
+				Resources: []string{"skill/commit"},
+			},
+			wantErr: true,
+			errMatch: func(t *testing.T, err error) {
+				t.Helper()
+				var ve *gerrors.ValidationError
+				require.True(t, errors.As(err, &ve),
+					"nil-lib error must surface *core.ValidationError, got %T (%v)", err, err)
+			},
+		},
+		{
+			name: "error: empty RootPath",
+			lib:  &Library{RootPath: ""},
+			req: &CreatePresetRequest{
+				Name:      "git-workflow",
+				Resources: []string{"skill/commit"},
+			},
+			wantErr: true,
+			errMatch: func(t *testing.T, err error) {
+				t.Helper()
+				var ve *gerrors.ValidationError
+				require.True(t, errors.As(err, &ve),
+					"empty-RootPath error must surface *core.ValidationError, got %T (%v)", err, err)
+			},
+		},
+		{
 			name: "error: nil req",
 			lib: &Library{
 				RootPath: t.TempDir(),
@@ -972,9 +1002,6 @@ func TestLibrary_CreatePreset(t *testing.T) {
 			t.Parallel()
 			ctx := context.Background()
 			lib := tt.lib
-			if lib.RootPath == "" {
-				lib.RootPath = t.TempDir()
-			}
 			err := lib.CreatePreset(ctx, tt.req)
 			if tt.wantErr {
 				require.Error(t, err)
@@ -1043,6 +1070,19 @@ func TestCreatePreset_PackageForm(t *testing.T) {
 		lib := &Library{RootPath: t.TempDir()}
 		err := CreatePreset(context.Background(), lib, nil)
 		require.Error(t, err)
+	})
+
+	t.Run("error: nil lib surfaces from package CreatePreset", func(t *testing.T) {
+		t.Parallel()
+		req := &CreatePresetRequest{
+			Name:      "git-workflow",
+			Resources: []string{"skill/commit"},
+		}
+		err := CreatePreset(context.Background(), nil, req)
+		require.Error(t, err)
+		var ve *gerrors.ValidationError
+		require.True(t, errors.As(err, &ve),
+			"nil-lib error must surface *core.ValidationError, got %T (%v)", err, err)
 	})
 
 	t.Run("error: ctx cancelled", func(t *testing.T) {

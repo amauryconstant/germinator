@@ -31,3 +31,24 @@ The `internal/permission/` package SHALL expose typed `Action` constants (`permi
 - **WHEN** an adapter receives an action string that is not one of the typed `permission.Action` constants (e.g., a future `"denyUnlessRead"` value)
 - **THEN** the adapter SHALL return `*core.ConfigError` from the lookup
 - **AND** the error message SHALL list the valid `permission.Action` values (`Allow`, `Ask`, `Deny`)
+
+### Requirement: Core error Unwrap semantics for typed permission errors
+
+The `internal/core/errors.go` error types consumed by the permission transformation pipeline SHALL implement `Unwrap()` consistently: `ParseError`, `TransformError`, `FileError`, `InitializeError`, `OperationError`, and `CobraUsageError` SHALL return a non-nil cause when wrapped via `fmt.Errorf("%w", err)` so callers can `errors.Is` / `errors.As` the cause. `ValidationError`, `UsageError`, and `PartialSuccessError` SHALL return `nil` from `Unwrap()` (leaf errors). Tests in `internal/core/results_test.go` (or `errors_test.go`) SHALL assert the leaf-vs-chain distinction explicitly so future implementations preserve the contract.
+
+**Change**: NEW requirement. Pre-change, no spec codified the Unwrap leaf/chain distinction; the task 3.7 test was implementation-only coverage. This requirement makes the contract traceable to a spec and prevents drift between the test assertions and any future refactor of `core/errors.go`.
+
+#### Scenario: Chain error preserves wrapped cause
+
+- **GIVEN** an `OperationError` wraps a sentinel cause via `fmt.Errorf("%w", err)`
+- **WHEN** a caller invokes `errors.Is(err, cause)` or `errors.As(err, &typedErr)`
+- **THEN** the unwrapped cause SHALL be reachable through the chain
+- **AND** the typed error SHALL expose its semantic fields (e.g., `OperationError.Op`) to the caller
+
+#### Scenario: Leaf error returns nil from Unwrap
+
+- **GIVEN** a `ValidationError` (or `UsageError` / `PartialSuccessError`) is constructed via its constructor
+- **WHEN** `errors.Is(err, sentinel)` is called with a sentinel cause
+- **THEN** the call SHALL return `false` (the error has no chain)
+- **AND** callers SHALL inspect the error message instead of attempting an unwrap
+- **AND** the leaf type SHALL NOT implement a meaningful `Unwrap()` (or SHALL return `nil` from it)
