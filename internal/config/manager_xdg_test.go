@@ -11,24 +11,29 @@ import (
 )
 
 // TestResolveConfigPath_HonorsXDGConfigHome verifies that when
-// XDG_CONFIG_HOME is set, resolveConfigPath returns
-// $XDG_CONFIG_HOME/germinator/config.toml.
+// XDG_CONFIG_HOME is set and a config file exists there,
+// resolveConfigPath returns $XDG_CONFIG_HOME/germinator/config.toml.
+// The file must exist because resolveConfigPath falls back to CWD
+// when the XDG path has no config.toml (see
+// TestResolveConfigPath_FallsBackToCWD).
 func TestResolveConfigPath_HonorsXDGConfigHome(t *testing.T) {
 	xdgHome := t.TempDir()
 
-	// adrg/xdg requires the parent of the returned path to exist
-	// when computing the config location; create the germinator
-	// subdir so ConfigFile resolves successfully.
-	germinatorDir := filepath.Join(xdgHome, "germinator")
-	if err := os.MkdirAll(germinatorDir, 0755); err != nil {
+	// Write a config file at the XDG location so the existence check
+	// in resolveConfigPath accepts the XDG path.
+	xdgConfig := filepath.Join(xdgHome, "germinator", "config.toml")
+	if err := os.MkdirAll(filepath.Dir(xdgConfig), 0755); err != nil {
 		t.Fatalf("MkdirAll failed: %v", err)
+	}
+	if err := os.WriteFile(xdgConfig, []byte(`platform = "claude-code"`), 0644); err != nil {
+		t.Fatalf("WriteFile failed: %v", err)
 	}
 
 	t.Setenv("XDG_CONFIG_HOME", xdgHome)
 	t.Setenv("HOME", "/nonexistent")
 
 	got := resolveConfigPath()
-	want := filepath.Join(xdgHome, "germinator", "config.toml")
+	want := xdgConfig
 	if got != want {
 		t.Errorf("resolveConfigPath() = %q, want %q", got, want)
 	}
@@ -67,16 +72,20 @@ func TestResolveConfigPath_FallsBackToCWD(t *testing.T) {
 func TestResolveConfigPath_EnvReloadAfterChange(t *testing.T) {
 	tmpDir := t.TempDir()
 	xdgHome := filepath.Join(tmpDir, "xdg")
-	germinatorDir := filepath.Join(xdgHome, "germinator")
-	if err := os.MkdirAll(germinatorDir, 0755); err != nil {
+	xdgConfig := filepath.Join(xdgHome, "germinator", "config.toml")
+	if err := os.MkdirAll(filepath.Dir(xdgConfig), 0755); err != nil {
 		t.Fatalf("MkdirAll failed: %v", err)
+	}
+	// resolveConfigPath only returns the XDG path when the file exists.
+	if err := os.WriteFile(xdgConfig, []byte(`platform = "claude-code"`), 0644); err != nil {
+		t.Fatalf("WriteFile failed: %v", err)
 	}
 
 	t.Setenv("XDG_CONFIG_HOME", xdgHome)
 	t.Setenv("HOME", "/nonexistent")
 
 	got := resolveConfigPath()
-	want := filepath.Join(xdgHome, "germinator", "config.toml")
+	want := xdgConfig
 	if got != want {
 		t.Errorf("resolveConfigPath() = %q, want %q", got, want)
 	}

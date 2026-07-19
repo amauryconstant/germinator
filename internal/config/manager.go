@@ -125,9 +125,14 @@ func (m *koanfConfigManager) GetConfig() *Config {
 //
 // It first asks `adrg/xdg` for the canonical config location (which
 // resolves `$XDG_CONFIG_HOME` per the XDG Base Directory
-// Specification). On error or empty result, it falls back to the
-// current working directory `./config.toml` for projects that ship
-// their own config alongside `germinator`.
+// Specification). The XDG path is only returned when the file actually
+// exists; otherwise the function falls back to the current working
+// directory `./config.toml` for projects that ship their own config
+// alongside `germinator`. The existence check is necessary because
+// `xdg.ConfigFile` creates parent directories as a side effect and
+// returns a non-empty path even when the file itself is absent —
+// without the check, the CWD fallback would never trigger under
+// accounts that can create the XDG tree (notably root in CI).
 //
 // The returned path may not exist — a missing config file is not an
 // error at the caller level (`Load()` falls through to defaults).
@@ -142,7 +147,9 @@ func (m *koanfConfigManager) GetConfig() *Config {
 // under xdgReloadMu. See manager_xdg_test.go.
 func resolveConfigPath() string {
 	if path, err := currentXDGConfigFile("germinator/config.toml"); err == nil && path != "" {
-		return path
+		if _, statErr := os.Stat(path); statErr == nil {
+			return path
+		}
 	}
 	if cwd, err := os.Getwd(); err == nil {
 		return filepath.Join(cwd, "config.toml")
