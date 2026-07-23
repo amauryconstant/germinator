@@ -64,17 +64,10 @@ func NewCmdShow(f *cmdutil.Factory, libraryPath *string, runF func(*showOptions)
 For resources, use the format: type/name (e.g., skill/commit)
 For presets, use the preset/ prefix (e.g., preset/git-workflow)
 
-Output formats (--output):
-  plain  default; byte-identical to the pre-change plain output
-  json   JSON document suitable for jq
-  table  tab-aligned text table
-
 Examples:
   germinator library show skill/commit
   germinator library show preset/git-workflow
-  germinator library show agent/reviewer --library /path/to/library
-  germinator library show skill/commit --output json
-  germinator library show preset/git-workflow --output table`,
+  germinator library show skill/commit --output json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			opts.IO = f.IOStreams

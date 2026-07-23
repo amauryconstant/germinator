@@ -13,22 +13,11 @@ func NewLibraryCommand(f *cmdutil.Factory, runF func(*libraryResourcesOptions) e
 
 	cmd := &cobra.Command{
 		Use:   "library",
-		Short: "Manage canonical resource library",
+		Short: "Manage the canonical resource library",
 		Long: `Manage the canonical resource library.
 
 The library contains skills, agents, commands, and memory resources
-that can be installed to projects using the init command.
-
-Subcommands:
-  resources  List all resources in the library
-  presets    List all presets in the library
-  show       Display details of a resource or preset
-  add        Add a resource to the library
-  create     Create a new preset (path: library create preset <name>)
-  remove     Remove a resource or preset from the library
-  validate   Validate library integrity
-  refresh    Sync metadata from resource files into library.yaml
-  init       Scaffold a new library directory structure`,
+that can be installed to projects using the init command.`,
 		Run: func(c *cobra.Command, _ []string) {
 			_ = c.Help()
 		},

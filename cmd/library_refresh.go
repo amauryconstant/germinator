@@ -84,9 +84,8 @@ func NewCmdRefresh(f *cmdutil.Factory, libraryPath *string, runF func(*refreshOp
 		Short: "Refresh library metadata from resource files",
 		Long: `Sync metadata from registered resource files into library.yaml.
 
-This command updates descriptions when they differ from frontmatter,
-updates paths when files are renamed (if frontmatter name matches),
-and detects conflicts.
+Updates descriptions when they differ from frontmatter and updates
+paths when files are renamed (when frontmatter name matches).
 
 Examples:
   germinator library refresh

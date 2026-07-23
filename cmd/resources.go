@@ -49,19 +49,13 @@ func NewCmdResources(f *cmdutil.Factory, libraryPath *string, runF func(*library
 	opts := &libraryResourcesOptions{}
 	cmd := &cobra.Command{
 		Use:   "resources",
-		Short: "List all resources in the library",
+		Short: "List resources in the library",
 		Long: `List all resources in the library, grouped by type.
 
 Resources are displayed in sections: Skills, Agents, Commands, Memory.
 
-Output formats (--output):
-  plain  default; byte-identical to the pre-change plain output
-  json   JSON document suitable for jq
-  table  tab-aligned text table
-
 Example:
   germinator library resources
-  germinator library resources --library /path/to/library
   germinator library resources --output json
   germinator library resources --output table`,
 		Args: cobra.NoArgs,

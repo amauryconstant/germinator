@@ -116,12 +116,8 @@ func NewCmdRemove(f *cmdutil.Factory, libraryPath *string, runF func(*removeOpti
 	cmd := &cobra.Command{
 		Use:   "remove",
 		Short: "Remove a resource or preset from the library",
-		Long: `Remove a resource or preset from the library.
-
-Subcommands:
-  resource  Remove a resource from the library (deletes file + YAML entry)
-  preset    Remove a preset from the library (YAML entry only)`,
-		Args: cobra.NoArgs,
+		Long:  `Remove a resource or preset from the library.`,
+		Args:  cobra.NoArgs,
 		Run: func(c *cobra.Command, _ []string) {
 			_ = c.Help()
 		},
@@ -155,14 +151,12 @@ Subcommands:
 		Short: "Remove a resource from the library",
 		Long: `Remove a resource from the library.
 
-Deletes both the physical file and YAML entry.
-Errors if any preset references the resource.
+Deletes both the physical file and YAML entry. Errors if any preset
+references the resource.
 
 Examples:
   germinator library remove resource skill/commit
-  germinator library remove resource skill/commit --force
-  germinator library remove resource skill/commit --output json
-  germinator library remove resource skill/commit --output table`,
+  germinator library remove resource skill/commit --output json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			opts.IO = f.IOStreams
@@ -198,9 +192,7 @@ Removes only the YAML entry (no physical file to delete).
 
 Examples:
   germinator library remove preset git-workflow
-  germinator library remove preset git-workflow --force
-  germinator library remove preset git-workflow --output json
-  germinator library remove preset git-workflow --output table`,
+  germinator library remove preset git-workflow --output json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			opts.IO = f.IOStreams

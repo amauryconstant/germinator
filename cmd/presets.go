@@ -45,17 +45,11 @@ func NewCmdPresets(f *cmdutil.Factory, libraryPath *string, runF func(*presetsOp
 	opts := &presetsOptions{}
 	cmd := &cobra.Command{
 		Use:   "presets",
-		Short: "List all presets in the library",
+		Short: "List presets in the library",
 		Long: `List all presets in the library with their descriptions and resources.
-
-Output formats (--output):
-  plain  default; byte-identical to the pre-change plain output
-  json   JSON document suitable for jq
-  table  tab-aligned text table
 
 Example:
   germinator library presets
-  germinator library presets --library /path/to/library
   germinator library presets --output json
   germinator library presets --output table`,
 		Args: cobra.NoArgs,

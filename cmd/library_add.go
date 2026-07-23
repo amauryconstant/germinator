@@ -108,11 +108,10 @@ func NewCmdAdd(f *cmdutil.Factory, libraryPath *string, runF func(*addOptions) e
 	cmd := &cobra.Command{
 		Use:   "add [<file>...]",
 		Short: "Add a resource to the library",
-		Long: `Add a resource from one or more source files to the library.
+		Long: `Add resources to the library from source files or by scanning.
 
-Each source is auto-detected for type, name, and description if the
-corresponding flag is not provided. Source format is canonical;
-platform-specific documents should be canonicalized first.
+Each source is auto-detected for type, name, and description when the
+corresponding flag is not provided.
 
 Modes:
   # 1. explicit files (one or more positional args required)
@@ -124,11 +123,9 @@ Modes:
   # 3. --discover --batch --force (continuously register orphans)
   germinator library add --discover --batch --force
 
-Other examples:
-  germinator library add skill-commit.md --type skill --name commit
+Examples:
   germinator library add skill-commit.md --dry-run
-  germinator library add --discover --output json
-  germinator library add --discover --output table`,
+  germinator library add --discover --output json`,
 		Args: func(c *cobra.Command, args []string) error {
 			if discover {
 				return nil

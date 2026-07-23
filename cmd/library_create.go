@@ -84,8 +84,7 @@ func NewCmdCreatePreset(f *cmdutil.Factory, libraryPath *string, runF func(*crea
 		Long: `Create a new preset in the library.
 
 A preset bundles one or more resource references ("type/name") under a
-named alias. The referenced resources must already be registered in
-the library. Use --force to overwrite an existing preset.
+named alias. Referenced resources must already be registered.
 
 Examples:
   germinator library create preset my-workflow --resources skill/commit,skill/pr

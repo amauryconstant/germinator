@@ -82,15 +82,11 @@ func NewCmdLibraryInit(f *cmdutil.Factory, runF func(*libraryInitOptions) error)
 	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Create a new library directory structure",
-		Long: `Create a new library directory structure at the specified path.
+		Long: `Create a new library directory structure.
 
-Creates a library.yaml file and empty resource directories (skills, agents,
-commands, memory). The created library is validated by loading it to ensure
-structural correctness.
-
-By default, creates at ` + library.DefaultLibraryPath() + ` unless --path is
-specified. Returns an error if a library already exists at the target path
-unless --force is used.
+Scaffolds library.yaml plus empty resource directories (skills, agents,
+commands, memory). Use --path to choose a location; --force overwrites
+an existing library.
 
 Examples:
   germinator library init

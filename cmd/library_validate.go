@@ -87,13 +87,8 @@ Checks for four issue types:
   - orphan: file exists but isn't registered in library.yaml
   - malformed-frontmatter: resource file has invalid YAML frontmatter
 
-Use --fix to auto-clean library.yaml (removes missing entries, strips ghost refs).
-Only modifies library.yaml - never deletes actual files.
-
-Output formats (--output):
-  plain  default; human-readable summary grouped by severity
-  json   machine-readable report with optional fix section
-  table  tab-aligned rows (severity, type, ref, message)`,
+Use --fix to auto-clean library.yaml (removes missing entries, strips
+ghost refs). Only modifies library.yaml - never deletes actual files.`,
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
 			opts := &libraryValidateOptions{
