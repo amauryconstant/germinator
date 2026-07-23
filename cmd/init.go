@@ -117,7 +117,7 @@ Examples:
 	cmd.Flags().StringVar(&platform, "platform", "", "Target platform (required: opencode, claude-code)")
 	cmd.Flags().StringSliceVar(&resources, "resources", nil, "Comma-separated list of resources to install (e.g., skill/commit,skill/merge-request)")
 	cmd.Flags().StringVar(&preset, "preset", "", "Preset name for bundled resources")
-	cmd.Flags().StringVar(&libraryPath, "library", "", "Path to library directory (default: ~/.config/germinator/library/)")
+	cmd.Flags().StringVar(&libraryPath, "library", "", "Path to library directory (default: "+library.DefaultLibraryPath()+")")
 	cmd.Flags().StringVar(&outputDir, "output-dir", ".", "Output directory (default: current directory)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview changes without writing files")
 	cmd.Flags().BoolVar(&force, "force", false, "Overwrite existing files")

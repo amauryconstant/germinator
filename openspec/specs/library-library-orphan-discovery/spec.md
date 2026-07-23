@@ -173,7 +173,7 @@ The system SHALL discover library path via flag, environment, or default.
 #### Scenario: Discover library from default
 - **GIVEN** no `--library` flag and no `GERMINATOR_LIBRARY` env
 - **WHEN** AddResource is called with `--discover`
-- **THEN** `~/.config/germinator/library/` is used
+- **THEN** `~/.local/share/germinator/library/` is used
 
 ### Requirement: Enhanced discover result structure
 

@@ -4,6 +4,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"gitlab.com/amoconst/germinator/internal/cmdutil"
+	"gitlab.com/amoconst/germinator/internal/library"
 )
 
 // NewLibraryCommand creates the library command with subcommands.
@@ -23,7 +24,7 @@ that can be installed to projects using the init command.`,
 		},
 	}
 
-	cmd.PersistentFlags().StringVar(&libraryPath, "library", "", "Path to library directory (default: ~/.config/germinator/library/)")
+	cmd.PersistentFlags().StringVar(&libraryPath, "library", "", "Path to library directory (default: "+library.DefaultLibraryPath()+")")
 
 	cmd.AddCommand(NewCmdResources(f, &libraryPath, runF))
 	// NewCmdPresets and NewCmdShow take a per-command runF typed to
