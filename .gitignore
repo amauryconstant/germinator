@@ -34,11 +34,14 @@ go.work.sum
 .env
 
 # Editor/IDE
-# .idea/
+.idea/
 .vscode/
 
 # Gitlab CI folder
 .cache
+
+# Openspec Specs Review
+openspec/reviews/
 
 # BEGIN OpenSpec autonomous workflow state
 .openspec-baseline.json
