@@ -36,7 +36,7 @@ context: |
   - NO comments in code unless explicitly requested
   - Table-driven tests with fixtures
   - Use mise run <task> for all task operations
-  - Run `mise run check` before committing (see rules.tasks for details)
+  - Run `mise run verify` before committing (see rules.tasks for details)
   - Platform-specific logic in adapter packages only
   - runF injection in command constructor for testability
 
@@ -64,13 +64,26 @@ context: |
   - internal/opencode/            OpenCode platform adapter
                                   (ToCanonical, FromCanonical, permission mapping)
   - internal/parser/              Platform-agnostic document parsing
-                                  (LoadDocument, DetectType, Canonical* types)
+                                  (LoadDocument / ParseDocument for canonical
+                                  input, ParsePlatformDocument for platform
+                                  YAML → canonical, DetectType)
   - internal/renderer/            Template-driven rendering
                                   (RenderDocument, MarshalCanonical, Sprig funcs)
   - internal/permission/          Permission-rule mapping
                                   (PermissionPolicyMappings, ToPascalCase)
   - internal/version/             Build-time version metadata
                                   (Version, Commit, Date via ldflags)
+  - internal/canonicalize/        Service-style I/O adapter —
+                                  `Canonicalizer` (parse-platform-doc →
+                                  marshal → write)
+  - internal/transform/           Service-style I/O adapter —
+                                  `Transformer` (canonical → render → write)
+  - internal/validate/            Service-style I/O adapter —
+                                  `Validator` (parse → core + platform validators)
+  - internal/install/             Service-style I/O adapter —
+                                  `Initializer` (per-ref parse → render → write loop)
+  - internal/paths/               Shared filesystem path helpers
+                                  (`ExpandHome` tilde expansion; leaf shell pkg)
   - config/templates/             Go text/template files for rendering
   - test/                         Unit, golden, e2e tests and fixtures
                                   (see test/AGENTS.md)
@@ -84,7 +97,7 @@ context: |
   Forward: Canonical YAML → parsing.LoadDocument → validation.Validate →
            <platform>.RenderDocument → Write Platform File
   Reverse: Platform File → <platform>.ParsePlatformDocument →
-           validation.Validate → canonicalizer.MarshalCanonical →
+           validation.Validate → renderer.MarshalCanonical →
            Write Canonical YAML
 
   Architecture patterns:
@@ -99,6 +112,15 @@ context: |
   - Purpose: Factual reference for platform-specific features
   - Usage: Consult when building/adapting platform adapters or validating configurations
   - Notes: Documents are concise overviews, not implementation guidance
+
+  Testing philosophy (applied across all artifacts):
+  - Pyramid: Core (most, no mocks) → Command (runF + iostreams.Test()) → Integration → E2E
+  - Coverage bar: 70% or higher for all packages; prioritize cmd/ and adapters/
+  - test/mocks/ is deprecated; new tests use runF injection with iostreams.Test()
+  - Golden file tests (test/golden/) refreshed with `UPDATE_GOLDEN=true` env var
+  - Fixtures in test/fixtures/ for both platforms
+  - Table-driven tests with descriptive names and `errorCount` for validation
+  - Platform testing: BOTH claude-code and opencode are REQUIRED for platform-specific tests
 
   Spec organization (project-specific, overrides osx-concepts defaults):
   - Source of truth: this section of openspec/config.yaml. Consult it before
@@ -176,24 +198,15 @@ rules:
     - Include Risks/Trade-offs section with specific mitigations
     - Reference related specs, proposals, or design decisions
     - Document constraints explicitly
+    - Include Migration Plan (steps to deploy, rollback strategy if applicable)
+    - Include Open Questions (unknowns deferrable without changing specs,
+      approach, or task breakdown; omit if none)
 
   tasks:
     - Group into logical sections (Setup, Implementation, Testing, Verification, Documentation)
     - Use checkbox format for items
     - Tasks are small, clear, and independently verifiable
     - Include specific file paths and function/method names where applicable
-    - Add verification steps via `mise run check, lint, test, test:coverage`
+    - Add verification steps via `mise run verify, lint, test, test:coverage`
     - Mark completed items with [x]
     - Tasks are ordered logically with dependencies clear
-
-  testing:
-    - 70% or higher coverage for all packages
-    - Prioritize improving coverage in cmd/ and adapters/
-
-testing:
-  - Testing pyramid: Core (most, no mocks) → Command (runF injection + iostreams.Test()) → Integration → E2E
-  - The test/mocks/ package is deprecated; new tests use runF injection with iostreams.Test()
-  - Golden file tests (test/golden/) with UPDATE_GOLDEN flag
-  - Fixtures in test/fixtures/ for both platforms
-  - Table-driven tests with descriptive names and errorCount for validation
-  - Platform testing: both claude-code and opencode REQUIRED for platform-specific tests
