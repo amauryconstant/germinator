@@ -5,15 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.1] - 2026-07-19
+## [1.0.2] - 2026-07-23
 
+
+### Changed
+
+- Clean up help text across library subcommands: drop duplicate `Subcommands:` blocks, redundant `Output formats (--output):` blocks, the "byte-identical" dev note, the `$HOME`-leaking `library init` interpolation, and verbose `Examples:` blocks; align `Short` style to imperative for `library resources`/`presets`
+
+### Fixed
+
+- Align `--library` flag default help text with `library.DefaultLibraryPath()` in `library` and top-level `init` (was hardcoded to `~/.config/germinator/library/` instead of the XDG-aware runtime default); spec docs updated to match
+
+## [1.0.1] - 2026-07-19
 
 ### Fixed
 
 - Fix `resolveConfigPath` to stat-check the XDG config path before returning it, so the CWD fallback (`./config.toml`) actually triggers when the XDG location has no config file — `xdg.ConfigFile` creates parent directories as a side effect and returned a non-empty path regardless, silently suppressing the fallback under root (notably CI) and for any user whose XDG tree is creatable but empty
 
 ## [1.0.0] - 2026-07-17
-
 
 Two-and-a-half months of work since `v0.9.0`: seven new library subcommands and flags, a full migration of every command to the Functional Core / Imperative Shell architecture, plus a hardening pass that consolidates typed errors, removes the legacy exit-code canary, and extracts I/O adapters into dedicated shell packages. See the **Breaking** section for upgrade guidance.
 
